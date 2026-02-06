@@ -98,5 +98,12 @@
 ## Store Management Updates
 - [x] Add Eircode field to stores table
 - [x] Hide stores except Spar Balbriggan and Open All Ours
-- [ ] Update distance calculation to use Eircode/address (requires geocoding API)
+- [x] Update distance calculation to use Eircode/address
 - [x] Add proper address and Eircode data to active stores
+
+## Geocoding Integration
+- [x] Set up Google Maps API key in environment variables
+- [x] Create geocoding service to convert Eircode to GPS coordinates
+- [x] Update checkout flow to accept Eircode input
+- [x] Integrate real-time distance calculation using geocoded coordinates
+- [x] Update delivery fee calculation to use actual distance
