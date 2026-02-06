@@ -89,3 +89,8 @@
 - [ ] Driver zones management
 - [ ] Order analytics for admin
 - [ ] Store onboarding system
+
+## UI Improvements (User Feedback)
+- [x] Remove 24/7 badges from store listings
+- [x] Show product categories first in store detail screen
+- [x] Display products grouped by category

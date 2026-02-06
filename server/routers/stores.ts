@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { stores, products } from "../../drizzle/schema";
+import { stores, products, productCategories } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
 export const storesRouter = router({
@@ -87,8 +87,30 @@ export const storesRouter = router({
       }
 
       const productsList = await db
-        .select()
+        .select({
+          id: products.id,
+          storeId: products.storeId,
+          categoryId: products.categoryId,
+          name: products.name,
+          description: products.description,
+          sku: products.sku,
+          barcode: products.barcode,
+          price: products.price,
+          salePrice: products.salePrice,
+          stockStatus: products.stockStatus,
+          quantity: products.quantity,
+          images: products.images,
+          isActive: products.isActive,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          category: {
+            id: productCategories.id,
+            name: productCategories.name,
+            slug: productCategories.slug,
+          },
+        })
         .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
         .where(
           and(
             eq(products.storeId, input.storeId),

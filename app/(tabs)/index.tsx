@@ -63,11 +63,6 @@ export default function HomeScreen() {
                     <View className="flex-1">
                       <View className="flex-row items-center gap-2 mb-1">
                         <Text className="text-lg font-bold text-foreground">{store.name}</Text>
-                        {store.isOpen247 && (
-                          <View className="bg-secondary px-2 py-1 rounded-full">
-                            <Text className="text-xs font-semibold text-background">24/7</Text>
-                          </View>
-                        )}
                       </View>
                       
                       <Text className="text-sm text-muted mb-1">
