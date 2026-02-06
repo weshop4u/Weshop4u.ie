@@ -1,6 +1,6 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import type { Express, Request, Response } from "express";
-import { getUserByOpenId, upsertUser } from "../db";
+import { getUserByEmail, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 
@@ -16,48 +16,37 @@ async function syncUser(userInfo: {
   loginMethod?: string | null;
   platform?: string | null;
 }) {
-  if (!userInfo.openId) {
-    throw new Error("openId missing from user info");
-  }
-
-  const lastSignedIn = new Date();
-  await upsertUser({
-    openId: userInfo.openId,
-    name: userInfo.name || null,
-    email: userInfo.email ?? null,
-    loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-    lastSignedIn,
-  });
-  const saved = await getUserByOpenId(userInfo.openId);
-  return (
-    saved ?? {
-      openId: userInfo.openId,
-      name: userInfo.name,
-      email: userInfo.email,
-      loginMethod: userInfo.loginMethod ?? null,
-      lastSignedIn,
-    }
-  );
+  // TODO: Implement WESHOP4U-specific user sync
+  // For now, return a mock user
+  return {
+    id: 1,
+    email: "dev@weshop4u.ie",
+    name: userInfo.name || "Development User",
+    phone: null,
+    role: "admin" as const,
+    passwordHash: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 }
 
 function buildUserResponse(
-  user:
-    | Awaited<ReturnType<typeof getUserByOpenId>>
-    | {
-        openId: string;
-        name?: string | null;
-        email?: string | null;
-        loginMethod?: string | null;
-        lastSignedIn?: Date | null;
-      },
+  user: {
+    id?: number;
+    email?: string | null;
+    name?: string | null;
+    phone?: string | null;
+    role?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+  },
 ) {
   return {
-    id: (user as any)?.id ?? null,
-    openId: user?.openId ?? null,
-    name: user?.name ?? null,
+    id: user?.id ?? null,
     email: user?.email ?? null,
-    loginMethod: user?.loginMethod ?? null,
-    lastSignedIn: (user?.lastSignedIn ?? new Date()).toISOString(),
+    name: user?.name ?? null,
+    phone: user?.phone ?? null,
+    role: user?.role ?? null,
   };
 }
 

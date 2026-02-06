@@ -1,8 +1,9 @@
 /** @type {const} */
 const themeColors = {
-  primary: { light: '#0a7ea4', dark: '#0a7ea4' },
-  background: { light: '#ffffff', dark: '#151718' },
-  surface: { light: '#f5f5f5', dark: '#1e2022' },
+  primary: { light: '#00E5FF', dark: '#00E5FF' }, // Neon cyan
+  secondary: { light: '#FF00FF', dark: '#FF00FF' }, // Neon magenta
+  background: { light: '#ffffff', dark: '#0A0E27' }, // Dark navy for dark mode
+  surface: { light: '#f5f5f5', dark: '#1a1e3a' },
   foreground: { light: '#11181C', dark: '#ECEDEE' },
   muted: { light: '#687076', dark: '#9BA1A6' },
   border: { light: '#E5E7EB', dark: '#334155' },

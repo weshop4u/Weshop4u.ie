@@ -28,11 +28,11 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "WESHOP4U - 24/7 Delivery Platform",
+  appName: "WESHOP4U",
   appSlug: "weshop4u",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "https://private-us-east-1.manuscdn.com/sessionFile/2pl4Z34K2XdpOowI8TGoDF/sandbox/EFeOhwoALVAKAePLACKpGv-img-1_1770348854000_na1fn_d2VzaG9wNHUtaWNvbg.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
