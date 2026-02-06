@@ -28,7 +28,7 @@ function calculateDistance(
 // Helper function to calculate delivery fee based on distance
 function calculateDeliveryFee(distanceKm: number): number {
   const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 3.5;
+  const BASE_DISTANCE = 2.8;
   const COST_PER_KM = 1.00;
 
   if (distanceKm <= BASE_DISTANCE) {

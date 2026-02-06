@@ -77,12 +77,12 @@ function toRadians(degrees: number): number {
 
 /**
  * Calculate delivery fee based on distance
- * Base fee: €3.50 for first 3.5km
- * Additional: €1.00 per km over 3.5km
+ * Base fee: €3.50 for first 2.8km
+ * Additional: €1.00 per km over 2.8km
  */
 export function calculateDeliveryFee(distanceKm: number): number {
   const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 3.5;
+  const BASE_DISTANCE = 2.8;
   const ADDITIONAL_RATE = 1.00;
 
   if (distanceKm <= BASE_DISTANCE) {

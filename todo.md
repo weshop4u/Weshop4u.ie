@@ -107,3 +107,8 @@
 - [x] Update checkout flow to accept Eircode input
 - [x] Integrate real-time distance calculation using geocoded coordinates
 - [x] Update delivery fee calculation to use actual distance
+
+## Delivery Fee Update
+- [x] Update base distance from 3.5km to 2.8km in backend calculation
+- [x] Update base distance from 3.5km to 2.8km in frontend calculation
+- [x] Test new formula: 3.2km should = €3.90
