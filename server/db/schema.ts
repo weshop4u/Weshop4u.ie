@@ -59,6 +59,7 @@ export const stores = mysqlTable(
     ]).notNull().default("convenience"),
     logo: varchar("logo", { length: 500 }),
     address: text("address").notNull(),
+    eircode: varchar("eircode", { length: 10 }),
     latitude: decimal("latitude", { precision: 10, scale: 7 }),
     longitude: decimal("longitude", { precision: 10, scale: 7 }),
     phone: varchar("phone", { length: 20 }),

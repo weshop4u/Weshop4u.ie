@@ -94,3 +94,9 @@
 - [x] Remove 24/7 badges from store listings
 - [x] Show product categories first in store detail screen
 - [x] Display products grouped by category
+
+## Store Management Updates
+- [x] Add Eircode field to stores table
+- [x] Hide stores except Spar Balbriggan and Open All Ours
+- [ ] Update distance calculation to use Eircode/address (requires geocoding API)
+- [x] Add proper address and Eircode data to active stores
