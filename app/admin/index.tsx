@@ -37,10 +37,17 @@ export default function AdminPanel() {
           <Text className="text-xl font-bold text-foreground mb-4">Product Management</Text>
           
           <TouchableOpacity
-            onPress={() => router.push("/admin/import-products" as any)}
+            onPress={() => router.push("/admin/products" as any)}
             className="bg-primary p-4 rounded-lg active:opacity-70 mb-3"
           >
-            <Text className="text-background font-bold text-center">📦 Import Products (CSV)</Text>
+            <Text className="text-background font-bold text-center">✏️ Manage Products</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/admin/import-products" as any)}
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70 mb-3"
+          >
+            <Text className="text-foreground font-semibold text-center">📦 Import Products (CSV)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -52,9 +59,16 @@ export default function AdminPanel() {
 
           <TouchableOpacity
             onPress={() => router.push("/admin/batch-category-images" as any)}
-            className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70 mb-3"
           >
             <Text className="text-foreground font-semibold text-center">📤 Batch Upload Category Images</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/admin/store-logos" as any)}
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+          >
+            <Text className="text-foreground font-semibold text-center">🏪 Upload Store Logos</Text>
           </TouchableOpacity>
         </View>
 

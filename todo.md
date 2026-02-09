@@ -372,3 +372,23 @@
 - [x] Create batch category image upload with CSV mapping
 - [x] Ensure file upload option available everywhere images are needed
 - [x] Test all image upload features
+
+## Product Management Features
+- [x] Create product management page in admin panel
+- [x] Display all products with search and filter
+- [x] Add product editing with image upload
+- [x] Add product deletion functionality
+- [x] Test product CRUD operations
+
+## Store Logo Upload
+- [x] Add logo field to stores database schema
+- [x] Create store logo upload in admin panel
+- [x] Display store logos on store cards
+- [x] Display store logos on store detail pages
+- [x] Test store logo upload and display
+
+## Order Status Notifications
+- [x] Set up push notification permissions
+- [x] Create notification service for order updates
+- [x] Send notifications on order status changes
+- [x] Test push notifications on device

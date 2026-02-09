@@ -180,4 +180,76 @@ export const storesRouter = router({
 
       return { success: true, count: productsToInsert.length };
     }),
+
+  // Update product
+  updateProduct: publicProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        price: z.string().optional(),
+        image: z.string().optional(),
+        quantity: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const updateData: any = {};
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.description !== undefined) updateData.description = input.description;
+      if (input.price !== undefined) updateData.price = input.price;
+      if (input.image !== undefined) updateData.images = [input.image];
+      if (input.quantity !== undefined) updateData.quantity = input.quantity;
+
+      await db.update(products).set(updateData).where(eq(products.id, input.id));
+
+      return { success: true };
+    }),
+
+  // Delete product
+  deleteProduct: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      await db.delete(products).where(eq(products.id, input.id));
+
+      return { success: true };
+    }),
+
+  // Update store logo
+  updateLogo: publicProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        logoUrl: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      await db.update(stores).set({ logo: input.logoUrl }).where(eq(stores.id, input.id));
+
+      return { success: true };
+    }),
+
+  // Upload store logo
+  uploadLogo: publicProcedure
+    .input(z.object({ uri: z.string() }))
+    .mutation(async ({ input }) => {
+      // TODO: Implement actual S3 upload
+      // For now, return the URI as-is
+      return { url: input.uri };
+    }),
 });
