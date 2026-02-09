@@ -3,12 +3,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCart } from "@/lib/cart-provider";
 
 export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
@@ -23,28 +23,20 @@ export default function CartScreen() {
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
 
+  // Check if cart is for this store
   useEffect(() => {
-    loadCart();
-  }, [storeId]);
-
-  const loadCart = async () => {
-    const savedCart = await AsyncStorage.getItem(`cart_${storeId}`);
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
+    if (cartContext.storeId !== null && cartContext.storeId !== storeIdNum) {
+      // Wrong store, go back
+      router.back();
     }
-  };
+  }, [cartContext.storeId, storeIdNum]);
 
-  const updateQuantity = async (productId: number, delta: number) => {
-    const newQty = (cart[productId] || 0) + delta;
-    if (newQty <= 0) {
-      const { [productId]: removed, ...rest } = cart;
-      setCart(rest);
-      await AsyncStorage.setItem(`cart_${storeId}`, JSON.stringify(rest));
-    } else {
-      const newCart = { ...cart, [productId]: newQty };
-      setCart(newCart);
-      await AsyncStorage.setItem(`cart_${storeId}`, JSON.stringify(newCart));
-    }
+  const updateQuantity = (productId: number, delta: number) => {
+    const currentItem = cartContext.items.find(i => i.productId === productId);
+    if (!currentItem) return;
+    
+    const newQty = currentItem.quantity + delta;
+    updateCartQuantity(productId, newQty);
   };
 
   const handleCalculateDeliveryFee = async () => {
@@ -66,8 +58,11 @@ export default function CartScreen() {
     }
   };
 
-  const cartItems = products?.filter(p => cart[p.id] > 0) || [];
-  const subtotal = cartItems.reduce((sum, p) => sum + parseFloat(p.price) * cart[p.id], 0);
+  const cartItems = cartContext.items.map(item => {
+    const product = products?.find(p => p.id === item.productId);
+    return product ? { ...product, cartQuantity: item.quantity } : null;
+  }).filter(Boolean) || [];
+  const subtotal = cartItems.reduce((sum, p) => sum + (p ? parseFloat(p.price) * p.cartQuantity : 0), 0);
   const serviceFee = subtotal * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
   const distance = calculateDeliveryFeeMutation.data?.distance || 0;
@@ -89,8 +84,8 @@ export default function CartScreen() {
     try {
       // Prepare order items
       const orderItems = cartItems.map(product => ({
-        productId: product.id,
-        quantity: cart[product.id],
+        productId: product!.id,
+        quantity: product!.cartQuantity,
       }));
 
       // Create order (using temporary customer ID 1 until auth is implemented)
@@ -107,8 +102,7 @@ export default function CartScreen() {
       });
 
       // Clear cart
-      await AsyncStorage.removeItem(`cart_${storeId}`);
-      setCart({});
+      clearCart();
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
 
@@ -145,7 +139,7 @@ export default function CartScreen() {
 
         {/* Cart Items */}
         <View className="mb-6">
-          {cartItems.map((product) => (
+          {cartItems.map((product) => product && (
             <View key={product.id} className="flex-row justify-between items-center mb-4 pb-4 border-b border-border">
               <View className="flex-1">
                 <Text className="text-foreground font-semibold">{product.name}</Text>
@@ -158,7 +152,7 @@ export default function CartScreen() {
                 >
                   <Text className="text-foreground font-bold">−</Text>
                 </TouchableOpacity>
-                <Text className="text-foreground font-semibold w-8 text-center">{cart[product.id]}</Text>
+                <Text className="text-foreground font-semibold w-8 text-center">{product.cartQuantity}</Text>
                 <TouchableOpacity
                   onPress={() => updateQuantity(product.id, 1)}
                   className="w-8 h-8 bg-primary rounded-full items-center justify-center active:opacity-70"

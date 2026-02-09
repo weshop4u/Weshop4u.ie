@@ -189,3 +189,8 @@
 - [x] Add "Replace cart items?" dialog when adding from different store
 - [x] Add "View Cart" / "Proceed to Checkout" button
 - [x] Test complete cart workflow: browse → add multiple items → checkout
+
+## Cart Bug Fixes
+- [x] Fix view cart button blocking back button (adjust positioning)
+- [x] Update cart/checkout page to read from cart context instead of AsyncStorage
+- [x] Test cart display shows correct items

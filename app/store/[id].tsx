@@ -197,7 +197,7 @@ export default function StoreDetailScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-6">
           <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
