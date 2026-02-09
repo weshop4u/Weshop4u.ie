@@ -392,3 +392,16 @@
 - [x] Create notification service for order updates
 - [x] Send notifications on order status changes
 - [x] Test push notifications on device
+
+## Order History with Reorder
+- [x] Create order history page displaying past orders
+- [x] Add reorder button to each order
+- [x] Implement reorder functionality to add items to cart
+- [x] Test order history and reorder feature
+
+## Real-time Order Tracking Map
+- [x] Create order tracking page with map
+- [x] Display driver location on map
+- [x] Calculate and show estimated arrival time
+- [x] Update driver location in real-time
+- [x] Test order tracking map functionality

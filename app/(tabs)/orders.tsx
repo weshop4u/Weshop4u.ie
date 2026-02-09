@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -14,34 +14,22 @@ export default function OrderHistoryScreen() {
   const { data: orders, isLoading } = trpc.orders.getUserOrders.useQuery();
 
   const handleReorder = (order: any) => {
-    Alert.alert(
-      "Reorder",
-      `Add ${order.items.length} item(s) from ${order.store?.name} to your cart?`,
-      [
-        { text: "Cancel", style: "cancel" },
+    // Clear cart and add all items from the order
+    clearCart();
+    order.items.forEach(async (item: any) => {
+      await addToCart(
+        order.storeId,
+        order.store?.name || "Store",
         {
-          text: "Reorder",
-          onPress: () => {
-            // Clear cart and add all items from the order
-            clearCart();
-            order.items.forEach(async (item: any) => {
-              await addToCart(
-                order.storeId,
-                order.store?.name || "Store",
-                {
-                  productId: item.productId,
-                  productName: item.product?.name || "Product",
-                  productPrice: item.productPrice,
-                  quantity: item.quantity,
-                }
-              );
-            });
-            // Navigate to cart
-            router.push(`/cart/${order.storeId}`);
-          },
-        },
-      ]
-    );
+          productId: item.productId,
+          productName: item.product?.name || "Product",
+          productPrice: item.productPrice,
+          quantity: item.quantity,
+        }
+      );
+    });
+    // Navigate to cart
+    router.push(`/cart/${order.storeId}`);
   };
 
   const getStatusColor = (status: string) => {
