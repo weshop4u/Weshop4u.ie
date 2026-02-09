@@ -109,18 +109,16 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Driver Mode Section - Only show if user is in customer mode */}
-          {currentMode === "customer" && (
-            <View className="bg-surface rounded-xl border border-border overflow-hidden">
-              <TouchableOpacity 
-                className="p-4 active:opacity-70"
-                onPress={handleSwitchToDriverMode}
-              >
-                <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
-                <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Driver Mode Section - Always visible */}
+          <View className="bg-surface rounded-xl border border-border overflow-hidden">
+            <TouchableOpacity 
+              className="p-4 active:opacity-70"
+              onPress={handleSwitchToDriverMode}
+            >
+              <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
+              <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Preferences Section */}
           <View className="bg-surface rounded-xl border border-border overflow-hidden">

@@ -246,7 +246,7 @@
 - [x] Test driver authentication flow
 
 ## Missing Driver Mode Button
-- [x] Add "Switch to Driver Mode" button back to profile screen
-- [x] Fix currentMode state initialization
-- [x] Ensure button is visible in the UI
-- [x] Test button appears correctly
+- [x] Debug why button still not visible - conditional rendering hid it
+- [x] Remove conditional rendering so button always shows
+- [x] Fix button visibility
+- [x] Verify button appears in UI between Payment Methods and Notifications
