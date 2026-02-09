@@ -244,3 +244,9 @@
 - [x] Add authentication guard to driver screens
 - [x] Show error message if non-driver tries to access
 - [x] Test driver authentication flow
+
+## Missing Driver Mode Button
+- [x] Add "Switch to Driver Mode" button back to profile screen
+- [x] Fix currentMode state initialization
+- [x] Ensure button is visible in the UI
+- [x] Test button appears correctly

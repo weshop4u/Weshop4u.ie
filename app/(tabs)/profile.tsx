@@ -13,7 +13,12 @@ export default function ProfileScreen() {
   useEffect(() => {
     // Load current mode from storage
     AsyncStorage.getItem("appMode").then((mode) => {
-      if (mode === "driver") setCurrentMode("driver");
+      if (mode === "driver") {
+        setCurrentMode("driver");
+      } else {
+        // Explicitly set to customer if not driver
+        setCurrentMode("customer");
+      }
     });
   }, []);
 
