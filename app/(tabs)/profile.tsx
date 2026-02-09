@@ -29,7 +29,7 @@ export default function ProfileScreen() {
             try {
               await AsyncStorage.setItem("appMode", "driver");
               setCurrentMode("driver");
-              router.replace("/driver/home" as any);
+              router.replace("/driver" as any);
             } catch (error) {
               Alert.alert("Error", "Failed to switch mode");
             }
