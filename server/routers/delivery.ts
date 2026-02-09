@@ -75,6 +75,8 @@ export const deliveryRouter = router({
         deliveryFee,
         customerAddress: customerLocation.formattedAddress,
         storeAddress: store.address,
+        deliveryLatitude: customerLocation.latitude,
+        deliveryLongitude: customerLocation.longitude,
       };
     }),
 });

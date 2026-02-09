@@ -20,6 +20,7 @@ export default function CartScreen() {
   const { data: products } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum });
   
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
+  const createOrderMutation = trpc.orders.create.useMutation();
 
   useEffect(() => {
     loadCart();
@@ -67,9 +68,11 @@ export default function CartScreen() {
   const serviceFee = subtotal * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
   const distance = calculateDeliveryFeeMutation.data?.distance || 0;
+  const deliveryLatitude = calculateDeliveryFeeMutation.data?.deliveryLatitude || 0;
+  const deliveryLongitude = calculateDeliveryFeeMutation.data?.deliveryLongitude || 0;
   const total = subtotal + serviceFee + deliveryFee;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!deliveryAddress.trim()) {
       Alert.alert("Error", "Please enter a delivery address");
       return;
@@ -79,22 +82,38 @@ export default function CartScreen() {
       Alert.alert("Error", "Please calculate delivery fee first");
       return;
     }
-    
-    Alert.alert(
-      "Order Placed!",
-      `Your order from ${store?.name} has been placed.\n\nTotal: €${total.toFixed(2)}\nDelivery Fee: €${deliveryFee.toFixed(2)} (${distance.toFixed(2)} km)\nPayment: ${paymentMethod === "card" ? "Card" : "Cash on Delivery"}`,
-      [
-        {
-          text: "OK",
-          onPress: async () => {
-            await AsyncStorage.removeItem(`cart_${storeId}`);
-            setDeliveryFeeCalculated(false);
-            calculateDeliveryFeeMutation.reset();
-            router.push("/");
-          },
-        },
-      ]
-    );
+
+    try {
+      // Prepare order items
+      const orderItems = cartItems.map(product => ({
+        productId: product.id,
+        quantity: cart[product.id],
+      }));
+
+      // Create order (using temporary customer ID 1 until auth is implemented)
+      const result = await createOrderMutation.mutateAsync({
+        customerId: 1, // TODO: Replace with actual authenticated user ID
+        storeId: storeIdNum,
+        items: orderItems,
+        deliveryAddress,
+        deliveryLatitude,
+        deliveryLongitude,
+        paymentMethod,
+        customerNotes: customerNotes.trim() || undefined,
+        allowSubstitution,
+      });
+
+      // Clear cart
+      await AsyncStorage.removeItem(`cart_${storeId}`);
+      setCart({});
+      setDeliveryFeeCalculated(false);
+      calculateDeliveryFeeMutation.reset();
+
+      // Navigate to order confirmation screen
+      router.push(`/order-confirmation/${result.orderId}`);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to place order. Please try again.");
+    }
   };
 
   if (cartItems.length === 0) {
@@ -284,16 +303,20 @@ export default function CartScreen() {
         {/* Checkout Button */}
         <TouchableOpacity
           onPress={handleCheckout}
-          disabled={!deliveryFeeCalculated}
+          disabled={!deliveryFeeCalculated || createOrderMutation.isPending}
           className={`p-4 rounded-lg items-center mb-8 ${
-            deliveryFeeCalculated ? "bg-primary active:opacity-70" : "bg-surface"
+            deliveryFeeCalculated && !createOrderMutation.isPending ? "bg-primary active:opacity-70" : "bg-surface"
           }`}
         >
-          <Text className={`font-bold text-lg ${
-            deliveryFeeCalculated ? "text-background" : "text-muted"
-          }`}>
-            Place Order
-          </Text>
+          {createOrderMutation.isPending ? (
+            <ActivityIndicator color="#00E5FF" />
+          ) : (
+            <Text className={`font-bold text-lg ${
+              deliveryFeeCalculated ? "text-background" : "text-muted"
+            }`}>
+              Place Order
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>

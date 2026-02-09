@@ -36,8 +36,8 @@
 - [x] Shopping cart
 - [x] Checkout flow
 - [x] Payment method selection (Card/Cash on Delivery)
-- [ ] Order confirmation
-- [ ] Real-time order tracking on map
+- [x] Order confirmation
+- [x] Real-time order tracking screen
 - [ ] Order history
 - [ ] User profile management
 - [ ] "Get something similar if out of stock" option
@@ -112,3 +112,11 @@
 - [x] Update base distance from 3.5km to 2.8km in backend calculation
 - [x] Update base distance from 3.5km to 2.8km in frontend calculation
 - [x] Test new formula: 3.2km should = €3.90
+
+## Customer Order Flow Completion
+- [x] Create order placement API endpoint
+- [x] Integrate order placement with checkout screen
+- [x] Build order confirmation screen with order details
+- [x] Create order tracking screen with status visualization
+- [ ] Add order history view for customers
+- [x] Test complete flow: browse → cart → checkout → place order → track
