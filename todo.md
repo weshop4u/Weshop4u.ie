@@ -432,3 +432,16 @@
 - [x] Send on-the-way SMS with tracking link when driver picks up order
 - [x] Include store name in both SMS messages
 - [x] Test SMS delivery for both confirmation and tracking messages
+
+## Twilio SMS Integration
+- [ ] Install Twilio SDK package
+- [ ] Update SMS service with Twilio API calls
+- [ ] Add environment variables for Twilio credentials
+- [ ] Test SMS delivery with Twilio
+
+## Twilio SMS Integration
+- [x] Install Twilio SDK package
+- [x] Update SMS service with Twilio API integration
+- [x] Configure Twilio environment variables (Account SID, Auth Token, Phone Number)
+- [x] Test Twilio credentials validation
+- [x] Restart server with new environment variables

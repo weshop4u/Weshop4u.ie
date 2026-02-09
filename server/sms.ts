@@ -3,6 +3,8 @@
  * Uses Twilio for SMS delivery
  */
 
+import twilio from 'twilio';
+
 interface SendSMSParams {
   to: string;
   message: string;
@@ -13,22 +15,27 @@ interface SendSMSParams {
  */
 export async function sendSMS({ to, message }: SendSMSParams): Promise<boolean> {
   try {
-    // For now, log SMS to console (replace with actual Twilio integration)
-    console.log(`[SMS] Sending to ${to}:`);
-    console.log(`[SMS] ${message}`);
-    
-    // TODO: Integrate with Twilio or other SMS provider
-    // const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    // const authToken = process.env.TWILIO_AUTH_TOKEN;
-    // const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    // 
-    // const client = require('twilio')(accountSid, authToken);
-    // await client.messages.create({
-    //   body: message,
-    //   from: fromNumber,
-    //   to: to
-    // });
-    
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    // Check if Twilio credentials are configured
+    if (!accountSid || !authToken || !fromNumber) {
+      console.log('[SMS] Twilio not configured. Logging SMS to console:');
+      console.log(`[SMS] To: ${to}`);
+      console.log(`[SMS] Message: ${message}`);
+      return true;
+    }
+
+    // Send SMS via Twilio
+    const client = twilio(accountSid, authToken);
+    const result = await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to: to
+    });
+
+    console.log(`[SMS] Sent successfully to ${to}. SID: ${result.sid}`);
     return true;
   } catch (error) {
     console.error('[SMS] Error sending SMS:', error);
