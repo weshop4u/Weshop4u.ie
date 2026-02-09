@@ -1,9 +1,10 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
+import * as ImagePicker from "expo-image-picker";
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -15,6 +16,60 @@ export default function CategoriesScreen() {
 
   const { data: categories, refetch } = trpc.categories.getAll.useQuery();
   const updateMutation = trpc.categories.updateImage.useMutation();
+
+  const handlePickImage = async () => {
+    if (!selectedCategory) {
+      setMessage("Please select a category first");
+      setMessageType("error");
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        await handleUploadImage(uri);
+      }
+    } catch (error: any) {
+      setMessage(error.message || "Failed to pick image");
+      setMessageType("error");
+    }
+  };
+
+  const handleUploadImage = async (uri: string) => {
+    if (!selectedCategory) return;
+
+    setIsUploading(true);
+    setMessage("");
+
+    try {
+      // Upload to S3 via backend
+      const uploadMutation = trpc.categories.uploadImage.useMutation();
+      const response = await uploadMutation.mutateAsync({ uri });
+      
+      // Update category with new image URL
+      await updateMutation.mutateAsync({
+        id: selectedCategory,
+        imageUrl: response.url,
+      });
+
+      setMessage("Category image uploaded successfully!");
+      setMessageType("success");
+      setImageUrl(response.url);
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to upload image");
+      setMessageType("error");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleUpdateImage = async () => {
     if (!selectedCategory || !imageUrl.trim()) {
@@ -125,10 +180,28 @@ export default function CategoriesScreen() {
             </View>
           </View>
 
+          {/* Upload Button */}
+          {selectedCategory && (
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Upload Image</Text>
+              <TouchableOpacity
+                onPress={handlePickImage}
+                disabled={isUploading}
+                className={`py-4 rounded-xl border-2 border-dashed ${isUploading ? "border-muted bg-muted/10" : "border-primary bg-primary/5"} active:opacity-70 mb-4`}
+              >
+                <Text className="text-primary text-center font-semibold">
+                  📷 Choose Image from Device
+                </Text>
+              </TouchableOpacity>
+              
+              <Text className="text-sm text-muted text-center mb-4">— OR —</Text>
+            </View>
+          )}
+
           {/* Image URL Input */}
           {selectedCategory && (
             <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">Image URL</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">Paste Image URL</Text>
               <TextInput
                 className="bg-surface border border-border rounded-xl p-4 text-foreground"
                 placeholder="https://example.com/category-image.jpg"

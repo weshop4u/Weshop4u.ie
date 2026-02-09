@@ -358,3 +358,9 @@
 - [x] Update category display to show images instead of emoji
 - [x] Add image upload functionality to admin panel for categories
 - [x] Test category image display on store pages
+
+## Category Image File Upload
+- [x] Add file picker to category management page
+- [x] Implement image upload to S3 storage
+- [x] Auto-save uploaded image URL to database
+- [x] Test file upload functionality
