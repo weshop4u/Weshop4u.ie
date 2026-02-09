@@ -191,13 +191,6 @@ export const authRouter = router({
       };
     }),
 
-  // Get current user
-  me: publicProcedure.query(async ({ ctx }) => {
-    // This would normally use ctx.user from session
-    // For now, return null (not authenticated)
-    return null;
-  }),
-
   // Update profile
   updateProfile: publicProcedure
     .input(
@@ -281,4 +274,31 @@ export const authRouter = router({
 
       return { success: true };
     }),
+
+  // Get current user
+  me: publicProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    const userId = ctx.user?.id || 1;
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
+  }),
 });

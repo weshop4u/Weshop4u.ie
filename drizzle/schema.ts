@@ -364,3 +364,31 @@ export const notifications = mysqlTable(
     createdAtIdx: index("created_at_idx").on(table.createdAt),
   })
 );
+
+
+// ===== SAVED ADDRESSES =====
+export const savedAddresses = mysqlTable(
+  "saved_addresses",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    userId: int("user_id").notNull(),
+    label: varchar("label", { length: 100 }).notNull(), // e.g., "Home", "Work"
+    streetAddress: text("street_address").notNull(),
+    eircode: varchar("eircode", { length: 10 }).notNull(),
+    latitude: decimal("latitude", { precision: 10, scale: 7 }),
+    longitude: decimal("longitude", { precision: 10, scale: 7 }),
+    isDefault: boolean("is_default").default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("user_id_idx").on(table.userId),
+  })
+);
+
+export const savedAddressesRelations = relations(savedAddresses, ({ one }) => ({
+  user: one(users, {
+    fields: [savedAddresses.userId],
+    references: [users.id],
+  }),
+}));
