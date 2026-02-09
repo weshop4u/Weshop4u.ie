@@ -198,3 +198,6 @@
 ## View Cart Button Position Fix
 - [x] Move view cart button from top-left to bottom fixed position
 - [x] Ensure back button is always visible in header
+
+## Cart Page Navigation
+- [x] Add back button to cart page header for returning to store

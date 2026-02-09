@@ -130,12 +130,21 @@ export default function CartScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView className="flex-1 p-4">
-        {/* Header */}
-        <View className="mb-6">
-          <Text className="text-2xl font-bold text-foreground mb-2">Your Cart</Text>
-          <Text className="text-muted">{store?.name}</Text>
+      {/* Header with Back Button */}
+      <View className="flex-row items-center px-4 py-4 border-b border-border">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="active:opacity-70 mr-4"
+        >
+          <Text className="text-primary text-2xl">‹ Back</Text>
+        </TouchableOpacity>
+        <View className="flex-1">
+          <Text className="text-xl font-bold text-foreground">Your Cart</Text>
+          <Text className="text-muted text-sm">{store?.name}</Text>
         </View>
+      </View>
+
+      <ScrollView className="flex-1 p-4">
 
         {/* Cart Items */}
         <View className="mb-6">
