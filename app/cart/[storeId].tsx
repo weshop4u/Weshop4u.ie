@@ -9,7 +9,8 @@ export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
   const [cart, setCart] = useState<Record<number, number>>({});
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [eircode, setEircode] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
@@ -47,19 +48,21 @@ export default function CartScreen() {
   };
 
   const handleCalculateDeliveryFee = async () => {
-    if (!deliveryAddress.trim()) {
-      Alert.alert("Error", "Please enter your Eircode or full address");
+    if (!streetAddress.trim() || !eircode.trim()) {
+      Alert.alert("Error", "Please enter both your street address and Eircode");
       return;
     }
 
     try {
+      // Combine street address and Eircode for geocoding
+      const fullAddress = `${streetAddress}, ${eircode}, Ireland`;
       await calculateDeliveryFeeMutation.mutateAsync({
         storeId: storeIdNum,
-        customerAddress: deliveryAddress,
+        customerAddress: fullAddress,
       });
       setDeliveryFeeCalculated(true);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not calculate delivery fee. Please check your address.");
+      Alert.alert("Error", error.message || "Could not calculate delivery fee. Please check your address and Eircode.");
     }
   };
 
@@ -73,8 +76,8 @@ export default function CartScreen() {
   const total = subtotal + serviceFee + deliveryFee;
 
   const handleCheckout = async () => {
-    if (!deliveryAddress.trim()) {
-      Alert.alert("Error", "Please enter a delivery address");
+    if (!streetAddress.trim() || !eircode.trim()) {
+      Alert.alert("Error", "Please enter both your street address and Eircode");
       return;
     }
 
@@ -95,7 +98,7 @@ export default function CartScreen() {
         customerId: 1, // TODO: Replace with actual authenticated user ID
         storeId: storeIdNum,
         items: orderItems,
-        deliveryAddress,
+        deliveryAddress: `${streetAddress}, ${eircode}, Ireland`,
         deliveryLatitude,
         deliveryLongitude,
         paymentMethod,
@@ -170,26 +173,43 @@ export default function CartScreen() {
         {/* Delivery Address */}
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-2">Delivery Address</Text>
+          
+          {/* Street Address */}
           <TextInput
-            className="bg-surface text-foreground p-4 rounded-lg border border-border"
-            placeholder="Enter your Eircode or full address"
+            className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
+            placeholder="Street address (e.g., 123 Main Street, Balbriggan)"
             placeholderTextColor="#9BA1A6"
-            value={deliveryAddress}
+            value={streetAddress}
             onChangeText={(text) => {
-              setDeliveryAddress(text);
+              setStreetAddress(text);
               setDeliveryFeeCalculated(false);
               calculateDeliveryFeeMutation.reset();
             }}
             multiline
             numberOfLines={2}
           />
+
+          {/* Eircode */}
+          <TextInput
+            className="bg-surface text-foreground p-4 rounded-lg border border-border"
+            placeholder="Eircode (e.g., K32 Y621)"
+            placeholderTextColor="#9BA1A6"
+            value={eircode}
+            onChangeText={(text) => {
+              setEircode(text.toUpperCase());
+              setDeliveryFeeCalculated(false);
+              calculateDeliveryFeeMutation.reset();
+            }}
+            autoCapitalize="characters"
+            maxLength={10}
+          />
           
           {/* Calculate Delivery Fee Button */}
           <TouchableOpacity
             onPress={handleCalculateDeliveryFee}
-            disabled={calculateDeliveryFeeMutation.isPending || !deliveryAddress.trim()}
+            disabled={calculateDeliveryFeeMutation.isPending || !streetAddress.trim() || !eircode.trim()}
             className={`mt-3 p-4 rounded-lg items-center ${
-              calculateDeliveryFeeMutation.isPending || !deliveryAddress.trim()
+              calculateDeliveryFeeMutation.isPending || !streetAddress.trim() || !eircode.trim()
                 ? "bg-surface"
                 : "bg-secondary active:opacity-70"
             }`}

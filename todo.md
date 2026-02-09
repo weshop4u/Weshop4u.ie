@@ -120,3 +120,8 @@
 - [x] Create order tracking screen with status visualization
 - [ ] Add order history view for customers
 - [x] Test complete flow: browse → cart → checkout → place order → track
+
+## Checkout UX Improvements
+- [x] Split address input into separate "Street Address" and "Eircode" fields
+- [x] Add clearer placeholder text for Irish addresses
+- [x] Test address + Eircode geocoding
