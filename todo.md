@@ -250,3 +250,16 @@
 - [x] Remove conditional rendering so button always shows
 - [x] Fix button visibility
 - [x] Verify button appears in UI between Payment Methods and Notifications
+
+## Driver Access Control Verification
+- [ ] Check current logged-in user's role in database
+- [ ] Verify if authentication check is working properly
+- [ ] Decide UX: hide button from non-drivers vs show error
+- [ ] Implement proper role-based button visibility
+- [ ] Test with non-driver user account
+
+## Driver Dashboard Blank Screen Crash
+- [x] Check browser console for error messages
+- [x] Fix driver dashboard crash causing blank screen - added proper handling for not-logged-in state
+- [x] Restore navigation functionality
+- [x] Authentication guard now redirects gracefully when user not logged in

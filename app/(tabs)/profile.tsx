@@ -24,22 +24,12 @@ export default function ProfileScreen() {
 
   const handleSwitchToDriverMode = async () => {
     try {
-      // Check if user has driver role
-      if (user?.role !== "driver") {
-        Alert.alert(
-          "Driver Access Required",
-          "You need to be registered as a driver to access this feature. Please contact support to become a driver.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-
+      // Button only visible to drivers, so no role check needed
       await AsyncStorage.setItem("appMode", "driver");
       setCurrentMode("driver");
       router.push("/driver");
     } catch (error) {
       console.error("Failed to switch mode:", error);
-      Alert.alert("Error", "Failed to switch to driver mode");
     }
   };
 
@@ -109,16 +99,18 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Driver Mode Section - Always visible */}
-          <View className="bg-surface rounded-xl border border-border overflow-hidden">
-            <TouchableOpacity 
-              className="p-4 active:opacity-70"
-              onPress={handleSwitchToDriverMode}
-            >
-              <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
-              <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Driver Mode Section - Only visible to users with driver role */}
+          {user && user.role === "driver" && (
+            <View className="bg-surface rounded-xl border border-border overflow-hidden">
+              <TouchableOpacity 
+                className="p-4 active:opacity-70"
+                onPress={handleSwitchToDriverMode}
+              >
+                <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
+                <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Preferences Section */}
           <View className="bg-surface rounded-xl border border-border overflow-hidden">

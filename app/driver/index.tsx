@@ -13,20 +13,29 @@ export default function DriverHomeScreen() {
 
   // Check if user is authorized to access driver dashboard
   useEffect(() => {
-    if (!isLoading && user && user.role !== "driver") {
-      Alert.alert(
-        "Access Denied",
-        "You don't have permission to access the driver dashboard.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              AsyncStorage.setItem("appMode", "customer");
-              router.replace("/");
+    if (!isLoading) {
+      // Not logged in - redirect to home
+      if (!user) {
+        AsyncStorage.setItem("appMode", "customer");
+        router.replace("/");
+        return;
+      }
+      // Logged in but not a driver - show error and redirect
+      if (user.role !== "driver") {
+        Alert.alert(
+          "Access Denied",
+          "You don't have permission to access the driver dashboard.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                AsyncStorage.setItem("appMode", "customer");
+                router.replace("/");
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     }
   }, [user, isLoading]);
 
