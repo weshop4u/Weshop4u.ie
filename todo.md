@@ -405,3 +405,23 @@
 - [x] Calculate and show estimated arrival time
 - [x] Update driver location in real-time
 - [x] Test order tracking map functionality
+
+## Driver App Interface
+- [x] Create driver dashboard with available jobs list
+- [x] Add accept/reject buttons for job offers
+- [x] Implement navigation to pickup and delivery locations
+- [x] Add order completion workflow
+- [x] Test driver app interface
+
+## Store Dashboard Improvements
+- [x] Add real-time order notifications
+- [x] Implement audio alerts for new orders
+- [x] Create order queue management interface
+- [x] Add quick status update buttons
+- [x] Test store dashboard improvements
+
+## Payment Method Selection
+- [x] Add payment method selection to checkout
+- [x] Support multiple payment options (card, cash on delivery)
+- [x] Restrict cash option to logged-in users only
+- [x] Test payment method selection

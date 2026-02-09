@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
@@ -20,21 +20,10 @@ export default function DriverHomeScreen() {
         router.replace("/");
         return;
       }
-      // Logged in but not a driver - show error and redirect
+      // Logged in but not a driver - redirect to home
       if (user.role !== "driver") {
-        Alert.alert(
-          "Access Denied",
-          "You don't have permission to access the driver dashboard.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                AsyncStorage.setItem("appMode", "customer");
-                router.replace("/");
-              },
-            },
-          ]
-        );
+        AsyncStorage.setItem("appMode", "customer");
+        router.replace("/");
       }
     }
   }, [user, isLoading]);
@@ -109,10 +98,18 @@ export default function DriverHomeScreen() {
           </View>
 
           {isOnline && (
-            <View className="bg-success/10 p-3 rounded-lg border border-success">
-              <Text className="text-success text-center font-semibold">
-                🟢 Waiting for delivery requests...
-              </Text>
+            <View>
+              <View className="bg-success/10 p-3 rounded-lg border border-success mb-3">
+                <Text className="text-success text-center font-semibold">
+                  🟢 Waiting for delivery requests...
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push("/driver/available-jobs")}
+                className="bg-primary p-3 rounded-lg items-center active:opacity-70"
+              >
+                <Text className="text-background font-bold">View Available Jobs</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>

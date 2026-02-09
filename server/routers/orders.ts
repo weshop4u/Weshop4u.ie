@@ -371,6 +371,68 @@ export const ordersRouter = router({
     return ordersWithItems;
   }),
 
+  // Get available jobs for drivers
+  getAvailableJobs: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    // Get orders that are ready for pickup and don't have a driver assigned yet
+    const availableOrders = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        total: orders.total,
+        deliveryFee: orders.deliveryFee,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryLatitude: orders.deliveryLatitude,
+        deliveryLongitude: orders.deliveryLongitude,
+        status: orders.status,
+        createdAt: orders.createdAt,
+        store: {
+          id: stores.id,
+          name: stores.name,
+          address: stores.address,
+          latitude: stores.latitude,
+          longitude: stores.longitude,
+        },
+      })
+      .from(orders)
+      .leftJoin(stores, eq(orders.storeId, stores.id))
+      .where(eq(orders.status, "ready_for_pickup"))
+      .orderBy(desc(orders.createdAt))
+      .limit(20);
+
+    return availableOrders;
+  }),
+
+  // Accept job as driver
+  acceptJob: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        driverId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Update order with driver and change status
+      await db
+        .update(orders)
+        .set({
+          driverId: input.driverId,
+          status: "picked_up",
+        })
+        .where(eq(orders.id, input.orderId));
+
+      return { success: true };
+    }),
+
   // Update order status
   updateStatus: publicProcedure
     .input(
