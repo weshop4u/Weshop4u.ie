@@ -125,3 +125,18 @@
 - [x] Split address input into separate "Street Address" and "Eircode" fields
 - [x] Add clearer placeholder text for Irish addresses
 - [x] Test address + Eircode geocoding
+
+## Driver App Development
+- [x] Create driver app navigation structure (tabs)
+- [x] Build driver home screen with online/offline toggle
+- [x] Create job offer screen with order details
+- [x] Implement 15-second countdown timer for job offers
+- [x] Build accept/decline functionality
+- [x] Create active delivery screen
+- [x] Add navigation to store location
+- [x] Add navigation to customer location
+- [x] Implement "Picked Up Order" status update
+- [x] Implement "Delivery Complete" status update
+- [x] Build daily earnings summary screen
+- [x] Create driver backend API endpoints
+- [x] Test complete driver flow
