@@ -153,3 +153,17 @@
 - [x] Create store backend API endpoints
 - [ ] Add store authentication and login
 - [x] Test complete store workflow (accept → prepare → ready → driver pickup)
+
+## User Authentication System
+- [x] Create authentication backend API endpoints (register, login, logout)
+- [x] Implement password hashing with bcrypt
+- [x] Build customer registration screen
+- [x] Build customer login screen
+- [x] Create driver registration screen with vehicle details
+- [x] Create driver login screen (uses same login screen with role-based routing)
+- [x] Build store staff login screen
+- [x] Implement role-based routing (customer → home, driver → driver home, store → store dashboard)
+- [ ] Add session management and token storage
+- [ ] Create profile management screens
+- [ ] Add "Remember Me" functionality
+- [x] Test complete authentication flow for all user roles
