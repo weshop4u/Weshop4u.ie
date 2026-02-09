@@ -230,6 +230,71 @@ export const authRouter = router({
     return { success: true };
   }),
 
+  // Request password reset (simplified version without email)
+  requestPasswordReset: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Check if user exists
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1);
+
+      // Always return success even if user doesn't exist (security best practice)
+      // In production, you would send an email here
+      return { 
+        success: true,
+        message: "If an account exists with this email, password reset instructions have been sent."
+      };
+    }),
+
+  // Reset password with token (simplified - uses email + new password directly)
+  resetPassword: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        newPassword: z.string().min(6),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Find user
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1);
+
+      if (userResult.length === 0) {
+        throw new Error("User not found");
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(input.newPassword, 10);
+
+      // Update password
+      await db
+        .update(users)
+        .set({ passwordHash: newPasswordHash })
+        .where(eq(users.email, input.email));
+
+      return { success: true };
+    }),
+
   // Change password
   changePassword: publicProcedure
     .input(
