@@ -180,3 +180,12 @@
 - [ ] Store notifications: new incoming orders with sound/visual alerts
 - [ ] Handle notification tap actions (deep linking to relevant screens)
 - [ ] Test complete notification flow for all user roles
+
+## Cart Workflow Fixes
+- [x] Create cart context provider for app-wide cart state
+- [x] Change product tap behavior from immediate checkout to "Add to Cart"
+- [x] Add cart icon with item count badge in store page header
+- [x] Implement store restriction logic (prevent mixing stores)
+- [x] Add "Replace cart items?" dialog when adding from different store
+- [x] Add "View Cart" / "Proceed to Checkout" button
+- [x] Test complete cart workflow: browse → add multiple items → checkout

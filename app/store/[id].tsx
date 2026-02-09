@@ -1,39 +1,56 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState } from "react";
+import { useCart } from "@/lib/cart-provider";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [cart, setCart] = useState<Record<number, number>>({});
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const { cart, addToCart, clearCart, getItemCount } = useCart();
   
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
   const { data: products, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId });
 
-  // Load cart from storage
-  useEffect(() => {
-    loadCart();
-  }, [storeId]);
+  const handleAddToCart = async (productId: number, productName: string, productPrice: string) => {
+    const success = await addToCart(storeId, store?.name || "Store", {
+      productId,
+      productName,
+      productPrice,
+      quantity: 1,
+    });
 
-  const loadCart = async () => {
-    const savedCart = await AsyncStorage.getItem(`cart_${storeId}`);
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
+    if (!success) {
+      // Show store restriction dialog
+      Alert.alert(
+        "Replace cart items?",
+        `You have items from ${cart.storeName} in your cart.\n\nAdding items from ${store?.name} will remove your current cart.`,
+        [
+          {
+            text: "Keep Current Cart",
+            style: "cancel",
+          },
+          {
+            text: "Start New Cart",
+            onPress: () => {
+              clearCart();
+              addToCart(storeId, store?.name || "Store", {
+                productId,
+                productName,
+                productPrice,
+                quantity: 1,
+              });
+            },
+          },
+        ]
+      );
     }
   };
 
-  const addToCart = async (productId: number) => {
-    const newCart = { ...cart, [productId]: (cart[productId] || 0) + 1 };
-    setCart(newCart);
-    await AsyncStorage.setItem(`cart_${storeId}`, JSON.stringify(newCart));
-  };
-
-  const cartItemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+  const cartItemCount = getItemCount();
 
   // Group products by category
   const categoriesWithProducts = products?.reduce((acc, product) => {
@@ -72,17 +89,33 @@ export default function StoreDetailScreen() {
   if (selectedCategoryId === null) {
     return (
       <ScreenContainer className="bg-background">
-        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-          {/* Back Button */}
+        {/* Header with Cart Icon */}
+        <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="px-4 py-4 active:opacity-70"
+            className="active:opacity-70"
           >
             <Text className="text-primary text-2xl">‹ Back</Text>
           </TouchableOpacity>
 
+          {cartItemCount > 0 && (
+            <TouchableOpacity
+              onPress={() => router.push(`/cart/${cart.storeId}` as any)}
+              className="active:opacity-70"
+            >
+              <View className="relative">
+                <Text className="text-3xl">🛒</Text>
+                <View className="absolute -top-1 -right-1 bg-primary w-5 h-5 rounded-full items-center justify-center">
+                  <Text className="text-background text-xs font-bold">{cartItemCount}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {/* Store Header */}
-          <View className="px-4 pb-6">
+          <View className="px-4 pt-4 pb-6">
             <View className="flex-row items-center gap-3 mb-2">
               <Text className="text-3xl font-bold text-foreground">{store.name}</Text>
             </View>
@@ -124,22 +157,6 @@ export default function StoreDetailScreen() {
             )}
           </View>
         </ScrollView>
-
-        {/* Floating Cart Button */}
-        {cartItemCount > 0 && (
-          <View className="absolute bottom-8 right-4">
-            <TouchableOpacity
-              onPress={() => router.push(`/cart/${storeId}` as any)}
-              className="bg-secondary w-16 h-16 rounded-full items-center justify-center active:opacity-70"
-              style={{ shadowColor: "#FF00FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
-            >
-              <Text className="text-2xl">🛒</Text>
-              <View className="absolute -top-1 -right-1 bg-primary w-6 h-6 rounded-full items-center justify-center">
-                <Text className="text-background text-xs font-bold">{cartItemCount}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
       </ScreenContainer>
     );
   }
@@ -148,19 +165,41 @@ export default function StoreDetailScreen() {
   const selectedCategory = categoriesWithProducts[selectedCategoryId];
   const categoryProducts = selectedCategory?.products || [];
 
+  // Get quantity for a product from cart
+  const getProductQuantity = (productId: number) => {
+    const item = cart.items.find(i => i.productId === productId);
+    return item?.quantity || 0;
+  };
+
   return (
     <ScreenContainer className="bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Back Button */}
+      {/* Header with Cart Icon */}
+      <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
         <TouchableOpacity
           onPress={() => setSelectedCategoryId(null)}
-          className="px-4 py-4 active:opacity-70"
+          className="active:opacity-70"
         >
-          <Text className="text-primary text-2xl">‹ Back to Categories</Text>
+          <Text className="text-primary text-2xl">‹ Categories</Text>
         </TouchableOpacity>
 
+        {cartItemCount > 0 && (
+          <TouchableOpacity
+            onPress={() => router.push(`/cart/${cart.storeId}` as any)}
+            className="active:opacity-70"
+          >
+            <View className="relative">
+              <Text className="text-3xl">🛒</Text>
+              <View className="absolute -top-1 -right-1 bg-primary w-5 h-5 rounded-full items-center justify-center">
+                <Text className="text-background text-xs font-bold">{cartItemCount}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Category Header */}
-        <View className="px-4 pb-6">
+        <View className="px-4 pt-4 pb-6">
           <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
           <Text className="text-sm text-muted">{store.name}</Text>
         </View>
@@ -169,38 +208,41 @@ export default function StoreDetailScreen() {
         <View className="px-4">
           {categoryProducts.length > 0 ? (
             <View className="gap-3">
-              {categoryProducts.map((product) => (
-                <View
-                  key={product.id}
-                  className="bg-surface rounded-xl p-4 border border-border"
-                >
-                  <View className="flex-row justify-between items-start">
-                    <View className="flex-1 pr-4">
-                      <Text className="text-lg font-semibold text-foreground mb-1">
-                        {product.name}
-                      </Text>
-                      {product.description && (
-                        <Text className="text-sm text-muted mb-2" numberOfLines={2}>
-                          {product.description}
+              {categoryProducts.map((product) => {
+                const quantity = getProductQuantity(product.id);
+                return (
+                  <View
+                    key={product.id}
+                    className="bg-surface rounded-xl p-4 border border-border"
+                  >
+                    <View className="flex-row justify-between items-start">
+                      <View className="flex-1 pr-4">
+                        <Text className="text-lg font-semibold text-foreground mb-1">
+                          {product.name}
                         </Text>
-                      )}
-                      <Text className="text-xl font-bold text-primary">
-                        €{parseFloat(product.price).toFixed(2)}
-                      </Text>
-                    </View>
+                        {product.description && (
+                          <Text className="text-sm text-muted mb-2" numberOfLines={2}>
+                            {product.description}
+                          </Text>
+                        )}
+                        <Text className="text-xl font-bold text-primary">
+                          €{parseFloat(product.price).toFixed(2)}
+                        </Text>
+                      </View>
 
-                    {/* Add to Cart Button */}
-                    <TouchableOpacity
-                      onPress={() => addToCart(product.id)}
-                      className="bg-primary px-4 py-2 rounded-lg active:opacity-70"
-                    >
-                      <Text className="text-background font-semibold">
-                        {cart[product.id] ? `+${cart[product.id]}` : "Add"}
-                      </Text>
-                    </TouchableOpacity>
+                      {/* Add to Cart Button */}
+                      <TouchableOpacity
+                        onPress={() => handleAddToCart(product.id, product.name, product.price)}
+                        className="bg-primary px-4 py-2 rounded-lg active:opacity-70"
+                      >
+                        <Text className="text-background font-semibold">
+                          {quantity > 0 ? `+${quantity}` : "Add"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : (
             <View className="items-center py-8">
@@ -210,18 +252,16 @@ export default function StoreDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Cart Button */}
-      {cartItemCount > 0 && (
-        <View className="absolute bottom-8 right-4">
+      {/* View Cart Button */}
+      {cartItemCount > 0 && cart.storeId === storeId && (
+        <View className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
           <TouchableOpacity
             onPress={() => router.push(`/cart/${storeId}` as any)}
-            className="bg-secondary w-16 h-16 rounded-full items-center justify-center active:opacity-70"
-            style={{ shadowColor: "#FF00FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+            className="bg-primary py-4 rounded-xl active:opacity-70"
           >
-            <Text className="text-2xl">🛒</Text>
-            <View className="absolute -top-1 -right-1 bg-primary w-6 h-6 rounded-full items-center justify-center">
-              <Text className="text-background text-xs font-bold">{cartItemCount}</Text>
-            </View>
+            <Text className="text-background text-center font-bold text-lg">
+              View Cart ({cartItemCount} {cartItemCount === 1 ? 'item' : 'items'})
+            </Text>
           </TouchableOpacity>
         </View>
       )}
