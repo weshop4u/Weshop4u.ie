@@ -173,7 +173,7 @@ export default function StoreDetailScreen() {
 
   return (
     <ScreenContainer className="bg-background">
-      {/* Header with Cart Icon */}
+      {/* Header with Back Button and Cart Icon */}
       <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
         <TouchableOpacity
           onPress={() => setSelectedCategoryId(null)}
@@ -197,7 +197,7 @@ export default function StoreDetailScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-6">
           <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
@@ -252,9 +252,9 @@ export default function StoreDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* View Cart Button */}
+      {/* View Cart Button - Fixed at bottom */}
       {cartItemCount > 0 && cart.storeId === storeId && (
-        <View className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+        <View className="p-4 bg-background border-t border-border">
           <TouchableOpacity
             onPress={() => router.push(`/cart/${storeId}` as any)}
             className="bg-primary py-4 rounded-xl active:opacity-70"

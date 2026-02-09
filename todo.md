@@ -194,3 +194,7 @@
 - [x] Fix view cart button blocking back button (adjust positioning)
 - [x] Update cart/checkout page to read from cart context instead of AsyncStorage
 - [x] Test cart display shows correct items
+
+## View Cart Button Position Fix
+- [x] Move view cart button from top-left to bottom fixed position
+- [x] Ensure back button is always visible in header
