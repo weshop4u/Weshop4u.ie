@@ -9,6 +9,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
+  const logoutMutation = trpc.auth.logout.useMutation();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
 
   useEffect(() => {
@@ -36,6 +37,8 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
+      // Call backend to clear session cookie
+      await logoutMutation.mutateAsync();
       // Clear local storage including app mode
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode"]);
       // Clear tRPC query cache to remove user data

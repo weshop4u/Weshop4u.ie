@@ -219,8 +219,14 @@ export const authRouter = router({
     }),
 
   // Logout
-  logout: publicProcedure.mutation(() => {
-    // Logout is handled by clearing cookies in the client
+  logout: publicProcedure.mutation(({ ctx }) => {
+    // Clear session cookie by setting it to expire immediately
+    if (ctx.res) {
+      ctx.res.setHeader(
+        "Set-Cookie",
+        "session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
+      );
+    }
     return { success: true };
   }),
 

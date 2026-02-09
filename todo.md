@@ -284,3 +284,10 @@
 - [x] Fix logout to clear user data from app state (tRPC cache)
 - [x] Fix logout to redirect to home screen
 - [x] Remove Alert.alert confirmation for web compatibility
+
+## Server-Side Logout Issue
+- [x] Check if backend has logout endpoint to clear session cookie
+- [x] Implement backend logout endpoint to clear session cookie
+- [x] Update client logout to call backend endpoint before clearing local data
+- [ ] Test logout fully clears session (user can't access profile after logout)
+- [ ] Verify login page is accessible at /auth/login
