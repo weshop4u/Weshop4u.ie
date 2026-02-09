@@ -34,25 +34,23 @@ export default function HomeScreen() {
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        {/* Login Button - Top Right */}
-        {!user && (
-          <View className="absolute top-4 right-4 z-10">
-            <TouchableOpacity
-              onPress={() => router.push("/auth/login")}
-              className="bg-primary px-5 py-2.5 rounded-full active:opacity-70"
-              style={{ shadowColor: "#00E5FF", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4 }}
-            >
-              <Text className="text-background font-semibold text-sm">Log In</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Hero Section */}
         <View className="items-center py-8 px-4">
           <Text className="text-4xl font-bold text-primary mb-2">WESHOP4U</Text>
-          <Text className="text-base text-muted text-center">
+          <Text className="text-base text-muted text-center mb-6">
             24/7 Delivery from Your Favorite Stores
           </Text>
+          
+          {/* Login Button - Centered below tagline */}
+          {!user && (
+            <TouchableOpacity
+              onPress={() => router.push("/auth/login")}
+              className="bg-primary px-8 py-3 rounded-full active:opacity-70"
+              style={{ shadowColor: "#00E5FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+            >
+              <Text className="text-background font-bold text-base">Log In</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Stores Grid */}
