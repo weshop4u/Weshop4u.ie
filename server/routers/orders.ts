@@ -93,7 +93,7 @@ export const ordersRouter = router({
   create: publicProcedure
     .input(
       z.object({
-        customerId: z.number(),
+        customerId: z.number().nullable(), // Null for guest orders
         storeId: z.number(),
         items: z.array(
           z.object({
@@ -107,6 +107,10 @@ export const ordersRouter = router({
         paymentMethod: z.enum(["card", "cash_on_delivery"]),
         customerNotes: z.string().optional(),
         allowSubstitution: z.boolean().optional(),
+        // Guest order fields (required when customerId is null)
+        guestName: z.string().optional(),
+        guestPhone: z.string().optional(),
+        guestEmail: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -194,6 +198,10 @@ export const ordersRouter = router({
         deliveryDistance: distance.toFixed(2),
         customerNotes: input.customerNotes || null,
         allowSubstitution: input.allowSubstitution || false,
+        // Guest order fields
+        guestName: input.guestName || null,
+        guestPhone: input.guestPhone || null,
+        guestEmail: input.guestEmail || null,
       });
 
       const orderId = order.insertId;
@@ -215,14 +223,18 @@ export const ordersRouter = router({
         .limit(1);
 
       if (storeStaff.length > 0 && storeStaff[0].pushToken) {
-        // Get customer name
-        const customer = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, input.customerId))
-          .limit(1);
-
-        const customerName = customer.length > 0 ? customer[0].name : "Customer";
+        // Get customer name (use guest name if guest order)
+        let customerName = "Customer";
+        if (input.customerId) {
+          const customer = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, input.customerId))
+            .limit(1);
+          customerName = customer.length > 0 ? customer[0].name : "Customer";
+        } else if (input.guestName) {
+          customerName = input.guestName;
+        }
 
         await sendNewOrderNotification(
           storeStaff[0].pushToken,

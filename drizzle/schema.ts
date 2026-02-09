@@ -228,8 +228,12 @@ export const orders = mysqlTable(
   {
     id: int("id").primaryKey().autoincrement(),
     orderNumber: varchar("order_number", { length: 50 }).notNull().unique(),
-    customerId: int("customer_id").notNull(),
+    customerId: int("customer_id"), // Nullable for guest orders
     storeId: int("store_id").notNull(),
+    // Guest order fields (only populated when customerId is null)
+    guestName: varchar("guest_name", { length: 255 }),
+    guestPhone: varchar("guest_phone", { length: 20 }),
+    guestEmail: varchar("guest_email", { length: 255 }),
     driverId: int("driver_id"),
     status: mysqlEnum("status", [
       "pending",

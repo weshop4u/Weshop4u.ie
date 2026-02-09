@@ -163,14 +163,15 @@ export const storeRouter = router({
         })
         .where(eq(orders.id, input.orderId));
 
-      // Send notification to customer
-      const customer = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, orderResult[0].customerId))
-        .limit(1);
+      // Send notification to customer (skip for guest orders)
+      if (orderResult[0].customerId) {
+        const customer = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, orderResult[0].customerId))
+          .limit(1);
 
-      if (customer.length > 0 && customer[0].pushToken) {
+        if (customer.length > 0 && customer[0].pushToken) {
         const store = await db
           .select()
           .from(stores)
@@ -185,6 +186,7 @@ export const storeRouter = router({
           "accepted",
           storeName
         );
+        }
       }
 
       return { success: true };

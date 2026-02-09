@@ -1,0 +1,8 @@
+{
+  "query": "\nALTER TABLE orders \nMODIFY COLUMN customer_id INT NULL,\nADD COLUMN guest_name VARCHAR(255) NULL AFTER store_id,\nADD COLUMN guest_phone VARCHAR(20) NULL AFTER guest_name,\nADD COLUMN guest_email VARCHAR(255) NULL AFTER guest_phone;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute \nALTER TABLE orders \nMODIFY COLUMN customer_id INT NULL,\nADD COLUMN guest_name VARCHAR(255) NULL AFTER store_id,\nADD COLUMN guest_phone VARCHAR(20) NULL AFTER guest_name,\nADD COLUMN guest_email VARCHAR(255) NULL AFTER guest_phone;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 'guest_name' in 'orders'"
+  ]
+}

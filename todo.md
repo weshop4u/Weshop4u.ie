@@ -263,3 +263,17 @@
 - [x] Fix driver dashboard crash causing blank screen - added proper handling for not-logged-in state
 - [x] Restore navigation functionality
 - [x] Authentication guard now redirects gracefully when user not logged in
+
+## Guest Checkout System (Card-Only Payment)
+- [x] Update database schema to support guest orders (nullable customerId)
+- [x] Add guest fields to orders table (guestName, guestPhone, guestEmail)
+- [x] Update orders router to accept guest order data
+- [x] Update cart screen to detect logged-in vs guest users
+- [x] Add guest information form fields (name, phone, email)
+- [x] Restrict guests to card payment only (hide cash option)
+- [x] Update order creation to include guest data
+- [x] Fix TypeScript errors in notification queries for null customerId
+- [x] Write and run tests for guest checkout validation
+- [x] Test guest checkout flow end-to-end
+- [x] Verify card payment required for guests
+- [x] Verify logged-in users still have both payment options

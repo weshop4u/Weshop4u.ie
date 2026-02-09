@@ -9,10 +9,19 @@ export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
+  const { data: user } = trpc.auth.me.useQuery();
+  const isGuest = !user;
+  
+  // Guest user fields
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
+  // Guests must use card, logged-in users can choose
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [deliveryFeeCalculated, setDeliveryFeeCalculated] = useState(false);
   
@@ -30,6 +39,13 @@ export default function CartScreen() {
       router.back();
     }
   }, [cartContext.storeId, storeIdNum]);
+  
+  // Force guests to use card payment
+  useEffect(() => {
+    if (isGuest) {
+      setPaymentMethod("card");
+    }
+  }, [isGuest]);
 
   const updateQuantity = (productId: number, delta: number) => {
     const currentItem = cartContext.items.find(i => i.productId === productId);
@@ -71,6 +87,22 @@ export default function CartScreen() {
   const total = subtotal + serviceFee + deliveryFee;
 
   const handleCheckout = async () => {
+    // Validate guest fields
+    if (isGuest) {
+      if (!guestName.trim()) {
+        Alert.alert("Error", "Please enter your name");
+        return;
+      }
+      if (!guestPhone.trim()) {
+        Alert.alert("Error", "Please enter your phone number");
+        return;
+      }
+      if (!guestEmail.trim() || !guestEmail.includes("@")) {
+        Alert.alert("Error", "Please enter a valid email address");
+        return;
+      }
+    }
+    
     if (!streetAddress.trim() || !eircode.trim()) {
       Alert.alert("Error", "Please enter both your street address and Eircode");
       return;
@@ -88,9 +120,9 @@ export default function CartScreen() {
         quantity: product!.cartQuantity,
       }));
 
-      // Create order (using temporary customer ID 1 until auth is implemented)
+      // Create order with guest info if not logged in
       const result = await createOrderMutation.mutateAsync({
-        customerId: 1, // TODO: Replace with actual authenticated user ID
+        customerId: user?.id || null, // null for guest orders
         storeId: storeIdNum,
         items: orderItems,
         deliveryAddress: `${streetAddress}, ${eircode}, Ireland`,
@@ -99,6 +131,10 @@ export default function CartScreen() {
         paymentMethod,
         customerNotes: customerNotes.trim() || undefined,
         allowSubstitution,
+        // Guest order fields
+        guestName: isGuest ? guestName.trim() : undefined,
+        guestPhone: isGuest ? guestPhone.trim() : undefined,
+        guestEmail: isGuest ? guestEmail.trim() : undefined,
       });
 
       // Clear cart
@@ -182,6 +218,41 @@ export default function CartScreen() {
             ← Continue Shopping
           </Text>
         </TouchableOpacity>
+
+        {/* Guest Information (only shown for non-logged-in users) */}
+        {isGuest && (
+          <View className="mb-6">
+            <Text className="text-foreground font-semibold mb-3">Your Information</Text>
+            <Text className="text-muted text-sm mb-3">We need your details to complete the order</Text>
+            
+            <TextInput
+              className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
+              placeholder="Full Name"
+              placeholderTextColor="#9BA1A6"
+              value={guestName}
+              onChangeText={setGuestName}
+            />
+            
+            <TextInput
+              className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
+              placeholder="Phone Number"
+              placeholderTextColor="#9BA1A6"
+              value={guestPhone}
+              onChangeText={setGuestPhone}
+              keyboardType="phone-pad"
+            />
+            
+            <TextInput
+              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              placeholder="Email Address"
+              placeholderTextColor="#9BA1A6"
+              value={guestEmail}
+              onChangeText={setGuestEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        )}
 
         {/* Delivery Address */}
         <View className="mb-6">
@@ -277,19 +348,22 @@ export default function CartScreen() {
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-3">Payment Method</Text>
           
-          <TouchableOpacity
-            onPress={() => setPaymentMethod("cash_on_delivery")}
-            className="flex-row items-center mb-3 active:opacity-70"
-          >
-            <View className={`w-6 h-6 rounded-full border-2 mr-3 items-center justify-center ${
-              paymentMethod === "cash_on_delivery" ? "border-primary" : "border-border"
-            }`}>
-              {paymentMethod === "cash_on_delivery" && (
-                <View className="w-3 h-3 rounded-full bg-primary" />
-              )}
-            </View>
-            <Text className="text-foreground">Cash on Delivery</Text>
-          </TouchableOpacity>
+          {/* Show cash option only for logged-in users */}
+          {!isGuest && (
+            <TouchableOpacity
+              onPress={() => setPaymentMethod("cash_on_delivery")}
+              className="flex-row items-center mb-3 active:opacity-70"
+            >
+              <View className={`w-6 h-6 rounded-full border-2 mr-3 items-center justify-center ${
+                paymentMethod === "cash_on_delivery" ? "border-primary" : "border-border"
+              }`}>
+                {paymentMethod === "cash_on_delivery" && (
+                  <View className="w-3 h-3 rounded-full bg-primary" />
+                )}
+              </View>
+              <Text className="text-foreground">Cash on Delivery</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             onPress={() => setPaymentMethod("card")}
@@ -304,6 +378,15 @@ export default function CartScreen() {
             </View>
             <Text className="text-foreground">Card Payment (Elavon)</Text>
           </TouchableOpacity>
+          
+          {/* Guest checkout notice */}
+          {isGuest && (
+            <View className="mt-3 p-3 bg-surface rounded-lg">
+              <Text className="text-muted text-sm">
+                💳 Card payment required for guest checkout. Create an account to unlock cash payment option.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Order Summary */}
