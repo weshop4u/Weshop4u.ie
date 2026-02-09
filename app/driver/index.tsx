@@ -1,13 +1,34 @@
-import { View, Text, TouchableOpacity, Switch, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { trpc } from "@/lib/trpc";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
+  const { data: user, isLoading } = trpc.auth.me.useQuery();
   const [isOnline, setIsOnline] = useState(false);
   const [hasActiveDelivery, setHasActiveDelivery] = useState(false);
+
+  // Check if user is authorized to access driver dashboard
+  useEffect(() => {
+    if (!isLoading && user && user.role !== "driver") {
+      Alert.alert(
+        "Access Denied",
+        "You don't have permission to access the driver dashboard.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              AsyncStorage.setItem("appMode", "customer");
+              router.replace("/");
+            },
+          },
+        ]
+      );
+    }
+  }, [user, isLoading]);
 
   // Mock data - will be replaced with real data from backend
   const todayEarnings = 45.50;
@@ -26,6 +47,23 @@ export default function DriverHomeScreen() {
       console.error("Failed to switch mode:", error);
     }
   };
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" />
+          <Text className="text-muted mt-4">Loading...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Don't render content if user is not a driver (will be redirected)
+  if (!user || user.role !== "driver") {
+    return null;
+  }
 
   return (
     <ScreenContainer>

@@ -19,11 +19,22 @@ export default function ProfileScreen() {
 
   const handleSwitchToDriverMode = async () => {
     try {
+      // Check if user has driver role
+      if (user?.role !== "driver") {
+        Alert.alert(
+          "Driver Access Required",
+          "You need to be registered as a driver to access this feature. Please contact support to become a driver.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
       await AsyncStorage.setItem("appMode", "driver");
       setCurrentMode("driver");
       router.push("/driver");
     } catch (error) {
       console.error("Failed to switch mode:", error);
+      Alert.alert("Error", "Failed to switch to driver mode");
     }
   };
 
