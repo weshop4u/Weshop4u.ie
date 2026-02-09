@@ -173,6 +173,16 @@ export default function CartScreen() {
           ))}
         </View>
 
+        {/* Continue Shopping Button */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="mb-6 py-3 border-2 border-primary rounded-xl active:opacity-70"
+        >
+          <Text className="text-primary text-center font-semibold text-base">
+            ← Continue Shopping
+          </Text>
+        </TouchableOpacity>
+
         {/* Delivery Address */}
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-2">Delivery Address</Text>

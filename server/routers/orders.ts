@@ -291,4 +291,71 @@ export const ordersRouter = router({
 
       return customerOrders;
     }),
+
+  // Get user's orders with full details (items, store, products)
+  getUserOrders: publicProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    // For now, get orders for the authenticated user
+    // In production, get from ctx.user.id
+    const userId = ctx.user?.id || 1; // Default to user 1 for testing
+
+    const userOrders = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerId: orders.customerId,
+        storeId: orders.storeId,
+        status: orders.status,
+        total: orders.total,
+        deliveryFee: orders.deliveryFee,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryLatitude: orders.deliveryLatitude,
+        deliveryLongitude: orders.deliveryLongitude,
+        paymentMethod: orders.paymentMethod,
+        customerNotes: orders.customerNotes,
+        createdAt: orders.createdAt,
+        storeName: stores.name,
+      })
+      .from(orders)
+      .leftJoin(stores, eq(orders.storeId, stores.id))
+      .where(eq(orders.customerId, userId))
+      .orderBy(desc(orders.createdAt));
+
+    // Get order items for each order
+    const ordersWithItems = await Promise.all(
+      userOrders.map(async (order) => {
+        const items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            quantity: orderItems.quantity,
+            productPrice: orderItems.productPrice,
+            productName: orderItems.productName,
+          })
+          .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
+          .where(eq(orderItems.orderId, order.id));
+
+        return {
+          ...order,
+          store: { name: order.storeName },
+          items: items.map((item) => ({
+            id: item.id,
+            orderId: item.orderId,
+            productId: item.productId,
+            quantity: item.quantity,
+            productPrice: item.productPrice,
+            product: { name: item.productName },
+          })),
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }),
 });

@@ -201,3 +201,10 @@
 
 ## Cart Page Navigation
 - [x] Add back button to cart page header for returning to store
+
+## Continue Shopping & Order History
+- [x] Add "Continue Shopping" button to cart page
+- [x] Create order history screen showing past orders
+- [x] Add order details view (expand order to see items)
+- [x] Implement reorder functionality (one-tap reorder from history)
+- [x] Add order history navigation to app tabs (Orders tab added to bottom navigation)
