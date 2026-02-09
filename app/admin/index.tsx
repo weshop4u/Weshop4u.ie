@@ -45,9 +45,16 @@ export default function AdminPanel() {
 
           <TouchableOpacity
             onPress={() => router.push("/admin/categories" as any)}
-            className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70 mb-3"
           >
             <Text className="text-foreground font-semibold text-center">🖼️ Manage Category Images</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/admin/batch-category-images" as any)}
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+          >
+            <Text className="text-foreground font-semibold text-center">📤 Batch Upload Category Images</Text>
           </TouchableOpacity>
         </View>
 

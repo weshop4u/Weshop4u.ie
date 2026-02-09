@@ -48,6 +48,7 @@ export default function ImportProductsScreen() {
           else if (header === "price") product.price = value;
           else if (header === "category") product.categorySlug = value;
           else if (header === "sku") product.sku = value;
+          else if (header === "image") product.image = value;
           else if (header === "barcode") product.barcode = value;
           else if (header === "quantity") product.quantity = parseInt(value) || 0;
         });
@@ -75,10 +76,10 @@ export default function ImportProductsScreen() {
     }
   };
 
-  const csvTemplate = `name,description,price,category,sku,barcode,quantity
-Coca Cola 500ml,Refreshing soft drink,2.50,beverages,CC500,5000112345678,50
-Tayto Crisps,Classic cheese & onion crisps,1.50,snacks-crisps,TAY001,5000112345679,100
-Avonmore Milk 2L,Fresh whole milk,2.99,dairy-eggs,AVM2L,5000112345680,30`;
+  const csvTemplate = `name,description,price,category,sku,barcode,quantity,image
+Coca Cola 500ml,Refreshing soft drink,2.50,beverages,CC500,5000112345678,50,https://example.com/cola.jpg
+Tayto Crisps,Classic cheese & onion crisps,1.50,snacks-crisps,TAY001,5000112345679,100,https://example.com/crisps.jpg
+Avonmore Milk 2L,Fresh whole milk,2.99,dairy-eggs,AVM2L,5000112345680,30,https://example.com/milk.jpg`;
 
   return (
     <ScreenContainer className="bg-background">
@@ -101,7 +102,7 @@ Avonmore Milk 2L,Fresh whole milk,2.99,dairy-eggs,AVM2L,5000112345680,30`;
             <Text className="text-lg font-semibold text-foreground mb-2">CSV Format</Text>
             <Text className="text-sm text-muted mb-3">
               Upload products using CSV format with these columns:{"\n"}
-              name, description, price, category, sku, barcode, quantity
+              name, description, price, category, sku, barcode, quantity, image
             </Text>
             <Text className="text-xs text-muted font-mono bg-background p-2 rounded">
               {csvTemplate}

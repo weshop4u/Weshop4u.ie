@@ -364,3 +364,11 @@
 - [x] Implement image upload to S3 storage
 - [x] Auto-save uploaded image URL to database
 - [x] Test file upload functionality
+
+## Image Upload Improvements
+- [x] Add product image upload to bulk import page
+- [x] Add product image upload to individual product editing
+- [x] Add image preview before upload to all upload interfaces
+- [x] Create batch category image upload with CSV mapping
+- [x] Ensure file upload option available everywhere images are needed
+- [x] Test all image upload features

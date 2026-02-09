@@ -10,6 +10,7 @@ export default function CategoriesScreen() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
@@ -34,7 +35,8 @@ export default function CategoriesScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
-        await handleUploadImage(uri);
+        setPreviewUri(uri);
+        setImageUrl(uri);
       }
     } catch (error: any) {
       setMessage(error.message || "Failed to pick image");
@@ -42,32 +44,18 @@ export default function CategoriesScreen() {
     }
   };
 
-  const handleUploadImage = async (uri: string) => {
-    if (!selectedCategory) return;
-
-    setIsUploading(true);
-    setMessage("");
+  const handleUploadImage = async (uri: string): Promise<string | null> => {
+    if (!selectedCategory) return null;
 
     try {
       // Upload to S3 via backend
       const uploadMutation = trpc.categories.uploadImage.useMutation();
       const response = await uploadMutation.mutateAsync({ uri });
-      
-      // Update category with new image URL
-      await updateMutation.mutateAsync({
-        id: selectedCategory,
-        imageUrl: response.url,
-      });
-
-      setMessage("Category image uploaded successfully!");
-      setMessageType("success");
-      setImageUrl(response.url);
-      refetch();
+      return response.url;
     } catch (error: any) {
       setMessage(error.message || "Failed to upload image");
       setMessageType("error");
-    } finally {
-      setIsUploading(false);
+      return null;
     }
   };
 
@@ -82,14 +70,25 @@ export default function CategoriesScreen() {
     setMessage("");
 
     try {
+      // If preview exists, upload the image first
+      let finalImageUrl = imageUrl;
+      if (previewUri && previewUri.startsWith("file://")) {
+        const uploadResult = await handleUploadImage(previewUri);
+        if (!uploadResult) {
+          throw new Error("Failed to upload image");
+        }
+        finalImageUrl = uploadResult;
+      }
+
       await updateMutation.mutateAsync({
         id: selectedCategory,
-        imageUrl: imageUrl.trim(),
+        imageUrl: finalImageUrl.trim(),
       });
 
       setMessage("Category image updated successfully!");
       setMessageType("success");
       setImageUrl("");
+      setPreviewUri(null);
       setSelectedCategory(null);
       refetch();
     } catch (error: any) {
@@ -195,6 +194,29 @@ export default function CategoriesScreen() {
               </TouchableOpacity>
               
               <Text className="text-sm text-muted text-center mb-4">— OR —</Text>
+            </View>
+          )}
+
+          {/* Image Preview */}
+          {previewUri && selectedCategory && (
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Preview</Text>
+              <View className="bg-surface rounded-xl p-4 border border-border items-center">
+                <Image
+                  source={{ uri: previewUri }}
+                  style={{ width: 200, height: 200, borderRadius: 12 }}
+                  contentFit="cover"
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    setPreviewUri(null);
+                    setImageUrl("");
+                  }}
+                  className="mt-3 px-4 py-2 bg-error/10 rounded-lg active:opacity-70"
+                >
+                  <Text className="text-error font-semibold">Remove</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
