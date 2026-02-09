@@ -277,3 +277,10 @@
 - [x] Test guest checkout flow end-to-end
 - [x] Verify card payment required for guests
 - [x] Verify logged-in users still have both payment options
+
+## Logout Functionality Bug
+- [x] Investigate why logout button doesn't log user out - Alert.alert doesn't work on web
+- [x] Fix logout to clear session/auth token from AsyncStorage
+- [x] Fix logout to clear user data from app state (tRPC cache)
+- [x] Fix logout to redirect to home screen
+- [x] Remove Alert.alert confirmation for web compatibility

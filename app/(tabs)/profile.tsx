@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 export default function ProfileScreen() {
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
+  const utils = trpc.useUtils();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
 
   useEffect(() => {
@@ -34,27 +35,16 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Clear local storage including app mode
-              await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode"]);
-              // Navigate to login
-              router.replace("/auth/login" as any);
-            } catch (error) {
-              Alert.alert("Error", "Failed to log out");
-            }
-          },
-        },
-      ]
-    );
+    try {
+      // Clear local storage including app mode
+      await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode"]);
+      // Clear tRPC query cache to remove user data
+      utils.invalidate();
+      // Navigate to home screen (not login, so guests can browse)
+      router.replace("/" as any);
+    } catch (error) {
+      console.error("Failed to log out:", error);
+    }
   };
 
   return (
