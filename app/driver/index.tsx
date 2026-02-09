@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity, Switch, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, Switch, ScrollView, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -15,6 +16,27 @@ export default function DriverHomeScreen() {
   const handleToggleOnline = () => {
     setIsOnline(!isOnline);
     // TODO: Update driver status in backend
+  };
+
+  const handleSwitchToCustomerMode = async () => {
+    Alert.alert(
+      "Switch to Customer Mode",
+      "You'll be able to browse stores and place orders. Switch now?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Switch",
+          onPress: async () => {
+            try {
+              await AsyncStorage.setItem("appMode", "customer");
+              router.replace("/" as any);
+            } catch (error) {
+              Alert.alert("Error", "Failed to switch mode");
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -129,6 +151,15 @@ export default function DriverHomeScreen() {
             </Text>
           </View>
         )}
+
+        {/* Switch to Customer Mode */}
+        <TouchableOpacity
+          onPress={handleSwitchToCustomerMode}
+          className="bg-surface border border-border p-4 rounded-lg mb-6 active:opacity-70"
+        >
+          <Text className="text-foreground font-semibold text-center">🛒 Switch to Customer Mode</Text>
+          <Text className="text-muted text-sm text-center mt-1">Browse stores and place orders</Text>
+        </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>
   );

@@ -3,10 +3,41 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState, useEffect } from "react";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
+  const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
+
+  useEffect(() => {
+    // Load current mode from storage
+    AsyncStorage.getItem("appMode").then((mode) => {
+      if (mode === "driver") setCurrentMode("driver");
+    });
+  }, []);
+
+  const handleSwitchToDriverMode = async () => {
+    Alert.alert(
+      "Switch to Driver Mode",
+      "You'll be able to accept delivery jobs and earn money. Switch now?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Switch",
+          onPress: async () => {
+            try {
+              await AsyncStorage.setItem("appMode", "driver");
+              setCurrentMode("driver");
+              router.replace("/driver/home" as any);
+            } catch (error) {
+              Alert.alert("Error", "Failed to switch mode");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -19,8 +50,8 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              // Clear local storage
-              await AsyncStorage.multiRemove(["authToken", "userRole", "userId"]);
+              // Clear local storage including app mode
+              await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode"]);
               // Navigate to login
               router.replace("/auth/login" as any);
             } catch (error) {
@@ -73,6 +104,19 @@ export default function ProfileScreen() {
               <Text className="text-muted text-sm mt-1">Manage your saved cards</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Driver Mode Section - Only show if user is in customer mode */}
+          {currentMode === "customer" && (
+            <View className="bg-surface rounded-xl border border-border overflow-hidden">
+              <TouchableOpacity 
+                className="p-4 active:opacity-70"
+                onPress={handleSwitchToDriverMode}
+              >
+                <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
+                <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Preferences Section */}
           <View className="bg-surface rounded-xl border border-border overflow-hidden">

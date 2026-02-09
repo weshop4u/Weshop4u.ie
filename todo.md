@@ -224,3 +224,10 @@
 - [x] Create privacy policy screen
 - [x] Hide language & region option
 - [x] Link all screens from profile tab
+
+## Driver Mode Switching
+- [x] Add "Switch to Driver Mode" option in customer profile
+- [x] Create role switching logic in app
+- [x] Update driver screens with "Switch to Customer Mode" option
+- [x] Store current mode in AsyncStorage
+- [x] Test switching between customer and driver modes
