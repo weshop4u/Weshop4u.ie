@@ -1,0 +1,8 @@
+{
+  "query": "UPDATE users SET passwordHash = '$2b$10$NVw8VscdbLgzUFdUaB2cBOBgoqZd6b6WsuEIxK72dALd07XI4BhK.' WHERE email = 'barrygosson1978@gmail.com';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute UPDATE users SET passwordHash = '$2b$10$NVw8VscdbLgzUFdUaB2cBOBgoqZd6b6WsuEIxK72dALd07XI4BhK.' WHERE email = 'barrygosson1978@gmail.com';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'passwordHash' in 'field list'"
+  ]
+}

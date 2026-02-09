@@ -312,3 +312,14 @@
 - [x] Check authentication endpoint and error handling
 - [x] Fix login flow to properly authenticate users
 - [x] Test login works end-to-end
+
+## Authentication Password Hash Fix
+- [x] Identified issue: plain text password in database instead of bcrypt hash
+- [x] Generated proper bcrypt hash for user password
+- [x] Updated database with correct password hash
+- [x] Test login with correct credentials
+
+## Remove Driver Sign Up Link
+- [x] Remove "Driver Sign Up" link from login page
+- [x] Drivers will be registered manually by admin
+- [x] Login page automatically routes drivers to driver dashboard based on role

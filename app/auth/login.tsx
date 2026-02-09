@@ -121,17 +121,6 @@ export default function LoginScreen() {
                 <Text className="text-primary font-semibold">Sign Up</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Driver Registration Link */}
-            <View className="flex-row justify-center items-center mt-2">
-              <Text className="text-muted">Want to become a driver? </Text>
-              <TouchableOpacity
-                onPress={() => router.push("/auth/register-driver" as any)}
-                className="active:opacity-70"
-              >
-                <Text className="text-primary font-semibold">Driver Sign Up</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
