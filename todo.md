@@ -297,3 +297,7 @@
 - [x] Add "Log In" button to home page header when user not logged in
 - [x] Navigate to /auth/login when button clicked
 - [x] Test button appears for guests and hides for logged-in users
+
+## Reposition Login Button
+- [x] Move login button to better position (separate from hero section)
+- [x] Test new placement looks professional and accessible
