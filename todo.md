@@ -216,3 +216,11 @@
 - [x] Implement working logout functionality
 - [x] Update profile tab to link to all features
 - [x] Test complete profile flow
+
+## Profile Page Button Actions
+- [x] Create notification preferences screen
+- [x] Create help & support screen with contact info (Phone: 0894 626262, Email: Weshop4u247@gmail.com)
+- [x] Create terms & conditions screen
+- [x] Create privacy policy screen
+- [x] Hide language & region option
+- [x] Link all screens from profile tab

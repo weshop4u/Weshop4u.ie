@@ -76,30 +76,37 @@ export default function ProfileScreen() {
 
           {/* Preferences Section */}
           <View className="bg-surface rounded-xl border border-border overflow-hidden">
-            <TouchableOpacity className="p-4 border-b border-border active:opacity-70">
+            <TouchableOpacity 
+              className="p-4 active:opacity-70"
+              onPress={() => router.push("/profile/notifications" as any)}
+            >
               <Text className="text-foreground font-semibold">Notifications</Text>
               <Text className="text-muted text-sm mt-1">Manage notification preferences</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity className="p-4 active:opacity-70">
-              <Text className="text-foreground font-semibold">Language & Region</Text>
-              <Text className="text-muted text-sm mt-1">English (Ireland)</Text>
             </TouchableOpacity>
           </View>
 
           {/* Support Section */}
           <View className="bg-surface rounded-xl border border-border overflow-hidden">
-            <TouchableOpacity className="p-4 border-b border-border active:opacity-70">
+            <TouchableOpacity 
+              className="p-4 border-b border-border active:opacity-70"
+              onPress={() => router.push("/profile/help" as any)}
+            >
               <Text className="text-foreground font-semibold">Help & Support</Text>
               <Text className="text-muted text-sm mt-1">Get help with your orders</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity className="p-4 border-b border-border active:opacity-70">
+            <TouchableOpacity 
+              className="p-4 border-b border-border active:opacity-70"
+              onPress={() => router.push("/profile/terms" as any)}
+            >
               <Text className="text-foreground font-semibold">Terms & Conditions</Text>
               <Text className="text-muted text-sm mt-1">Read our terms of service</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity className="p-4 active:opacity-70">
+            <TouchableOpacity 
+              className="p-4 active:opacity-70"
+              onPress={() => router.push("/profile/privacy" as any)}
+            >
               <Text className="text-foreground font-semibold">Privacy Policy</Text>
               <Text className="text-muted text-sm mt-1">How we handle your data</Text>
             </TouchableOpacity>
