@@ -346,6 +346,44 @@ export const authRouter = router({
       return { success: true };
     }),
 
+  // Get all drivers (admin only)
+  getAllDrivers: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    // Get all users with driver role and their driver profiles
+    const driverUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.role, "driver"));
+
+    // Get driver profiles for each driver user
+    const driversWithProfiles = await Promise.all(
+      driverUsers.map(async (user) => {
+        const [driverProfile] = await db
+          .select()
+          .from(drivers)
+          .where(eq(drivers.userId, user.id))
+          .limit(1);
+
+        return {
+          ...user,
+          profile: driverProfile || null,
+        };
+      })
+    );
+
+    return driversWithProfiles;
+  }),
+
   // Get current user
   me: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();

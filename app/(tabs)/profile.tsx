@@ -92,6 +92,19 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Admin Panel Section - Only visible to admin users */}
+          {user && user.role === "admin" && (
+            <View className="bg-surface rounded-xl border border-border overflow-hidden">
+              <TouchableOpacity 
+                className="p-4 active:opacity-70"
+                onPress={() => router.push("/admin" as any)}
+              >
+                <Text className="text-foreground font-semibold">⚙️ Admin Panel</Text>
+                <Text className="text-muted text-sm mt-1">Manage drivers and system settings</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Driver Mode Section - Only visible to users with driver role */}
           {user && user.role === "driver" && (
             <View className="bg-surface rounded-xl border border-border overflow-hidden">

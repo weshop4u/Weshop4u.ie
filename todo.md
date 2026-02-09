@@ -331,3 +331,10 @@
 - [x] Implement password reset functionality
 - [x] Add forgot password link to login page
 - [x] Test complete authentication flow
+
+## Additional Features
+- [x] Add admin panel link to Profile tab
+- [x] Create driver list view at /admin/drivers
+- [x] Display all drivers with vehicle info and status
+- [x] Add store search functionality to home page
+- [x] Test all new features

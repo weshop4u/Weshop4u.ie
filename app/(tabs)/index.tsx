@@ -1,8 +1,9 @@
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
+import { useState, useMemo } from "react";
 
 type StoreCategory = "convenience" | "restaurant" | "hardware" | "electrical" | "clothing" | "grocery" | "pharmacy" | "other";
 
@@ -21,6 +22,21 @@ export default function HomeScreen() {
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter stores based on search query
+  const filteredStores = useMemo(() => {
+    if (!stores) return [];
+    if (!searchQuery.trim()) return stores;
+
+    const query = searchQuery.toLowerCase().trim();
+    return stores.filter((store) => {
+      const nameMatch = store.name.toLowerCase().includes(query);
+      const categoryMatch = CATEGORY_LABELS[store.category as StoreCategory].toLowerCase().includes(query);
+      const descriptionMatch = store.description?.toLowerCase().includes(query) || false;
+      return nameMatch || categoryMatch || descriptionMatch;
+    });
+  }, [stores, searchQuery]);
 
   if (isLoading) {
     return (
@@ -53,13 +69,26 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {/* Search Bar */}
+        <View className="px-4 mb-4">
+          <TextInput
+            className="bg-surface border border-border rounded-xl p-4 text-foreground"
+            placeholder="Search stores by name or category..."
+            placeholderTextColor="#9BA1A6"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
         {/* Stores Grid */}
         <View className="px-4">
           <Text className="text-2xl font-bold text-foreground mb-4">Browse Stores</Text>
           
-          {stores && stores.length > 0 ? (
+          {filteredStores && filteredStores.length > 0 ? (
             <View className="gap-4">
-              {stores.map((store) => (
+              {filteredStores.map((store) => (
                 <TouchableOpacity
                   key={store.id}
                   onPress={() => router.push(`/store/${store.id}`)}
@@ -97,7 +126,17 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View className="items-center py-8">
-              <Text className="text-muted text-center">No stores available at the moment</Text>
+              <Text className="text-muted text-center">
+                {searchQuery ? "No stores match your search" : "No stores available at the moment"}
+              </Text>
+              {searchQuery && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery("")}
+                  className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
+                >
+                  <Text className="text-background font-semibold">Clear Search</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>

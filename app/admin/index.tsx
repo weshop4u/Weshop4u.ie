@@ -25,7 +25,7 @@ export default function AdminPanel() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => {/* TODO: Navigate to driver list */}}
+            onPress={() => router.push("/admin/drivers" as any)}
             className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
           >
             <Text className="text-foreground font-semibold text-center">📋 View All Drivers</Text>
