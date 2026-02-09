@@ -291,3 +291,9 @@
 - [x] Update client logout to call backend endpoint before clearing local data
 - [ ] Test logout fully clears session (user can't access profile after logout)
 - [ ] Verify login page is accessible at /auth/login
+
+## Add Login Button to Home Page
+- [x] Add authentication detection to home page
+- [x] Add "Log In" button to home page header when user not logged in
+- [x] Navigate to /auth/login when button clicked
+- [x] Test button appears for guests and hides for logged-in users

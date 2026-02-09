@@ -2,6 +2,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } fr
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
+import { useAuth } from "@/hooks/use-auth";
 
 type StoreCategory = "convenience" | "restaurant" | "hardware" | "electrical" | "clothing" | "grocery" | "pharmacy" | "other";
 
@@ -19,6 +20,7 @@ const CATEGORY_LABELS: Record<StoreCategory, string> = {
 export default function HomeScreen() {
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
+  const { user } = useAuth();
 
   if (isLoading) {
     return (
@@ -34,7 +36,20 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Hero Section */}
         <View className="items-center py-8 px-4">
-          <Text className="text-4xl font-bold text-primary mb-2">WESHOP4U</Text>
+          <View className="flex-row items-center justify-between w-full mb-4">
+            <View className="flex-1" />
+            <Text className="text-4xl font-bold text-primary">WESHOP4U</Text>
+            <View className="flex-1 items-end">
+              {!user && (
+                <TouchableOpacity
+                  onPress={() => router.push("/auth/login")}
+                  className="bg-primary px-4 py-2 rounded-full active:opacity-70"
+                >
+                  <Text className="text-background font-semibold text-sm">Log In</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
           <Text className="text-base text-muted text-center">
             24/7 Delivery from Your Favorite Stores
           </Text>
