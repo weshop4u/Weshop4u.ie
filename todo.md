@@ -233,8 +233,7 @@
 - [x] Test switching between customer and driver modes
 
 ## Driver Mode Navigation Bug Fix
-- [x] Fix driver mode switch button - stays on profile page
-- [x] Check browser console for navigation errors
-- [x] Investigate routing configuration
-- [x] Create driver _layout.tsx for proper routing
-- [x] Test driver mode navigation works end-to-end
+- [x] Debug router.replace not working - Alert.alert doesn't work on web
+- [x] Remove Alert.alert dialogs for web compatibility
+- [x] Use router.push for direct navigation
+- [x] Verify navigation works end-to-end (customer ↔ driver)

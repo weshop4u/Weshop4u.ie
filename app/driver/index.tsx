@@ -19,24 +19,12 @@ export default function DriverHomeScreen() {
   };
 
   const handleSwitchToCustomerMode = async () => {
-    Alert.alert(
-      "Switch to Customer Mode",
-      "You'll be able to browse stores and place orders. Switch now?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Switch",
-          onPress: async () => {
-            try {
-              await AsyncStorage.setItem("appMode", "customer");
-              router.replace("/" as any);
-            } catch (error) {
-              Alert.alert("Error", "Failed to switch mode");
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await AsyncStorage.setItem("appMode", "customer");
+      router.push("/");
+    } catch (error) {
+      console.error("Failed to switch mode:", error);
+    }
   };
 
   return (

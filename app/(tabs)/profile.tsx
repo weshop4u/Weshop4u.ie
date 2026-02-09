@@ -18,25 +18,13 @@ export default function ProfileScreen() {
   }, []);
 
   const handleSwitchToDriverMode = async () => {
-    Alert.alert(
-      "Switch to Driver Mode",
-      "You'll be able to accept delivery jobs and earn money. Switch now?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Switch",
-          onPress: async () => {
-            try {
-              await AsyncStorage.setItem("appMode", "driver");
-              setCurrentMode("driver");
-              router.replace("/driver" as any);
-            } catch (error) {
-              Alert.alert("Error", "Failed to switch mode");
-            }
-          },
-        },
-      ]
-    );
+    try {
+      await AsyncStorage.setItem("appMode", "driver");
+      setCurrentMode("driver");
+      router.push("/driver");
+    } catch (error) {
+      console.error("Failed to switch mode:", error);
+    }
   };
 
   const handleLogout = async () => {
