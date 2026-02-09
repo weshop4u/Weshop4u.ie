@@ -346,3 +346,10 @@
 - [x] Add category search/filter bar on store page
 - [x] Improve category layout and visual design
 - [x] Test category browsing functionality
+
+## Category Improvements
+- [x] Add category icons/images to category display
+- [x] Show product count for each category
+- [x] Create admin bulk product import tool
+- [x] Add CSV upload functionality for products
+- [x] Test category images and product import

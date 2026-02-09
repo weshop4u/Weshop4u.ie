@@ -107,6 +107,7 @@ export const storesRouter = router({
             id: productCategories.id,
             name: productCategories.name,
             slug: productCategories.slug,
+            icon: productCategories.icon,
           },
         })
         .from(products)
@@ -119,5 +120,64 @@ export const storesRouter = router({
         );
 
       return productsList;
+    }),
+
+  // Get all stores (including inactive for admin)
+  getAll: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const storesList = await db.select().from(stores);
+      return storesList;
+    }),
+
+  // Import products in bulk
+  importProducts: publicProcedure
+    .input(
+      z.object({
+        storeId: z.number(),
+        products: z.array(
+          z.object({
+            name: z.string(),
+            description: z.string().optional(),
+            price: z.string(),
+            categorySlug: z.string().optional(),
+            sku: z.string().optional(),
+            barcode: z.string().optional(),
+            quantity: z.number().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get all categories for slug lookup
+      const categories = await db.select().from(productCategories);
+      const categoryMap = new Map(categories.map(c => [c.slug, c.id]));
+
+      // Insert products
+      const productsToInsert = input.products.map(p => ({
+        storeId: input.storeId,
+        name: p.name,
+        description: p.description || null,
+        price: p.price,
+        categoryId: p.categorySlug ? categoryMap.get(p.categorySlug) || null : null,
+        sku: p.sku || null,
+        barcode: p.barcode || null,
+        quantity: p.quantity || 0,
+        stockStatus: "in_stock" as const,
+        isActive: true,
+      }));
+
+      await db.insert(products).values(productsToInsert);
+
+      return { success: true, count: productsToInsert.length };
     }),
 });

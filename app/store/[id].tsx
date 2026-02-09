@@ -159,7 +159,15 @@ export default function StoreDetailScreen() {
                     onPress={() => setSelectedCategoryId(category.id)}
                     className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                   >
-                    <View className="flex-row justify-between items-center">
+                    <View className="flex-row items-center gap-3">
+                      {/* Category Icon/Image */}
+                      <View className="w-14 h-14 bg-primary/10 rounded-xl items-center justify-center">
+                        <Text className="text-3xl">
+                          {category.products[0]?.category?.icon || '📦'}
+                        </Text>
+                      </View>
+                      
+                      {/* Category Info */}
                       <View className="flex-1">
                         <Text className="text-lg font-semibold text-foreground mb-1">
                           {category.name}
@@ -168,6 +176,8 @@ export default function StoreDetailScreen() {
                           {category.products.length} {category.products.length === 1 ? 'item' : 'items'}
                         </Text>
                       </View>
+                      
+                      {/* Arrow */}
                       <Text className="text-primary text-2xl">›</Text>
                     </View>
                   </TouchableOpacity>

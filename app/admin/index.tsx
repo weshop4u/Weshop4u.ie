@@ -32,6 +32,18 @@ export default function AdminPanel() {
           </TouchableOpacity>
         </View>
 
+        {/* Product Management Section */}
+        <View className="mb-6">
+          <Text className="text-xl font-bold text-foreground mb-4">Product Management</Text>
+          
+          <TouchableOpacity
+            onPress={() => router.push("/admin/import-products" as any)}
+            className="bg-primary p-4 rounded-lg active:opacity-70"
+          >
+            <Text className="text-background font-bold text-center">📦 Import Products (CSV)</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Quick Stats */}
         <View className="bg-surface rounded-lg p-4 border border-border">
           <Text className="text-lg font-bold text-foreground mb-3">Quick Stats</Text>
