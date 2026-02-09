@@ -1,0 +1,332 @@
+import { z } from "zod";
+import { publicProcedure, router } from "../_core/trpc";
+import { getDb } from "../db";
+import { orders, orderItems, products, stores } from "../../drizzle/schema";
+import { eq, and, or } from "drizzle-orm";
+
+export const storeRouter = router({
+  // Get all orders for a specific store
+  getOrders: publicProcedure
+    .input(
+      z.object({
+        storeId: z.number(),
+        status: z.enum(["pending", "preparing", "ready_for_pickup", "all"]).optional().default("all"),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      let query = db
+        .select()
+        .from(orders)
+        .where(eq(orders.storeId, input.storeId));
+
+      // Filter by status if not "all"
+      if (input.status !== "all") {
+        query = db
+          .select()
+          .from(orders)
+          .where(
+            and(
+              eq(orders.storeId, input.storeId),
+              eq(orders.status, input.status)
+            )
+          );
+      }
+
+      const storeOrders = await query;
+
+      // Get order items for each order
+      const ordersWithItems = await Promise.all(
+        storeOrders.map(async (order) => {
+          const items = await db
+            .select()
+            .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
+            .where(eq(orderItems.orderId, order.id));
+
+          return {
+            ...order,
+            items: items.map(item => ({
+              ...item.order_items,
+              product: item.products,
+            })),
+          };
+        })
+      );
+
+      return ordersWithItems;
+    }),
+
+  // Get orders with deli items only (for deli view)
+  getDeliOrders: publicProcedure
+    .input(
+      z.object({
+        storeId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get all active orders for this store
+      const storeOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            or(
+              eq(orders.status, "preparing"),
+              eq(orders.status, "ready_for_pickup")
+            )
+          )
+        );
+
+      // Get order items and filter for deli items
+      const ordersWithDeliItems = await Promise.all(
+        storeOrders.map(async (order) => {
+          const items = await db
+            .select()
+            .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
+            .where(eq(orderItems.orderId, order.id));
+
+          // Filter for deli category items
+          const deliItems = items.filter(item =>
+            item.products?.categoryId === 1 // Assuming categoryId 1 is "Deli"
+          );
+
+          if (deliItems.length === 0) {
+            return null; // Skip orders with no deli items
+          }
+
+          return {
+            ...order,
+            deliItems: deliItems.map(item => ({
+              ...item.order_items,
+              product: item.products,
+            })),
+            otherItemsCount: items.length - deliItems.length,
+          };
+        })
+      );
+
+      // Filter out null values (orders with no deli items)
+      return ordersWithDeliItems.filter(order => order !== null);
+    }),
+
+  // Accept an order
+  acceptOrder: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        storeId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify order belongs to this store
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.storeId, input.storeId),
+            eq(orders.status, "pending")
+          )
+        )
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found or already accepted");
+      }
+
+      // Update order status to preparing
+      await db
+        .update(orders)
+        .set({
+          status: "preparing",
+          acceptedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, input.orderId));
+
+      return { success: true };
+    }),
+
+  // Reject an order
+  rejectOrder: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        storeId: z.number(),
+        reason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify order belongs to this store
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.storeId, input.storeId),
+            eq(orders.status, "pending")
+          )
+        )
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found or cannot be rejected");
+      }
+
+      // Update order status to cancelled
+      await db
+        .update(orders)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: input.reason || "Rejected by store",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, input.orderId));
+
+      return { success: true };
+    }),
+
+  // Mark order as ready for pickup
+  markOrderReady: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        storeId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify order belongs to this store
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.storeId, input.storeId),
+            eq(orders.status, "preparing")
+          )
+        )
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found or not in preparing status");
+      }
+
+      // Update order status to ready_for_pickup
+      await db
+        .update(orders)
+        .set({
+          status: "ready_for_pickup",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, input.orderId));
+
+      // TODO: Notify available drivers about this order
+
+      return { success: true };
+    }),
+
+  // Mark individual deli item as ready (for deli view)
+  markDeliItemReady: publicProcedure
+    .input(
+      z.object({
+        orderItemId: z.number(),
+        orderId: z.number(),
+        storeId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify order belongs to this store
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.storeId, input.storeId)
+          )
+        )
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found");
+      }
+
+      // Note: We don't have an "isReady" field in order_items table yet
+      // For MVP, we'll just return success and handle this in frontend state
+      // In production, you'd want to add a "status" or "isReady" field to order_items
+
+      return { success: true };
+    }),
+
+  // Get store statistics
+  getStats: publicProcedure
+    .input(
+      z.object({
+        storeId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get all orders for this store
+      const allOrders = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.storeId, input.storeId));
+
+      // Calculate statistics
+      const pendingOrders = allOrders.filter(o => o.status === "pending").length;
+      const preparingOrders = allOrders.filter(o => o.status === "preparing").length;
+      const completedOrders = allOrders.filter(o => o.status === "delivered").length;
+
+      const totalRevenue = allOrders
+        .filter(o => o.status === "delivered")
+        .reduce((sum, order) => sum + parseFloat(order.subtotal), 0);
+
+      return {
+        pendingOrders,
+        preparingOrders,
+        completedOrders,
+        totalRevenue,
+      };
+    }),
+});

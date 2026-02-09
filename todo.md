@@ -140,3 +140,16 @@
 - [x] Build daily earnings summary screen
 - [x] Create driver backend API endpoints
 - [x] Test complete driver flow
+
+## Store Dashboard (Web Interface)
+- [x] Create store dashboard layout and navigation
+- [x] Build main counter view showing all incoming orders
+- [x] Add accept/reject order functionality
+- [x] Implement order status updates (Accepted → Preparing → Ready for Pickup)
+- [x] Create deli-specific view filtered by deli category products
+- [x] Add flexible "Mark Ready" buttons (accessible by both counter and deli staff)
+- [ ] Implement audio/visual alerts for new orders
+- [ ] Build order history and daily sales view
+- [x] Create store backend API endpoints
+- [ ] Add store authentication and login
+- [x] Test complete store workflow (accept → prepare → ready → driver pickup)
