@@ -425,3 +425,10 @@
 - [x] Support multiple payment options (card, cash on delivery)
 - [x] Restrict cash option to logged-in users only
 - [x] Test payment method selection
+
+## SMS Notification System
+- [x] Create SMS service integration for sending text messages
+- [x] Send order confirmation SMS after order placement with store name
+- [x] Send on-the-way SMS with tracking link when driver picks up order
+- [x] Include store name in both SMS messages
+- [x] Test SMS delivery for both confirmation and tracking messages

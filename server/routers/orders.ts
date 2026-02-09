@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { orders, orderItems, stores, products, users } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
+import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -212,6 +213,16 @@ export const ordersRouter = router({
           orderId: Number(orderId),
           ...item,
         });
+      }
+
+      // Send SMS confirmation to customer
+      const customerPhone = input.guestPhone || null;
+      if (customerPhone) {
+        await sendOrderConfirmationSMS(
+          customerPhone,
+          storeData.name,
+          Number(orderId)
+        );
       }
 
       // Send notification to store staff
@@ -461,8 +472,32 @@ export const ordersRouter = router({
         throw new Error("Order not found");
       }
 
-      // Send push notification to customer
+      // Send SMS when order is on the way
       const orderData = order[0];
+      if (input.status === "on_the_way") {
+        const customerPhone = orderData.guestPhone || null;
+        if (customerPhone) {
+          // Get store name
+          const storeResult = await db
+            .select()
+            .from(stores)
+            .where(eq(stores.id, orderData.storeId))
+            .limit(1);
+          
+          if (storeResult.length > 0) {
+            const storeName = storeResult[0].name;
+            const trackingUrl = `https://weshop4u.app/order-tracking/${input.orderId}`;
+            await sendOnTheWaySMS(
+              customerPhone,
+              storeName,
+              orderData.orderNumber,
+              trackingUrl
+            );
+          }
+        }
+      }
+
+      // Send push notification to customer
       let pushToken: string | null = null;
 
       if (orderData.customerId) {
