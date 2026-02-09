@@ -1,14 +1,15 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCart } from "@/lib/cart-provider";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [categorySearch, setCategorySearch] = useState("");
   const { cart, addToCart, clearCart, getItemCount } = useCart();
   
   const storeId = parseInt(id);
@@ -69,6 +70,15 @@ export default function StoreDetailScreen() {
 
   const categories = Object.values(categoriesWithProducts);
 
+  // Filter categories based on search query
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return categories;
+    const query = categorySearch.toLowerCase().trim();
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(query)
+    );
+  }, [categories, categorySearch]);
+
   if (storeLoading || productsLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
@@ -124,13 +134,26 @@ export default function StoreDetailScreen() {
             )}
           </View>
 
+          {/* Category Search Bar */}
+          <View className="px-4 mb-4">
+            <TextInput
+              className="bg-surface border border-border rounded-xl p-4 text-foreground"
+              placeholder="Search categories..."
+              placeholderTextColor="#9BA1A6"
+              value={categorySearch}
+              onChangeText={setCategorySearch}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
           {/* Categories */}
           <View className="px-4">
             <Text className="text-xl font-bold text-foreground mb-4">Browse by Category</Text>
             
-            {categories.length > 0 ? (
+            {filteredCategories.length > 0 ? (
               <View className="gap-3">
-                {categories.map((category) => (
+                {filteredCategories.map((category) => (
                   <TouchableOpacity
                     key={category.id}
                     onPress={() => setSelectedCategoryId(category.id)}
@@ -152,7 +175,17 @@ export default function StoreDetailScreen() {
               </View>
             ) : (
               <View className="items-center py-8">
-                <Text className="text-muted">No products available</Text>
+                <Text className="text-muted text-center">
+                  {categorySearch ? "No categories match your search" : "No products available"}
+                </Text>
+                {categorySearch && (
+                  <TouchableOpacity
+                    onPress={() => setCategorySearch("")}
+                    className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
+                  >
+                    <Text className="text-background font-semibold">Clear Search</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
