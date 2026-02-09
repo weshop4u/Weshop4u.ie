@@ -38,9 +38,16 @@ export default function AdminPanel() {
           
           <TouchableOpacity
             onPress={() => router.push("/admin/import-products" as any)}
-            className="bg-primary p-4 rounded-lg active:opacity-70"
+            className="bg-primary p-4 rounded-lg active:opacity-70 mb-3"
           >
             <Text className="text-background font-bold text-center">📦 Import Products (CSV)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/admin/categories" as any)}
+            className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+          >
+            <Text className="text-foreground font-semibold text-center">🖼️ Manage Category Images</Text>
           </TouchableOpacity>
         </View>
 

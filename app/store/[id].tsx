@@ -1,4 +1,5 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput } from "react-native";
+import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -161,10 +162,18 @@ export default function StoreDetailScreen() {
                   >
                     <View className="flex-row items-center gap-3">
                       {/* Category Icon/Image */}
-                      <View className="w-14 h-14 bg-primary/10 rounded-xl items-center justify-center">
-                        <Text className="text-3xl">
-                          {category.products[0]?.category?.icon || '📦'}
-                        </Text>
+                      <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
+                        {category.products[0]?.category?.icon ? (
+                          <Image
+                            source={{ uri: category.products[0].category.icon }}
+                            style={{ width: 56, height: 56 }}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View className="w-full h-full items-center justify-center">
+                            <Text className="text-3xl">📦</Text>
+                          </View>
+                        )}
                       </View>
                       
                       {/* Category Info */}

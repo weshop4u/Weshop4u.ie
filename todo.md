@@ -353,3 +353,8 @@
 - [x] Create admin bulk product import tool
 - [x] Add CSV upload functionality for products
 - [x] Test category images and product import
+
+## Category Image Replacement
+- [x] Update category display to show images instead of emoji
+- [x] Add image upload functionality to admin panel for categories
+- [x] Test category image display on store pages
