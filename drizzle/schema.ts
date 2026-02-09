@@ -21,6 +21,7 @@ export const users = mysqlTable(
     phone: varchar("phone", { length: 20 }),
     role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
+    pushToken: varchar("push_token", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },

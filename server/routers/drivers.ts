@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { drivers, orders, orderItems, products, stores, users } from "../../drizzle/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
+import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
 
 export const driversRouter = router({
   // Toggle driver online/offline status
@@ -157,6 +158,30 @@ export const driversRouter = router({
         })
         .where(eq(drivers.id, input.driverId));
 
+      // Send notification to customer
+      const customer = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, orderResult[0].customerId))
+        .limit(1);
+
+      if (customer.length > 0 && customer[0].pushToken) {
+        const store = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.id, orderResult[0].storeId))
+          .limit(1);
+
+        const storeName = store.length > 0 ? store[0].name : "Store";
+
+        await sendOrderStatusNotification(
+          customer[0].pushToken,
+          input.orderId,
+          "picked_up",
+          storeName
+        );
+      }
+
       return { success: true, orderId: input.orderId };
     }),
 
@@ -236,10 +261,34 @@ export const driversRouter = router({
         updateData.deliveredAt = new Date();
       }
 
+      // Get order details before update for notification
+      const orderBeforeUpdate = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .leftJoin(users, eq(orders.customerId, users.id))
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
       await db
         .update(orders)
         .set(updateData)
         .where(eq(orders.id, input.orderId));
+
+      // Send notification to customer
+      if (orderBeforeUpdate.length > 0) {
+        const customer = orderBeforeUpdate[0].users;
+        const store = orderBeforeUpdate[0].stores;
+
+        if (customer && customer.pushToken && store) {
+          await sendOrderStatusNotification(
+            customer.pushToken,
+            input.orderId,
+            input.status,
+            store.name
+          );
+        }
+      }
 
       // If delivered, mark driver as available again
       if (input.status === "delivered") {

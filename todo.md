@@ -167,3 +167,16 @@
 - [ ] Create profile management screens
 - [ ] Add "Remember Me" functionality
 - [x] Test complete authentication flow for all user roles
+
+## Push Notification System
+- [x] Set up Expo push notification configuration
+- [x] Request notification permissions on app launch
+- [x] Register device push tokens in database
+- [x] Create backend notification service
+- [x] Build notification API endpoints (send to customer, driver, store)
+- [x] Customer notifications: order status updates (accepted, preparing, driver assigned, on the way, delivered)
+- [ ] Driver notifications: new job offers with countdown timer
+- [ ] Driver notifications: order ready for pickup alerts
+- [ ] Store notifications: new incoming orders with sound/visual alerts
+- [ ] Handle notification tap actions (deep linking to relevant screens)
+- [ ] Test complete notification flow for all user roles

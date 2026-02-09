@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { sendNewOrderNotification } from "../services/notifications";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -203,6 +204,33 @@ export const ordersRouter = router({
           orderId: Number(orderId),
           ...item,
         });
+      }
+
+      // Send notification to store staff
+      // Get store staff for this store
+      const storeStaff = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.role, "store_staff"), eq(users.id, storeData.id)))
+        .limit(1);
+
+      if (storeStaff.length > 0 && storeStaff[0].pushToken) {
+        // Get customer name
+        const customer = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, input.customerId))
+          .limit(1);
+
+        const customerName = customer.length > 0 ? customer[0].name : "Customer";
+
+        await sendNewOrderNotification(
+          storeStaff[0].pushToken,
+          Number(orderId),
+          customerName,
+          input.items.length,
+          total
+        );
       }
 
       return {

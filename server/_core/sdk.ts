@@ -258,6 +258,7 @@ class SDKServer {
       phone: null,
       role: "admin",
       passwordHash: null,
+      pushToken: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

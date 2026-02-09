@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores } from "../../drizzle/schema";
+import { orders, orderItems, products, stores, users } from "../../drizzle/schema";
 import { eq, and, or } from "drizzle-orm";
+import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 
 export const storeRouter = router({
   // Get all orders for a specific store
@@ -161,6 +162,30 @@ export const storeRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(orders.id, input.orderId));
+
+      // Send notification to customer
+      const customer = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, orderResult[0].customerId))
+        .limit(1);
+
+      if (customer.length > 0 && customer[0].pushToken) {
+        const store = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.id, input.storeId))
+          .limit(1);
+
+        const storeName = store.length > 0 ? store[0].name : "Store";
+
+        await sendOrderStatusNotification(
+          customer[0].pushToken,
+          input.orderId,
+          "accepted",
+          storeName
+        );
+      }
 
       return { success: true };
     }),
