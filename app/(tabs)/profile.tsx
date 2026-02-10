@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -39,16 +39,79 @@ export default function ProfileScreen() {
     try {
       // Call backend to clear session cookie
       await logoutMutation.mutateAsync();
-      // Clear local storage including app mode
-      await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode"]);
+      // Clear ALL local storage data
+      await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
       // Clear tRPC query cache to remove user data
       utils.invalidate();
       // Navigate to home screen (not login, so guests can browse)
       router.replace("/" as any);
+      // Force page reload on web to clear all cached state
+      if (Platform.OS === "web") {
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      }
     } catch (error) {
       console.error("Failed to log out:", error);
     }
   };
+
+  // Show login required screen if user is not logged in
+  if (!user) {
+    return (
+      <ScreenContainer className="p-6">
+        <View className="flex-1 items-center justify-center gap-6 px-6">
+          {/* Logo/Icon */}
+          <View className="w-32 h-32 bg-primary rounded-full items-center justify-center mb-4">
+            <Text className="text-6xl">🛒</Text>
+          </View>
+          
+          {/* Heading */}
+          <Text className="text-3xl font-bold text-foreground text-center">
+            Log In to Continue
+          </Text>
+          
+          {/* Description */}
+          <Text className="text-base text-muted text-center max-w-sm">
+            Create an account or log in to track orders, save addresses, and enjoy faster checkout
+          </Text>
+          
+          {/* Benefits */}
+          <View className="gap-3 w-full max-w-sm mt-4">
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">📦</Text>
+              <Text className="text-foreground">Track your orders in real-time</Text>
+            </View>
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">📍</Text>
+              <Text className="text-foreground">Save delivery addresses</Text>
+            </View>
+            <View className="flex-row items-center gap-3">
+              <Text className="text-2xl">⚡</Text>
+              <Text className="text-foreground">Faster checkout experience</Text>
+            </View>
+          </View>
+          
+          {/* Buttons */}
+          <View className="gap-3 w-full max-w-sm mt-6">
+            <TouchableOpacity
+              onPress={() => router.push("/auth/login" as any)}
+              className="bg-primary py-4 rounded-xl items-center active:opacity-70"
+            >
+              <Text className="text-background font-bold text-lg">Log In</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => router.push("/auth/register" as any)}
+              className="bg-surface border border-border py-4 rounded-xl items-center active:opacity-70"
+            >
+              <Text className="text-foreground font-semibold text-lg">Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer className="p-6">

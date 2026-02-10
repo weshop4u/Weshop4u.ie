@@ -457,3 +457,11 @@
 - [x] Test SMS delivery after fix
 - [x] Auto-fill delivery address from user profile in checkout
 - [x] Leave Eircode field blank for user to enter manually
+
+## Driver Login Redirect Bug
+- [ ] Fix driver login redirect (currently shows customer home instead of driver dashboard)
+- [ ] Test driver login and verify correct redirect
+- [ ] Fix logout not clearing session properly (user remains logged in after logout)
+- [x] Create "Login Required" screen for profile tab when user is logged out
+- [x] Add page reload after logout to clear all cached data
+- [x] Test complete logout and driver login flow
