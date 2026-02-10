@@ -3,8 +3,20 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import * as Location from "expo-location";
+
+// Conditionally import Maps only on native platforms to avoid web crashes
+let MapView: any = null;
+let Marker: any = null;
+let Polyline: any = null;
+let PROVIDER_GOOGLE: any = null;
+
+if (Platform.OS !== "web") {
+  const Maps = require("react-native-maps");
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+  Polyline = Maps.Polyline;
+  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+}
 
 export default function OrderTrackingScreen() {
   const router = useRouter();
@@ -100,7 +112,7 @@ export default function OrderTrackingScreen() {
               Download the Expo Go app to test this feature.
             </Text>
           </View>
-        ) : (
+        ) : MapView ? (
           <MapView
             style={{ flex: 1 }}
             provider={PROVIDER_GOOGLE}
@@ -143,6 +155,13 @@ export default function OrderTrackingScreen() {
               />
             )}
           </MapView>
+        ) : (
+          <View className="flex-1 bg-surface items-center justify-center">
+            <Text className="text-muted text-center px-8">
+              Map view is available on mobile devices.{"\n"}
+              Download the Expo Go app to test this feature.
+            </Text>
+          </View>
         )}
       </View>
 
