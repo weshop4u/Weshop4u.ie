@@ -461,7 +461,7 @@
 ## Driver Login Redirect Bug
 - [ ] Fix driver login redirect (currently shows customer home instead of driver dashboard)
 - [ ] Test driver login and verify correct redirect
-- [ ] Fix logout not clearing session properly (user remains logged in after logout)
+- [x] Fix logout not clearing session properly (user remains logged in after logout)
 - [x] Create "Login Required" screen for profile tab when user is logged out
 - [x] Add page reload after logout to clear all cached data
 - [x] Test complete logout and driver login flow
