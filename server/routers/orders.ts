@@ -216,13 +216,33 @@ export const ordersRouter = router({
       }
 
       // Send SMS confirmation to customer
-      const customerPhone = input.guestPhone || null;
+      let customerPhone = input.guestPhone || null;
+      
+      // If logged-in user, get phone from user profile
+      if (!customerPhone && input.customerId) {
+        const customer = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, input.customerId))
+          .limit(1);
+        
+        if (customer.length > 0 && customer[0].phone) {
+          customerPhone = customer[0].phone;
+        }
+      }
+      
       if (customerPhone) {
-        await sendOrderConfirmationSMS(
-          customerPhone,
-          storeData.name,
-          Number(orderId)
-        );
+        try {
+          await sendOrderConfirmationSMS(
+            customerPhone,
+            storeData.name,
+            Number(orderId)
+          );
+          console.log(`[SMS] Order confirmation sent to ${customerPhone}`);
+        } catch (error) {
+          console.error(`[SMS] Failed to send order confirmation:`, error);
+          // Don't fail the order if SMS fails
+        }
       }
 
       // Send notification to store staff

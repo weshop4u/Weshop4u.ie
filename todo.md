@@ -450,3 +450,10 @@
 - [x] Fix React Native Maps import to work on web
 - [x] Add conditional import for Maps components (native only)
 - [x] Enable web preview for testing and development
+
+## SMS Notification Bug Fix
+- [x] Fix SMS not sending to logged-in users (only works for guest orders)
+- [x] Fetch phone number from user profile for registered customers
+- [x] Test SMS delivery after fix
+- [x] Auto-fill delivery address from user profile in checkout
+- [x] Leave Eircode field blank for user to enter manually

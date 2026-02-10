@@ -19,6 +19,28 @@ export default function CartScreen() {
   
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
+  
+  // Fetch user's most recent order to auto-fill address
+  const { data: recentOrders } = trpc.orders.getByCustomer.useQuery(
+    { customerId: user?.id || 0 },
+    { enabled: !!user?.id }
+  );
+  
+  // Auto-fill address from most recent order (but leave Eircode blank)
+  useEffect(() => {
+    if (recentOrders && recentOrders.length > 0 && !streetAddress) {
+      const lastOrder = recentOrders[0];
+      if (lastOrder.deliveryAddress) {
+        // Extract street address without Eircode
+        // Format is usually "Street, Eircode, Ireland"
+        const parts = lastOrder.deliveryAddress.split(',');
+        if (parts.length >= 2) {
+          setStreetAddress(parts[0].trim());
+          // Leave Eircode blank for user to enter
+        }
+      }
+    }
+  }, [recentOrders, streetAddress]);
   const [customerNotes, setCustomerNotes] = useState("");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
   // Guests must use card, logged-in users can choose
