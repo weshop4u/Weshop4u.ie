@@ -220,12 +220,17 @@ export const authRouter = router({
 
   // Logout
   logout: publicProcedure.mutation(({ ctx }) => {
-    // Clear session cookie by setting it to expire immediately
-    if (ctx.res) {
-      ctx.res.setHeader(
-        "Set-Cookie",
-        "session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
-      );
+    console.log("[Logout] Logout endpoint called");
+    // Clear session cookie using Express clearCookie to match domain attributes
+    if (ctx.res && ctx.req) {
+      const { getSessionCookieOptions } = require("../../server/_core/cookies");
+      const { COOKIE_NAME } = require("../../shared/const");
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      console.log("[Logout] Clearing cookie:", COOKIE_NAME, "with options:", cookieOptions);
+      ctx.res.clearCookie(COOKIE_NAME, cookieOptions);
+      console.log("[Logout] Cookie cleared");
+    } else {
+      console.log("[Logout] No req/res in context!");
     }
     return { success: true };
   }),

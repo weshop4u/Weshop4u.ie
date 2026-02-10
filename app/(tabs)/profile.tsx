@@ -9,7 +9,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
   const utils = trpc.useUtils();
-  const logoutMutation = trpc.auth.logout.useMutation();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
 
   useEffect(() => {
@@ -37,22 +36,39 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      // Call backend to clear session cookie
-      await logoutMutation.mutateAsync();
+      // Call REST API logout endpoint directly to ensure cookie is cleared
+      const apiUrl = Platform.OS === "web" 
+        ? "/api/auth/logout"
+        : "http://localhost:3000/api/auth/logout";
+      
+      await fetch(apiUrl, {
+        method: "POST",
+        credentials: "include", // Important: send cookies
+      });
+      
       // Clear ALL local storage data
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
+      
       // Clear tRPC query cache to remove user data
       utils.invalidate();
-      // Navigate to home screen (not login, so guests can browse)
-      router.replace("/" as any);
+      
       // Force page reload on web to clear all cached state
       if (Platform.OS === "web") {
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
+        // Use location.href to force full page reload and clear everything
+        window.location.href = "/";
+      } else {
+        // On native, just navigate
+        router.replace("/" as any);
       }
     } catch (error) {
       console.error("Failed to log out:", error);
+      // Even if logout fails, clear local data and reload
+      await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
+      if (Platform.OS === "web") {
+        window.location.href = "/";
+      } else {
+        router.replace("/" as any);
+      }
     }
   };
 

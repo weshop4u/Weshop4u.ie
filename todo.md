@@ -465,3 +465,4 @@
 - [x] Create "Login Required" screen for profile tab when user is logged out
 - [x] Add page reload after logout to clear all cached data
 - [x] Test complete logout and driver login flow
+- [x] Fix logout cookie clearing - switched to REST API logout endpoint with proper cookie handling
