@@ -470,3 +470,10 @@
 - [x] Fix logout - ROOT CAUSE: sdk.authenticateRequest was hardcoded to return user ID 1 instead of looking up user from database
 - [x] Fix authentication - replaced mock user with real database lookup by email from session cookie
 - [x] Test complete authentication flow - login, logout, and role switching all working correctly
+
+## Driver Login Redirect Bug (After Auth Fix)
+- [x] Fix driver login redirect - drivers see customer home page instead of driver dashboard after login
+- [x] Check login screen role-based routing logic
+- [x] Updated login to use window.location.href on web for reliable redirect with full page reload
+- [x] Ensure drivers are redirected to /driver after successful login
+- [ ] Test driver login flow end-to-end

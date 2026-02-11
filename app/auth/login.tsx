@@ -47,12 +47,24 @@ export default function LoginScreen() {
       });
 
       // Navigate based on role
-      if (result.user.role === "driver") {
-        router.replace("/driver");
-      } else if (result.user.role === "store_staff") {
-        router.replace("/store");
+      // Use window.location.href on web for reliable redirect with full page reload
+      if (Platform.OS === "web") {
+        if (result.user.role === "driver") {
+          window.location.href = "/driver";
+        } else if (result.user.role === "store_staff") {
+          window.location.href = "/store";
+        } else {
+          window.location.href = "/";
+        }
       } else {
-        router.replace("/");
+        // On native, use router.replace
+        if (result.user.role === "driver") {
+          router.replace("/driver");
+        } else if (result.user.role === "store_staff") {
+          router.replace("/store");
+        } else {
+          router.replace("/");
+        }
       }
     } catch (error: any) {
       setError(error.message || "Invalid email or password");
