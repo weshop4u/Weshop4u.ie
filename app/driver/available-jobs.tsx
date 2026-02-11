@@ -115,10 +115,18 @@ export default function AvailableJobsScreen() {
                 </View>
 
                 {/* Delivery Location */}
-                <View className="mb-4">
+                <View className="mb-3">
                   <Text className="text-xs text-muted mb-1">🏠 DELIVERY</Text>
                   <Text className="text-foreground">{job.deliveryAddress}</Text>
                 </View>
+
+                {/* Customer Notes */}
+                {job.customerNotes && (
+                  <View className="bg-warning/10 border border-warning rounded-lg px-3 py-2 mb-4">
+                    <Text className="text-warning font-semibold text-xs mb-1">📝 Customer Notes:</Text>
+                    <Text className="text-foreground text-sm">{job.customerNotes}</Text>
+                  </View>
+                )}
 
                 {/* Order Details */}
                 <View className="flex-row justify-between mb-4">

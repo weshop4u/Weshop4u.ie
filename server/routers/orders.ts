@@ -423,6 +423,7 @@ export const ordersRouter = router({
         status: orders.status,
         createdAt: orders.createdAt,
         driverId: orders.driverId,
+        customerNotes: orders.customerNotes,
         store: {
           id: stores.id,
           name: stores.name,

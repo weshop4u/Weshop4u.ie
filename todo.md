@@ -498,3 +498,8 @@
 - [x] Create backend query to calculate driver stats (total earned, jobs completed)
 - [x] Update dashboard to fetch real stats instead of showing mock data
 - [ ] Test stats update after completing a delivery
+
+## Customer Notes Not Visible in Available Jobs
+- [x] Add customer notes to available jobs query (backend)
+- [x] Display customer notes in available jobs list (frontend)
+- [x] Show notes prominently so drivers can see special instructions before accepting
