@@ -89,6 +89,25 @@ export default function AvailableJobsScreen() {
                   </View>
                 </View>
 
+                {/* Status Badge */}
+                <View className="mb-3">
+                  {job.status === "pending" && (
+                    <View className="bg-warning/10 border border-warning rounded-lg px-3 py-2 flex-row items-center">
+                      <Text className="text-warning font-semibold">⏳ Waiting for Store to Accept</Text>
+                    </View>
+                  )}
+                  {job.status === "accepted" && (
+                    <View className="bg-primary/10 border border-primary rounded-lg px-3 py-2 flex-row items-center">
+                      <Text className="text-primary font-semibold">🔄 Being Prepared</Text>
+                    </View>
+                  )}
+                  {job.status === "ready_for_pickup" && (
+                    <View className="bg-success/10 border border-success rounded-lg px-3 py-2 flex-row items-center">
+                      <Text className="text-success font-semibold">✅ Ready to Pick Up</Text>
+                    </View>
+                  )}
+                </View>
+
                 {/* Pickup Location */}
                 <View className="mb-3 pb-3 border-b border-border">
                   <Text className="text-xs text-muted mb-1">📍 PICKUP</Text>

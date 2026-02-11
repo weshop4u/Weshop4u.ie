@@ -477,3 +477,10 @@
 - [x] Updated login to use window.location.href on web for reliable redirect with full page reload
 - [x] Ensure drivers are redirected to /driver after successful login
 - [ ] Test driver login flow end-to-end
+
+## Parallel Visibility Workflow Implementation
+- [x] Fix driver available jobs query to show pending, accepted, and ready_for_pickup orders
+- [x] Add status badges to driver job list (Waiting for Store, Being Prepared, Ready to Pick Up)
+- [x] Remove reject button from store dashboard (only Accept & Start Preparing)
+- [ ] Test complete flow: customer creates order → both store and driver see it immediately
+- [ ] Verify driver can see order status changes in real-time

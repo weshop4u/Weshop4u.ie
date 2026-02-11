@@ -78,24 +78,7 @@ export default function StoreDashboardScreen() {
     );
   };
 
-  const handleRejectOrder = (orderId: number) => {
-    Alert.alert(
-      "Reject Order",
-      "Are you sure you want to reject this order?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject",
-          style: "destructive",
-          onPress: () => {
-            // TODO: Call backend API to reject order
-            setOrders(orders.filter(order => order.id !== orderId));
-            Alert.alert("Order Rejected", "The customer has been notified.");
-          },
-        },
-      ]
-    );
-  };
+  // Reject functionality removed - stores must accept all orders
 
   const handleMarkReady = (orderId: number) => {
     Alert.alert(
@@ -242,20 +225,12 @@ export default function StoreDashboardScreen() {
 
                 {/* Action Buttons */}
                 {order.status === "pending" && (
-                  <View className="flex-row gap-2">
-                    <TouchableOpacity
-                      onPress={() => handleRejectOrder(order.id)}
-                      className="flex-1 bg-error p-3 rounded-lg items-center active:opacity-70"
-                    >
-                      <Text className="text-background font-bold">Reject</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleAcceptOrder(order.id)}
-                      className="flex-1 bg-success p-3 rounded-lg items-center active:opacity-70"
-                    >
-                      <Text className="text-background font-bold">Accept Order</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleAcceptOrder(order.id)}
+                    className="bg-success p-4 rounded-lg items-center active:opacity-70"
+                  >
+                    <Text className="text-background font-bold text-lg">✓ Accept & Start Preparing</Text>
+                  </TouchableOpacity>
                 )}
 
                 {order.status === "preparing" && (

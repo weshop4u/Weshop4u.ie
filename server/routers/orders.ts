@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { orders, orderItems, stores, products, users } from "../../drizzle/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 
@@ -409,7 +409,8 @@ export const ordersRouter = router({
       throw new Error("Database not available");
     }
 
-    // Get orders that are ready for pickup and don't have a driver assigned yet
+    // Get orders that are available for drivers (pending, accepted, or ready for pickup)
+    // Drivers see all orders so they can plan ahead while store is preparing
     const availableOrders = await db
       .select({
         id: orders.id,
@@ -421,6 +422,7 @@ export const ordersRouter = router({
         deliveryLongitude: orders.deliveryLongitude,
         status: orders.status,
         createdAt: orders.createdAt,
+        driverId: orders.driverId,
         store: {
           id: stores.id,
           name: stores.name,
@@ -431,7 +433,12 @@ export const ordersRouter = router({
       })
       .from(orders)
       .leftJoin(stores, eq(orders.storeId, stores.id))
-      .where(eq(orders.status, "ready_for_pickup"))
+      .where(
+        and(
+          inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
+          isNull(orders.driverId) // Only show orders without a driver assigned
+        )
+      )
       .orderBy(desc(orders.createdAt))
       .limit(20);
 
