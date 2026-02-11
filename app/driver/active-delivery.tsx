@@ -1,10 +1,20 @@
-import { View, Text, TouchableOpacity, ScrollView, Linking, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { trpc } from "@/lib/trpc";
 
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const orderId = params.orderId ? parseInt(params.orderId as string) : null;
+  
+  const { data: order, isLoading } = trpc.orders.getById.useQuery(
+    { orderId: orderId! },
+    { enabled: !!orderId }
+  );
+  const updateStatusMutation = trpc.orders.updateStatus.useMutation();
+  
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
 
   // Mock delivery data - will be replaced with real data from backend
@@ -34,61 +44,47 @@ export default function ActiveDeliveryScreen() {
 
   const openNavigation = (latitude: number, longitude: number, label: string) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${label}`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert("Error", "Could not open navigation app");
+    Linking.openURL(url).catch((error) => {
+      console.error("Could not open navigation app:", error);
     });
   };
 
   const callPhone = (phone: string) => {
-    Linking.openURL(`tel:${phone}`).catch(() => {
-      Alert.alert("Error", "Could not make phone call");
+    Linking.openURL(`tel:${phone}`).catch((error) => {
+      console.error("Could not make phone call:", error);
     });
   };
 
-  const handlePickedUp = () => {
-    Alert.alert(
-      "Confirm Pickup",
-      "Have you picked up the order from the store?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Picked Up",
-          onPress: () => {
-            setDeliveryStatus("going_to_customer");
-            // TODO: Update order status in backend
-          },
-        },
-      ]
-    );
+  const handlePickedUp = async () => {
+    if (!orderId) return;
+    
+    try {
+      await updateStatusMutation.mutateAsync({
+        orderId,
+        status: "picked_up",
+      });
+      setDeliveryStatus("going_to_customer");
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+    }
   };
 
-  const handleDelivered = () => {
-    Alert.alert(
-      "Confirm Delivery",
-      delivery.paymentMethod === "cash_on_delivery" 
-        ? `Have you delivered the order and collected €${delivery.total.toFixed(2)} cash?`
-        : "Have you delivered the order to the customer?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Delivered",
-          onPress: () => {
-            setDeliveryStatus("delivered");
-            // TODO: Update order status in backend and mark as complete
-            Alert.alert(
-              "Delivery Complete!",
-              `You earned €${delivery.deliveryFee.toFixed(2)}`,
-              [
-                {
-                  text: "OK",
-                  onPress: () => router.push("/driver"),
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
+  const handleDelivered = async () => {
+    if (!orderId) return;
+    
+    try {
+      await updateStatusMutation.mutateAsync({
+        orderId,
+        status: "delivered",
+      });
+      setDeliveryStatus("delivered");
+      // Navigate back to driver dashboard
+      setTimeout(() => {
+        router.push("/driver");
+      }, 1000);
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+    }
   };
 
   const getStatusDisplay = () => {
@@ -106,9 +102,38 @@ export default function ActiveDeliveryScreen() {
 
   const status = getStatusDisplay();
 
+  if (isLoading) {
+    return (
+      <ScreenContainer className="items-center justify-center">
+        <ActivityIndicator size="large" color="#0a7ea4" />
+      </ScreenContainer>
+    );
+  }
+
+  if (!order) {
+    return (
+      <ScreenContainer className="items-center justify-center p-4">
+        <Text className="text-foreground text-lg mb-4">Order not found</Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="bg-primary px-6 py-3 rounded-lg active:opacity-70"
+        >
+          <Text className="text-background font-bold">Go Back</Text>
+        </TouchableOpacity>
+      </ScreenContainer>
+    );
+  }
+
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
+        {/* Back Button */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="active:opacity-70 mb-4"
+        >
+          <Text className="text-primary text-lg">‹ Back to Available Jobs</Text>
+        </TouchableOpacity>
         {/* Status Header */}
         <View className="bg-primary/10 border-2 border-primary p-4 rounded-lg mb-6">
           <View className="flex-row items-center justify-between">

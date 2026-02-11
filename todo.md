@@ -484,3 +484,10 @@
 - [x] Remove reject button from store dashboard (only Accept & Start Preparing)
 - [ ] Test complete flow: customer creates order → both store and driver see it immediately
 - [ ] Verify driver can see order status changes in real-time
+
+## Driver Active Delivery Screen Issues
+- [x] Add back button to active delivery screen (driver gets stuck after accepting job)
+- [x] Fix "Picked Up Order" button - now calls backend API to update status
+- [x] Remove Alert.alert calls (not compatible with web)
+- [x] Add loading and error states
+- [ ] Test complete driver workflow: accept job → pick up → deliver
