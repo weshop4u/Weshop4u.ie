@@ -466,3 +466,7 @@
 - [x] Add page reload after logout to clear all cached data
 - [x] Test complete logout and driver login flow
 - [x] Fix logout cookie clearing - switched to REST API logout endpoint with proper cookie handling
+- [x] Fix logout - user remains logged in as Barry even after logout and login as Fergus (session not clearing)
+- [x] Fix logout - ROOT CAUSE: sdk.authenticateRequest was hardcoded to return user ID 1 instead of looking up user from database
+- [x] Fix authentication - replaced mock user with real database lookup by email from session cookie
+- [x] Test complete authentication flow - login, logout, and role switching all working correctly

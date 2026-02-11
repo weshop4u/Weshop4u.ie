@@ -248,21 +248,17 @@ class SDKServer {
     }
 
     const sessionUserId = session.openId;
-    // For WESHOP4U, we'll implement custom authentication
-    // For now, return a mock user to allow development to continue
-    // TODO: Implement proper JWT-based authentication for WESHOP4U
-    const user: SelectUser = {
-      id: 1,
-      email: "dev@weshop4u.ie",
-      name: "Development User",
-      phone: null,
-      role: "admin",
-      passwordHash: null,
-      pushToken: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
+    console.log("[authenticateRequest] Looking up user by email:", sessionUserId);
+    
+    // Look up user by email (openId contains the user's email)
+    const user = await db.getUserByEmail(sessionUserId);
+    
+    if (!user) {
+      console.error("[authenticateRequest] User not found for email:", sessionUserId);
+      throw ForbiddenError("User not found");
+    }
+    
+    console.log("[authenticateRequest] Found user:", { id: user.id, email: user.email, role: user.role });
     return user;
   }
 }

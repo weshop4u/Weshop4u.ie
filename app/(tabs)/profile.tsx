@@ -7,7 +7,11 @@ import { useState, useEffect } from "react";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { data: user } = trpc.auth.me.useQuery();
+  const { data: user } = trpc.auth.me.useQuery(undefined, {
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale
+  });
   const utils = trpc.useUtils();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
 
@@ -35,33 +39,60 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
+    console.log("[Logout] Starting logout process...");
     try {
       // Call REST API logout endpoint directly to ensure cookie is cleared
-      const apiUrl = Platform.OS === "web" 
-        ? "/api/auth/logout"
-        : "http://localhost:3000/api/auth/logout";
+      const { getApiBaseUrl } = require("@/constants/oauth");
+      const apiBaseUrl = getApiBaseUrl();
+      const apiUrl = `${apiBaseUrl}/api/auth/logout`;
       
-      await fetch(apiUrl, {
+      console.log("[Logout] Calling API:", apiUrl);
+      const response = await fetch(apiUrl, {
         method: "POST",
         credentials: "include", // Important: send cookies
       });
+      console.log("[Logout] API response:", response.status);
       
       // Clear ALL local storage data
+      console.log("[Logout] Clearing AsyncStorage...");
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
       
+      // Client-side cookie deletion as backup (for web)
+      if (Platform.OS === "web" && typeof document !== "undefined") {
+        console.log("[Logout] Deleting cookies client-side...");
+        // Delete app_session_id cookie on all possible domains
+        const domains = [
+          "", // current domain
+          window.location.hostname,
+          "." + window.location.hostname.split(".").slice(-2).join("."), // parent domain
+        ];
+        
+        domains.forEach(domain => {
+          const domainStr = domain ? `; domain=${domain}` : "";
+          document.cookie = `app_session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/${domainStr}; SameSite=None; Secure`;
+          console.log("[Logout] Deleted cookie for domain:", domain || "(current)");
+        });
+        
+        // Check if cookies are actually deleted
+        console.log("[Logout] Remaining cookies:", document.cookie);
+      }
+      
       // Clear tRPC query cache to remove user data
+      console.log("[Logout] Invalidating tRPC cache...");
       utils.invalidate();
       
       // Force page reload on web to clear all cached state
       if (Platform.OS === "web") {
+        console.log("[Logout] Reloading page...");
         // Use location.href to force full page reload and clear everything
         window.location.href = "/";
       } else {
+        console.log("[Logout] Navigating to home (native)...");
         // On native, just navigate
         router.replace("/" as any);
       }
     } catch (error) {
-      console.error("Failed to log out:", error);
+      console.error("[Logout] Failed to log out:", error);
       // Even if logout fails, clear local data and reload
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
       if (Platform.OS === "web") {

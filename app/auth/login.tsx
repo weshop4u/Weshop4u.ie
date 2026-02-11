@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -35,6 +36,15 @@ export default function LoginScreen() {
       if (result.profile) {
         await AsyncStorage.setItem("profile", JSON.stringify(result.profile));
       }
+
+      // Create session cookie by calling REST API
+      const apiUrl = getApiBaseUrl();
+      await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: result.user.email }),
+        credentials: "include",
+      });
 
       // Navigate based on role
       if (result.user.role === "driver") {
