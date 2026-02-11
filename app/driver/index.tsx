@@ -8,6 +8,10 @@ import { trpc } from "@/lib/trpc";
 export default function DriverHomeScreen() {
   const router = useRouter();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
+  const { data: stats, refetch: refetchStats } = trpc.drivers.getStats.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id }
+  );
   const [isOnline, setIsOnline] = useState(false);
   const [hasActiveDelivery, setHasActiveDelivery] = useState(false);
 
@@ -28,9 +32,11 @@ export default function DriverHomeScreen() {
     }
   }, [user, isLoading]);
 
-  // Mock data - will be replaced with real data from backend
-  const todayEarnings = 45.50;
-  const todayDeliveries = 6;
+  // Real stats from database
+  const todayEarnings = stats?.todayEarnings || 0;
+  const todayDeliveries = stats?.todayDeliveries || 0;
+  const totalDeliveries = stats?.totalDeliveries || 0;
+  const weekEarnings = stats?.weekEarnings || 0;
 
   const handleToggleOnline = () => {
     setIsOnline(!isOnline);
@@ -160,7 +166,7 @@ export default function DriverHomeScreen() {
           <View className="space-y-3">
             <View className="flex-row justify-between py-2 border-b border-border">
               <Text className="text-muted">Total Deliveries</Text>
-              <Text className="text-foreground font-semibold">142</Text>
+              <Text className="text-foreground font-semibold">{totalDeliveries}</Text>
             </View>
             <View className="flex-row justify-between py-2 border-b border-border">
               <Text className="text-muted">Rating</Text>
@@ -168,7 +174,7 @@ export default function DriverHomeScreen() {
             </View>
             <View className="flex-row justify-between py-2">
               <Text className="text-muted">This Week</Text>
-              <Text className="text-foreground font-semibold">€287.50</Text>
+              <Text className="text-foreground font-semibold">€{weekEarnings.toFixed(2)}</Text>
             </View>
           </View>
         </View>

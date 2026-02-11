@@ -491,3 +491,10 @@
 - [x] Remove Alert.alert calls (not compatible with web)
 - [x] Add loading and error states
 - [ ] Test complete driver workflow: accept job → pick up → deliver
+
+## Driver Dashboard Stats Not Updating
+- [x] Fix driver dashboard to show real earnings from completed deliveries
+- [x] Fix job count to show actual number of completed deliveries
+- [x] Create backend query to calculate driver stats (total earned, jobs completed)
+- [x] Update dashboard to fetch real stats instead of showing mock data
+- [ ] Test stats update after completing a delivery

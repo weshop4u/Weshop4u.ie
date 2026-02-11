@@ -323,6 +323,71 @@ export const driversRouter = router({
       return { success: true };
     }),
 
+  // Get driver stats for dashboard
+  getStats: publicProcedure
+    .input(
+      z.object({
+        driverId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get all completed deliveries for driver
+      const completedOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            eq(orders.status, "delivered")
+          )
+        );
+
+      // Calculate today's stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayOrders = completedOrders.filter(order => {
+        const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
+        return deliveredAt && deliveredAt >= today;
+      });
+      const todayEarnings = todayOrders.reduce(
+        (sum, order) => sum + parseFloat(order.deliveryFee),
+        0
+      );
+
+      // Calculate this week's stats
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+      weekStart.setHours(0, 0, 0, 0);
+      const weekOrders = completedOrders.filter(order => {
+        const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
+        return deliveredAt && deliveredAt >= weekStart;
+      });
+      const weekEarnings = weekOrders.reduce(
+        (sum, order) => sum + parseFloat(order.deliveryFee),
+        0
+      );
+
+      // Total stats
+      const totalEarnings = completedOrders.reduce(
+        (sum, order) => sum + parseFloat(order.deliveryFee),
+        0
+      );
+
+      return {
+        todayEarnings,
+        todayDeliveries: todayOrders.length,
+        weekEarnings,
+        weekDeliveries: weekOrders.length,
+        totalEarnings,
+        totalDeliveries: completedOrders.length,
+      };
+    }),
+
   // Get driver earnings
   getEarnings: publicProcedure
     .input(
