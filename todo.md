@@ -694,3 +694,13 @@
 - [x] Driver earnings page shows tip totals (today, week, all-time)
 - [x] Driver dashboard shows tip totals in earnings summary
 - [x] Unit tests for tip calculation logic (13 tests passing)
+
+## Server-Side Push Notifications
+- [ ] Review existing notification infrastructure (push tokens, notification service)
+- [ ] Driver push notifications: send real push alert when new job offer is assigned
+- [ ] Driver push notifications: alert when order is ready for pickup at store
+- [ ] Store push notifications: send push alert when new order comes in
+- [ ] Store dashboard: add audio alert sound for incoming orders
+- [ ] Customer push notifications: server-triggered status change alerts (accepted, preparing, picked up, on the way, delivered)
+- [ ] Ensure notifications work when app is backgrounded
+- [ ] Test complete notification flow for all user roles
