@@ -577,7 +577,7 @@ export const ordersRouter = router({
 
       await db
         .update(drivers)
-        .set({ isOnline: false })
+        .set({ isOnline: false, isAvailable: false, updatedAt: new Date() })
         .where(eq(drivers.userId, input.driverId));
 
       console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Returns today: ${returnsToday + 1}. Driver taken offline.`);

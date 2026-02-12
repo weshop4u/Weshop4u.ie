@@ -25,6 +25,7 @@ export default function ActiveDeliveryScreen() {
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
   const [isReturning, setIsReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
 
@@ -45,9 +46,9 @@ export default function ActiveDeliveryScreen() {
   const reasonRequired = returnCount?.reasonRequired || false;
   const returnsToday = returnCount?.returnsToday || 0;
 
-  const handleReturnJob = async (reason: string) => {
+  const handleReturnJob = async () => {
     if (!orderId || !user?.id) return;
-    if (reasonRequired && !reason) {
+    if (reasonRequired && !returnReason) {
       setReturnError("You must select a reason (3+ returns today).");
       return;
     }
@@ -57,10 +58,10 @@ export default function ActiveDeliveryScreen() {
       await returnJobMutation.mutateAsync({
         orderId,
         driverId: user.id,
-        reason: reason || undefined,
+        reason: returnReason || undefined,
       });
-      // Navigate back to driver dashboard
-      router.push("/driver");
+      // Navigate back to driver dashboard (driver is now offline)
+      router.replace("/driver");
     } catch (error: any) {
       const msg = error?.message || "";
       if (msg.includes("REASON_REQUIRED")) {
@@ -166,7 +167,7 @@ export default function ActiveDeliveryScreen() {
           onPress={() => router.back()}
           className="active:opacity-70 mb-4"
         >
-          <Text className="text-primary text-lg">‹ Back to Available Jobs</Text>
+          <Text className="text-primary text-lg">‹ Back to Dashboard</Text>
         </TouchableOpacity>
 
         {/* Return Job Confirmation Modal */}
@@ -192,42 +193,84 @@ export default function ActiveDeliveryScreen() {
               </View>
             ) : null}
             
-            {/* Quick reason buttons */}
-            <Text className="text-foreground font-semibold text-sm mb-2">
-              Reason {reasonRequired ? "(required)" : "(optional)"}:
-            </Text>
-            <View className="gap-2 mb-4">
-              {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
-                <TouchableOpacity
-                  key={reason}
-                  onPress={() => setReturnReason(returnReason === reason ? "" : reason)}
-                  className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
-                >
-                  <Text className={`text-sm ${returnReason === reason ? "text-error font-bold" : "text-foreground"}`}>
-                    {returnReason === reason ? "✓ " : ""}{reason}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => { setShowReturnConfirm(false); setReturnReason(""); }}
-                className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
-              >
-                <Text className="text-foreground font-semibold">Keep Job</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleReturnJob(returnReason)}
-                disabled={isReturning}
-                className="flex-1 bg-error p-3 rounded-lg items-center active:opacity-70"
-                style={isReturning ? { opacity: 0.5 } : undefined}
-              >
-                <Text className="text-background font-bold">
-                  {isReturning ? "Returning..." : "Return Job"}
+            {/* Step 1: Select a reason */}
+            {!showFinalConfirm && (
+              <>
+                <Text className="text-foreground font-semibold text-sm mb-2">
+                  Reason {reasonRequired ? "(required)" : "(optional)"}:
                 </Text>
-              </TouchableOpacity>
-            </View>
+                <View className="gap-2 mb-4">
+                  {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
+                    <TouchableOpacity
+                      key={reason}
+                      onPress={() => {
+                        setReturnReason(returnReason === reason ? "" : reason);
+                        setReturnError("");
+                      }}
+                      className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
+                    >
+                      <Text className={`text-sm ${returnReason === reason ? "text-error font-bold" : "text-foreground"}`}>
+                        {returnReason === reason ? "\u2713 " : ""}{reason}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => { setShowReturnConfirm(false); setReturnReason(""); setReturnError(""); }}
+                    className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+                  >
+                    <Text className="text-foreground font-semibold">Keep Job</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (reasonRequired && !returnReason) {
+                        setReturnError("You must select a reason (3+ returns today).");
+                        return;
+                      }
+                      setShowFinalConfirm(true);
+                    }}
+                    className="flex-1 bg-error p-3 rounded-lg items-center active:opacity-70"
+                  >
+                    <Text className="text-background font-bold">Continue</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Step 2: Final confirmation */}
+            {showFinalConfirm && (
+              <>
+                <View className="bg-error/10 border border-error p-4 rounded-lg mb-4">
+                  <Text className="text-error font-bold text-center text-base mb-2">
+                    Are you sure you want to return this job?
+                  </Text>
+                  <Text className="text-foreground text-center text-sm">
+                    You will be taken offline.{returnReason ? ` Reason: ${returnReason}` : ""}
+                  </Text>
+                </View>
+
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => setShowFinalConfirm(false)}
+                    className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+                  >
+                    <Text className="text-foreground font-semibold">Go Back</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleReturnJob}
+                    disabled={isReturning}
+                    className="flex-1 bg-error p-4 rounded-lg items-center active:opacity-70"
+                    style={isReturning ? { opacity: 0.5 } : undefined}
+                  >
+                    <Text className="text-background font-bold text-base">
+                      {isReturning ? "Returning..." : "Confirm Return"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -289,7 +332,24 @@ export default function ActiveDeliveryScreen() {
           </View>
         )}
 
-        {/* Customer Information */}
+        {/* Delivery Destination Preview - visible during pickup phase */}
+        {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
+          <View className="bg-surface/50 border border-border p-4 rounded-lg mb-6">
+            <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Destination</Text>
+            <Text className="text-foreground text-sm mb-1">{customerAddress}</Text>
+            {(order as any).deliveryEircode && (
+              <Text className="text-muted text-xs mb-3">Eircode: {(order as any).deliveryEircode}</Text>
+            )}
+            <TouchableOpacity
+              onPress={() => openNavigation(customerLat, customerLng, "Customer")}
+              className="bg-surface border border-primary p-2.5 rounded-lg items-center active:opacity-70"
+            >
+              <Text className="text-primary font-semibold text-sm">🗺️ Preview Route</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Customer Information - Active navigation phase */}
         {deliveryStatus === "going_to_customer" && (
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Location</Text>

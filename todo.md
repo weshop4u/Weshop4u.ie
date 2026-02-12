@@ -585,3 +585,10 @@
 - [x] When driver toggles back online, clear their decline/expiry history so ALL waiting jobs are eligible again
 - [x] The same declined job should be re-offered if it's still the oldest unassigned order
 - [x] FIFO force-offer must keep working for drivers toggling on/off repeatedly
+
+## Active Delivery Screen Improvements
+- [x] Add "Confirm Return" button after selecting a return reason (currently flow stops after selecting reason)
+- [x] On confirm return: return job to queue, toggle driver offline, navigate back to driver dashboard
+- [x] Fix "Back to Available Jobs" link → change to "Back to Dashboard"
+- [x] Add delivery destination section showing customer address with Navigate button
+- [x] "Keep Job" button should dismiss the return panel
