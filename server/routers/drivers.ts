@@ -725,6 +725,22 @@ export const driversRouter = router({
         .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, offer.orderId));
 
+      // Calculate estimated distance between store and delivery address
+      let estimatedDistanceKm: number | null = null;
+      const storeLat = order.stores?.latitude ? parseFloat(order.stores.latitude) : null;
+      const storeLng = order.stores?.longitude ? parseFloat(order.stores.longitude) : null;
+      const delivLat = order.orders.deliveryLatitude ? parseFloat(order.orders.deliveryLatitude) : null;
+      const delivLng = order.orders.deliveryLongitude ? parseFloat(order.orders.deliveryLongitude) : null;
+      if (storeLat && storeLng && delivLat && delivLng) {
+        // Haversine formula
+        const R = 6371; // Earth radius in km
+        const dLat = (delivLat - storeLat) * Math.PI / 180;
+        const dLng = (delivLng - storeLng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(storeLat * Math.PI / 180) * Math.cos(delivLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        estimatedDistanceKm = Math.round(R * c * 10) / 10; // 1 decimal place
+      }
+
       return {
         hasOffer: true,
         offer: {
@@ -741,6 +757,7 @@ export const driversRouter = router({
           customerNotes: order.orders.customerNotes,
           itemCount: items.length,
           items: items.map(i => ({ quantity: i.quantity, name: i.productName || "Item" })),
+          estimatedDistanceKm,
         },
       };
     }),
@@ -869,7 +886,7 @@ export const driversRouter = router({
       };
     }),
 
-  // Get driver earnings
+  // Get driver earnings with daily breakdown
   getEarnings: publicProcedure
     .input(
       z.object({
@@ -883,22 +900,71 @@ export const driversRouter = router({
         throw new Error("Database not available");
       }
 
-      // Get all completed deliveries for driver
+      // Get all completed deliveries for driver with store info
       const completedOrders = await db
-        .select()
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          deliveryFee: orders.deliveryFee,
+          total: orders.total,
+          deliveredAt: orders.deliveredAt,
+          createdAt: orders.createdAt,
+          deliveryAddress: orders.deliveryAddress,
+          storeName: stores.name,
+        })
         .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
         .where(
           and(
             eq(orders.driverId, input.driverId),
             eq(orders.status, "delivered")
           )
-        );
+        )
+        .orderBy(desc(orders.deliveredAt));
 
-      // Calculate earnings
+      // Calculate total earnings
       const totalEarnings = completedOrders.reduce(
         (sum, order) => sum + parseFloat(order.deliveryFee),
         0
       );
+
+      // Build daily breakdown for the past 7 days
+      const dailyBreakdown: { date: string; dayLabel: string; earnings: number; deliveries: number }[] = [];
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        const dayOrders = completedOrders.filter(o => {
+          const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
+          return oDate === dateStr;
+        });
+        dailyBreakdown.push({
+          date: dateStr,
+          dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : days[d.getDay()],
+          earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0),
+          deliveries: dayOrders.length,
+        });
+      }
+
+      // Today's earnings
+      const todayStr = new Date().toISOString().split("T")[0];
+      const todayOrders = completedOrders.filter(o => {
+        const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
+        return oDate === todayStr;
+      });
+      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0);
+
+      // This week's earnings
+      const weekStart = new Date();
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+      const weekOrders = completedOrders.filter(o => {
+        const oDate = o.deliveredAt ? new Date(o.deliveredAt) : null;
+        return oDate && oDate >= weekStart;
+      });
+      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0);
 
       return {
         totalEarnings,
@@ -906,11 +972,18 @@ export const driversRouter = router({
         averagePerDelivery: completedOrders.length > 0 
           ? totalEarnings / completedOrders.length 
           : 0,
-        recentDeliveries: completedOrders.slice(0, 10).map(order => ({
+        todayEarnings,
+        todayDeliveries: todayOrders.length,
+        weekEarnings,
+        weekDeliveries: weekOrders.length,
+        dailyBreakdown,
+        recentDeliveries: completedOrders.slice(0, 50).map(order => ({
           id: order.id,
           orderNumber: order.orderNumber,
           amount: parseFloat(order.deliveryFee),
           completedAt: order.deliveredAt,
+          storeName: order.storeName || "Store",
+          deliveryAddress: order.deliveryAddress,
         })),
       };
     }),

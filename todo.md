@@ -607,3 +607,21 @@
 ## Waiting Orders Count on Driver Dashboard
 - [x] Backend: add endpoint to return count of unassigned pending orders
 - [x] Frontend: show waiting orders count/badge on driver dashboard when offline
+
+## New Offer Notification Sound/Vibration
+- [x] Trigger haptic vibration (double Warning pattern) when new offer arrives
+- [x] Only trigger once per new offer (tracked via lastNotifiedOfferId ref)
+- [x] Platform-safe: skips haptics on web
+
+## Estimated Delivery Distance on Offer Card
+- [x] Backend: calculate distance between store and customer using Haversine formula on lat/lng
+- [x] Show estimated distance (km) on the offer card in a blue badge before driver accepts
+- [x] Shows store-to-customer distance (null if coordinates unavailable)
+
+## Earnings Breakdown Screen
+- [x] Rewrote earnings screen with real data from enhanced getEarnings endpoint
+- [x] 7-day bar chart showing daily earnings and delivery counts
+- [x] Today/week/all-time summary cards with real data
+- [x] Per-delivery breakdown with store name, order number, date, and amount
+- [x] Stats overview with total earnings, deliveries, and average per delivery
+- [x] Navigate back to driver dashboard

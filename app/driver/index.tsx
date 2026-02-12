@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
+import * as Haptics from "expo-haptics";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function DriverHomeScreen() {
   const [countdown, setCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastNotifiedOfferId = useRef<number | null>(null);
 
   // tRPC mutations
   const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
@@ -55,6 +57,24 @@ export default function DriverHomeScreen() {
       }
     }
   }, [user, isLoading]);
+
+  // Notify driver when a NEW offer appears (sound + vibration)
+  useEffect(() => {
+    if (offerData?.hasOffer && offerData.offer) {
+      const offerId = offerData.offer.offerId;
+      if (lastNotifiedOfferId.current !== offerId) {
+        lastNotifiedOfferId.current = offerId;
+        // Trigger haptic vibration
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          // Double vibration for urgency
+          setTimeout(() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          }, 300);
+        }
+      }
+    }
+  }, [offerData?.offer?.offerId]);
 
   // Countdown timer for offers
   useEffect(() => {
@@ -316,6 +336,13 @@ export default function DriverHomeScreen() {
                 <Text className="text-muted text-sm">
                   🏠 Deliver to: {offerData.offer.deliveryAddress}
                 </Text>
+                {offerData.offer.estimatedDistanceKm != null && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 13, color: '#1D4ED8', fontWeight: '600' }}>
+                      📏 Est. distance: {offerData.offer.estimatedDistanceKm} km
+                    </Text>
+                  </View>
+                )}
               </View>
               {offerData.offer.customerNotes && (
                 <View className="bg-warning/10 p-2 rounded mt-2">
