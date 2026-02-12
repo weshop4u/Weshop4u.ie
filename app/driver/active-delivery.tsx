@@ -225,10 +225,9 @@ export default function ActiveDeliveryScreen() {
                   <TouchableOpacity
                     onPress={handleReturnJob}
                     disabled={isReturning}
-                    className="flex-1 bg-error p-4 rounded-lg items-center active:opacity-70"
-                    style={isReturning ? { opacity: 0.5 } : undefined}
+                    style={[{ backgroundColor: '#EF4444', padding: 16, borderRadius: 8, alignItems: 'center', flex: 1 }, isReturning ? { opacity: 0.5 } : undefined]}
                   >
-                    <Text className="text-background font-bold text-base">
+                    <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
                       {isReturning ? "Returning..." : "Confirm Return"}
                     </Text>
                   </TouchableOpacity>

@@ -600,3 +600,6 @@
 
 ## Return Job Continue Button Bug (v3)
 - [x] Continue button not visible - simplified to single-step: select reason → confirm section appears inline with Keep Job + Confirm Return buttons
+
+## Confirm Return Button Invisible (v4)
+- [x] Confirm Return button text/background not visible on device - switched to explicit inline styles (#EF4444 bg, #FFFFFF text)
