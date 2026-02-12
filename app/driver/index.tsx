@@ -427,18 +427,27 @@ export default function DriverHomeScreen() {
           </View>
         )}
 
-        {/* Today's Stats */}
+        {/* Earnings Summary */}
         <View className="bg-surface p-4 rounded-lg mb-6">
-          <Text className="text-foreground font-bold text-lg mb-4">Today's Summary</Text>
+          <Text className="text-foreground font-bold text-lg mb-4">Earnings</Text>
           
-          <View className="flex-row justify-between mb-4">
+          {/* Today */}
+          <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
             <View className="flex-1">
-              <Text className="text-muted text-sm mb-1">Earnings</Text>
+              <Text className="text-muted text-sm mb-1">Today</Text>
               <Text className="text-primary font-bold text-2xl">€{todayEarnings.toFixed(2)}</Text>
             </View>
             <View className="flex-1">
               <Text className="text-muted text-sm mb-1">Deliveries</Text>
               <Text className="text-foreground font-bold text-2xl">{todayDeliveries}</Text>
+            </View>
+          </View>
+
+          {/* This Week */}
+          <View className="flex-row justify-between mb-4">
+            <View className="flex-1">
+              <Text className="text-muted text-sm mb-1">This Week</Text>
+              <Text style={{ color: '#0a7ea4' }} className="font-bold text-xl">€{weekEarnings.toFixed(2)}</Text>
             </View>
           </View>
 
@@ -459,13 +468,9 @@ export default function DriverHomeScreen() {
               <Text className="text-muted">Total Deliveries</Text>
               <Text className="text-foreground font-semibold">{totalDeliveries}</Text>
             </View>
-            <View className="flex-row justify-between py-2 border-b border-border">
+            <View className="flex-row justify-between py-2">
               <Text className="text-muted">Rating</Text>
               <Text className="text-foreground font-semibold">⭐ 4.9</Text>
-            </View>
-            <View className="flex-row justify-between py-2">
-              <Text className="text-muted">This Week</Text>
-              <Text className="text-foreground font-semibold">€{weekEarnings.toFixed(2)}</Text>
             </View>
           </View>
         </View>

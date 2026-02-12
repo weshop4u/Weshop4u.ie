@@ -674,3 +674,6 @@
 - [x] Calculate estimated delivery time based on distance (~3 min/km + prep buffer)
 - [x] Show estimated arrival time range on customer tracking screen
 - [x] Estimate updates as status progresses (accepted → preparing → picked up → on the way)
+
+## Daily Earnings on Driver Dashboard
+- [x] Show daily earnings (today) alongside weekly earnings on the driver dashboard
