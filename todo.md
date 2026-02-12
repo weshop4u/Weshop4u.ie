@@ -549,3 +549,8 @@
 - [x] Frontend: confirm dialog with reason selection (Car trouble, Personal emergency, Too far away, Other)
 - [x] Button hidden after pickup (can't return once you have the food)
 - [x] Test: accept job → return job → order status reverted to pending, driverId cleared, re-offered
+
+## Return Job - Take Driver Offline
+- [x] Change returnJob to remove driver from queue and set isOnline=false instead of moving to back
+- [x] Driver must toggle back online when ready (naturally placed at back of queue)
+- [x] Tested: accept → return → driver offline, removed from queue, 0 drivers online

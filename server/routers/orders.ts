@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
@@ -538,18 +538,17 @@ export const ordersRouter = router({
         })
         .where(eq(orders.id, input.orderId));
 
-      // Move this driver to the back of the queue
-      const maxPos = await db
-        .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
-        .from(driverQueue);
-      const nextPosition = (maxPos[0]?.maxPosition || 0) + 1;
-
+      // Take driver offline - remove from queue and set isOnline=false
       await db
-        .update(driverQueue)
-        .set({ position: nextPosition })
+        .delete(driverQueue)
         .where(eq(driverQueue.driverId, input.driverId));
 
-      console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Moved to back of queue (position ${nextPosition}).`);
+      await db
+        .update(drivers)
+        .set({ isOnline: false })
+        .where(eq(drivers.userId, input.driverId));
+
+      console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Driver taken offline.`);
 
       // Re-offer the order to the next driver in queue
       await offerOrderToQueue(input.orderId);
