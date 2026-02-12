@@ -186,6 +186,19 @@ export const driversRouter = router({
           wentOnlineAt: new Date(),
         });
 
+        // Clear decline/expiry history so ALL waiting jobs are eligible again.
+        // When a driver toggles back online, it's a fresh start — they should
+        // see the oldest waiting job even if they declined it before.
+        await db
+          .delete(orderOffers)
+          .where(
+            and(
+              eq(orderOffers.driverId, input.driverId),
+              inArray(orderOffers.status, ["declined", "expired"])
+            )
+          );
+        console.log(`[Queue] Driver ${input.driverId} went online, cleared decline/expiry history`);
+
         // Force-offer the oldest eligible unassigned order to this driver (FIFO)
         await offerOldestOrderToDriver(input.driverId);
       } else {
@@ -797,7 +810,22 @@ export const driversRouter = router({
           )
         );
 
-      // Trigger cascade to next driver
+      // Auto-toggle driver OFFLINE after declining
+      await db
+        .update(drivers)
+        .set({
+          isOnline: false,
+          isAvailable: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(drivers.userId, input.driverId));
+
+      // Remove from driver queue
+      await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
+
+      console.log(`[Decline] Driver ${input.driverId} declined offer ${input.offerId}, auto-toggled offline`);
+
+      // Trigger cascade to next driver in queue for this order
       const offer = await db
         .select()
         .from(orderOffers)
@@ -808,7 +836,7 @@ export const driversRouter = router({
         await offerToNextDriver(offer[0].orderId);
       }
 
-      return { success: true };
+      return { success: true, wentOffline: true };
     }),
 
   // Get today's return count for a driver

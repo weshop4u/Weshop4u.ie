@@ -578,3 +578,10 @@
 - [x] Orders offered in FIFO order (oldest first) regardless of when driver came online
 - [x] If driver declines, offer the NEXT oldest order they haven't declined yet
 - [x] If no eligible orders exist, show "Waiting for delivery requests" state
+
+## Decline = Auto-Offline + Re-offer on Toggle Online
+- [x] Declining a job should auto-toggle the driver offline (remove from queue)
+- [x] Frontend must update isOnline state to false after decline
+- [x] When driver toggles back online, clear their decline/expiry history so ALL waiting jobs are eligible again
+- [x] The same declined job should be re-offered if it's still the oldest unassigned order
+- [x] FIFO force-offer must keep working for drivers toggling on/off repeatedly

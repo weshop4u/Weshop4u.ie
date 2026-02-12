@@ -141,11 +141,14 @@ export default function DriverHomeScreen() {
         offerId: offerData.offer.offerId,
         driverId: user.id,
       });
-      // Refetch after a brief delay to let the backend cascade complete
-      setTimeout(() => refetchOffer(), 1000);
+
+      // Backend auto-toggles driver offline on decline.
+      // Update local state to reflect this.
+      setIsOnline(false);
     } catch (error) {
       console.error("Failed to decline offer:", error);
-      setTimeout(() => refetchOffer(), 1000);
+      // Still set offline on error since backend may have already toggled
+      setIsOnline(false);
     }
   };
 
