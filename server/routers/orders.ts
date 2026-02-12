@@ -296,23 +296,34 @@ export const ordersRouter = router({
         throw new Error("Database not available");
       }
 
-      const order = await db
+      const orderResult = await db
         .select()
         .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
         .where(eq(orders.id, input.orderId))
         .limit(1);
 
-      if (order.length === 0) {
+      if (orderResult.length === 0) {
         throw new Error("Order not found");
       }
 
       const items = await db
-        .select()
+        .select({
+          id: orderItems.id,
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          subtotal: orderItems.subtotal,
+          notes: orderItems.notes,
+          productName: products.name,
+        })
         .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, input.orderId));
 
       return {
-        ...order[0],
+        ...orderResult[0].orders,
+        store: orderResult[0].stores,
         items,
       };
     }),
@@ -460,12 +471,12 @@ export const ordersRouter = router({
         throw new Error("Database not available");
       }
 
-      // Update order with driver and change status
+      // Update order with driver assignment and timestamp
       await db
         .update(orders)
         .set({
           driverId: input.driverId,
-          status: "picked_up",
+          driverAssignedAt: new Date(),
         })
         .where(eq(orders.id, input.orderId));
 
@@ -486,8 +497,22 @@ export const ordersRouter = router({
         throw new Error("Database not available");
       }
 
-      // Update order status
-      await db.update(orders).set({ status: input.status }).where(eq(orders.id, input.orderId));
+      // Build update fields with appropriate timestamps
+      const updateFields: Record<string, any> = { status: input.status };
+      const now = new Date();
+
+      if (input.status === "accepted") {
+        updateFields.acceptedAt = now;
+      } else if (input.status === "picked_up" || input.status === "on_the_way") {
+        updateFields.pickedUpAt = now;
+      } else if (input.status === "delivered") {
+        updateFields.deliveredAt = now;
+      } else if (input.status === "cancelled") {
+        updateFields.cancelledAt = now;
+      }
+
+      // Update order status with timestamps
+      await db.update(orders).set(updateFields).where(eq(orders.id, input.orderId));
 
       // Get order details for notification
       const order = await db

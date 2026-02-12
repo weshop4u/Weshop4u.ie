@@ -347,15 +347,28 @@ export const driversRouter = router({
           )
         );
 
+      // Helper to safely parse delivery fee
+      const parseFee = (fee: string | null | undefined): number => {
+        if (!fee) return 0;
+        const parsed = parseFloat(fee);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      // Helper to get the effective delivery date (use deliveredAt, fall back to createdAt)
+      const getDeliveryDate = (order: any): Date => {
+        if (order.deliveredAt) return new Date(order.deliveredAt);
+        return new Date(order.createdAt);
+      };
+
       // Calculate today's stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayOrders = completedOrders.filter(order => {
-        const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
-        return deliveredAt && deliveredAt >= today;
+        const deliveredAt = getDeliveryDate(order);
+        return deliveredAt >= today;
       });
       const todayEarnings = todayOrders.reduce(
-        (sum, order) => sum + parseFloat(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee),
         0
       );
 
@@ -364,17 +377,17 @@ export const driversRouter = router({
       weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
       weekStart.setHours(0, 0, 0, 0);
       const weekOrders = completedOrders.filter(order => {
-        const deliveredAt = order.deliveredAt ? new Date(order.deliveredAt) : null;
-        return deliveredAt && deliveredAt >= weekStart;
+        const deliveredAt = getDeliveryDate(order);
+        return deliveredAt >= weekStart;
       });
       const weekEarnings = weekOrders.reduce(
-        (sum, order) => sum + parseFloat(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee),
         0
       );
 
       // Total stats
       const totalEarnings = completedOrders.reduce(
-        (sum, order) => sum + parseFloat(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee),
         0
       );
 

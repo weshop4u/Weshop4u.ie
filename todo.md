@@ -503,3 +503,19 @@
 - [x] Add customer notes to available jobs query (backend)
 - [x] Display customer notes in available jobs list (frontend)
 - [x] Show notes prominently so drivers can see special instructions before accepting
+
+## Customer Notes Not Showing on Active Delivery (Bug Fix)
+- [x] Root cause: active delivery screen used mock data instead of real order data
+- [x] Rewrote active delivery screen to use real order data from getById endpoint
+- [x] Customer notes now shown at TOP of active delivery screen regardless of delivery status
+- [x] Updated getById to include store info and product names for items
+- [x] Real order items, payment info, store address all now from database
+
+## Driver Stats Not Calculating Correctly (Bug Fix)
+- [x] Root cause 1: updateStatus didn't set deliveredAt timestamp when marking delivered
+- [x] Root cause 2: getStats filtered by deliveredAt which was null for old orders
+- [x] Fix: updateStatus now sets acceptedAt, pickedUpAt, deliveredAt, cancelledAt timestamps
+- [x] Fix: getStats uses createdAt as fallback when deliveredAt is null
+- [x] Fix: getStats safely handles null deliveryFee values (no NaN)
+- [x] Fix: acceptJob no longer changes status to picked_up (just assigns driver)
+- [x] Verified: API returns correct stats (8 deliveries, €28.17 total)

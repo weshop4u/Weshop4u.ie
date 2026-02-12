@@ -17,32 +17,8 @@ export default function ActiveDeliveryScreen() {
   
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
 
-  // Mock delivery data - will be replaced with real data from backend
-  const delivery = {
-    orderId: 1,
-    orderNumber: "WS4U-123456",
-    storeName: "Spar Balbriggan",
-    storeAddress: "Main Street, Balbriggan, K32 Y621",
-    storePhone: "+353 1 234 5678",
-    storeLatitude: 53.6100,
-    storeLongitude: -6.1800,
-    customerName: "John Doe",
-    customerAddress: "123 High Street, Balbriggan, K32 Y622",
-    customerPhone: "+353 87 123 4567",
-    customerLatitude: 53.6150,
-    customerLongitude: -6.1850,
-    deliveryFee: 3.90,
-    paymentMethod: "cash_on_delivery" as "card" | "cash_on_delivery",
-    total: 20.51,
-    items: [
-      { name: "Milk 2L", quantity: 2 },
-      { name: "Bread", quantity: 1 },
-      { name: "Eggs 12pk", quantity: 1 },
-    ],
-    customerNotes: "Please ring doorbell twice",
-  };
-
-  const openNavigation = (latitude: number, longitude: number, label: string) => {
+  const openNavigation = (latitude: string | null, longitude: string | null, label: string) => {
+    if (!latitude || !longitude) return;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${label}`;
     Linking.openURL(url).catch((error) => {
       console.error("Could not open navigation app:", error);
@@ -124,6 +100,22 @@ export default function ActiveDeliveryScreen() {
     );
   }
 
+  // Extract real data from order
+  const storeName = order.store?.name || "Store";
+  const storeAddress = order.store?.address || "Address unavailable";
+  const storePhone = order.store?.phone || "";
+  const storeLat = order.store?.latitude || null;
+  const storeLng = order.store?.longitude || null;
+  const customerAddress = order.deliveryAddress || "Address unavailable";
+  const customerPhone = order.guestPhone || "";
+  const customerLat = order.deliveryLatitude || null;
+  const customerLng = order.deliveryLongitude || null;
+  const deliveryFee = parseFloat(order.deliveryFee || "0");
+  const orderTotal = parseFloat(order.total || "0");
+  const paymentMethod = order.paymentMethod || "card";
+  const customerNotes = order.customerNotes || null;
+  const orderNumber = order.orderNumber || `Order #${order.id}`;
+
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
@@ -134,12 +126,13 @@ export default function ActiveDeliveryScreen() {
         >
           <Text className="text-primary text-lg">‹ Back to Available Jobs</Text>
         </TouchableOpacity>
+
         {/* Status Header */}
         <View className="bg-primary/10 border-2 border-primary p-4 rounded-lg mb-6">
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-muted text-sm mb-1">Active Delivery</Text>
-              <Text className="text-foreground font-bold text-xl">{delivery.orderNumber}</Text>
+              <Text className="text-foreground font-bold text-xl">{orderNumber}</Text>
             </View>
             <Text className="text-4xl">{status.emoji}</Text>
           </View>
@@ -148,27 +141,37 @@ export default function ActiveDeliveryScreen() {
           </View>
         </View>
 
+        {/* Customer Notes - ALWAYS visible at the top */}
+        {customerNotes && (
+          <View className="bg-warning/10 border border-warning p-4 rounded-lg mb-6">
+            <Text className="text-warning font-bold text-sm mb-1">📝 Customer Notes:</Text>
+            <Text className="text-foreground text-base">{customerNotes}</Text>
+          </View>
+        )}
+
         {/* Store Information */}
         {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">📍 Pick Up Location</Text>
             
-            <Text className="text-foreground font-semibold mb-1">{delivery.storeName}</Text>
-            <Text className="text-muted text-sm mb-3">{delivery.storeAddress}</Text>
+            <Text className="text-foreground font-semibold mb-1">{storeName}</Text>
+            <Text className="text-muted text-sm mb-3">{storeAddress}</Text>
 
             <View className="flex-row gap-2">
               <TouchableOpacity
-                onPress={() => openNavigation(delivery.storeLatitude, delivery.storeLongitude, delivery.storeName)}
+                onPress={() => openNavigation(storeLat, storeLng, storeName)}
                 className="flex-1 bg-primary p-3 rounded-lg items-center active:opacity-70"
               >
                 <Text className="text-background font-semibold">🗺️ Navigate</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => callPhone(delivery.storePhone)}
-                className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
-              >
-                <Text className="text-foreground font-semibold">📞 Call</Text>
-              </TouchableOpacity>
+              {storePhone ? (
+                <TouchableOpacity
+                  onPress={() => callPhone(storePhone)}
+                  className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+                >
+                  <Text className="text-foreground font-semibold">📞 Call</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             {deliveryStatus === "going_to_store" && (
@@ -187,29 +190,23 @@ export default function ActiveDeliveryScreen() {
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Location</Text>
             
-            <Text className="text-foreground font-semibold mb-1">{delivery.customerName}</Text>
-            <Text className="text-muted text-sm mb-3">{delivery.customerAddress}</Text>
-
-            {delivery.customerNotes && (
-              <View className="bg-warning/10 border border-warning p-3 rounded-lg mb-3">
-                <Text className="text-warning font-semibold text-sm mb-1">Customer Notes:</Text>
-                <Text className="text-foreground text-sm">{delivery.customerNotes}</Text>
-              </View>
-            )}
+            <Text className="text-muted text-sm mb-3">{customerAddress}</Text>
 
             <View className="flex-row gap-2">
               <TouchableOpacity
-                onPress={() => openNavigation(delivery.customerLatitude, delivery.customerLongitude, "Customer")}
+                onPress={() => openNavigation(customerLat, customerLng, "Customer")}
                 className="flex-1 bg-primary p-3 rounded-lg items-center active:opacity-70"
               >
                 <Text className="text-background font-semibold">🗺️ Navigate</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => callPhone(delivery.customerPhone)}
-                className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
-              >
-                <Text className="text-foreground font-semibold">📞 Call</Text>
-              </TouchableOpacity>
+              {customerPhone ? (
+                <TouchableOpacity
+                  onPress={() => callPhone(customerPhone)}
+                  className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+                >
+                  <Text className="text-foreground font-semibold">📞 Call</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             <TouchableOpacity
@@ -221,14 +218,27 @@ export default function ActiveDeliveryScreen() {
           </View>
         )}
 
+        {/* Delivery Complete Message */}
+        {deliveryStatus === "delivered" && (
+          <View className="bg-success/10 border border-success p-4 rounded-lg mb-6 items-center">
+            <Text className="text-success font-bold text-xl mb-2">🎉 Delivery Complete!</Text>
+            <Text className="text-muted text-center">Redirecting to dashboard...</Text>
+          </View>
+        )}
+
         {/* Order Items */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
-          {delivery.items.map((item, index) => (
-            <View key={index} className="flex-row justify-between py-2 border-b border-border">
-              <Text className="text-foreground">{item.quantity}x {item.name}</Text>
-            </View>
-          ))}
+          {order.items && order.items.length > 0 ? (
+            order.items.map((item: any, index: number) => (
+              <View key={index} className="flex-row justify-between py-2 border-b border-border">
+                <Text className="text-foreground">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
+                <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
+              </View>
+            ))
+          ) : (
+            <Text className="text-muted">No items available</Text>
+          )}
         </View>
 
         {/* Payment Information */}
@@ -238,22 +248,26 @@ export default function ActiveDeliveryScreen() {
           <View className="flex-row justify-between mb-2">
             <Text className="text-muted">Payment Method</Text>
             <Text className="text-foreground font-semibold">
-              {delivery.paymentMethod === "card" ? "Card (Paid)" : "Cash on Delivery"}
+              {paymentMethod === "card" ? "Card (Paid)" : "Cash on Delivery"}
             </Text>
           </View>
 
-          {delivery.paymentMethod === "cash_on_delivery" && (
+          {paymentMethod === "cash_on_delivery" && (
             <View className="bg-warning/10 border border-warning p-3 rounded-lg mt-2">
               <Text className="text-warning font-bold mb-1">💰 Collect Cash</Text>
               <Text className="text-foreground">
-                Collect <Text className="font-bold">€{delivery.total.toFixed(2)}</Text> from customer
+                Collect <Text className="font-bold">€{orderTotal.toFixed(2)}</Text> from customer
               </Text>
             </View>
           )}
 
           <View className="flex-row justify-between mt-3 pt-3 border-t border-border">
+            <Text className="text-muted">Order Total</Text>
+            <Text className="text-foreground font-semibold">€{orderTotal.toFixed(2)}</Text>
+          </View>
+          <View className="flex-row justify-between mt-2">
             <Text className="text-muted">Your Earnings</Text>
-            <Text className="text-primary font-bold text-lg">€{delivery.deliveryFee.toFixed(2)}</Text>
+            <Text className="text-primary font-bold text-lg">€{deliveryFee.toFixed(2)}</Text>
           </View>
         </View>
       </ScrollView>
