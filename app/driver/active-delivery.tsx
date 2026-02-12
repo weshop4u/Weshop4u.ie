@@ -17,11 +17,16 @@ export default function ActiveDeliveryScreen() {
   );
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
   const returnJobMutation = trpc.orders.returnJob.useMutation();
+  const { data: returnCount } = trpc.drivers.getReturnCount.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id }
+  );
   
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [isReturning, setIsReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
 
   const openNavigation = (latitude: string | null, longitude: string | null, label: string) => {
     if (!latitude || !longitude) return;
@@ -37,8 +42,16 @@ export default function ActiveDeliveryScreen() {
     });
   };
 
+  const reasonRequired = returnCount?.reasonRequired || false;
+  const returnsToday = returnCount?.returnsToday || 0;
+
   const handleReturnJob = async (reason: string) => {
     if (!orderId || !user?.id) return;
+    if (reasonRequired && !reason) {
+      setReturnError("You must select a reason (3+ returns today).");
+      return;
+    }
+    setReturnError("");
     setIsReturning(true);
     try {
       await returnJobMutation.mutateAsync({
@@ -48,7 +61,13 @@ export default function ActiveDeliveryScreen() {
       });
       // Navigate back to driver dashboard
       router.push("/driver");
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.message || "";
+      if (msg.includes("REASON_REQUIRED")) {
+        setReturnError("You must select a reason (3+ returns today).");
+      } else {
+        setReturnError("Failed to return job. Please try again.");
+      }
       console.error("Failed to return job:", error);
       setIsReturning(false);
     }
@@ -154,12 +173,29 @@ export default function ActiveDeliveryScreen() {
         {showReturnConfirm && (
           <View className="bg-error/5 border-2 border-error p-4 rounded-lg mb-6">
             <Text className="text-error font-bold text-lg mb-2">Return This Job?</Text>
-            <Text className="text-muted text-sm mb-4">
-              The order will be sent back to the queue and offered to the next available driver. You'll be moved to the back of the queue.
+            <Text className="text-muted text-sm mb-2">
+              The order will be sent back to the queue and offered to the next available driver. You will be taken offline.
             </Text>
+
+            {/* Return count warning */}
+            {returnsToday > 0 && (
+              <View className={`p-2 rounded-lg mb-3 ${returnsToday >= 3 ? "bg-error/10" : "bg-warning/10"}`}>
+                <Text className={`text-sm font-semibold ${returnsToday >= 3 ? "text-error" : "text-warning"}`}>
+                  ⚠️ You have returned {returnsToday} job{returnsToday !== 1 ? "s" : ""} today{returnsToday >= 3 ? " - reason is now required" : ""}
+                </Text>
+              </View>
+            )}
+
+            {returnError ? (
+              <View className="bg-error/10 p-2 rounded-lg mb-3">
+                <Text className="text-error text-sm font-semibold">{returnError}</Text>
+              </View>
+            ) : null}
             
             {/* Quick reason buttons */}
-            <Text className="text-foreground font-semibold text-sm mb-2">Reason (optional):</Text>
+            <Text className="text-foreground font-semibold text-sm mb-2">
+              Reason {reasonRequired ? "(required)" : "(optional)"}:
+            </Text>
             <View className="gap-2 mb-4">
               {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
                 <TouchableOpacity

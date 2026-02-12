@@ -554,3 +554,12 @@
 - [x] Change returnJob to remove driver from queue and set isOnline=false instead of moving to back
 - [x] Driver must toggle back online when ready (naturally placed at back of queue)
 - [x] Tested: accept → return → driver offline, removed from queue, 0 drivers online
+
+## Return Job Tracker & Reason Required
+- [x] Create job_returns table to log every return (driver_id, order_id, reason, returned_at)
+- [x] Add totalReturns column to drivers table for lifetime count
+- [x] Update returnJob backend to log return and increment counter
+- [x] Add getReturnCount endpoint to check today's returns for a driver
+- [x] Enforce reason required after 3+ returns in a day (backend validation with REASON_REQUIRED error)
+- [x] Update frontend: show return count warning, make reason mandatory after threshold
+- [x] Frontend shows warning badge with today's return count and error messages

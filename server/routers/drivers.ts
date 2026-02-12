@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers } from "../../drizzle/schema";
+import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns } from "../../drizzle/schema";
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
 
@@ -810,6 +810,36 @@ export const driversRouter = router({
       }
 
       return { success: true };
+    }),
+
+  // Get today's return count for a driver
+  getReturnCount: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const result = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(jobReturns)
+        .where(
+          and(
+            eq(jobReturns.driverId, input.driverId),
+            gte(jobReturns.returnedAt, todayStart)
+          )
+        );
+
+      const returnsToday = result[0]?.count || 0;
+      const reasonRequired = returnsToday >= 3;
+
+      return {
+        returnsToday,
+        reasonRequired,
+        maxFreeReturns: 3,
+      };
     }),
 
   // Get driver earnings

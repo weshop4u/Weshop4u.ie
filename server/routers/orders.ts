@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers } from "../../drizzle/schema";
-import { eq, and, desc, inArray, isNull, sql, asc } from "drizzle-orm";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns } from "../../drizzle/schema";
+import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
@@ -508,6 +508,25 @@ export const ordersRouter = router({
         throw new Error("Database not available");
       }
 
+      // Check today's return count for this driver
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayReturns = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(jobReturns)
+        .where(
+          and(
+            eq(jobReturns.driverId, input.driverId),
+            gte(jobReturns.returnedAt, todayStart)
+          )
+        );
+      const returnsToday = todayReturns[0]?.count || 0;
+
+      // After 3+ returns today, reason is required
+      if (returnsToday >= 3 && !input.reason) {
+        throw new Error("REASON_REQUIRED: You have returned 3+ jobs today. A reason is required.");
+      }
+
       // Verify the order belongs to this driver and hasn't been picked up yet
       const orderResult = await db
         .select({ status: orders.status, driverId: orders.driverId })
@@ -527,6 +546,19 @@ export const ordersRouter = router({
       if (order.status === "picked_up" || order.status === "on_the_way" || order.status === "delivered") {
         throw new Error("Cannot return a job after pickup");
       }
+
+      // Log the return in job_returns table
+      await db.insert(jobReturns).values({
+        driverId: input.driverId,
+        orderId: input.orderId,
+        reason: input.reason || null,
+      });
+
+      // Increment total_returns on driver record
+      await db
+        .update(drivers)
+        .set({ totalReturns: sql`${drivers.totalReturns} + 1` })
+        .where(eq(drivers.userId, input.driverId));
 
       // Clear driver assignment and revert status to pending
       await db
@@ -548,12 +580,12 @@ export const ordersRouter = router({
         .set({ isOnline: false })
         .where(eq(drivers.userId, input.driverId));
 
-      console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Driver taken offline.`);
+      console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Returns today: ${returnsToday + 1}. Driver taken offline.`);
 
       // Re-offer the order to the next driver in queue
       await offerOrderToQueue(input.orderId);
 
-      return { success: true };
+      return { success: true, returnsToday: returnsToday + 1 };
     }),
 
   // Update order status

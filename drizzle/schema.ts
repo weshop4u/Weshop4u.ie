@@ -198,6 +198,7 @@ export const drivers = mysqlTable(
     currentLongitude: decimal("current_longitude", { precision: 10, scale: 7 }),
     lastLocationUpdate: timestamp("last_location_update"),
     totalDeliveries: int("total_deliveries").default(0),
+    totalReturns: int("total_returns").default(0),
     rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
@@ -450,5 +451,33 @@ export const orderOffersRelations = relations(orderOffers, ({ one }) => ({
   driver: one(users, {
     fields: [orderOffers.driverId],
     references: [users.id],
+  }),
+}));
+
+// ===== JOB RETURNS =====
+export const jobReturns = mysqlTable(
+  "job_returns",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    driverId: int("driver_id").notNull(),
+    orderId: int("order_id").notNull(),
+    reason: varchar("reason", { length: 255 }),
+    returnedAt: timestamp("returned_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    driverIdIdx: index("jr_driver_id_idx").on(table.driverId),
+    orderIdIdx: index("jr_order_id_idx").on(table.orderId),
+    returnedAtIdx: index("jr_returned_at_idx").on(table.returnedAt),
+  })
+);
+
+export const jobReturnsRelations = relations(jobReturns, ({ one }) => ({
+  driver: one(users, {
+    fields: [jobReturns.driverId],
+    references: [users.id],
+  }),
+  order: one(orders, {
+    fields: [jobReturns.orderId],
+    references: [orders.id],
   }),
 }));
