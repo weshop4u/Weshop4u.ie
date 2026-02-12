@@ -133,15 +133,19 @@ export default function DriverHomeScreen() {
   const handleDeclineOffer = async () => {
     if (!offerData?.offer || !user) return;
     try {
+      // Clear countdown immediately so the card disappears
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      setCountdown(0);
+
       await declineOfferMutation.mutateAsync({
         offerId: offerData.offer.offerId,
         driverId: user.id,
       });
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      refetchOffer();
+      // Refetch after a brief delay to let the backend cascade complete
+      setTimeout(() => refetchOffer(), 1000);
     } catch (error) {
       console.error("Failed to decline offer:", error);
-      refetchOffer();
+      setTimeout(() => refetchOffer(), 1000);
     }
   };
 

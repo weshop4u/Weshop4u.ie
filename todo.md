@@ -563,3 +563,10 @@
 - [x] Enforce reason required after 3+ returns in a day (backend validation with REASON_REQUIRED error)
 - [x] Update frontend: show return count warning, make reason mandatory after threshold
 - [x] Frontend shows warning badge with today's return count and error messages
+
+## Offer Card Decline/Expiry Bugs
+- [x] Fix: decline button doesn't remove offer from screen - timer just resets
+- [x] Fix: timer counting to 0 resets to 16 instead of removing offer
+- [x] Root cause: polling re-offers same order to same driver after decline/expiry
+- [x] Backend: prevent re-offering an order to a driver who already declined/expired it
+- [x] Frontend: properly clear offer state on decline and timer expiry
