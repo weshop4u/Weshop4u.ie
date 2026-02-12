@@ -29,6 +29,12 @@ export default function DriverHomeScreen() {
     { enabled: !!user?.id && isOnline, refetchInterval: 5000 }
   );
 
+  // Waiting orders count (shows when offline to encourage going online)
+  const { data: waitingData } = trpc.drivers.waitingOrdersCount.useQuery(
+    undefined,
+    { refetchInterval: 10000 }
+  );
+
   // Current offer query (polls every 3 seconds when online)
   const { data: offerData, refetch: refetchOffer } = trpc.drivers.getCurrentOffer.useQuery(
     { driverId: user?.id! },
@@ -205,6 +211,13 @@ export default function DriverHomeScreen() {
                   ? "Ready to receive delivery requests" 
                   : "Toggle on to start receiving jobs"}
               </Text>
+              {!isOnline && (waitingData?.count ?? 0) > 0 && (
+                <View style={{ marginTop: 8, backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: '#92400E', fontWeight: '600' }}>
+                    📦 {waitingData!.count} order{waitingData!.count !== 1 ? 's' : ''} waiting for delivery
+                  </Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity
               onPress={handleToggleOnline}

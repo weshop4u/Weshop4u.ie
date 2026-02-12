@@ -603,3 +603,7 @@
 
 ## Confirm Return Button Invisible (v4)
 - [x] Confirm Return button text/background not visible on device - switched to explicit inline styles (#EF4444 bg, #FFFFFF text)
+
+## Waiting Orders Count on Driver Dashboard
+- [x] Backend: add endpoint to return count of unassigned pending orders
+- [x] Frontend: show waiting orders count/badge on driver dashboard when offline

@@ -914,4 +914,23 @@ export const driversRouter = router({
         })),
       };
     }),
+
+  // Get count of unassigned pending orders waiting for a driver
+  waitingOrdersCount: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { count: 0 };
+
+    // Count orders that are pending and have no assigned driver
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.status, "pending"),
+          isNull(orders.driverId)
+        )
+      );
+
+    return { count: Number(result[0]?.count ?? 0) };
+  }),
 });
