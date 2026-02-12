@@ -597,3 +597,6 @@
 - [x] Remove "Back to Dashboard" button on active delivery — driver must complete or return the job
 - [x] Fix return job confirm step not appearing after selecting a reason (e.g. Car trouble)
 - [x] Driver flow should be locked: Pick Up → Navigate/Deliver Complete, OR Return Job to Queue
+
+## Return Job Continue Button Bug (v3)
+- [x] Continue button not visible - simplified to single-step: select reason → confirm section appears inline with Keep Job + Confirm Return buttons

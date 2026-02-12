@@ -25,7 +25,7 @@ export default function ActiveDeliveryScreen() {
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
-  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+  // showFinalConfirm removed - simplified to single-step confirm after reason selection
   const [isReturning, setIsReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
 
@@ -185,82 +185,42 @@ export default function ActiveDeliveryScreen() {
               </View>
             ) : null}
             
-            {/* Step 1: Select a reason */}
-            {!showFinalConfirm && (
-              <>
-                <Text className="text-foreground font-semibold text-sm mb-2">
-                  Select a reason{reasonRequired ? " (required)" : " (optional)"}:
-                </Text>
-                <View className="gap-2 mb-4">
-                  {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
-                    <TouchableOpacity
-                      key={reason}
-                      onPress={() => {
-                        if (returnReason === reason) {
-                          setReturnReason("");
-                        } else {
-                          setReturnReason(reason);
-                        }
-                        setReturnError("");
-                      }}
-                      className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
-                    >
-                      <Text className={`text-sm ${returnReason === reason ? "text-error font-bold" : "text-foreground"}`}>
-                        {returnReason === reason ? "\u2713 " : ""}{reason}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            {/* Reason selection */}
+            <Text className="text-foreground font-semibold text-sm mb-2">
+              Select a reason{reasonRequired ? " (required)" : "(optional)"}:
+            </Text>
+            <View className="gap-2 mb-4">
+              {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  onPress={() => {
+                    setReturnReason(returnReason === reason ? "" : reason);
+                    setReturnError("");
+                  }}
+                  className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
+                >
+                  <Text className={`text-sm ${returnReason === reason ? "text-error font-bold" : "text-foreground"}`}>
+                    {returnReason === reason ? "\u2713 " : ""}{reason}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
+            {/* Confirm section - appears after selecting a reason */}
+            {returnReason ? (
+              <View className="bg-error/10 border border-error p-4 rounded-lg mb-4">
+                <Text className="text-error font-bold text-center text-base mb-1">
+                  Are you sure?
+                </Text>
+                <Text className="text-muted text-center text-xs mb-3">
+                  You will be taken offline. Reason: {returnReason}
+                </Text>
                 <View className="flex-row gap-3">
                   <TouchableOpacity
                     onPress={() => { setShowReturnConfirm(false); setReturnReason(""); setReturnError(""); }}
                     className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
                   >
                     <Text className="text-foreground font-semibold">Keep Job</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (reasonRequired && !returnReason) {
-                        setReturnError("You must select a reason (3+ returns today).");
-                        return;
-                      }
-                      if (!returnReason) {
-                        setReturnError("Please select a reason before continuing.");
-                        return;
-                      }
-                      setReturnError("");
-                      setShowFinalConfirm(true);
-                    }}
-                    className={`flex-1 p-3 rounded-lg items-center active:opacity-70 ${returnReason ? "bg-error" : "bg-error/40"}`}
-                  >
-                    <Text className="text-background font-bold">Continue</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {/* Step 2: Final confirmation */}
-            {showFinalConfirm && (
-              <>
-                <View className="bg-error/10 border border-error p-4 rounded-lg mb-4">
-                  <Text className="text-error font-bold text-center text-base mb-2">
-                    Are you sure you want to return this job?
-                  </Text>
-                  <Text className="text-foreground text-center text-sm mb-1">
-                    Reason: {returnReason}
-                  </Text>
-                  <Text className="text-muted text-center text-xs">
-                    You will be taken offline and the job will be offered to the next driver.
-                  </Text>
-                </View>
-
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    onPress={() => setShowFinalConfirm(false)}
-                    className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
-                  >
-                    <Text className="text-foreground font-semibold">Go Back</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={handleReturnJob}
@@ -273,7 +233,14 @@ export default function ActiveDeliveryScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => { setShowReturnConfirm(false); setReturnReason(""); setReturnError(""); }}
+                className="bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+              >
+                <Text className="text-foreground font-semibold">Keep Job</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
