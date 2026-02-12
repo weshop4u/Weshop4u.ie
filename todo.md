@@ -592,3 +592,8 @@
 - [x] Fix "Back to Available Jobs" link → change to "Back to Dashboard"
 - [x] Add delivery destination section showing customer address with Navigate button
 - [x] "Keep Job" button should dismiss the return panel
+
+## Active Delivery Flow Fixes (v2)
+- [x] Remove "Back to Dashboard" button on active delivery — driver must complete or return the job
+- [x] Fix return job confirm step not appearing after selecting a reason (e.g. Car trouble)
+- [x] Driver flow should be locked: Pick Up → Navigate/Deliver Complete, OR Return Job to Queue

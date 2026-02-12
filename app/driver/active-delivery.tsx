@@ -162,14 +162,6 @@ export default function ActiveDeliveryScreen() {
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
-        {/* Back Button */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="active:opacity-70 mb-4"
-        >
-          <Text className="text-primary text-lg">‹ Back to Dashboard</Text>
-        </TouchableOpacity>
-
         {/* Return Job Confirmation Modal */}
         {showReturnConfirm && (
           <View className="bg-error/5 border-2 border-error p-4 rounded-lg mb-6">
@@ -197,14 +189,18 @@ export default function ActiveDeliveryScreen() {
             {!showFinalConfirm && (
               <>
                 <Text className="text-foreground font-semibold text-sm mb-2">
-                  Reason {reasonRequired ? "(required)" : "(optional)"}:
+                  Select a reason{reasonRequired ? " (required)" : " (optional)"}:
                 </Text>
                 <View className="gap-2 mb-4">
                   {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
                     <TouchableOpacity
                       key={reason}
                       onPress={() => {
-                        setReturnReason(returnReason === reason ? "" : reason);
+                        if (returnReason === reason) {
+                          setReturnReason("");
+                        } else {
+                          setReturnReason(reason);
+                        }
                         setReturnError("");
                       }}
                       className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
@@ -229,9 +225,14 @@ export default function ActiveDeliveryScreen() {
                         setReturnError("You must select a reason (3+ returns today).");
                         return;
                       }
+                      if (!returnReason) {
+                        setReturnError("Please select a reason before continuing.");
+                        return;
+                      }
+                      setReturnError("");
                       setShowFinalConfirm(true);
                     }}
-                    className="flex-1 bg-error p-3 rounded-lg items-center active:opacity-70"
+                    className={`flex-1 p-3 rounded-lg items-center active:opacity-70 ${returnReason ? "bg-error" : "bg-error/40"}`}
                   >
                     <Text className="text-background font-bold">Continue</Text>
                   </TouchableOpacity>
@@ -246,8 +247,11 @@ export default function ActiveDeliveryScreen() {
                   <Text className="text-error font-bold text-center text-base mb-2">
                     Are you sure you want to return this job?
                   </Text>
-                  <Text className="text-foreground text-center text-sm">
-                    You will be taken offline.{returnReason ? ` Reason: ${returnReason}` : ""}
+                  <Text className="text-foreground text-center text-sm mb-1">
+                    Reason: {returnReason}
+                  </Text>
+                  <Text className="text-muted text-center text-xs">
+                    You will be taken offline and the job will be offered to the next driver.
                   </Text>
                 </View>
 
