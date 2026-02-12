@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, FlatList } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
@@ -46,6 +46,11 @@ export default function DriverEarningsScreen() {
           <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 36, marginBottom: 4 }}>
             €{earnings.todayEarnings.toFixed(2)}
           </Text>
+          {(earnings.todayTips || 0) > 0 && (
+            <Text style={{ color: '#0a7ea4', fontSize: 14, marginBottom: 4 }}>
+              Includes €{(earnings.todayTips || 0).toFixed(2)} in tips
+            </Text>
+          )}
           <Text className="text-muted">
             {earnings.todayDeliveries} deliver{earnings.todayDeliveries !== 1 ? 'ies' : 'y'} completed
           </Text>
@@ -58,6 +63,11 @@ export default function DriverEarningsScreen() {
             <Text className="text-foreground font-bold text-xl">
               €{earnings.weekEarnings.toFixed(2)}
             </Text>
+            {(earnings.weekTips || 0) > 0 && (
+              <Text style={{ color: '#0a7ea4', fontSize: 11, marginTop: 2 }}>
+                +€{(earnings.weekTips || 0).toFixed(2)} tips
+              </Text>
+            )}
             <Text className="text-muted text-xs mt-1">
               {earnings.weekDeliveries} deliver{earnings.weekDeliveries !== 1 ? 'ies' : 'y'}
             </Text>
@@ -68,6 +78,11 @@ export default function DriverEarningsScreen() {
             <Text className="text-foreground font-bold text-xl">
               €{earnings.totalEarnings.toFixed(2)}
             </Text>
+            {(earnings.totalTips || 0) > 0 && (
+              <Text style={{ color: '#0a7ea4', fontSize: 11, marginTop: 2 }}>
+                +€{(earnings.totalTips || 0).toFixed(2)} tips
+              </Text>
+            )}
             <Text className="text-muted text-xs mt-1">
               {earnings.totalDeliveries} deliver{earnings.totalDeliveries !== 1 ? 'ies' : 'y'}
             </Text>
@@ -78,7 +93,7 @@ export default function DriverEarningsScreen() {
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-4">Last 7 Days</Text>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 120, paddingHorizontal: 4 }}>
-            {earnings.dailyBreakdown.map((day, idx) => {
+            {earnings.dailyBreakdown.map((day) => {
               const barHeight = day.earnings > 0 ? Math.max((day.earnings / maxDailyEarnings) * 90, 8) : 4;
               const isToday = day.dayLabel === "Today";
               return (
@@ -120,6 +135,15 @@ export default function DriverEarningsScreen() {
               €{earnings.totalEarnings.toFixed(2)}
             </Text>
           </View>
+
+          {(earnings.totalTips || 0) > 0 && (
+            <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
+              <Text className="text-muted">Total Tips Received</Text>
+              <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 16 }}>
+                €{(earnings.totalTips || 0).toFixed(2)}
+              </Text>
+            </View>
+          )}
 
           <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
             <Text className="text-muted">Total Deliveries</Text>
@@ -173,9 +197,16 @@ export default function DriverEarningsScreen() {
                     </Text>
                   )}
                 </View>
-                <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>
-                  €{delivery.amount.toFixed(2)}
-                </Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>
+                    €{delivery.amount.toFixed(2)}
+                  </Text>
+                  {(delivery.tip || 0) > 0 && (
+                    <Text style={{ color: '#0a7ea4', fontSize: 12, fontWeight: '600' }}>
+                      €{(delivery.baseFee || delivery.amount).toFixed(2)} + €{delivery.tip.toFixed(2)} tip
+                    </Text>
+                  )}
+                </View>
               </View>
             ))
           )}
@@ -185,7 +216,7 @@ export default function DriverEarningsScreen() {
         <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', padding: 16, borderRadius: 12, marginBottom: 32 }}>
           <Text style={{ color: '#92400E', fontWeight: 'bold', marginBottom: 8 }}>💰 Payment Schedule</Text>
           <Text style={{ color: '#11181C', fontSize: 14 }}>
-            Earnings are paid weekly every Monday via bank transfer.
+            Earnings are paid weekly every Monday via bank transfer. Tips are included in your weekly payout.
           </Text>
         </View>
       </ScrollView>

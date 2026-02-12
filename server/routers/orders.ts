@@ -108,6 +108,7 @@ export const ordersRouter = router({
         deliveryLongitude: z.number(),
         paymentMethod: z.enum(["card", "cash_on_delivery"]),
         customerNotes: z.string().optional(),
+        tipAmount: z.number().optional(),
         allowSubstitution: z.boolean().optional(),
         // Guest order fields (required when customerId is null)
         guestName: z.string().optional(),
@@ -177,7 +178,8 @@ export const ordersRouter = router({
 
       // Calculate service fee (10% of subtotal)
       const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
-      const total = Math.round((subtotal + serviceFee + deliveryFee) * 100) / 100;
+      const tipAmount = input.paymentMethod === "card" ? (input.tipAmount || 0) : 0;
+      const total = Math.round((subtotal + serviceFee + deliveryFee + tipAmount) * 100) / 100;
 
       // Generate order number
       const orderNumber = `WS4U-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -193,6 +195,7 @@ export const ordersRouter = router({
         subtotal: subtotal.toFixed(2),
         serviceFee: serviceFee.toFixed(2),
         deliveryFee: deliveryFee.toFixed(2),
+        tipAmount: tipAmount.toFixed(2),
         total: total.toFixed(2),
         deliveryAddress: input.deliveryAddress,
         deliveryLatitude: input.deliveryLatitude.toString(),
@@ -377,6 +380,9 @@ export const ordersRouter = router({
         status: orders.status,
         total: orders.total,
         deliveryFee: orders.deliveryFee,
+        tipAmount: orders.tipAmount,
+        subtotal: orders.subtotal,
+        serviceFee: orders.serviceFee,
         deliveryAddress: orders.deliveryAddress,
         deliveryLatitude: orders.deliveryLatitude,
         deliveryLongitude: orders.deliveryLongitude,

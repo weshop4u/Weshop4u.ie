@@ -251,6 +251,7 @@ export const orders = mysqlTable(
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // 10% of subtotal
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
+    tipAmount: decimal("tip_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
     deliveryAddress: text("delivery_address").notNull(),
     deliveryLatitude: decimal("delivery_latitude", { precision: 10, scale: 7 }),

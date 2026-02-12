@@ -557,7 +557,11 @@ export const driversRouter = router({
         return deliveredAt >= today;
       });
       const todayEarnings = todayOrders.reduce(
-        (sum, order) => sum + parseFee(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
+        0
+      );
+      const todayTips = todayOrders.reduce(
+        (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
 
@@ -570,22 +574,33 @@ export const driversRouter = router({
         return deliveredAt >= weekStart;
       });
       const weekEarnings = weekOrders.reduce(
-        (sum, order) => sum + parseFee(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
+        0
+      );
+      const weekTips = weekOrders.reduce(
+        (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
 
       // Total stats
       const totalEarnings = completedOrders.reduce(
-        (sum, order) => sum + parseFee(order.deliveryFee),
+        (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
+        0
+      );
+      const totalTips = completedOrders.reduce(
+        (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
 
       return {
         todayEarnings,
+        todayTips,
         todayDeliveries: todayOrders.length,
         weekEarnings,
+        weekTips,
         weekDeliveries: weekOrders.length,
         totalEarnings,
+        totalTips,
         totalDeliveries: completedOrders.length,
       };
     }),
@@ -752,6 +767,7 @@ export const driversRouter = router({
           storeAddress: order.stores?.address || "",
           deliveryAddress: order.orders.deliveryAddress,
           deliveryFee: order.orders.deliveryFee,
+          tipAmount: order.orders.tipAmount,
           total: order.orders.total,
           paymentMethod: order.orders.paymentMethod,
           customerNotes: order.orders.customerNotes,
@@ -906,7 +922,7 @@ export const driversRouter = router({
           id: orders.id,
           orderNumber: orders.orderNumber,
           deliveryFee: orders.deliveryFee,
-          total: orders.total,
+          tipAmount: orders.tipAmount,
           deliveredAt: orders.deliveredAt,
           createdAt: orders.createdAt,
           deliveryAddress: orders.deliveryAddress,
@@ -924,7 +940,11 @@ export const driversRouter = router({
 
       // Calculate total earnings
       const totalEarnings = completedOrders.reduce(
-        (sum, order) => sum + parseFloat(order.deliveryFee),
+        (sum, order) => sum + parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
+        0
+      );
+      const totalTips = completedOrders.reduce(
+        (sum, order) => sum + parseFloat(order.tipAmount || "0"),
         0
       );
 
@@ -943,7 +963,7 @@ export const driversRouter = router({
         dailyBreakdown.push({
           date: dateStr,
           dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : days[d.getDay()],
-          earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0),
+          earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
           deliveries: dayOrders.length,
         });
       }
@@ -954,7 +974,8 @@ export const driversRouter = router({
         const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
         return oDate === todayStr;
       });
-      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0);
+      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayTips = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       // This week's earnings
       const weekStart = new Date();
@@ -964,23 +985,29 @@ export const driversRouter = router({
         const oDate = o.deliveredAt ? new Date(o.deliveredAt) : null;
         return oDate && oDate >= weekStart;
       });
-      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee), 0);
+      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekTips = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       return {
         totalEarnings,
+        totalTips,
         totalDeliveries: completedOrders.length,
         averagePerDelivery: completedOrders.length > 0 
           ? totalEarnings / completedOrders.length 
           : 0,
         todayEarnings,
+        todayTips,
         todayDeliveries: todayOrders.length,
         weekEarnings,
+        weekTips,
         weekDeliveries: weekOrders.length,
         dailyBreakdown,
         recentDeliveries: completedOrders.slice(0, 50).map(order => ({
           id: order.id,
           orderNumber: order.orderNumber,
-          amount: parseFloat(order.deliveryFee),
+          amount: parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
+          baseFee: parseFloat(order.deliveryFee),
+          tip: parseFloat(order.tipAmount || "0"),
           completedAt: order.deliveredAt,
           storeName: order.storeName || "Store",
           deliveryAddress: order.deliveryAddress,

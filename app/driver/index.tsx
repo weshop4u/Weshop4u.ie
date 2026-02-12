@@ -142,9 +142,11 @@ export default function DriverHomeScreen() {
 
   // Real stats from database
   const todayEarnings = stats?.todayEarnings || 0;
+  const todayTips = stats?.todayTips || 0;
   const todayDeliveries = stats?.todayDeliveries || 0;
   const totalDeliveries = stats?.totalDeliveries || 0;
   const weekEarnings = stats?.weekEarnings || 0;
+  const weekTips = stats?.weekTips || 0;
 
   const handleToggleOnline = async () => {
     if (!user) return;
@@ -385,6 +387,7 @@ export default function DriverHomeScreen() {
                 </Text>
                 <Text className="text-primary font-bold">
                   €{parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee
+                  {offerData.offer.tipAmount && parseFloat(offerData.offer.tipAmount) > 0 ? ` + €${parseFloat(offerData.offer.tipAmount).toFixed(2)} tip` : ''}
                 </Text>
               </View>
             </View>
@@ -436,6 +439,9 @@ export default function DriverHomeScreen() {
             <View className="flex-1">
               <Text className="text-muted text-sm mb-1">Today</Text>
               <Text className="text-primary font-bold text-2xl">€{todayEarnings.toFixed(2)}</Text>
+              {todayTips > 0 && (
+                <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{todayTips.toFixed(2)} tips</Text>
+              )}
             </View>
             <View className="flex-1">
               <Text className="text-muted text-sm mb-1">Deliveries</Text>
@@ -448,6 +454,9 @@ export default function DriverHomeScreen() {
             <View className="flex-1">
               <Text className="text-muted text-sm mb-1">This Week</Text>
               <Text style={{ color: '#0a7ea4' }} className="font-bold text-xl">€{weekEarnings.toFixed(2)}</Text>
+              {weekTips > 0 && (
+                <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{weekTips.toFixed(2)} tips</Text>
+              )}
             </View>
           </View>
 

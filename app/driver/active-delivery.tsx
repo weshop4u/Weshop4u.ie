@@ -178,6 +178,8 @@ export default function ActiveDeliveryScreen() {
   const customerLat = order.deliveryLatitude || null;
   const customerLng = order.deliveryLongitude || null;
   const deliveryFee = parseFloat(order.deliveryFee || "0");
+  const tipAmount = parseFloat(order.tipAmount || "0");
+  const totalDriverEarnings = deliveryFee + tipAmount;
   const orderTotal = parseFloat(order.total || "0");
   const paymentMethod = order.paymentMethod || "card";
   const customerNotes = order.customerNotes || null;
@@ -416,9 +418,19 @@ export default function ActiveDeliveryScreen() {
                 <Text style={{ color: '#687076', fontSize: 14 }}>Payment</Text>
                 <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, marginTop: 4 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: tipAmount > 0 ? 1 : 0, borderBottomColor: '#E5E7EB' }}>
+                <Text style={{ color: '#687076', fontSize: 14 }}>Delivery Fee</Text>
+                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>€{deliveryFee.toFixed(2)}</Text>
+              </View>
+              {tipAmount > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
+                  <Text style={{ color: '#0a7ea4', fontSize: 14, fontWeight: '600' }}>Driver Tip</Text>
+                  <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 14 }}>+€{tipAmount.toFixed(2)}</Text>
+                </View>
+              )}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
                 <Text style={{ color: '#11181C', fontWeight: 'bold', fontSize: 16 }}>Your Earnings</Text>
-                <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 20 }}>€{deliveryFee.toFixed(2)}</Text>
+                <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 20 }}>€{totalDriverEarnings.toFixed(2)}</Text>
               </View>
             </View>
 
@@ -483,9 +495,21 @@ export default function ActiveDeliveryScreen() {
             <Text className="text-foreground font-semibold">€{orderTotal.toFixed(2)}</Text>
           </View>
           <View className="flex-row justify-between mt-2">
-            <Text className="text-muted">Your Earnings</Text>
+            <Text className="text-muted">Delivery Fee</Text>
             <Text className="text-primary font-bold text-lg">€{deliveryFee.toFixed(2)}</Text>
           </View>
+          {tipAmount > 0 && (
+            <View className="flex-row justify-between mt-2">
+              <Text style={{ color: '#0a7ea4', fontWeight: '600' }}>Driver Tip</Text>
+              <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 16 }}>+€{tipAmount.toFixed(2)}</Text>
+            </View>
+          )}
+          {tipAmount > 0 && (
+            <View className="flex-row justify-between mt-2 pt-2 border-t border-border">
+              <Text className="text-foreground font-bold">Your Total Earnings</Text>
+              <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>€{totalDriverEarnings.toFixed(2)}</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </ScreenContainer>

@@ -46,6 +46,9 @@ export default function CartScreen() {
   // Guests must use card, logged-in users can choose
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [deliveryFeeCalculated, setDeliveryFeeCalculated] = useState(false);
+  const [tipAmount, setTipAmount] = useState(0);
+  const [customTip, setCustomTip] = useState("");
+  const [showCustomTip, setShowCustomTip] = useState(false);
   
   const storeIdNum = parseInt(storeId);
   const { data: store } = trpc.stores.getById.useQuery({ id: storeIdNum });
@@ -106,7 +109,8 @@ export default function CartScreen() {
   const distance = calculateDeliveryFeeMutation.data?.distance || 0;
   const deliveryLatitude = calculateDeliveryFeeMutation.data?.deliveryLatitude || 0;
   const deliveryLongitude = calculateDeliveryFeeMutation.data?.deliveryLongitude || 0;
-  const total = subtotal + serviceFee + deliveryFee;
+  const tipValue = showCustomTip ? (parseFloat(customTip) || 0) : tipAmount;
+  const total = subtotal + serviceFee + deliveryFee + (paymentMethod === "card" ? tipValue : 0);
 
   const handleCheckout = async () => {
     // Validate guest fields
@@ -151,6 +155,7 @@ export default function CartScreen() {
         deliveryLatitude,
         deliveryLongitude,
         paymentMethod,
+        tipAmount: paymentMethod === "card" ? tipValue : 0,
         customerNotes: customerNotes.trim() || undefined,
         allowSubstitution,
         // Guest order fields
@@ -411,6 +416,56 @@ export default function CartScreen() {
           )}
         </View>
 
+        {/* Driver Tip - Card Payments Only */}
+        {paymentMethod === "card" && (
+          <View className="mb-6">
+            <Text className="text-foreground font-semibold mb-2">Tip Your Driver (Optional)</Text>
+            <Text className="text-muted text-sm mb-3">100% of tips go directly to your driver</Text>
+            <View className="flex-row flex-wrap gap-2 mb-2">
+              {[0, 1, 2, 3, 5].map((amount) => (
+                <TouchableOpacity
+                  key={amount}
+                  onPress={() => { setTipAmount(amount); setShowCustomTip(false); setCustomTip(""); }}
+                  className="active:opacity-70"
+                  style={[{
+                    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
+                    borderWidth: 2,
+                    borderColor: !showCustomTip && tipAmount === amount ? '#0a7ea4' : '#E5E7EB',
+                    backgroundColor: !showCustomTip && tipAmount === amount ? '#E6F7FC' : 'transparent',
+                  }]}
+                >
+                  <Text style={{ color: !showCustomTip && tipAmount === amount ? '#0a7ea4' : '#687076', fontWeight: '600' }}>
+                    {amount === 0 ? 'No Tip' : `€${amount}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={() => { setShowCustomTip(true); setTipAmount(0); }}
+                className="active:opacity-70"
+                style={[{
+                  paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
+                  borderWidth: 2,
+                  borderColor: showCustomTip ? '#0a7ea4' : '#E5E7EB',
+                  backgroundColor: showCustomTip ? '#E6F7FC' : 'transparent',
+                }]}
+              >
+                <Text style={{ color: showCustomTip ? '#0a7ea4' : '#687076', fontWeight: '600' }}>Custom</Text>
+              </TouchableOpacity>
+            </View>
+            {showCustomTip && (
+              <TextInput
+                className="bg-surface text-foreground p-4 rounded-lg border border-border mt-2"
+                placeholder="Enter tip amount (€)"
+                placeholderTextColor="#9BA1A6"
+                value={customTip}
+                onChangeText={setCustomTip}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+              />
+            )}
+          </View>
+        )}
+
         {/* Order Summary */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Summary</Text>
@@ -425,12 +480,21 @@ export default function CartScreen() {
             <Text className="text-foreground">€{serviceFee.toFixed(2)}</Text>
           </View>
           
-          <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
+          <View className="flex-row justify-between mb-2">
             <Text className="text-muted">Delivery Fee</Text>
             <Text className="text-foreground">
               {deliveryFeeCalculated ? `€${deliveryFee.toFixed(2)}` : "Calculate above"}
             </Text>
           </View>
+          
+          {paymentMethod === "card" && tipValue > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-muted">Driver Tip</Text>
+              <Text style={{ color: '#0a7ea4', fontWeight: '600' }}>€{tipValue.toFixed(2)}</Text>
+            </View>
+          )}
+          
+          <View className="mb-3 pb-3 border-b border-border" />
           
           <View className="flex-row justify-between">
             <Text className="text-foreground font-bold text-lg">Total</Text>

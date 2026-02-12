@@ -388,6 +388,11 @@ export default function OrderHistoryScreen() {
                         </Text>
                       </View>
                     ))}
+                    {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
+                      <View style={{ marginTop: 8, backgroundColor: '#E6F7FC', padding: 8, borderRadius: 8 }}>
+                        <Text style={{ color: '#0a7ea4', fontSize: 13, fontWeight: '600' }}>Driver Tip: €{parseFloat(order.tipAmount).toFixed(2)}</Text>
+                      </View>
+                    )}
                     {order.deliveryAddress && (
                       <View style={{ marginTop: 12 }}>
                         <Text style={{ fontWeight: "600", color: "#11181C", marginBottom: 4 }}>Delivery Address:</Text>
@@ -561,6 +566,12 @@ export default function OrderHistoryScreen() {
                         <Text style={{ color: "#687076" }}>Delivery</Text>
                         <Text style={{ color: "#11181C" }}>€{parseFloat(order.deliveryFee || "0").toFixed(2)}</Text>
                       </View>
+                      {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+                          <Text style={{ color: "#0a7ea4", fontWeight: "600" }}>Driver Tip</Text>
+                          <Text style={{ color: "#0a7ea4", fontWeight: "600" }}>€{parseFloat(order.tipAmount).toFixed(2)}</Text>
+                        </View>
+                      )}
                       <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: 1, borderTopColor: "#E5E7EB", marginTop: 4, paddingTop: 8 }}>
                         <Text style={{ color: "#11181C", fontWeight: "bold" }}>Total</Text>
                         <Text style={{ color: "#11181C", fontWeight: "bold" }}>€{parseFloat(order.total).toFixed(2)}</Text>

@@ -677,3 +677,20 @@
 
 ## Daily Earnings on Driver Dashboard
 - [x] Show daily earnings (today) alongside weekly earnings on the driver dashboard
+
+## Driver Tipping (Card Payments Only)
+- [x] Add tipAmount field to orders table in database schema
+- [x] Show tip selection on checkout page only when payment method is card
+- [x] Quick-select buttons: No Tip (default), €1, €2, €3, €5, Custom
+- [x] Tip added to order total in real-time on checkout page
+- [x] Breakdown shows: Subtotal, Delivery Fee, Driver Tip, Total
+- [x] Backend: store tipAmount with order, include in total charge
+- [x] Driver earnings: show tips separately from delivery fee
+- [x] No tip option for cash orders (customer tips in person)
+- [x] No post-delivery tipping — tip is locked at checkout
+- [x] Driver offer card shows tip amount when present
+- [x] Active delivery screen shows tip breakdown in delivery summary
+- [x] Customer order history shows tip in order details
+- [x] Driver earnings page shows tip totals (today, week, all-time)
+- [x] Driver dashboard shows tip totals in earnings summary
+- [x] Unit tests for tip calculation logic (13 tests passing)
