@@ -519,3 +519,18 @@
 - [x] Fix: getStats safely handles null deliveryFee values (no NaN)
 - [x] Fix: acceptJob no longer changes status to picked_up (just assigns driver)
 - [x] Verified: API returns correct stats (8 deliveries, €28.17 total)
+
+## Driver Queue System
+- [x] Create driver_queue and order_offers tables in database
+- [x] Backend: queue management endpoints (join queue, leave queue, get position)
+- [x] Backend: order assignment logic - offer to #1 driver with 15s accept window
+- [x] Backend: cascade to next driver if current driver declines or 15s expires
+- [x] Backend: after accepting delivery, driver moves to back of queue
+- [x] Frontend: show queue position on driver dashboard ("#1 of 3 drivers online")
+- [x] Frontend: polling every 3s to check for new order offers
+- [x] Frontend: show incoming order offer with 15s countdown timer
+- [x] Frontend: auto-expire and cascade if timer reaches 0
+- [x] Update toggleOnline to add/remove driver from queue
+- [x] Fix ID mismatch: all endpoints now use userId (30001) not driver table ID (1)
+- [x] Trigger offerOrderToQueue when new order is placed
+- [x] All API endpoints tested and working correctly

@@ -5,6 +5,7 @@ import { orders, orderItems, stores, products, users } from "../../drizzle/schem
 import { eq, and, desc, inArray, isNull } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
+import { offerOrderToQueue } from "./drivers";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -274,6 +275,15 @@ export const ordersRouter = router({
           input.items.length,
           total
         );
+      }
+
+      // Trigger driver queue - offer to first available driver
+      try {
+        await offerOrderToQueue(Number(orderId));
+        console.log(`[Queue] Order ${orderId} offered to driver queue`);
+      } catch (error) {
+        console.error(`[Queue] Failed to offer order to queue:`, error);
+        // Don't fail the order if queue offering fails
       }
 
       return {

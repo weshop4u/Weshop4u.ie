@@ -396,3 +396,59 @@ export const savedAddressesRelations = relations(savedAddresses, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ===== DRIVER QUEUE =====
+export const driverQueue = mysqlTable(
+  "driver_queue",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    driverId: int("driver_id").notNull(), // This is the user ID of the driver
+    position: int("position").notNull(),
+    wentOnlineAt: timestamp("went_online_at").defaultNow().notNull(),
+    lastCompletedAt: timestamp("last_completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    driverIdIdx: index("dq_driver_id_idx").on(table.driverId),
+    positionIdx: index("dq_position_idx").on(table.position),
+  })
+);
+
+export const driverQueueRelations = relations(driverQueue, ({ one }) => ({
+  driver: one(users, {
+    fields: [driverQueue.driverId],
+    references: [users.id],
+  }),
+}));
+
+// ===== ORDER OFFERS =====
+// Tracks which driver is currently being offered an order
+export const orderOffers = mysqlTable(
+  "order_offers",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    orderId: int("order_id").notNull(),
+    driverId: int("driver_id").notNull(), // User ID of the driver being offered
+    status: mysqlEnum("status", ["pending", "accepted", "expired", "declined"]).notNull().default("pending"),
+    offeredAt: timestamp("offered_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    respondedAt: timestamp("responded_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orderIdIdx: index("oo_order_id_idx").on(table.orderId),
+    driverIdIdx: index("oo_driver_id_idx").on(table.driverId),
+    statusIdx: index("oo_status_idx").on(table.status),
+  })
+);
+
+export const orderOffersRelations = relations(orderOffers, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderOffers.orderId],
+    references: [orders.id],
+  }),
+  driver: one(users, {
+    fields: [orderOffers.driverId],
+    references: [users.id],
+  }),
+}));

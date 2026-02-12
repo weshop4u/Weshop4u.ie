@@ -1,9 +1,54 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { drivers, orders, orderItems, products, stores, users } from "../../drizzle/schema";
-import { eq, and, or, isNull } from "drizzle-orm";
+import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers } from "../../drizzle/schema";
+import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
+
+// Offer an order to the next available driver in queue
+async function offerToNextDriver(orderId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  // Get all drivers who have already been offered this order
+  const previousOffers = await db
+    .select({ driverId: orderOffers.driverId })
+    .from(orderOffers)
+    .where(eq(orderOffers.orderId, orderId));
+  const offeredDriverIds = previousOffers.map(o => o.driverId);
+
+  // Get queue ordered by position
+  const queue = await db
+    .select()
+    .from(driverQueue)
+    .orderBy(asc(driverQueue.position));
+
+  // Find next driver who hasn't been offered yet
+  const nextDriver = queue.find(q => !offeredDriverIds.includes(q.driverId));
+
+  if (!nextDriver) {
+    // No more drivers to offer to - order stays in available jobs for manual pickup
+    console.log(`[Queue] No more drivers available for order ${orderId}`);
+    return;
+  }
+
+  // Create offer with 15-second expiry
+  const expiresAt = new Date(Date.now() + 15 * 1000);
+  await db.insert(orderOffers).values({
+    orderId,
+    driverId: nextDriver.driverId,
+    status: "pending",
+    offeredAt: new Date(),
+    expiresAt,
+  });
+
+  console.log(`[Queue] Offered order ${orderId} to driver ${nextDriver.driverId} (position ${nextDriver.position}), expires at ${expiresAt.toISOString()}`);
+}
+
+// Called when a new order is placed - start the offer cascade
+export async function offerOrderToQueue(orderId: number) {
+  await offerToNextDriver(orderId);
+}
 
 export const driversRouter = router({
   // Toggle driver online/offline status
@@ -20,6 +65,7 @@ export const driversRouter = router({
         throw new Error("Database not available");
       }
 
+      // driverId here is the USER ID (not the drivers table ID)
       await db
         .update(drivers)
         .set({
@@ -27,7 +73,40 @@ export const driversRouter = router({
           isAvailable: input.isOnline, // When going online, also set available
           updatedAt: new Date(),
         })
-        .where(eq(drivers.id, input.driverId));
+        .where(eq(drivers.userId, input.driverId));
+
+      // Queue management: add or remove from queue
+      if (input.isOnline) {
+        // Get the current max position
+        const maxPos = await db
+          .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
+          .from(driverQueue);
+        const nextPosition = (maxPos[0]?.maxPosition || 0) + 1;
+
+        // Remove any existing entry first (in case of stale data)
+        await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
+
+        // Add to queue
+        await db.insert(driverQueue).values({
+          driverId: input.driverId,
+          position: nextPosition,
+          wentOnlineAt: new Date(),
+        });
+      } else {
+        // Remove from queue
+        await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
+
+        // Expire any pending offers for this driver
+        await db
+          .update(orderOffers)
+          .set({ status: "expired", respondedAt: new Date() })
+          .where(
+            and(
+              eq(orderOffers.driverId, input.driverId),
+              eq(orderOffers.status, "pending")
+            )
+          );
+      }
 
       return { success: true, isOnline: input.isOnline };
     }),
@@ -45,11 +124,12 @@ export const driversRouter = router({
         throw new Error("Database not available");
       }
 
+      // driverId here is the USER ID (not the drivers table ID)
       const driverResult = await db
         .select()
         .from(drivers)
         .leftJoin(users, eq(drivers.userId, users.id))
-        .where(eq(drivers.id, input.driverId))
+        .where(eq(drivers.userId, input.driverId))
         .limit(1);
 
       if (driverResult.length === 0) {
@@ -399,6 +479,216 @@ export const driversRouter = router({
         totalEarnings,
         totalDeliveries: completedOrders.length,
       };
+    }),
+
+  // Get queue position for a driver
+  getQueuePosition: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get all queue entries ordered by position
+      const queue = await db
+        .select()
+        .from(driverQueue)
+        .orderBy(asc(driverQueue.position));
+
+      const myEntry = queue.find(q => q.driverId === input.driverId);
+      if (!myEntry) {
+        return { inQueue: false, position: 0, totalOnline: queue.length };
+      }
+
+      // Calculate actual position (1-based)
+      const position = queue.findIndex(q => q.driverId === input.driverId) + 1;
+
+      return {
+        inQueue: true,
+        position,
+        totalOnline: queue.length,
+      };
+    }),
+
+  // Get current pending offer for a driver (polling endpoint)
+  getCurrentOffer: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const now = new Date();
+
+      // First, expire any offers that have passed their expiry time
+      const expiredOffers = await db
+        .select()
+        .from(orderOffers)
+        .where(
+          and(
+            eq(orderOffers.status, "pending"),
+            lte(orderOffers.expiresAt, now)
+          )
+        );
+
+      if (expiredOffers.length > 0) {
+        await db
+          .update(orderOffers)
+          .set({ status: "expired" })
+          .where(
+            and(
+              eq(orderOffers.status, "pending"),
+              lte(orderOffers.expiresAt, now)
+            )
+          );
+
+        // Cascade: offer expired orders to next driver in queue
+        const expiredOrderIds = [...new Set(expiredOffers.map(o => o.orderId))];
+        for (const orderId of expiredOrderIds) {
+          // Only cascade if order is still unassigned
+          const orderCheck = await db
+            .select({ driverId: orders.driverId, status: orders.status })
+            .from(orders)
+            .where(eq(orders.id, orderId))
+            .limit(1);
+          if (orderCheck.length > 0 && !orderCheck[0].driverId && orderCheck[0].status === "pending") {
+            await offerToNextDriver(orderId);
+          }
+        }
+      }
+
+      // Check for pending offer for this driver
+      const pendingOffer = await db
+        .select()
+        .from(orderOffers)
+        .where(
+          and(
+            eq(orderOffers.driverId, input.driverId),
+            eq(orderOffers.status, "pending"),
+            gte(orderOffers.expiresAt, now)
+          )
+        )
+        .limit(1);
+
+      if (pendingOffer.length === 0) {
+        return { hasOffer: false, offer: null };
+      }
+
+      // Get order details for the offer
+      const offer = pendingOffer[0];
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .where(eq(orders.id, offer.orderId))
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        return { hasOffer: false, offer: null };
+      }
+
+      const order = orderResult[0];
+      const items = await db
+        .select({ quantity: orderItems.quantity, productName: products.name })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, offer.orderId));
+
+      return {
+        hasOffer: true,
+        offer: {
+          offerId: offer.id,
+          orderId: offer.orderId,
+          expiresAt: offer.expiresAt.toISOString(),
+          orderNumber: order.orders.orderNumber,
+          storeName: order.stores?.name || "Store",
+          storeAddress: order.stores?.address || "",
+          deliveryAddress: order.orders.deliveryAddress,
+          deliveryFee: order.orders.deliveryFee,
+          total: order.orders.total,
+          paymentMethod: order.orders.paymentMethod,
+          customerNotes: order.orders.customerNotes,
+          itemCount: items.length,
+          items: items.map(i => ({ quantity: i.quantity, name: i.productName || "Item" })),
+        },
+      };
+    }),
+
+  // Accept an order offer
+  acceptOffer: publicProcedure
+    .input(z.object({ offerId: z.number(), driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get the offer
+      const offerResult = await db
+        .select()
+        .from(orderOffers)
+        .where(eq(orderOffers.id, input.offerId))
+        .limit(1);
+
+      if (offerResult.length === 0) throw new Error("Offer not found");
+      const offer = offerResult[0];
+
+      if (offer.status !== "pending") throw new Error("Offer is no longer available");
+      if (offer.driverId !== input.driverId) throw new Error("This offer is not for you");
+      if (new Date() > offer.expiresAt) throw new Error("Offer has expired");
+
+      // Accept the offer
+      await db
+        .update(orderOffers)
+        .set({ status: "accepted", respondedAt: new Date() })
+        .where(eq(orderOffers.id, input.offerId));
+
+      // Assign driver to order
+      await db
+        .update(orders)
+        .set({ driverId: input.driverId, driverAssignedAt: new Date() })
+        .where(eq(orders.id, offer.orderId));
+
+      // Move driver to back of queue
+      const maxPos = await db
+        .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
+        .from(driverQueue);
+      const newPosition = (maxPos[0]?.maxPosition || 0) + 1;
+
+      await db
+        .update(driverQueue)
+        .set({ position: newPosition, lastCompletedAt: new Date() })
+        .where(eq(driverQueue.driverId, input.driverId));
+
+      return { success: true, orderId: offer.orderId };
+    }),
+
+  // Decline an order offer
+  declineOffer: publicProcedure
+    .input(z.object({ offerId: z.number(), driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Mark offer as declined
+      await db
+        .update(orderOffers)
+        .set({ status: "declined", respondedAt: new Date() })
+        .where(
+          and(
+            eq(orderOffers.id, input.offerId),
+            eq(orderOffers.driverId, input.driverId)
+          )
+        );
+
+      // Trigger cascade to next driver
+      const offer = await db
+        .select()
+        .from(orderOffers)
+        .where(eq(orderOffers.id, input.offerId))
+        .limit(1);
+
+      if (offer.length > 0) {
+        await offerToNextDriver(offer[0].orderId);
+      }
+
+      return { success: true };
     }),
 
   // Get driver earnings

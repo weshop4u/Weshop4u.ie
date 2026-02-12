@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `order_offers` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `order_id` int NOT NULL,\n  `driver_id` int NOT NULL,\n  `status` enum('pending','accepted','expired','declined') NOT NULL DEFAULT 'pending',\n  `offered_at` timestamp NOT NULL DEFAULT (now()),\n  `expires_at` timestamp NOT NULL,\n  `responded_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `order_offers_id` PRIMARY KEY(`id`),\n  INDEX `oo_order_id_idx` (`order_id`),\n  INDEX `oo_driver_id_idx` (`driver_id`),\n  INDEX `oo_status_idx` (`status`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute CREATE TABLE IF NOT EXISTS `order_offers` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `order_id` int NOT NULL,\n  `driver_id` int NOT NULL,\n  `status` enum('pending','accepted','expired','declined') NOT NULL DEFAULT 'pending',\n  `offered_at` timestamp NOT NULL DEFAULT (now()),\n  `expires_at` timestamp NOT NULL,\n  `responded_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `order_offers_id` PRIMARY KEY(`id`),\n  INDEX `oo_order_id_idx` (`order_id`),\n  INDEX `oo_driver_id_idx` (`driver_id`),\n  INDEX `oo_status_idx` (`status`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 490
+}
