@@ -5,6 +5,99 @@ import { drivers, orders, orderItems, products, stores, users, driverQueue, orde
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
 
+// Directly offer the oldest eligible unassigned order to a specific driver.
+// This is used when a driver goes online or finishes declining — it finds the oldest
+// order that hasn't been declined/expired by this driver and doesn't have an active offer.
+async function offerOldestOrderToDriver(driverId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  // Check if driver already has a pending (non-expired) offer
+  const existingOffer = await db
+    .select({ id: orderOffers.id })
+    .from(orderOffers)
+    .where(
+      and(
+        eq(orderOffers.driverId, driverId),
+        eq(orderOffers.status, "pending"),
+        gte(orderOffers.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+  if (existingOffer.length > 0) {
+    // Driver already has an active offer, don't create another
+    return;
+  }
+
+  // Check if driver is available (online and not on a delivery)
+  const driverRecord = await db
+    .select({ isOnline: drivers.isOnline, isAvailable: drivers.isAvailable })
+    .from(drivers)
+    .where(eq(drivers.userId, driverId))
+    .limit(1);
+  if (driverRecord.length === 0 || !driverRecord[0].isOnline || !driverRecord[0].isAvailable) {
+    return;
+  }
+
+  // Get orders this driver has already declined or had expire
+  const previouslyOffered = await db
+    .select({ orderId: orderOffers.orderId })
+    .from(orderOffers)
+    .where(
+      and(
+        eq(orderOffers.driverId, driverId),
+        inArray(orderOffers.status, ["declined", "expired"])
+      )
+    );
+  const excludedOrderIds = previouslyOffered.map(o => o.orderId);
+
+  // Get all unassigned orders, oldest first
+  const unassignedOrders = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(
+      and(
+        inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
+        isNull(orders.driverId)
+      )
+    )
+    .orderBy(asc(orders.createdAt))
+    .limit(20);
+
+  // Filter out excluded orders and orders with active offers to other drivers
+  for (const order of unassignedOrders) {
+    if (excludedOrderIds.includes(order.id)) continue;
+
+    // Check if this order already has an active offer to someone else
+    const activeOffer = await db
+      .select({ id: orderOffers.id })
+      .from(orderOffers)
+      .where(
+        and(
+          eq(orderOffers.orderId, order.id),
+          eq(orderOffers.status, "pending"),
+          gte(orderOffers.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+    if (activeOffer.length > 0) continue;
+
+    // Found an eligible order — create the offer directly
+    const expiresAt = new Date(Date.now() + 15 * 1000);
+    await db.insert(orderOffers).values({
+      orderId: order.id,
+      driverId,
+      status: "pending",
+      offeredAt: new Date(),
+      expiresAt,
+    });
+    console.log(`[FIFO] Offered oldest eligible order ${order.id} to driver ${driverId}, expires at ${expiresAt.toISOString()}`);
+    return;
+  }
+
+  console.log(`[FIFO] No eligible orders for driver ${driverId}`);
+}
+
 // Offer an order to the next available driver in queue
 async function offerToNextDriver(orderId: number) {
   const db = await getDb();
@@ -93,55 +186,8 @@ export const driversRouter = router({
           wentOnlineAt: new Date(),
         });
 
-        // Check for any unassigned pending orders and offer them
-        // But EXCLUDE orders this driver has already declined or had expire on them
-        const previouslyOffered = await db
-          .select({ orderId: orderOffers.orderId })
-          .from(orderOffers)
-          .where(
-            and(
-              eq(orderOffers.driverId, input.driverId),
-              inArray(orderOffers.status, ["declined", "expired"])
-            )
-          );
-        const excludedOrderIds = previouslyOffered.map(o => o.orderId);
-
-        const pendingOrders = await db
-          .select({ id: orders.id })
-          .from(orders)
-          .where(
-            and(
-              inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
-              isNull(orders.driverId)
-            )
-          )
-          .orderBy(asc(orders.createdAt))
-          .limit(5);
-
-        // Filter out orders already declined/expired by this driver
-        const eligibleOrders = pendingOrders.filter(o => !excludedOrderIds.includes(o.id));
-
-        // For each eligible order, check if it has an active offer already
-        for (const pendingOrder of eligibleOrders) {
-          const existingOffer = await db
-            .select({ id: orderOffers.id })
-            .from(orderOffers)
-            .where(
-              and(
-                eq(orderOffers.orderId, pendingOrder.id),
-                eq(orderOffers.status, "pending"),
-                gte(orderOffers.expiresAt, new Date())
-              )
-            )
-            .limit(1);
-
-          if (existingOffer.length === 0) {
-            // No active offer for this order - create one for the new driver
-            console.log(`[Queue] Driver ${input.driverId} went online, offering eligible order ${pendingOrder.id}`);
-            await offerToNextDriver(pendingOrder.id);
-            break; // Only offer one order at a time
-          }
-        }
+        // Force-offer the oldest eligible unassigned order to this driver (FIFO)
+        await offerOldestOrderToDriver(input.driverId);
       } else {
         // Remove from queue
         await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
@@ -619,14 +665,31 @@ export const driversRouter = router({
         .limit(1);
 
       if (pendingOffer.length === 0) {
-        // No active offer for this driver.
-        // DO NOT auto-create offers here during polling.
-        // Offers are only created by:
-        //   1. offerOrderToQueue() when a new order is placed
-        //   2. offerToNextDriver() cascade when a driver declines/expires
-        //   3. toggleOnlineStatus() when a driver goes online
-        // This prevents the same order from being re-offered to a driver who already declined/expired it.
-        return { hasOffer: false, offer: null };
+        // No active offer — try to force-offer the oldest eligible order (FIFO).
+        // This uses offerOldestOrderToDriver which respects decline/expiry exclusions
+        // and won't create duplicates if driver already has an offer or is unavailable.
+        await offerOldestOrderToDriver(input.driverId);
+
+        // Re-check if an offer was just created
+        const newOffer = await db
+          .select()
+          .from(orderOffers)
+          .where(
+            and(
+              eq(orderOffers.driverId, input.driverId),
+              eq(orderOffers.status, "pending"),
+              gte(orderOffers.expiresAt, new Date())
+            )
+          )
+          .limit(1);
+
+        if (newOffer.length === 0) {
+          return { hasOffer: false, offer: null };
+        }
+
+        // Use the newly created offer
+        pendingOffer.length = 0;
+        pendingOffer.push(newOffer[0]);
       }
 
       // Get order details for the offer

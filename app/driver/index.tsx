@@ -260,12 +260,7 @@ export default function DriverHomeScreen() {
                 </View>
               )}
 
-              <TouchableOpacity
-                onPress={() => router.push("/driver/available-jobs")}
-                className="bg-primary p-3 rounded-lg items-center active:opacity-70"
-              >
-                <Text className="text-background font-bold">View Available Jobs</Text>
-              </TouchableOpacity>
+
             </View>
           )}
         </View>
@@ -411,11 +406,11 @@ export default function DriverHomeScreen() {
           <View className="bg-warning/10 border border-warning p-4 rounded-lg mb-6">
             <Text className="text-warning font-bold mb-2">💡 How It Works</Text>
             <Text className="text-foreground text-sm leading-relaxed">
-              1. Toggle "Online" to join the driver queue{"\n"}
-              2. You'll see your position (e.g., #2 of 5 drivers){"\n"}
-              3. When an order comes in, the #1 driver gets 15 seconds to accept{"\n"}
-              4. If they don't accept, it goes to #2, then #3, etc.{"\n"}
-              5. After completing a delivery, you move to the back of the queue
+              1. Toggle "Online" to start receiving delivery offers{"\n"}
+              2. Orders are offered one at a time, oldest first{"\n"}
+              3. You have 15 seconds to accept or decline each offer{"\n"}
+              4. If you decline, the next oldest order will be offered{"\n"}
+              5. After completing a delivery, you'll get the next available order
             </Text>
           </View>
         )}

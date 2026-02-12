@@ -570,3 +570,11 @@
 - [x] Root cause: polling re-offers same order to same driver after decline/expiry
 - [x] Backend: prevent re-offering an order to a driver who already declined/expired it
 - [x] Frontend: properly clear offer state on decline and timer expiry
+
+## Force-Offer FIFO System (No Cherry-Picking)
+- [x] When driver goes online, auto-offer the OLDEST unassigned order (not just show a list)
+- [x] Drivers must accept or decline the offered order — no browsing/picking from a list
+- [x] Remove or hide the "View Available Jobs" button and available-jobs screen
+- [x] Orders offered in FIFO order (oldest first) regardless of when driver came online
+- [x] If driver declines, offer the NEXT oldest order they haven't declined yet
+- [x] If no eligible orders exist, show "Waiting for delivery requests" state
