@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -58,7 +59,23 @@ export default function DriverHomeScreen() {
     }
   }, [user, isLoading]);
 
-  // Notify driver when a NEW offer appears (sound + vibration)
+  // Request notification permissions on mount
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+      Notifications.requestPermissionsAsync();
+    }
+  }, []);
+
+  // Notify driver when a NEW offer appears (haptics + local push notification)
   useEffect(() => {
     if (offerData?.hasOffer && offerData.offer) {
       const offerId = offerData.offer.offerId;
@@ -67,10 +84,19 @@ export default function DriverHomeScreen() {
         // Trigger haptic vibration
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          // Double vibration for urgency
           setTimeout(() => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           }, 300);
+          // Fire local push notification (shows even when app is backgrounded)
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: "🚗 New Delivery Offer!",
+              body: `${offerData.offer.storeName} — €${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
+              sound: true,
+              priority: Notifications.AndroidNotificationPriority.MAX,
+            },
+            trigger: null, // Fire immediately
+          });
         }
       }
     }

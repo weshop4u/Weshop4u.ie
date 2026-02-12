@@ -625,3 +625,18 @@
 - [x] Per-delivery breakdown with store name, order number, date, and amount
 - [x] Stats overview with total earnings, deliveries, and average per delivery
 - [x] Navigate back to driver dashboard
+
+## Delivery Timer on Active Delivery Screen
+- [x] Show elapsed time since driver accepted the order on the active delivery screen
+- [x] Timer counts up (MM:SS format) updating every second, turns red after 30 minutes
+- [x] Uses driverAssignedAt timestamp for accurate elapsed time
+
+## Delivery Destination on Offer Card
+- [x] Delivery address already shown on offer card (was implemented earlier)
+- [x] Also shown on active delivery screen with Preview Route button
+
+## Push Notifications for Background Order Alerts
+- [x] Local push notification fired when new offer appears (expo-notifications)
+- [x] Shows store name, delivery fee, and urgency message
+- [x] Works when app is backgrounded with sound and max priority
+- [x] Notification permissions requested on mount (native only)

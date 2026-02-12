@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,9 +25,37 @@ export default function ActiveDeliveryScreen() {
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
-  // showFinalConfirm removed - simplified to single-step confirm after reason selection
   const [isReturning, setIsReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Delivery timer - counts up from when driver accepted the order
+  useEffect(() => {
+    if (order?.driverAssignedAt) {
+      const assignedTime = new Date(order.driverAssignedAt).getTime();
+      const updateTimer = () => {
+        const now = Date.now();
+        setElapsedSeconds(Math.floor((now - assignedTime) / 1000));
+      };
+      updateTimer();
+      timerRef.current = setInterval(updateTimer, 1000);
+    } else {
+      // Fallback: start from 0 if no assigned time
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [order?.driverAssignedAt]);
+
+  const formatElapsed = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const openNavigation = (latitude: string | null, longitude: string | null, label: string) => {
     if (!latitude || !longitude) return;
@@ -251,10 +279,20 @@ export default function ActiveDeliveryScreen() {
               <Text className="text-muted text-sm mb-1">Active Delivery</Text>
               <Text className="text-foreground font-bold text-xl">{orderNumber}</Text>
             </View>
-            <Text className="text-4xl">{status.emoji}</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text className="text-4xl">{status.emoji}</Text>
+            </View>
           </View>
           <View className="mt-3 bg-background p-3 rounded-lg">
-            <Text className={`${status.color} font-bold text-center`}>{status.text}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text className={`${status.color} font-bold`}>{status.text}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ fontSize: 12, color: '#687076', marginRight: 4 }}>⏱</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: elapsedSeconds >= 1800 ? '#EF4444' : '#0a7ea4', fontVariant: ['tabular-nums'] }}>
+                  {formatElapsed(elapsedSeconds)}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
