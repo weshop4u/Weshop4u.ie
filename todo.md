@@ -541,3 +541,11 @@
 - [x] Fix: getCurrentOffer re-offers unassigned orders when no active offer exists
 - [x] Fix: ID mismatch - toggleOnlineStatus and getProfile now use userId
 - [x] Tested: toggle online → offer created, offer expires → re-offered, full details returned
+
+## Return Job Feature
+- [x] Backend: create returnJob endpoint (clear driverId, revert status, re-offer to queue)
+- [x] Backend: move returning driver to back of queue
+- [x] Frontend: add "Return Job" button on active delivery screen (only before pickup)
+- [x] Frontend: confirm dialog with reason selection (Car trouble, Personal emergency, Too far away, Other)
+- [x] Button hidden after pickup (can't return once you have the food)
+- [x] Test: accept job → return job → order status reverted to pending, driverId cleared, re-offered

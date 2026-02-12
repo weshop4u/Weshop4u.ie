@@ -3,19 +3,25 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const orderId = params.orderId ? parseInt(params.orderId as string) : null;
+  const { user } = useAuth();
   
   const { data: order, isLoading } = trpc.orders.getById.useQuery(
     { orderId: orderId! },
     { enabled: !!orderId }
   );
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
+  const returnJobMutation = trpc.orders.returnJob.useMutation();
   
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [isReturning, setIsReturning] = useState(false);
 
   const openNavigation = (latitude: string | null, longitude: string | null, label: string) => {
     if (!latitude || !longitude) return;
@@ -29,6 +35,23 @@ export default function ActiveDeliveryScreen() {
     Linking.openURL(`tel:${phone}`).catch((error) => {
       console.error("Could not make phone call:", error);
     });
+  };
+
+  const handleReturnJob = async (reason: string) => {
+    if (!orderId || !user?.id) return;
+    setIsReturning(true);
+    try {
+      await returnJobMutation.mutateAsync({
+        orderId,
+        driverId: user.id,
+        reason: reason || undefined,
+      });
+      // Navigate back to driver dashboard
+      router.push("/driver");
+    } catch (error) {
+      console.error("Failed to return job:", error);
+      setIsReturning(false);
+    }
   };
 
   const handlePickedUp = async () => {
@@ -127,6 +150,51 @@ export default function ActiveDeliveryScreen() {
           <Text className="text-primary text-lg">‹ Back to Available Jobs</Text>
         </TouchableOpacity>
 
+        {/* Return Job Confirmation Modal */}
+        {showReturnConfirm && (
+          <View className="bg-error/5 border-2 border-error p-4 rounded-lg mb-6">
+            <Text className="text-error font-bold text-lg mb-2">Return This Job?</Text>
+            <Text className="text-muted text-sm mb-4">
+              The order will be sent back to the queue and offered to the next available driver. You'll be moved to the back of the queue.
+            </Text>
+            
+            {/* Quick reason buttons */}
+            <Text className="text-foreground font-semibold text-sm mb-2">Reason (optional):</Text>
+            <View className="gap-2 mb-4">
+              {["Car trouble", "Personal emergency", "Too far away", "Other reason"].map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  onPress={() => setReturnReason(returnReason === reason ? "" : reason)}
+                  className={`p-3 rounded-lg border ${returnReason === reason ? "bg-error/10 border-error" : "bg-surface border-border"} active:opacity-70`}
+                >
+                  <Text className={`text-sm ${returnReason === reason ? "text-error font-bold" : "text-foreground"}`}>
+                    {returnReason === reason ? "✓ " : ""}{reason}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => { setShowReturnConfirm(false); setReturnReason(""); }}
+                className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
+              >
+                <Text className="text-foreground font-semibold">Keep Job</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleReturnJob(returnReason)}
+                disabled={isReturning}
+                className="flex-1 bg-error p-3 rounded-lg items-center active:opacity-70"
+                style={isReturning ? { opacity: 0.5 } : undefined}
+              >
+                <Text className="text-background font-bold">
+                  {isReturning ? "Returning..." : "Return Job"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Status Header */}
         <View className="bg-primary/10 border-2 border-primary p-4 rounded-lg mb-6">
           <View className="flex-row items-center justify-between">
@@ -224,6 +292,17 @@ export default function ActiveDeliveryScreen() {
             <Text className="text-success font-bold text-xl mb-2">🎉 Delivery Complete!</Text>
             <Text className="text-muted text-center">Redirecting to dashboard...</Text>
           </View>
+        )}
+
+        {/* Return Job Button - only visible before pickup */}
+        {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && !showReturnConfirm && (
+          <TouchableOpacity
+            onPress={() => setShowReturnConfirm(true)}
+            className="bg-surface border-2 border-error p-4 rounded-lg mb-6 items-center active:opacity-70"
+          >
+            <Text className="text-error font-bold text-base">↩ Return Job to Queue</Text>
+            <Text className="text-muted text-xs mt-1">Send this job back for another driver</Text>
+          </TouchableOpacity>
         )}
 
         {/* Order Items */}

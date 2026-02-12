@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users } from "../../drizzle/schema";
-import { eq, and, desc, inArray, isNull } from "drizzle-orm";
+import { orders, orderItems, stores, products, users, driverQueue } from "../../drizzle/schema";
+import { eq, and, desc, inArray, isNull, sql, asc } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
@@ -489,6 +489,70 @@ export const ordersRouter = router({
           driverAssignedAt: new Date(),
         })
         .where(eq(orders.id, input.orderId));
+
+      return { success: true };
+    }),
+
+  // Return job - driver sends back an accepted job before pickup
+  returnJob: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        driverId: z.number(),
+        reason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify the order belongs to this driver and hasn't been picked up yet
+      const orderResult = await db
+        .select({ status: orders.status, driverId: orders.driverId })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found");
+      }
+
+      const order = orderResult[0];
+      if (order.driverId !== input.driverId) {
+        throw new Error("This order is not assigned to you");
+      }
+
+      if (order.status === "picked_up" || order.status === "on_the_way" || order.status === "delivered") {
+        throw new Error("Cannot return a job after pickup");
+      }
+
+      // Clear driver assignment and revert status to pending
+      await db
+        .update(orders)
+        .set({
+          driverId: null,
+          driverAssignedAt: null,
+          status: "pending",
+        })
+        .where(eq(orders.id, input.orderId));
+
+      // Move this driver to the back of the queue
+      const maxPos = await db
+        .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
+        .from(driverQueue);
+      const nextPosition = (maxPos[0]?.maxPosition || 0) + 1;
+
+      await db
+        .update(driverQueue)
+        .set({ position: nextPosition })
+        .where(eq(driverQueue.driverId, input.driverId));
+
+      console.log(`[Queue] Driver ${input.driverId} returned order ${input.orderId}${input.reason ? ` (reason: ${input.reason})` : ""}. Moved to back of queue (position ${nextPosition}).`);
+
+      // Re-offer the order to the next driver in queue
+      await offerOrderToQueue(input.orderId);
 
       return { success: true };
     }),
