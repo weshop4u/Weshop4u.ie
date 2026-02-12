@@ -640,3 +640,22 @@
 - [x] Shows store name, delivery fee, and urgency message
 - [x] Works when app is backgrounded with sound and max priority
 - [x] Notification permissions requested on mount (native only)
+
+## Delivery Summary Screen
+- [x] Show a summary screen after driver completes delivery (inline on active-delivery page)
+- [x] Display: earnings for this delivery, time taken, order number, store name
+- [x] "Great job!" congratulatory message with confetti emoji
+- [x] Button to return to dashboard (auto-offline)
+
+## Real-Time Order Tracking for Customers
+- [x] Customer order screen shows real-time status updates (polling every 5s)
+- [x] Status timeline with timestamps: Placed → Accepted → Preparing → Ready → Picked Up → On The Way → Delivered
+- [x] Show driver name when assigned in blue info card
+- [x] Separate active orders (with tracking) from past orders
+
+## Driver Rating System
+- [x] Backend: created driver_ratings table and rateDriver endpoint
+- [x] Customer UI: "Rate Your Driver" prompt on delivered orders with star rating and optional comment
+- [x] Star rating selector (1-5 stars) with optional comment field
+- [x] Backend: recalculates driver's average rating after each new rating
+- [x] Prevents duplicate ratings per order

@@ -125,10 +125,6 @@ export default function ActiveDeliveryScreen() {
         status: "delivered",
       });
       setDeliveryStatus("delivered");
-      // Navigate back to driver dashboard
-      setTimeout(() => {
-        router.push("/driver");
-      }, 1000);
     } catch (error) {
       console.error("Failed to update order status:", error);
     }
@@ -390,11 +386,49 @@ export default function ActiveDeliveryScreen() {
           </View>
         )}
 
-        {/* Delivery Complete Message */}
+        {/* Delivery Summary */}
         {deliveryStatus === "delivered" && (
-          <View className="bg-success/10 border border-success p-4 rounded-lg mb-6 items-center">
-            <Text className="text-success font-bold text-xl mb-2">🎉 Delivery Complete!</Text>
-            <Text className="text-muted text-center">Redirecting to dashboard...</Text>
+          <View className="mb-6">
+            {/* Congratulations */}
+            <View style={{ backgroundColor: '#F0FDF4', borderWidth: 2, borderColor: '#22C55E', borderRadius: 12, padding: 24, alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 48, marginBottom: 8 }}>🎉</Text>
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#16A34A', marginBottom: 4 }}>Great Job!</Text>
+              <Text style={{ fontSize: 14, color: '#687076', textAlign: 'center' }}>Delivery completed successfully</Text>
+            </View>
+
+            {/* Summary Card */}
+            <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#11181C', marginBottom: 12 }}>Delivery Summary</Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                <Text style={{ color: '#687076', fontSize: 14 }}>Order</Text>
+                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{orderNumber}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                <Text style={{ color: '#687076', fontSize: 14 }}>Store</Text>
+                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{storeName}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                <Text style={{ color: '#687076', fontSize: 14 }}>Time Taken</Text>
+                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{formatElapsed(elapsedSeconds)}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+                <Text style={{ color: '#687076', fontSize: 14 }}>Payment</Text>
+                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, marginTop: 4 }}>
+                <Text style={{ color: '#11181C', fontWeight: 'bold', fontSize: 16 }}>Your Earnings</Text>
+                <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 20 }}>€{deliveryFee.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            {/* Back to Dashboard Button */}
+            <TouchableOpacity
+              onPress={() => router.replace("/driver")}
+              style={{ backgroundColor: '#0a7ea4', padding: 16, borderRadius: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Back to Dashboard</Text>
+            </TouchableOpacity>
           </View>
         )}
 

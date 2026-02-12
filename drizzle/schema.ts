@@ -481,3 +481,37 @@ export const jobReturnsRelations = relations(jobReturns, ({ one }) => ({
     references: [orders.id],
   }),
 }));
+
+// ===== DRIVER RATINGS =====
+export const driverRatings = mysqlTable(
+  "driver_ratings",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    orderId: int("order_id").notNull().unique(), // One rating per order
+    driverId: int("driver_id").notNull(), // User ID of the driver
+    customerId: int("customer_id").notNull(), // User ID of the customer
+    rating: int("rating").notNull(), // 1-5 stars
+    comment: text("comment"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orderIdIdx: index("dr_order_id_idx").on(table.orderId),
+    driverIdIdx: index("dr_driver_id_idx").on(table.driverId),
+    customerIdIdx: index("dr_customer_id_idx").on(table.customerId),
+  })
+);
+
+export const driverRatingsRelations = relations(driverRatings, ({ one }) => ({
+  order: one(orders, {
+    fields: [driverRatings.orderId],
+    references: [orders.id],
+  }),
+  driver: one(users, {
+    fields: [driverRatings.driverId],
+    references: [users.id],
+  }),
+  customer: one(users, {
+    fields: [driverRatings.customerId],
+    references: [users.id],
+  }),
+}));

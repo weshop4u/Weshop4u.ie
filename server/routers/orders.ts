@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
@@ -373,6 +373,7 @@ export const ordersRouter = router({
         orderNumber: orders.orderNumber,
         customerId: orders.customerId,
         storeId: orders.storeId,
+        driverId: orders.driverId,
         status: orders.status,
         total: orders.total,
         deliveryFee: orders.deliveryFee,
@@ -382,10 +383,17 @@ export const ordersRouter = router({
         paymentMethod: orders.paymentMethod,
         customerNotes: orders.customerNotes,
         createdAt: orders.createdAt,
+        acceptedAt: orders.acceptedAt,
+        driverAssignedAt: orders.driverAssignedAt,
+        pickedUpAt: orders.pickedUpAt,
+        deliveredAt: orders.deliveredAt,
         storeName: stores.name,
+        driverName: users.name,
       })
       .from(orders)
       .leftJoin(stores, eq(orders.storeId, stores.id))
+      .leftJoin(drivers, eq(orders.driverId, drivers.id))
+      .leftJoin(users, eq(drivers.userId, users.id))
       .where(eq(orders.customerId, userId))
       .orderBy(desc(orders.createdAt));
 
@@ -405,9 +413,22 @@ export const ordersRouter = router({
           .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, order.id));
 
+        // Check if there's a rating for this order
+        let orderRating = null;
+        if (order.status === "delivered" && order.driverId) {
+          const [existingRating] = await db
+            .select({ id: driverRatings.id, rating: driverRatings.rating })
+            .from(driverRatings)
+            .where(eq(driverRatings.orderId, order.id))
+            .limit(1);
+          orderRating = existingRating || null;
+        }
+
         return {
           ...order,
           store: { name: order.storeName },
+          driver: order.driverName ? { name: order.driverName } : null,
+          hasRating: !!orderRating,
           items: items.map((item) => ({
             id: item.id,
             orderId: item.orderId,
@@ -720,5 +741,70 @@ export const ordersRouter = router({
       }
 
       return { success: true };
+    }),
+
+  // Rate a driver after delivery
+  rateDriver: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        rating: z.number().min(1).max(5),
+        comment: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const userId = ctx.user?.id || 1;
+
+      // Get the order to find the driver
+      const [order] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (!order) throw new Error("Order not found");
+      if (order.status !== "delivered") throw new Error("Order not yet delivered");
+      if (!order.driverId) throw new Error("No driver assigned to this order");
+
+      // Check if already rated
+      const [existing] = await db
+        .select()
+        .from(driverRatings)
+        .where(eq(driverRatings.orderId, input.orderId))
+        .limit(1);
+
+      if (existing) throw new Error("Already rated this delivery");
+
+      // Insert the rating
+      await db.insert(driverRatings).values({
+        orderId: input.orderId,
+        driverId: order.driverId,
+        customerId: userId,
+        rating: input.rating,
+        comment: input.comment || null,
+      });
+
+      // Recalculate the driver's average rating
+      const allRatings = await db
+        .select({ rating: driverRatings.rating })
+        .from(driverRatings)
+        .where(eq(driverRatings.driverId, order.driverId));
+
+      const avgRating = allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length;
+
+      // Update driver's rating
+      await db
+        .update(drivers)
+        .set({ rating: avgRating.toFixed(2) })
+        .where(eq(drivers.userId, order.driverId));
+
+      console.log(`[Rating] Driver ${order.driverId} rated ${input.rating}/5 for order ${input.orderId}. New avg: ${avgRating.toFixed(2)}`);
+
+      return { success: true, averageRating: parseFloat(avgRating.toFixed(2)) };
     }),
 });
