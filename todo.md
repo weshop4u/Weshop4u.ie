@@ -534,3 +534,10 @@
 - [x] Fix ID mismatch: all endpoints now use userId (30001) not driver table ID (1)
 - [x] Trigger offerOrderToQueue when new order is placed
 - [x] All API endpoints tested and working correctly
+
+## Driver Offer System Bugs
+- [x] Fix: offers not showing to driver when order is placed while driver is online
+- [x] Fix: when driver goes online, offer any existing unassigned pending orders
+- [x] Fix: getCurrentOffer re-offers unassigned orders when no active offer exists
+- [x] Fix: ID mismatch - toggleOnlineStatus and getProfile now use userId
+- [x] Tested: toggle online → offer created, offer expires → re-offered, full details returned

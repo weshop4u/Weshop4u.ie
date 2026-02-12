@@ -92,6 +92,41 @@ export const driversRouter = router({
           position: nextPosition,
           wentOnlineAt: new Date(),
         });
+
+        // Check for any unassigned pending orders and offer them
+        const pendingOrders = await db
+          .select({ id: orders.id })
+          .from(orders)
+          .where(
+            and(
+              inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
+              isNull(orders.driverId)
+            )
+          )
+          .orderBy(asc(orders.createdAt))
+          .limit(5);
+
+        // For each pending order, check if it has an active offer already
+        for (const pendingOrder of pendingOrders) {
+          const existingOffer = await db
+            .select({ id: orderOffers.id })
+            .from(orderOffers)
+            .where(
+              and(
+                eq(orderOffers.orderId, pendingOrder.id),
+                eq(orderOffers.status, "pending"),
+                gte(orderOffers.expiresAt, new Date())
+              )
+            )
+            .limit(1);
+
+          if (existingOffer.length === 0) {
+            // No active offer for this order - create one for the new driver
+            console.log(`[Queue] Driver ${input.driverId} went online, offering pending order ${pendingOrder.id}`);
+            await offerToNextDriver(pendingOrder.id);
+            break; // Only offer one order at a time
+          }
+        }
       } else {
         // Remove from queue
         await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
@@ -569,6 +604,92 @@ export const driversRouter = router({
         .limit(1);
 
       if (pendingOffer.length === 0) {
+        // No active offer - check if there are unassigned orders that need a driver
+        // This handles the case where all previous offers expired
+        const unassignedOrders = await db
+          .select({ id: orders.id })
+          .from(orders)
+          .where(
+            and(
+              inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
+              isNull(orders.driverId)
+            )
+          )
+          .orderBy(asc(orders.createdAt))
+          .limit(1);
+
+        if (unassignedOrders.length > 0) {
+          // Check if this driver is in the queue
+          const inQueue = await db
+            .select()
+            .from(driverQueue)
+            .where(eq(driverQueue.driverId, input.driverId))
+            .limit(1);
+
+          if (inQueue.length > 0) {
+            // Create a fresh offer for this driver
+            const expiresAt = new Date(Date.now() + 15 * 1000);
+            await db.insert(orderOffers).values({
+              orderId: unassignedOrders[0].id,
+              driverId: input.driverId,
+              status: "pending",
+              offeredAt: new Date(),
+              expiresAt,
+            });
+            console.log(`[Queue] Re-offered order ${unassignedOrders[0].id} to driver ${input.driverId} during polling`);
+
+            // Now fetch and return this new offer
+            const newOffer = await db
+              .select()
+              .from(orderOffers)
+              .where(
+                and(
+                  eq(orderOffers.driverId, input.driverId),
+                  eq(orderOffers.status, "pending"),
+                  gte(orderOffers.expiresAt, new Date())
+                )
+              )
+              .limit(1);
+
+            if (newOffer.length > 0) {
+              const offer = newOffer[0];
+              const orderResult = await db
+                .select()
+                .from(orders)
+                .leftJoin(stores, eq(orders.storeId, stores.id))
+                .where(eq(orders.id, offer.orderId))
+                .limit(1);
+
+              if (orderResult.length > 0) {
+                const order = orderResult[0];
+                const items = await db
+                  .select({ quantity: orderItems.quantity, productName: products.name })
+                  .from(orderItems)
+                  .leftJoin(products, eq(orderItems.productId, products.id))
+                  .where(eq(orderItems.orderId, offer.orderId));
+
+                return {
+                  hasOffer: true,
+                  offer: {
+                    offerId: offer.id,
+                    orderId: offer.orderId,
+                    expiresAt: offer.expiresAt.toISOString(),
+                    orderNumber: order.orders.orderNumber,
+                    storeName: order.stores?.name || "Store",
+                    storeAddress: order.stores?.address || "",
+                    deliveryAddress: order.orders.deliveryAddress,
+                    deliveryFee: order.orders.deliveryFee,
+                    total: order.orders.total,
+                    paymentMethod: order.orders.paymentMethod,
+                    customerNotes: order.orders.customerNotes,
+                    itemCount: items.length,
+                    items: items.map(i => ({ quantity: i.quantity, name: i.productName || "Item" })),
+                  },
+                };
+              }
+            }
+          }
+        }
         return { hasOffer: false, offer: null };
       }
 
