@@ -659,3 +659,18 @@
 - [x] Star rating selector (1-5 stars) with optional comment field
 - [x] Backend: recalculates driver's average rating after each new rating
 - [x] Prevents duplicate ratings per order
+
+## Privacy: Remove Driver Info from Customer Tracking
+- [x] Remove driver name from customer order tracking screen
+- [x] Remove any driver vehicle/personal info from customer-facing screens
+- [x] Keep "Rate Your Driver" feature available after delivery (anonymous rating)
+
+## Customer Push Notifications for Status Changes
+- [x] Send local push notification when order status changes (accepted, preparing, picked up, on the way, delivered)
+- [x] Notifications work when app is backgrounded via expo-notifications
+- [x] Show relevant message for each status with store name
+
+## Estimated Delivery Time on Customer Tracking
+- [x] Calculate estimated delivery time based on distance (~3 min/km + prep buffer)
+- [x] Show estimated arrival time range on customer tracking screen
+- [x] Estimate updates as status progresses (accepted → preparing → picked up → on the way)

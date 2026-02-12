@@ -1,9 +1,45 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
+import * as Notifications from "expo-notifications";
+
+// Estimate delivery time based on status and distance
+function getEstimatedTime(order: any): string | null {
+  const status = order.status;
+  // Only show estimate for active in-transit statuses
+  if (["delivered", "cancelled", "pending"].includes(status)) return null;
+  
+  // Base estimate: ~3 min per km for driving + prep time
+  const distanceKm = order.estimatedDistance ? parseFloat(order.estimatedDistance) : 3;
+  const drivingMinutes = Math.ceil(distanceKm * 3); // ~3 min/km in town
+  
+  switch (status) {
+    case "accepted":
+      return `~${drivingMinutes + 15}-${drivingMinutes + 25} min`; // prep + drive
+    case "preparing":
+      return `~${drivingMinutes + 10}-${drivingMinutes + 20} min`; // finishing prep + drive
+    case "ready_for_pickup":
+      return `~${drivingMinutes + 5}-${drivingMinutes + 15} min`; // waiting for driver + drive
+    case "picked_up":
+    case "on_the_way":
+      return `~${drivingMinutes}-${drivingMinutes + 10} min`; // driving only
+    default:
+      return null;
+  }
+}
+
+// Status change notification messages
+const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
+  accepted: { title: "Order Accepted! ✅", body: "The store has accepted your order and will start preparing it soon." },
+  preparing: { title: "Being Prepared 👨‍🍳", body: "Your order is now being prepared at the store." },
+  ready_for_pickup: { title: "Ready for Pickup 📦", body: "Your order is ready and waiting for a driver." },
+  picked_up: { title: "Order Picked Up! 🚗", body: "A driver has picked up your order from the store." },
+  on_the_way: { title: "On The Way! 🛣️", body: "Your order is on its way to you!" },
+  delivered: { title: "Delivered! 🎉", body: "Your order has been delivered. Enjoy!" },
+};
 
 const STATUS_STEPS = [
   { key: "pending", label: "Order Placed", icon: "📋" },
@@ -163,10 +199,51 @@ export default function OrderHistoryScreen() {
   const [ratingSubmitted, setRatingSubmitted] = useState<Set<number>>(new Set());
   const { clearCart, addToCart } = useCart();
 
+  // Track last known statuses for notification triggers
+  const lastStatusesRef = useRef<Record<number, string>>({});
+
+  // Request notification permissions on mount
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      Notifications.requestPermissionsAsync();
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  }, []);
+
   // Fetch user's orders with auto-refresh for active orders
   const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
     refetchInterval: 5000, // Poll every 5 seconds for real-time tracking
   });
+
+  // Send local notification when order status changes
+  useEffect(() => {
+    if (!orders || Platform.OS === "web") return;
+    const prevStatuses = lastStatusesRef.current;
+    for (const order of orders) {
+      const prevStatus = prevStatuses[order.id];
+      if (prevStatus && prevStatus !== order.status && STATUS_MESSAGES[order.status]) {
+        const msg = STATUS_MESSAGES[order.status];
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: msg.title,
+            body: `${order.store?.name || "Store"} - ${msg.body}`,
+            sound: true,
+          },
+          trigger: null, // Immediate
+        });
+      }
+      prevStatuses[order.id] = order.status;
+    }
+    lastStatusesRef.current = prevStatuses;
+  }, [orders]);
 
   const rateDriverMutation = trpc.orders.rateDriver.useMutation({
     onSuccess: (_, variables) => {
@@ -260,11 +337,26 @@ export default function OrderHistoryScreen() {
                     </View>
                   </View>
 
-                  {/* Driver Info */}
-                  {order.driver?.name && (
+                  {/* Estimated delivery time */}
+                  {getEstimatedTime(order) && (
+                    <View style={{ backgroundColor: "#FFF7ED", padding: 12, borderRadius: 8, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={{ fontSize: 20 }}>⏱️</Text>
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: "bold", color: "#D97706" }}>
+                          Estimated arrival: {getEstimatedTime(order)}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "#92400E", marginTop: 2 }}>
+                          {order.driverId ? "Driver is on the job" : "Waiting for driver assignment"}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Driver assigned indicator (no personal info) */}
+                  {order.driverId && !getEstimatedTime(order) && (
                     <View style={{ backgroundColor: "#E0F2FE", padding: 10, borderRadius: 8, marginBottom: 12 }}>
                       <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600" }}>
-                        🚗 Driver: {order.driver.name}
+                        🚗 A driver has been assigned to your order
                       </Text>
                     </View>
                   )}
@@ -367,7 +459,7 @@ export default function OrderHistoryScreen() {
                       {ratingOrderId === order.id ? (
                         <View>
                           <Text style={{ fontSize: 14, fontWeight: "bold", color: "#11181C", marginBottom: 8, textAlign: "center" }}>
-                            Rate your delivery{order.driver?.name ? ` with ${order.driver.name}` : ""}
+                            How was your delivery experience?
                           </Text>
                           <StarRating rating={selectedRating} onRate={setSelectedRating} />
                           <TextInput
@@ -482,11 +574,7 @@ export default function OrderHistoryScreen() {
                       </View>
                     )}
 
-                    {order.driver?.name && (
-                      <View style={{ marginTop: 8 }}>
-                        <Text style={{ color: "#687076", fontSize: 13 }}>Driver: {order.driver.name}</Text>
-                      </View>
-                    )}
+
 
                     {/* Reorder Button */}
                     {order.status === "delivered" && (
