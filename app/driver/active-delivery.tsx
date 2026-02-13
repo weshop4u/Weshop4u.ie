@@ -428,7 +428,9 @@ export default function ActiveDeliveryScreen() {
             {deliveryStatus === "going_to_store" && (
               <TouchableOpacity
                 onPress={handleArrivedAtStore}
+                disabled={notifyAtStoreMutation.isPending}
                 style={[{ backgroundColor: '#F59E0B', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 12 }, notifyAtStoreMutation.isPending ? { opacity: 0.5 } : undefined]}
+                activeOpacity={0.7}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
                   {notifyAtStoreMutation.isPending ? "Notifying..." : "🏪 I've Arrived at Store"}

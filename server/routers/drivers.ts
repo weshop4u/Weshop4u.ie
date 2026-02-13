@@ -467,6 +467,7 @@ export const driversRouter = router({
           and(
             eq(orders.driverId, input.driverId),
             or(
+              eq(orders.status, "ready_for_pickup"),
               eq(orders.status, "picked_up"),
               eq(orders.status, "on_the_way")
             )
