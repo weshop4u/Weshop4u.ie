@@ -955,3 +955,9 @@
 - [x] Fixed: replaced with style={{ flex: 1 }} + contentContainerStyle={{ padding: 16 }}
 - [x] Removed flexGrow: 1 from contentContainerStyle which was stretching empty space
 - [x] Empty state view uses inline style for reliable centering
+
+## Bug: Driver "I've Arrived at Store" button not working
+- [ ] Investigate why button press doesn't trigger any action
+- [ ] Check backend endpoint drivers.notifyDriverAtStore
+- [ ] Check frontend button handler in active-delivery screen
+- [ ] Test fix on Expo Go

@@ -167,16 +167,26 @@ export default function ActiveDeliveryScreen() {
   };
 
   const handleArrivedAtStore = async () => {
-    if (!orderId || !user?.id) return;
+    console.log("[Driver] handleArrivedAtStore called", { orderId, userId: user?.id });
+    if (!orderId || !user?.id) {
+      console.log("[Driver] Missing orderId or userId, aborting");
+      return;
+    }
     
     try {
-      await notifyAtStoreMutation.mutateAsync({
+      console.log("[Driver] Calling notifyAtStoreMutation...");
+      const result = await notifyAtStoreMutation.mutateAsync({
         orderId,
         driverId: user.id,
       });
+      console.log("[Driver] notifyAtStoreMutation success:", result);
       setDeliveryStatus("at_store");
     } catch (error) {
-      console.error("Failed to notify arrived at store:", error);
+      console.error("[Driver] Failed to notify arrived at store:", error);
+      // Show error to user
+      if (Platform.OS === "web") {
+        alert("Failed to notify. Please try again.");
+      }
     }
   };
 
