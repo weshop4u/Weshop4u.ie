@@ -790,3 +790,13 @@
 - [x] Added confirmation dialogs before status changes
 - [x] Added push notification listener for new order alerts
 - [x] Added pull-to-refresh and auto-refresh every 5 seconds
+
+## Bug Fix: Store Dashboard Workflow Not Completing
+- [x] Root cause: store/index.tsx was calling trpc.orders.updateStatus (doesn't exist) instead of trpc.store.acceptOrder/markOrderReady
+- [x] Rewrote store/index.tsx to use correct store router endpoints with storeId parameter
+- [x] Accept button now calls trpc.store.acceptOrder → moves order to Preparing tab
+- [x] Mark Ready button now calls trpc.store.markOrderReady → moves order to Ready for Pickup
+- [x] Preparing tab now shows orders correctly (uses store.getOrders with storeId)
+- [x] Rewrote deli.tsx to use real backend data from trpc.store.getDeliOrders
+- [x] Deli view now shows real orders with deli items, individual and bulk mark-ready buttons
+- [x] Added confirmation dialogs, haptic feedback, pull-to-refresh, and auto-refresh to both views

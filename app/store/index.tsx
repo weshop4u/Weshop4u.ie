@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
@@ -19,25 +19,53 @@ export default function StoreDashboardScreen() {
   const prevPendingIdsRef = useRef<Set<number>>(new Set());
   const isFirstLoadRef = useRef(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [storeId, setStoreId] = useState<number | null>(null);
 
-  // Get orders for the store
-  const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(
-    undefined,
-    { enabled: !!user, refetchInterval: 5000 }
+  // Get the store ID for this staff member from the user's store link
+  const { data: storeStaffInfo } = trpc.auth.me.useQuery(undefined, {
+    enabled: !!user && user.role === "store_staff",
+    select: (data: any) => data,
+  });
+
+  // Use store.getOrders with the correct storeId instead of orders.getUserOrders
+  // First we need to determine the storeId - get it from the first order or from user profile
+  const { data: storeOrders, isLoading, refetch } = trpc.store.getOrders.useQuery(
+    { storeId: storeId || 1, status: "all" },
+    { enabled: !!user && storeId !== null, refetchInterval: 5000 }
   );
 
-  const updateStatusMutation = trpc.orders.updateStatus.useMutation();
+  // Get store info to display name
+  const { data: storeInfo } = trpc.stores.getById.useQuery(
+    { id: storeId || 1 },
+    { enabled: storeId !== null }
+  );
 
-  // Listen for push notifications (new order alerts from server)
+  // Use the correct store router mutations
+  const acceptOrderMutation = trpc.store.acceptOrder.useMutation();
+  const markReadyMutation = trpc.store.markOrderReady.useMutation();
+
+  // Determine storeId from user's store_staff link
+  // We'll use getUserOrders which now returns store orders for store_staff
+  const { data: userOrders } = trpc.orders.getUserOrders.useQuery(undefined, {
+    enabled: !!user && user.role === "store_staff" && storeId === null,
+  });
+
+  // Extract storeId from the first order or default to 1
+  useEffect(() => {
+    if (userOrders && userOrders.length > 0 && storeId === null) {
+      setStoreId(userOrders[0].storeId);
+    } else if (user && user.role === "store_staff" && storeId === null) {
+      // Default to store 1 if no orders found yet - will be updated when orders come in
+      setStoreId(1);
+    }
+  }, [userOrders, user, storeId]);
+
+  // Listen for push notifications
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data;
-      if (data?.type === "new_order") {
-        refetch();
-      }
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      refetch();
     });
 
     return () => subscription.remove();
@@ -55,10 +83,10 @@ export default function StoreDashboardScreen() {
 
   // Detect new pending orders and flash alert
   useEffect(() => {
-    if (!orders) return;
+    if (!storeOrders) return;
 
     const currentPendingIds = new Set(
-      orders.filter((o: any) => o.status === "pending").map((o: any) => o.id)
+      storeOrders.filter((o: any) => o.status === "pending").map((o: any) => o.id)
     );
 
     if (isFirstLoadRef.current) {
@@ -84,7 +112,7 @@ export default function StoreDashboardScreen() {
     }
 
     prevPendingIdsRef.current = currentPendingIds;
-  }, [orders]);
+  }, [storeOrders]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -93,6 +121,8 @@ export default function StoreDashboardScreen() {
   };
 
   const handleAcceptOrder = (orderId: number) => {
+    if (!storeId) return;
+
     Alert.alert(
       "Accept Order",
       "Accept this order and start preparing?",
@@ -105,12 +135,14 @@ export default function StoreDashboardScreen() {
               if (Platform.OS !== "web") {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }
-              await updateStatusMutation.mutateAsync({
+              await acceptOrderMutation.mutateAsync({
                 orderId,
-                status: "preparing",
+                storeId,
               });
               await refetch();
+              Alert.alert("Success", "Order accepted! Start preparing items.");
             } catch (error: any) {
+              console.error("Accept order error:", error);
               Alert.alert("Error", error.message || "Failed to accept order");
             }
           },
@@ -120,6 +152,8 @@ export default function StoreDashboardScreen() {
   };
 
   const handleMarkReady = (orderId: number) => {
+    if (!storeId) return;
+
     Alert.alert(
       "Mark Ready for Pickup",
       "Is this order complete and ready for driver pickup?",
@@ -132,12 +166,14 @@ export default function StoreDashboardScreen() {
               if (Platform.OS !== "web") {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }
-              await updateStatusMutation.mutateAsync({
+              await markReadyMutation.mutateAsync({
                 orderId,
-                status: "ready_for_pickup",
+                storeId,
               });
               await refetch();
+              Alert.alert("Success", "Order marked as ready! Driver will be notified.");
             } catch (error: any) {
+              console.error("Mark ready error:", error);
               Alert.alert("Error", error.message || "Failed to update order");
             }
           },
@@ -151,6 +187,7 @@ export default function StoreDashboardScreen() {
       case "pending": return "bg-warning/10 border-warning";
       case "preparing": return "bg-primary/10 border-primary";
       case "ready_for_pickup": return "bg-success/10 border-success";
+      case "picked_up": case "on_the_way": return "bg-success/10 border-success";
       default: return "bg-surface border-border";
     }
   };
@@ -158,7 +195,6 @@ export default function StoreDashboardScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case "pending": return "New Order";
-      case "accepted": return "Accepted";
       case "preparing": return "Preparing";
       case "ready_for_pickup": return "Ready for Pickup";
       case "picked_up": return "Picked Up";
@@ -169,7 +205,7 @@ export default function StoreDashboardScreen() {
     }
   };
 
-  if (userLoading || isLoading) {
+  if (userLoading || isLoading || storeId === null) {
     return (
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color="#0a7ea4" />
@@ -195,19 +231,19 @@ export default function StoreDashboardScreen() {
     );
   }
 
-  // Get store name from first order or default
-  const storeName = orders?.[0]?.store?.name || "Store Dashboard";
+  const storeName = storeInfo?.name || "Store Dashboard";
+  const orders = storeOrders || [];
 
   // Filter orders based on selected tab
-  const activeStatuses = ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
-  const filteredOrders = (orders || []).filter((order: any) => {
+  const activeStatuses = ["pending", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
+  const filteredOrders = orders.filter((order: any) => {
     if (filter === "all") return activeStatuses.includes(order.status);
     return order.status === filter;
   });
 
-  const pendingCount = (orders || []).filter((o: any) => o.status === "pending").length;
-  const preparingCount = (orders || []).filter((o: any) => o.status === "preparing").length;
-  const readyCount = (orders || []).filter((o: any) => o.status === "ready_for_pickup").length;
+  const pendingCount = orders.filter((o: any) => o.status === "pending").length;
+  const preparingCount = orders.filter((o: any) => o.status === "preparing").length;
+  const readyCount = orders.filter((o: any) => o.status === "ready_for_pickup").length;
 
   return (
     <ScreenContainer>
@@ -222,7 +258,7 @@ export default function StoreDashboardScreen() {
         {newOrderFlash && (
           <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderWidth: 1, borderColor: "#F59E0B" }}>
             <Text style={{ color: "#92400E", fontWeight: "700", textAlign: "center", fontSize: 16 }}>
-              NEW ORDER RECEIVED!
+              🔔 NEW ORDER RECEIVED!
             </Text>
           </View>
         )}
@@ -254,7 +290,7 @@ export default function StoreDashboardScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push("/store/deli")}
+            onPress={() => router.push({ pathname: "/store/deli", params: { storeId: String(storeId) } })}
             className="flex-1 p-3"
           >
             <Text className="text-center font-semibold text-sm text-muted">
@@ -273,7 +309,7 @@ export default function StoreDashboardScreen() {
               <Text className="text-4xl mb-4">📦</Text>
               <Text className="text-muted text-lg">No orders</Text>
               <Text className="text-muted text-sm mt-2">
-                {filter === "all" ? "New orders will appear here" : `No ${filter.replace("_", " ")} orders`}
+                {filter === "all" ? "New orders will appear here" : `No ${filter.replace(/_/g, " ")} orders`}
               </Text>
             </View>
           ) : (
@@ -286,9 +322,6 @@ export default function StoreDashboardScreen() {
                 <View className="flex-row justify-between items-center mb-3">
                   <View className="flex-1">
                     <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
-                    <Text className="text-muted text-sm">
-                      {order.driver?.name || "No driver assigned"}
-                    </Text>
                     <Text className="text-muted text-xs">
                       {new Date(order.createdAt).toLocaleString()}
                     </Text>
@@ -301,12 +334,12 @@ export default function StoreDashboardScreen() {
                 {/* Order Items */}
                 <View className="bg-background p-3 rounded-lg mb-3">
                   {order.items?.map((item: any, idx: number) => (
-                    <View key={item.id || idx} className="py-2 border-b border-border" style={idx === order.items.length - 1 ? { borderBottomWidth: 0 } : {}}>
+                    <View key={item.id || idx} className="py-2 border-b border-border" style={idx === (order.items?.length || 0) - 1 ? { borderBottomWidth: 0 } : {}}>
                       <Text className="text-foreground font-semibold">
-                        {item.quantity}x {item.product?.name || item.productName || "Unknown Item"}
+                        {item.quantity}x {item.product?.name || item.productName || "Item"}
                       </Text>
-                      {item.notes && (
-                        <Text className="text-muted text-sm italic">{item.notes}</Text>
+                      {item.specialInstructions && (
+                        <Text className="text-muted text-sm italic">{item.specialInstructions}</Text>
                       )}
                     </View>
                   ))}
@@ -345,11 +378,12 @@ export default function StoreDashboardScreen() {
                 {order.status === "pending" && (
                   <TouchableOpacity
                     onPress={() => handleAcceptOrder(order.id)}
-                    disabled={updateStatusMutation.isPending}
+                    disabled={acceptOrderMutation.isPending}
                     className="bg-success p-4 rounded-lg items-center active:opacity-70"
+                    style={acceptOrderMutation.isPending ? { opacity: 0.6 } : {}}
                   >
                     <Text className="text-background font-bold text-lg">
-                      {updateStatusMutation.isPending ? "Updating..." : "✓ Accept & Start Preparing"}
+                      {acceptOrderMutation.isPending ? "Accepting..." : "✓ Accept & Start Preparing"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -357,18 +391,25 @@ export default function StoreDashboardScreen() {
                 {order.status === "preparing" && (
                   <TouchableOpacity
                     onPress={() => handleMarkReady(order.id)}
-                    disabled={updateStatusMutation.isPending}
+                    disabled={markReadyMutation.isPending}
                     className="bg-success p-4 rounded-lg items-center active:opacity-70"
+                    style={markReadyMutation.isPending ? { opacity: 0.6 } : {}}
                   >
                     <Text className="text-background font-bold text-lg">
-                      {updateStatusMutation.isPending ? "Updating..." : "✓ Mark Ready for Pickup"}
+                      {markReadyMutation.isPending ? "Updating..." : "✓ Mark Ready for Pickup"}
                     </Text>
                   </TouchableOpacity>
                 )}
 
                 {order.status === "ready_for_pickup" && (
                   <View className="bg-success/10 p-3 rounded-lg items-center">
-                    <Text className="text-success font-bold">Waiting for Driver Pickup</Text>
+                    <Text className="text-success font-bold">⏳ Waiting for Driver Pickup</Text>
+                  </View>
+                )}
+
+                {(order.status === "picked_up" || order.status === "on_the_way") && (
+                  <View className="bg-success/10 p-3 rounded-lg items-center">
+                    <Text className="text-success font-bold">🚗 Driver is delivering</Text>
                   </View>
                 )}
               </View>

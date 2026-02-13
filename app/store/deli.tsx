@@ -1,62 +1,42 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useState } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { trpc } from "@/lib/trpc";
+import * as Haptics from "expo-haptics";
 
 export default function DeliViewScreen() {
   const router = useRouter();
-  const [orders, setOrders] = useState<any[]>([]);
+  const params = useLocalSearchParams();
+  const storeId = params.storeId ? Number(params.storeId) : 1;
+  const [refreshing, setRefreshing] = useState(false);
+  // Track locally which items are marked ready (since backend doesn't persist item-level readiness yet)
+  const [readyItems, setReadyItems] = useState<Set<string>>(new Set());
 
-  // Mock store data
-  const storeName = "Spar Balbriggan - Deli";
+  // Get store info
+  const { data: storeInfo } = trpc.stores.getById.useQuery({ id: storeId });
 
-  // Mock orders with deli items - will be replaced with real-time data
-  const mockOrders = [
-    {
-      id: 1,
-      orderNumber: "WS4U-123456",
-      customerName: "John Doe",
-      status: "preparing",
-      deliItems: [
-        { id: 1, name: "Chicken Fillet Roll", quantity: 1, notes: "No mayo", isReady: false },
-      ],
-      otherItemsCount: 2, // Coca Cola, Marlboro
-      createdAt: "2026-02-09 14:30",
-    },
-    {
-      id: 2,
-      orderNumber: "WS4U-123457",
-      customerName: "Jane Smith",
-      status: "preparing",
-      deliItems: [
-        { id: 4, name: "Breakfast Roll", quantity: 1, notes: "Extra bacon", isReady: false },
-      ],
-      otherItemsCount: 1, // Coffee
-      createdAt: "2026-02-09 14:15",
-    },
-    {
-      id: 3,
-      orderNumber: "WS4U-123458",
-      customerName: "Mike Johnson",
-      status: "preparing",
-      deliItems: [
-        { id: 6, name: "Ham & Cheese Toastie", quantity: 2, notes: "", isReady: true },
-      ],
-      otherItemsCount: 0,
-      createdAt: "2026-02-09 14:00",
-    },
-  ];
+  // Get deli orders from the real backend
+  const { data: deliOrders, isLoading, refetch } = trpc.store.getDeliOrders.useQuery(
+    { storeId },
+    { refetchInterval: 5000 }
+  );
 
-  useEffect(() => {
-    // Load orders with deli items from backend
-    setOrders(mockOrders);
+  // Mutation for marking individual deli items ready (local + backend)
+  const markDeliItemMutation = trpc.store.markDeliItemReady.useMutation();
 
-    // TODO: Set up real-time polling or WebSocket connection
-    // const interval = setInterval(() => {
-    //   // Fetch orders with deli items
-    // }, 5000);
-    // return () => clearInterval(interval);
-  }, []);
+  // Mutation for marking entire order as ready for pickup
+  const markOrderReadyMutation = trpc.store.markOrderReady.useMutation();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const isItemReady = (orderId: number, itemId: number) => {
+    return readyItems.has(`${orderId}-${itemId}`);
+  };
 
   const handleMarkItemReady = (orderId: number, itemId: number) => {
     Alert.alert(
@@ -66,26 +46,31 @@ export default function DeliViewScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Mark Ready",
-          onPress: () => {
-            // TODO: Call backend API to mark deli item as ready
-            setOrders(orders.map(order => {
-              if (order.id === orderId) {
-                return {
-                  ...order,
-                  deliItems: order.deliItems.map((item: any) =>
-                    item.id === itemId ? { ...item, isReady: true } : item
-                  ),
-                };
+          onPress: async () => {
+            try {
+              if (Platform.OS !== "web") {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }
-              return order;
-            }));
+              await markDeliItemMutation.mutateAsync({
+                orderItemId: itemId,
+                orderId,
+                storeId,
+              });
+              setReadyItems(prev => {
+                const next = new Set(prev);
+                next.add(`${orderId}-${itemId}`);
+                return next;
+              });
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to mark item ready");
+            }
           },
         },
       ]
     );
   };
 
-  const handleMarkAllReady = (orderId: number) => {
+  const handleMarkAllReady = (orderId: number, items: any[]) => {
     Alert.alert(
       "Mark All Deli Items Ready",
       "Are all deli items for this order complete?",
@@ -93,30 +78,48 @@ export default function DeliViewScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Mark All Ready",
-          onPress: () => {
-            // TODO: Call backend API to mark all deli items as ready
-            setOrders(orders.map(order => {
-              if (order.id === orderId) {
-                return {
-                  ...order,
-                  deliItems: order.deliItems.map((item: any) => ({ ...item, isReady: true })),
-                };
+          onPress: async () => {
+            try {
+              if (Platform.OS !== "web") {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }
-              return order;
-            }));
-            Alert.alert("Success", "All deli items marked as ready!");
+              // Mark all items locally
+              setReadyItems(prev => {
+                const next = new Set(prev);
+                items.forEach((item: any) => {
+                  next.add(`${orderId}-${item.id}`);
+                });
+                return next;
+              });
+              Alert.alert("Success", "All deli items marked as ready!");
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to mark items ready");
+            }
           },
         },
       ]
     );
   };
 
-  const activeOrders = orders.filter(order =>
-    order.deliItems.some((item: any) => !item.isReady)
+  if (isLoading) {
+    return (
+      <ScreenContainer className="items-center justify-center">
+        <ActivityIndicator size="large" color="#0a7ea4" />
+        <Text className="text-muted mt-4">Loading deli orders...</Text>
+      </ScreenContainer>
+    );
+  }
+
+  const storeName = storeInfo?.name || "Store";
+  const orders = deliOrders || [];
+
+  // Split into active (has unready items) and completed (all items ready)
+  const activeOrders = orders.filter((order: any) =>
+    order.deliItems?.some((item: any) => !isItemReady(order.id, item.id))
   );
 
-  const completedOrders = orders.filter(order =>
-    order.deliItems.every((item: any) => item.isReady)
+  const completedOrders = orders.filter((order: any) =>
+    order.deliItems?.length > 0 && order.deliItems.every((item: any) => isItemReady(order.id, item.id))
   );
 
   return (
@@ -130,7 +133,7 @@ export default function DeliViewScreen() {
           >
             <Text className="text-background text-sm">← Back to Main Dashboard</Text>
           </TouchableOpacity>
-          <Text className="text-background text-2xl font-bold">{storeName}</Text>
+          <Text className="text-background text-2xl font-bold">{storeName} - Deli</Text>
           <Text className="text-background/80 text-sm">Deli Orders Only</Text>
         </View>
 
@@ -146,12 +149,15 @@ export default function DeliViewScreen() {
           </View>
         </View>
 
-        <ScrollView className="flex-1 p-4">
+        <ScrollView
+          className="flex-1 p-4"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        >
           {/* Active Orders */}
           {activeOrders.length > 0 && (
             <View className="mb-6">
               <Text className="text-foreground font-bold text-xl mb-3">🔥 Active Orders</Text>
-              {activeOrders.map((order) => (
+              {activeOrders.map((order: any) => (
                 <View
                   key={order.id}
                   className="mb-4 p-4 rounded-lg border-2 bg-warning/10 border-warning"
@@ -160,37 +166,41 @@ export default function DeliViewScreen() {
                   <View className="flex-row justify-between items-center mb-3">
                     <View>
                       <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
-                      <Text className="text-muted text-sm">{order.customerName}</Text>
-                      <Text className="text-muted text-xs">{order.createdAt}</Text>
+                      <Text className="text-muted text-xs">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </Text>
                     </View>
                     <View className="bg-warning px-3 py-1 rounded-full">
-                      <Text className="text-background font-bold text-sm">PREPARING</Text>
+                      <Text className="text-background font-bold text-sm">
+                        {order.status === "preparing" ? "PREPARING" : order.status?.toUpperCase()}
+                      </Text>
                     </View>
                   </View>
 
                   {/* Deli Items */}
                   <View className="bg-background p-3 rounded-lg mb-3">
                     <Text className="text-foreground font-bold mb-2">🥪 Deli Items:</Text>
-                    {order.deliItems.map((item: any) => (
+                    {order.deliItems?.map((item: any) => (
                       <View key={item.id} className="mb-3">
                         <View className="flex-row justify-between items-center">
                           <View className="flex-1">
                             <Text className="text-foreground font-semibold text-lg">
-                              {item.quantity}x {item.name}
+                              {item.quantity}x {item.product?.name || item.productName || "Item"}
                             </Text>
-                            {item.notes && (
+                            {item.specialInstructions && (
                               <Text className="text-warning text-sm italic mt-1">
-                                Note: {item.notes}
+                                Note: {item.specialInstructions}
                               </Text>
                             )}
                           </View>
-                          {item.isReady ? (
+                          {isItemReady(order.id, item.id) ? (
                             <View className="bg-success px-3 py-2 rounded-lg">
                               <Text className="text-background font-bold">✓ READY</Text>
                             </View>
                           ) : (
                             <TouchableOpacity
                               onPress={() => handleMarkItemReady(order.id, item.id)}
+                              disabled={markDeliItemMutation.isPending}
                               className="bg-primary px-3 py-2 rounded-lg active:opacity-70"
                             >
                               <Text className="text-background font-bold">Mark Ready</Text>
@@ -214,9 +224,9 @@ export default function DeliViewScreen() {
                   )}
 
                   {/* Mark All Ready Button */}
-                  {order.deliItems.some((item: any) => !item.isReady) && (
+                  {order.deliItems?.some((item: any) => !isItemReady(order.id, item.id)) && (
                     <TouchableOpacity
-                      onPress={() => handleMarkAllReady(order.id)}
+                      onPress={() => handleMarkAllReady(order.id, order.deliItems)}
                       className="bg-success p-4 rounded-lg items-center active:opacity-70"
                     >
                       <Text className="text-background font-bold text-lg">
@@ -233,7 +243,7 @@ export default function DeliViewScreen() {
           {completedOrders.length > 0 && (
             <View className="mb-6">
               <Text className="text-foreground font-bold text-xl mb-3">✅ Completed</Text>
-              {completedOrders.map((order) => (
+              {completedOrders.map((order: any) => (
                 <View
                   key={order.id}
                   className="mb-4 p-4 rounded-lg border-2 bg-success/10 border-success"
@@ -241,7 +251,9 @@ export default function DeliViewScreen() {
                   <View className="flex-row justify-between items-center mb-2">
                     <View>
                       <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
-                      <Text className="text-muted text-sm">{order.customerName}</Text>
+                      <Text className="text-muted text-xs">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </Text>
                     </View>
                     <View className="bg-success px-3 py-1 rounded-full">
                       <Text className="text-background font-bold text-sm">READY</Text>
@@ -249,9 +261,9 @@ export default function DeliViewScreen() {
                   </View>
 
                   <View className="bg-background p-3 rounded-lg">
-                    {order.deliItems.map((item: any) => (
+                    {order.deliItems?.map((item: any) => (
                       <Text key={item.id} className="text-foreground">
-                        ✓ {item.quantity}x {item.name}
+                        ✓ {item.quantity}x {item.product?.name || item.productName || "Item"}
                       </Text>
                     ))}
                   </View>
@@ -269,8 +281,11 @@ export default function DeliViewScreen() {
           {/* Empty State */}
           {activeOrders.length === 0 && completedOrders.length === 0 && (
             <View className="items-center justify-center py-12">
-              <Text className="text-muted text-lg">No deli orders yet</Text>
-              <Text className="text-muted text-sm mt-2">Orders with deli items will appear here</Text>
+              <Text className="text-4xl mb-4">🥪</Text>
+              <Text className="text-muted text-lg">No deli orders</Text>
+              <Text className="text-muted text-sm mt-2">
+                Orders with deli items will appear here when they're being prepared
+              </Text>
             </View>
           )}
         </ScrollView>
