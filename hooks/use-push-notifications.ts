@@ -5,6 +5,13 @@ import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
 
 /**
+ * Check if we're running in Expo Go (where push notifications are limited/unavailable)
+ */
+function isExpoGo(): boolean {
+  return Constants.appOwnership === "expo";
+}
+
+/**
  * Hook to register the device's Expo push token with the server.
  * Call this in the root layout or any screen where the user is authenticated.
  * 
@@ -17,6 +24,12 @@ export function usePushNotifications(userId: number | undefined) {
   useEffect(() => {
     if (!userId || hasRegistered.current) return;
     if (Platform.OS === "web") return; // Push tokens only work on native
+
+    // Skip in Expo Go on Android (SDK 53+ removed push notifications from Expo Go)
+    if (isExpoGo()) {
+      console.log("[Push] Skipping push token registration in Expo Go");
+      return;
+    }
 
     async function registerPushToken() {
       try {
@@ -34,10 +47,15 @@ export function usePushNotifications(userId: number | undefined) {
           return;
         }
 
-        // Get the Expo push token
+        // Get the Expo push token - need a valid projectId
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) {
+          console.log("[Push] No projectId available, skipping push token registration");
+          return;
+        }
+
         const tokenData = await Notifications.getExpoPushTokenAsync({
-          projectId: projectId || undefined,
+          projectId,
         });
         const pushToken = tokenData.data;
 
@@ -52,7 +70,7 @@ export function usePushNotifications(userId: number | undefined) {
         hasRegistered.current = true;
         console.log("[Push] Token registered with server for user", userId);
       } catch (error) {
-        console.error("[Push] Failed to register push token:", error);
+        console.log("[Push] Failed to register push token (expected in Expo Go):", error);
       }
     }
 
@@ -74,15 +92,25 @@ export function usePushNotifications(userId: number | undefined) {
 export function setupNotificationHandler() {
   if (Platform.OS === "web") return;
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  // Skip in Expo Go on Android (SDK 53+)
+  if (isExpoGo()) {
+    console.log("[Push] Skipping notification handler setup in Expo Go");
+    return;
+  }
+
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.log("[Push] Could not set notification handler:", e);
+  }
 }
 
 /**
@@ -92,34 +120,44 @@ export function setupNotificationHandler() {
 export async function setupNotificationChannels() {
   if (Platform.OS !== "android") return;
 
-  // Orders channel - for customer order updates
-  await Notifications.setNotificationChannelAsync("orders", {
-    name: "Order Updates",
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    sound: "default",
-  });
+  // Skip in Expo Go (SDK 53+)
+  if (isExpoGo()) {
+    console.log("[Push] Skipping notification channel setup in Expo Go");
+    return;
+  }
 
-  // Jobs channel - for driver job offers
-  await Notifications.setNotificationChannelAsync("jobs", {
-    name: "Delivery Jobs",
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 500, 250, 500],
-    sound: "default",
-  });
+  try {
+    // Orders channel - for customer order updates
+    await Notifications.setNotificationChannelAsync("orders", {
+      name: "Order Updates",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      sound: "default",
+    });
 
-  // Store channel - for store new order alerts
-  await Notifications.setNotificationChannelAsync("store", {
-    name: "Store Orders",
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 500, 250, 500],
-    sound: "default",
-  });
+    // Jobs channel - for driver job offers
+    await Notifications.setNotificationChannelAsync("jobs", {
+      name: "Delivery Jobs",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 250, 500],
+      sound: "default",
+    });
 
-  // Default channel
-  await Notifications.setNotificationChannelAsync("default", {
-    name: "General",
-    importance: Notifications.AndroidImportance.DEFAULT,
-    sound: "default",
-  });
+    // Store channel - for store new order alerts
+    await Notifications.setNotificationChannelAsync("store", {
+      name: "Store Orders",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 250, 500],
+      sound: "default",
+    });
+
+    // Default channel
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "General",
+      importance: Notifications.AndroidImportance.DEFAULT,
+      sound: "default",
+    });
+  } catch (e) {
+    console.log("[Push] Could not set up notification channels:", e);
+  }
 }

@@ -6,7 +6,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+
+const isExpoGo = Constants.appOwnership === "expo";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -81,17 +84,21 @@ export default function DriverHomeScreen() {
 
   // Request notification permissions on mount
   useEffect(() => {
-    if (Platform.OS !== "web") {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-      Notifications.requestPermissionsAsync();
+    if (Platform.OS !== "web" && !isExpoGo) {
+      try {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+        Notifications.requestPermissionsAsync();
+      } catch (e) {
+        console.log("[Push] Could not set up notifications in Expo Go");
+      }
     }
   }, []);
 
@@ -108,15 +115,21 @@ export default function DriverHomeScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           }, 300);
           // Fire local push notification (shows even when app is backgrounded)
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: "🚗 New Delivery Offer!",
-              body: `${offerData.offer.storeName} — €${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.MAX,
-            },
-            trigger: null, // Fire immediately
-          });
+          if (!isExpoGo) {
+            try {
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: "🚗 New Delivery Offer!",
+                  body: `${offerData.offer.storeName} — €${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
+                  sound: true,
+                  priority: Notifications.AndroidNotificationPriority.MAX,
+                },
+                trigger: null, // Fire immediately
+              });
+            } catch (e) {
+              console.log("[Push] Could not schedule notification");
+            }
+          }
         }
       }
     }

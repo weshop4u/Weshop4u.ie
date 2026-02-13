@@ -935,3 +935,10 @@
 - [x] Career summary section with total earnings, tips, deliveries, average
 - [x] 7-day bar chart with daily breakdown
 - [x] Payment schedule info banner
+
+## Bug: Expo Go errors on Android
+- [x] Fix expo-notifications Android warning — all notification calls wrapped with isExpoGo check + try/catch
+- [x] Fix RNMapsAirModule not found — removed react-native-maps import from [id].tsx, redirects to Leaflet-based [orderId].tsx
+- [x] Fix push token projectId missing — skip registration when no projectId available or in Expo Go
+- [x] Fixed in: lib/notifications.ts, lib/notification-provider.tsx, hooks/use-push-notifications.ts
+- [x] Fixed in: app/(tabs)/orders.tsx, app/driver/index.tsx, app/store/index.tsx, app/store-dashboard/index.tsx

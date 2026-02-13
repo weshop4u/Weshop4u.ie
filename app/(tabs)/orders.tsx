@@ -6,6 +6,9 @@ import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
 import { Alert, AppState } from "react-native";
+import Constants from "expo-constants";
+
+const isExpoGo = Constants.appOwnership === "expo";
 
 // Estimate delivery time based on status and distance
 function getEstimatedTime(order: any): string | null {
@@ -212,14 +215,20 @@ export default function OrderHistoryScreen() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data;
-      if (data?.type === "order_update") {
-        refetch();
-      }
-    });
+    if (isExpoGo) return; // Skip in Expo Go
+    let subscription: Notifications.Subscription | null = null;
+    try {
+      subscription = Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification.request.content.data;
+        if (data?.type === "order_update") {
+          refetch();
+        }
+      });
+    } catch (e) {
+      console.log("[Push] Could not add notification listener");
+    }
 
-    return () => subscription.remove();
+    return () => subscription?.remove();
   }, [refetch]);
 
   // Refetch when app comes to foreground
@@ -240,14 +249,20 @@ export default function OrderHistoryScreen() {
       const prevStatus = prevStatuses[order.id];
       if (prevStatus && prevStatus !== order.status && STATUS_MESSAGES[order.status]) {
         const msg = STATUS_MESSAGES[order.status];
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: msg.title,
-            body: `${order.store?.name || "Store"} - ${msg.body}`,
-            sound: true,
-          },
-          trigger: null, // Immediate
-        });
+        if (!isExpoGo) {
+          try {
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: msg.title,
+                body: `${order.store?.name || "Store"} - ${msg.body}`,
+                sound: true,
+              },
+              trigger: null, // Immediate
+            });
+          } catch (e) {
+            console.log("[Push] Could not schedule notification");
+          }
+        }
       }
       prevStatuses[order.id] = order.status;
     }

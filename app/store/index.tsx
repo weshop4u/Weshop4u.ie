@@ -6,7 +6,10 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+
+const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
 
 // Web-compatible confirm dialog
@@ -79,11 +82,17 @@ export default function StoreDashboardScreen() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    const subscription = Notifications.addNotificationReceivedListener(() => {
-      refetch();
-    });
+    if (isExpoGo) return; // Skip in Expo Go
+    let subscription: Notifications.Subscription | null = null;
+    try {
+      subscription = Notifications.addNotificationReceivedListener(() => {
+        refetch();
+      });
+    } catch (e) {
+      console.log("[Push] Could not add notification listener");
+    }
 
-    return () => subscription.remove();
+    return () => subscription?.remove();
   }, [refetch]);
 
   // Refetch when app comes to foreground

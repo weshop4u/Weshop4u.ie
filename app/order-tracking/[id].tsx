@@ -4,52 +4,15 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
 
-// Conditionally import Maps only on native platforms to avoid web crashes
-let MapView: any = null;
-let Marker: any = null;
-let Polyline: any = null;
-let PROVIDER_GOOGLE: any = null;
-
-if (Platform.OS !== "web") {
-  const Maps = require("react-native-maps");
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-  Polyline = Maps.Polyline;
-  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
-}
+// No native maps dependency — this screen uses the Leaflet-based map
+// in [orderId].tsx for real tracking. This is a legacy/fallback screen.
 
 export default function OrderTrackingScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const orderId = Number(id);
 
-  const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [estimatedTime, setEstimatedTime] = useState<string>("Calculating...");
-
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ orderId });
-
-  // Simulate driver location updates (in production, this would come from real-time updates)
-  useEffect(() => {
-    if (!order) return;
-
-    const interval = setInterval(() => {
-      // Simulate driver moving towards delivery location
-      // In production, this would be replaced with real-time location updates from the driver's device
-
-      // For now, use a simulated location near the delivery address
-      setDriverLocation({
-        latitude: parseFloat(order.deliveryLatitude || "0") + (Math.random() - 0.5) * 0.01,
-        longitude: parseFloat(order.deliveryLongitude || "0") + (Math.random() - 0.5) * 0.01,
-      });
-
-      // Calculate estimated time (simplified)
-      const distance = Math.random() * 5 + 1; // 1-6 km
-      const time = Math.ceil(distance * 3); // ~3 minutes per km
-      setEstimatedTime(`${time} min`);
-    }, 5000); // Update every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [order]);
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -84,10 +47,10 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  const deliveryCoords = {
-    latitude: parseFloat(order.deliveryLatitude || "0"),
-    longitude: parseFloat(order.deliveryLongitude || "0"),
-  };
+  // Redirect to the main order tracking screen which has the full timeline + map
+  useEffect(() => {
+    router.replace(`/order-tracking/${orderId}` as any);
+  }, [orderId]);
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
@@ -103,82 +66,18 @@ export default function OrderTrackingScreen() {
         <Text className="text-muted">Order #{order.orderNumber}</Text>
       </View>
 
-      {/* Map */}
-      <View className="flex-1">
-        {Platform.OS === "web" ? (
-          <View className="flex-1 bg-surface items-center justify-center">
-            <Text className="text-muted text-center px-8">
-              Map view is available on mobile devices.{"\n"}
-              Download the Expo Go app to test this feature.
-            </Text>
-          </View>
-        ) : MapView ? (
-          <MapView
-            style={{ flex: 1 }}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={{
-              ...deliveryCoords,
-              latitudeDelta: 0.02,
-              longitudeDelta: 0.02,
-            }}
-            showsUserLocation
-            showsMyLocationButton
-          >
-            {/* Delivery Location Marker */}
-            <Marker
-              coordinate={deliveryCoords}
-              title="Delivery Location"
-              description={order.deliveryAddress}
-              pinColor="red"
-            />
-
-            {/* Driver Location Marker */}
-            {driverLocation && (
-              <Marker
-                coordinate={driverLocation}
-                title="Driver"
-                description="Your driver is here"
-                pinColor="blue"
-              >
-                <View className="bg-primary rounded-full p-3">
-                  <Text className="text-2xl">🚗</Text>
-                </View>
-              </Marker>
-            )}
-
-            {/* Route Line */}
-            {driverLocation && (
-              <Polyline
-                coordinates={[driverLocation, deliveryCoords]}
-                strokeColor="#0a7ea4"
-                strokeWidth={3}
-              />
-            )}
-          </MapView>
-        ) : (
-          <View className="flex-1 bg-surface items-center justify-center">
-            <Text className="text-muted text-center px-8">
-              Map view is available on mobile devices.{"\n"}
-              Download the Expo Go app to test this feature.
-            </Text>
-          </View>
-        )}
-      </View>
-
       {/* Status Card */}
-      <View className="bg-background border-t border-border p-4">
-        <View className="bg-surface rounded-xl p-4 border border-border">
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-foreground">
-                {getStatusText(order.status)}
-              </Text>
-              <Text className="text-muted">Estimated arrival: {estimatedTime}</Text>
-            </View>
-            <View className="bg-primary/10 rounded-full px-4 py-2">
-              <Text className="text-primary font-bold">{estimatedTime}</Text>
-            </View>
+      <View className="flex-1 justify-center p-4">
+        <View className="bg-surface rounded-xl p-6 border border-border">
+          <View className="items-center mb-4">
+            <Text style={{ fontSize: 48 }}>📦</Text>
           </View>
+          <Text className="text-lg font-bold text-foreground text-center mb-2">
+            {getStatusText(order.status)}
+          </Text>
+          <Text className="text-muted text-center mb-4">
+            Redirecting to full tracking view...
+          </Text>
 
           <View className="border-t border-border pt-3">
             <Text className="text-sm text-muted mb-1">Delivery Address</Text>
