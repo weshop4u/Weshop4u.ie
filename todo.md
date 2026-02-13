@@ -949,3 +949,9 @@
 - [x] Fixed store/index.tsx logout to use useAuth().logout() + clear tRPC cache
 - [x] Native fetchUser now always validates against API (not just trusts SecureStore cache)
 - [x] After logout, home screen shows login button immediately via shared state notification
+
+## Bug: Store dashboard grey border area pushes order cards down (FIXED)
+- [x] Root cause: ScrollView className="flex-1 p-4" caused layout issues on native
+- [x] Fixed: replaced with style={{ flex: 1 }} + contentContainerStyle={{ padding: 16 }}
+- [x] Removed flexGrow: 1 from contentContainerStyle which was stretching empty space
+- [x] Empty state view uses inline style for reliable centering

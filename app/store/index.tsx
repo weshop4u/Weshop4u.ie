@@ -487,11 +487,12 @@ export default function StoreDashboardScreen() {
 
         {/* Orders List */}
         <ScrollView
-          className="flex-1 p-4"
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
           {sortedOrders.length === 0 ? (
-            <View className="items-center justify-center py-12">
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
               <Text className="text-4xl mb-4">{filter === "completed" ? "✅" : "📦"}</Text>
               <Text className="text-muted text-lg">
                 {filter === "completed" ? "No completed orders yet" : "No orders"}
