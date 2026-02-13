@@ -800,3 +800,11 @@
 - [x] Rewrote deli.tsx to use real backend data from trpc.store.getDeliOrders
 - [x] Deli view now shows real orders with deli items, individual and bulk mark-ready buttons
 - [x] Added confirmation dialogs, haptic feedback, pull-to-refresh, and auto-refresh to both views
+
+## Bug Fix: Store Dashboard Buttons Still Not Working (Round 3)
+- [x] Root cause: Alert.alert() doesn't work on web — replaced with window.confirm() for web
+- [x] Switched buttons from className to style prop for reliable rendering
+- [x] Added per-button loading state (acceptingId/markingReadyId) instead of global mutation state
+- [x] Created Deli product category with 6 deli products (Chicken Fillet Roll, Breakfast Roll, Spicy Chicken Wrap, BLT Sandwich, Ham & Cheese Toastie, Sausage Roll)
+- [x] Fixed getDeliOrders to dynamically find deli category by name instead of hardcoded categoryId 1
+- [x] Deli view now uses real backend data with correct category filtering

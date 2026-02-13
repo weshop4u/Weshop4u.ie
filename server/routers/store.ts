@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores, users } from "../../drizzle/schema";
-import { eq, and, or } from "drizzle-orm";
+import { orders, orderItems, products, stores, users, productCategories } from "../../drizzle/schema";
+import { eq, and, or, like, inArray } from "drizzle-orm";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 
 export const storeRouter = router({
@@ -98,9 +98,16 @@ export const storeRouter = router({
             .leftJoin(products, eq(orderItems.productId, products.id))
             .where(eq(orderItems.orderId, order.id));
 
+          // Find deli category IDs dynamically
+          const deliCategories = await db
+            .select({ id: productCategories.id })
+            .from(productCategories)
+            .where(like(productCategories.name, '%Deli%'));
+          const deliCategoryIds = deliCategories.map(c => c.id);
+
           // Filter for deli category items
           const deliItems = items.filter(item =>
-            item.products?.categoryId === 1 // Assuming categoryId 1 is "Deli"
+            item.products?.categoryId != null && deliCategoryIds.includes(item.products.categoryId)
           );
 
           if (deliItems.length === 0) {
