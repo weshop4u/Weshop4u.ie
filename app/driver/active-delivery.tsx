@@ -170,8 +170,14 @@ export default function ActiveDeliveryScreen() {
     console.log("[Driver] handleArrivedAtStore called", { orderId, userId: user?.id });
     if (!orderId || !user?.id) {
       console.log("[Driver] Missing orderId or userId, aborting");
+      if (Platform.OS === "web") {
+        alert("Error: Missing order or user information");
+      }
       return;
     }
+    
+    // Update state immediately for instant UI feedback
+    setDeliveryStatus("at_store");
     
     try {
       console.log("[Driver] Calling notifyAtStoreMutation...");
@@ -180,9 +186,10 @@ export default function ActiveDeliveryScreen() {
         driverId: user.id,
       });
       console.log("[Driver] notifyAtStoreMutation success:", result);
-      setDeliveryStatus("at_store");
     } catch (error) {
       console.error("[Driver] Failed to notify arrived at store:", error);
+      // Revert state on error
+      setDeliveryStatus("going_to_store");
       // Show error to user
       if (Platform.OS === "web") {
         alert("Failed to notify. Please try again.");
