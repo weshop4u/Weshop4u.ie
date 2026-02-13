@@ -710,3 +710,36 @@
 - [x] Root layout configures notification handler and channels
 - [x] Unit tests for push notification service (16 tests passing)
 - [x] All 41 tests passing across 3 test suites
+
+## Authentication Improvements
+- [x] Session persistence: keep users logged in across app restarts
+- [x] Store auth token in SecureStore for persistent native sessions
+- [x] REST login endpoint returns sessionToken for native storage
+- [x] Customer login stores token in SecureStore + caches user in AsyncStorage
+- [x] Store login stores token in SecureStore + caches user in AsyncStorage
+- [x] useAuth hook validates cached user and restores session on launch
+- [x] Web: instant display from localStorage cache, background API validation
+- [x] Native: instant display from AsyncStorage cache, token-based auth
+- [x] Auto-clear session on invalid/expired token
+- [x] Password reset flow already existed (forgot-password screen)
+
+## Saved Address Auto-Fill at Checkout
+- [x] Fetch user's saved addresses on checkout screen
+- [x] Horizontal scrollable address picker with saved addresses
+- [x] Auto-fill default saved address on page load
+- [x] Fall back to most recent order address if no saved addresses
+- [x] Tap to switch between saved addresses (highlights selected)
+- [x] "+New Address" button to clear and enter manually
+- [x] Resets delivery fee calculation when address changes
+- [x] Hidden for guest users (no saved addresses)
+
+## Order Cancellation
+- [x] Backend: cancelOrder endpoint (only allows pending status)
+- [x] Expires pending order offers when order is cancelled
+- [x] Sends push notification to store staff on cancellation
+- [x] Cancel button on customer orders screen (only for pending orders)
+- [x] Confirmation dialog before cancelling ("Are you sure?")
+- [x] Clear error messages for non-cancellable orders
+- [x] Cancelled orders show in past orders section
+- [x] Unit tests for all three features (17 tests passing)
+- [x] All 58 tests passing across 4 test suites

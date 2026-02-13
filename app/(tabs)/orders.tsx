@@ -5,7 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
-import { AppState } from "react-native";
+import { Alert, AppState } from "react-native";
 
 // Estimate delivery time based on status and distance
 function getEstimatedTime(order: any): string | null {
@@ -264,6 +264,31 @@ export default function OrderHistoryScreen() {
     },
   });
 
+  const cancelOrderMutation = trpc.orders.cancelOrder.useMutation({
+    onSuccess: () => {
+      Alert.alert("Order Cancelled", "Your order has been cancelled successfully.");
+      refetch();
+    },
+    onError: (error) => {
+      Alert.alert("Cannot Cancel", error.message || "Failed to cancel order.");
+    },
+  });
+
+  const handleCancelOrder = (orderId: number, orderNumber: string) => {
+    Alert.alert(
+      "Cancel Order?",
+      `Are you sure you want to cancel order ${orderNumber}? This cannot be undone.`,
+      [
+        { text: "Keep Order", style: "cancel" },
+        {
+          text: "Cancel Order",
+          style: "destructive",
+          onPress: () => cancelOrderMutation.mutate({ orderId }),
+        },
+      ]
+    );
+  };
+
   const handleReorder = (order: any) => {
     clearCart();
     order.items.forEach(async (item: any) => {
@@ -407,6 +432,31 @@ export default function OrderHistoryScreen() {
                         <Text style={{ fontWeight: "600", color: "#11181C", marginBottom: 4 }}>Delivery Address:</Text>
                         <Text style={{ color: "#687076", fontSize: 13 }}>{order.deliveryAddress}</Text>
                       </View>
+                    )}
+
+                    {/* Cancel button - only for pending orders */}
+                    {order.status === "pending" && (
+                      <TouchableOpacity
+                        onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
+                        disabled={cancelOrderMutation.isPending}
+                        style={{
+                          marginTop: 16,
+                          backgroundColor: "#FEF2F2",
+                          borderWidth: 1,
+                          borderColor: "#EF4444",
+                          borderRadius: 10,
+                          padding: 12,
+                          alignItems: "center",
+                          opacity: cancelOrderMutation.isPending ? 0.5 : 1,
+                        }}
+                      >
+                        <Text style={{ color: "#EF4444", fontWeight: "bold", fontSize: 14 }}>
+                          {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
+                        </Text>
+                        <Text style={{ color: "#9B1C1C", fontSize: 11, marginTop: 2 }}>
+                          Only available while order is pending
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 )}

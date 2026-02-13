@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApiBaseUrl } from "@/constants/oauth";
+import * as Auth from "@/lib/_core/auth";
 
 export default function StoreLoginScreen() {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function StoreLoginScreen() {
     setLoading(true);
 
     try {
+      // Step 1: Validate credentials via tRPC
       const result = await loginMutation.mutateAsync({
         email: email.toLowerCase().trim(),
         password,
@@ -34,14 +37,48 @@ export default function StoreLoginScreen() {
         return;
       }
 
-      // Store user data
+      // Step 2: Store user data in AsyncStorage
       await AsyncStorage.setItem("user", JSON.stringify(result.user));
       if (result.profile) {
         await AsyncStorage.setItem("profile", JSON.stringify(result.profile));
       }
 
-      Alert.alert("Success", "Logged in successfully!");
-      router.replace("/store");
+      // Step 3: Create session via REST API (sets cookie for web, returns token for native)
+      const apiUrl = getApiBaseUrl();
+      const sessionResponse = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: result.user.email }),
+        credentials: "include",
+      });
+
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        
+        // Step 4: Store session token in SecureStore for native persistence
+        if (Platform.OS !== "web" && sessionData.sessionToken) {
+          await Auth.setSessionToken(sessionData.sessionToken);
+          console.log("[StoreLogin] Session token stored in SecureStore");
+        }
+
+        // Step 5: Cache user info for quick session restore
+        await Auth.setUserInfo({
+          id: result.user.id,
+          openId: "",
+          name: result.user.name,
+          email: result.user.email,
+          loginMethod: "password",
+          lastSignedIn: new Date(),
+        });
+      }
+
+      // Step 6: Navigate to store dashboard
+      if (Platform.OS === "web") {
+        window.location.href = "/store";
+      } else {
+        Alert.alert("Success", "Logged in successfully!");
+        router.replace("/store");
+      }
     } catch (error: any) {
       Alert.alert("Login Failed", error.message || "Invalid email or password");
     } finally {
@@ -58,7 +95,7 @@ export default function StoreLoginScreen() {
         <View className="flex-1 p-6 justify-center">
           {/* Header */}
           <View className="items-center mb-8">
-            <Text className="text-primary text-5xl font-bold mb-2">🏪 STORE</Text>
+            <Text className="text-primary text-5xl font-bold mb-2">STORE</Text>
             <Text className="text-muted text-lg">Staff Login</Text>
           </View>
 
@@ -75,6 +112,7 @@ export default function StoreLoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
               />
             </View>
 
@@ -88,6 +126,8 @@ export default function StoreLoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
             </View>
 

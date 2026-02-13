@@ -66,8 +66,36 @@ export function useAuth(options?: UseAuthOptions) {
         console.log("[useAuth] Using cached user info");
         setUser(cachedUser);
       } else {
-        console.log("[useAuth] No cached user, setting user to null");
-        setUser(null);
+        // Token exists but no cached user - try to validate via API
+        console.log("[useAuth] Token exists but no cached user, validating via API...");
+        try {
+          const apiUser = await Api.getMe();
+          if (apiUser) {
+            const userInfo: Auth.User = {
+              id: apiUser.id,
+              openId: apiUser.openId,
+              name: apiUser.name,
+              email: apiUser.email,
+              loginMethod: apiUser.loginMethod,
+              lastSignedIn: new Date(apiUser.lastSignedIn),
+            };
+            setUser(userInfo);
+            await Auth.setUserInfo(userInfo);
+            console.log("[useAuth] User validated from API:", userInfo);
+          } else {
+            // Token is invalid, clean up
+            console.log("[useAuth] Token invalid, clearing session");
+            await Auth.removeSessionToken();
+            await Auth.clearUserInfo();
+            setUser(null);
+          }
+        } catch {
+          // API call failed, token might be expired
+          console.log("[useAuth] API validation failed, clearing session");
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
+          setUser(null);
+        }
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to fetch user");
@@ -100,9 +128,18 @@ export function useAuth(options?: UseAuthOptions) {
     console.log("[useAuth] useEffect triggered, autoFetch:", autoFetch, "platform:", Platform.OS);
     if (autoFetch) {
       if (Platform.OS === "web") {
-        // Web: fetch user from API directly (user will login manually if needed)
-        console.log("[useAuth] Web: fetching user from API...");
-        fetchUser();
+        // Web: check localStorage cache first for instant display, then validate via API
+        Auth.getUserInfo().then((cachedUser) => {
+          if (cachedUser) {
+            console.log("[useAuth] Web: setting cached user immediately for fast display");
+            setUser(cachedUser);
+            setLoading(false);
+            // Then validate in background
+            fetchUser();
+          } else {
+            fetchUser();
+          }
+        });
       } else {
         // Native: check for cached user info first for faster initial load
         Auth.getUserInfo().then((cachedUser) => {

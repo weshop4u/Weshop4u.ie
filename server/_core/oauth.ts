@@ -155,7 +155,7 @@ export function registerOAuthRoutes(app: Express) {
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       
       console.log("[Login] Session created for:", email);
-      res.json({ success: true, user: buildUserResponse(user) });
+      res.json({ success: true, user: buildUserResponse(user), sessionToken });
     } catch (error) {
       console.error("[Login] Failed:", error);
       res.status(500).json({ error: "Login failed" });

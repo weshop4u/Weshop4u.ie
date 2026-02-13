@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "@/constants/oauth";
+import * as Auth from "@/lib/_core/auth";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -26,28 +27,48 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
+      // Step 1: Validate credentials via tRPC
       const result = await loginMutation.mutateAsync({
         email: email.toLowerCase().trim(),
         password,
       });
 
-      // Store user data
+      // Step 2: Store user data in AsyncStorage for quick access
       await AsyncStorage.setItem("user", JSON.stringify(result.user));
       if (result.profile) {
         await AsyncStorage.setItem("profile", JSON.stringify(result.profile));
       }
 
-      // Create session cookie by calling REST API
+      // Step 3: Create session via REST API (sets cookie for web, returns token for native)
       const apiUrl = getApiBaseUrl();
-      await fetch(`${apiUrl}/api/auth/login`, {
+      const sessionResponse = await fetch(`${apiUrl}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: result.user.email }),
         credentials: "include",
       });
 
-      // Navigate based on role
-      // Use window.location.href on web for reliable redirect with full page reload
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        
+        // Step 4: Store session token in SecureStore for native persistence
+        if (Platform.OS !== "web" && sessionData.sessionToken) {
+          await Auth.setSessionToken(sessionData.sessionToken);
+          console.log("[Login] Session token stored in SecureStore");
+        }
+
+        // Step 5: Cache user info for quick session restore
+        await Auth.setUserInfo({
+          id: result.user.id,
+          openId: "",
+          name: result.user.name,
+          email: result.user.email,
+          loginMethod: "password",
+          lastSignedIn: new Date(),
+        });
+      }
+
+      // Step 6: Navigate based on role
       if (Platform.OS === "web") {
         if (result.user.role === "driver") {
           window.location.href = "/driver";
@@ -57,7 +78,6 @@ export default function LoginScreen() {
           window.location.href = "/";
         }
       } else {
-        // On native, use router.replace
         if (result.user.role === "driver") {
           router.replace("/driver");
         } else if (result.user.role === "store_staff") {
@@ -106,6 +126,7 @@ export default function LoginScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
               />
             </View>
 
@@ -119,6 +140,8 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
                 autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
               />
             </View>
 

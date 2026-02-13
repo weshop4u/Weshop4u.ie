@@ -6,6 +6,7 @@ import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
+import { orderOffers } from "../../drizzle/schema";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -823,5 +824,87 @@ export const ordersRouter = router({
       console.log(`[Rating] Driver ${order.driverId} rated ${input.rating}/5 for order ${input.orderId}. New avg: ${avgRating.toFixed(2)}`);
 
       return { success: true, averageRating: parseFloat(avgRating.toFixed(2)) };
+    }),
+
+  // Cancel order (customer can only cancel if status is pending)
+  cancelOrder: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get the order
+      const [order] = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // Only allow cancellation if order is still pending
+      if (order.status !== "pending") {
+        throw new Error(
+          order.status === "cancelled"
+            ? "This order has already been cancelled."
+            : "This order has already been accepted and cannot be cancelled. Please contact the store directly."
+        );
+      }
+
+      // Update order status to cancelled
+      const now = new Date();
+      await db
+        .update(orders)
+        .set({ status: "cancelled", cancelledAt: now })
+        .where(eq(orders.id, input.orderId));
+
+      // Expire any pending order offers for this order
+      await db
+        .update(orderOffers)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(orderOffers.orderId, input.orderId),
+            eq(orderOffers.status, "pending")
+          )
+        );
+
+      // Send push notification to store staff
+      const storeStaffMembers = await db
+        .select({ userId: storeStaffTable.userId })
+        .from(storeStaffTable)
+        .where(eq(storeStaffTable.storeId, order.storeId));
+
+      for (const staff of storeStaffMembers) {
+        const [staffUser] = await db
+          .select({ pushToken: users.pushToken })
+          .from(users)
+          .where(eq(users.id, staff.userId))
+          .limit(1);
+
+        if (staffUser?.pushToken) {
+          await sendPushNotification(staffUser.pushToken, {
+            title: "Order Cancelled ❌",
+            body: `Order #${order.orderNumber} has been cancelled by the customer.`,
+            data: {
+              type: "order_cancelled",
+              orderId: input.orderId,
+            },
+            channelId: "orders",
+          });
+        }
+      }
+
+      console.log(`[Order] Order ${input.orderId} (#${order.orderNumber}) cancelled by customer`);
+
+      return { success: true };
     }),
 });

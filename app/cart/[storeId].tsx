@@ -19,28 +19,56 @@ export default function CartScreen() {
   
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   
-  // Fetch user's most recent order to auto-fill address
+  // Fetch user's saved addresses
+  const { data: savedAddresses } = trpc.addresses.getAddresses.useQuery(
+    undefined,
+    { enabled: !!user?.id }
+  );
+  
+  // Fetch user's most recent order to auto-fill address as fallback
   const { data: recentOrders } = trpc.orders.getByCustomer.useQuery(
     { customerId: user?.id || 0 },
     { enabled: !!user?.id }
   );
   
-  // Auto-fill address from most recent order (but leave Eircode blank)
+  // Auto-fill from default saved address, then fall back to most recent order
   useEffect(() => {
-    if (recentOrders && recentOrders.length > 0 && !streetAddress) {
+    if (streetAddress) return; // Don't overwrite if user already entered something
+    
+    // Priority 1: Default saved address
+    if (savedAddresses && savedAddresses.length > 0) {
+      const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+      setStreetAddress(defaultAddr.streetAddress);
+      setEircode(defaultAddr.eircode);
+      setSelectedAddressId(defaultAddr.id);
+      return;
+    }
+    
+    // Priority 2: Most recent order address
+    if (recentOrders && recentOrders.length > 0) {
       const lastOrder = recentOrders[0];
       if (lastOrder.deliveryAddress) {
-        // Extract street address without Eircode
-        // Format is usually "Street, Eircode, Ireland"
         const parts = lastOrder.deliveryAddress.split(',');
         if (parts.length >= 2) {
           setStreetAddress(parts[0].trim());
-          // Leave Eircode blank for user to enter
         }
       }
     }
-  }, [recentOrders, streetAddress]);
+  }, [savedAddresses, recentOrders, streetAddress]);
+  
+  // Handle saved address selection
+  const handleSelectSavedAddress = (addressId: number) => {
+    const addr = savedAddresses?.find(a => a.id === addressId);
+    if (addr) {
+      setStreetAddress(addr.streetAddress);
+      setEircode(addr.eircode);
+      setSelectedAddressId(addr.id);
+      setDeliveryFeeCalculated(false);
+      calculateDeliveryFeeMutation.reset();
+    }
+  };
   const [customerNotes, setCustomerNotes] = useState("");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
   // Guests must use card, logged-in users can choose
@@ -284,6 +312,64 @@ export default function CartScreen() {
         {/* Delivery Address */}
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-2">Delivery Address</Text>
+          
+          {/* Saved Address Picker */}
+          {!isGuest && savedAddresses && savedAddresses.length > 0 && (
+            <View className="mb-3">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {savedAddresses.map((addr) => (
+                  <TouchableOpacity
+                    key={addr.id}
+                    onPress={() => handleSelectSavedAddress(addr.id)}
+                    className="active:opacity-70"
+                    style={[{
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: selectedAddressId === addr.id ? '#0a7ea4' : '#E5E7EB',
+                      backgroundColor: selectedAddressId === addr.id ? '#E6F7FC' : 'transparent',
+                      minWidth: 120,
+                    }]}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 13, color: selectedAddressId === addr.id ? '#0a7ea4' : '#11181C', marginBottom: 2 }}>
+                      {addr.label}{addr.isDefault ? ' ★' : ''}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#687076' }} numberOfLines={1}>
+                      {addr.streetAddress}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#687076' }}>
+                      {addr.eircode}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedAddressId(null);
+                    setStreetAddress("");
+                    setEircode("");
+                    setDeliveryFeeCalculated(false);
+                    calculateDeliveryFeeMutation.reset();
+                  }}
+                  className="active:opacity-70"
+                  style={[{
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: selectedAddressId === null && !streetAddress ? '#0a7ea4' : '#E5E7EB',
+                    backgroundColor: 'transparent',
+                    minWidth: 100,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }]}
+                >
+                  <Text style={{ fontWeight: '600', fontSize: 13, color: '#0a7ea4' }}>+ New</Text>
+                  <Text style={{ fontSize: 11, color: '#687076' }}>Address</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
           
           {/* Street Address */}
           <TextInput
