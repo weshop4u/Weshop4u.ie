@@ -942,3 +942,10 @@
 - [x] Fix push token projectId missing — skip registration when no projectId available or in Expo Go
 - [x] Fixed in: lib/notifications.ts, lib/notification-provider.tsx, hooks/use-push-notifications.ts
 - [x] Fixed in: app/(tabs)/orders.tsx, app/driver/index.tsx, app/store/index.tsx, app/store-dashboard/index.tsx
+
+## Bug: Logout doesn't fully clear auth state (FIXED)
+- [x] Rewrote useAuth with shared auth state (event emitter pattern) so logout in one component updates ALL instances
+- [x] Fixed profile.tsx logout to use useAuth().logout() + clear tRPC cache + clear AsyncStorage
+- [x] Fixed store/index.tsx logout to use useAuth().logout() + clear tRPC cache
+- [x] Native fetchUser now always validates against API (not just trusts SecureStore cache)
+- [x] After logout, home screen shows login button immediately via shared state notification

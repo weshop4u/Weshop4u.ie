@@ -8,6 +8,8 @@ import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useAuth } from "@/hooks/use-auth";
+import * as Auth from "@/lib/_core/auth";
 
 const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
@@ -184,20 +186,37 @@ export default function StoreDashboardScreen() {
     setRefreshing(false);
   };
 
+  const { logout: authLogout } = useAuth();
+  const utils = trpc.useUtils();
+
   const handleLogout = async () => {
     const confirmed = await confirmAction("Log Out", "Are you sure you want to log out?");
     if (!confirmed) return;
     try {
-      // Clear session
-      await AsyncStorage.multiRemove(["user", "authToken", "userRole"]);
-      // Call backend logout
-      try {
-        const apiUrl = Platform.OS === "web" ? "/api/auth/logout" : `${process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:3000"}/api/auth/logout`;
-        await fetch(apiUrl, { method: "POST", credentials: "include" });
-      } catch (e) { /* ignore */ }
-      router.replace("/auth/store-login");
+      // Use useAuth logout which clears API session + SecureStore + sets user to null
+      await authLogout();
+      // Clear additional local storage
+      await AsyncStorage.multiRemove(["user", "authToken", "userRole", "appMode"]);
+      // Clear tRPC cache
+      utils.invalidate();
+      // Navigate
+      if (Platform.OS === "web") {
+        window.location.href = "/";
+      } else {
+        router.replace("/(tabs)" as any);
+      }
     } catch (error) {
-      showAlert("Error", "Failed to log out");
+      // Force clear on error
+      try {
+        await Auth.removeSessionToken();
+        await Auth.clearUserInfo();
+      } catch (e) { /* ignore */ }
+      await AsyncStorage.multiRemove(["user", "authToken", "userRole", "appMode"]);
+      if (Platform.OS === "web") {
+        window.location.href = "/";
+      } else {
+        router.replace("/(tabs)" as any);
+      }
     }
   };
 

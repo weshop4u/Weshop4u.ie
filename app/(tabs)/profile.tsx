@@ -4,14 +4,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import * as Auth from "@/lib/_core/auth";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { data: user } = trpc.auth.me.useQuery(undefined, {
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always consider data stale
-  });
+  const { user, logout: authLogout } = useAuth();
   const utils = trpc.useUtils();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
 
@@ -41,26 +39,17 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     console.log("[Logout] Starting logout process...");
     try {
-      // Call REST API logout endpoint directly to ensure cookie is cleared
-      const { getApiBaseUrl } = require("@/constants/oauth");
-      const apiBaseUrl = getApiBaseUrl();
-      const apiUrl = `${apiBaseUrl}/api/auth/logout`;
-      
-      console.log("[Logout] Calling API:", apiUrl);
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        credentials: "include", // Important: send cookies
-      });
-      console.log("[Logout] API response:", response.status);
-      
-      // Clear ALL local storage data
+      // 1. Call the useAuth logout which clears API session + SecureStore + sets user to null
+      await authLogout();
+      console.log("[Logout] Auth logout completed");
+
+      // 2. Clear ALL local storage data (appMode, etc.)
       console.log("[Logout] Clearing AsyncStorage...");
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
-      
-      // Client-side cookie deletion as backup (for web)
+
+      // 3. Client-side cookie deletion as backup (for web)
       if (Platform.OS === "web" && typeof document !== "undefined") {
         console.log("[Logout] Deleting cookies client-side...");
-        // Delete app_session_id cookie on all possible domains
         const domains = [
           "", // current domain
           window.location.hostname,
@@ -70,35 +59,39 @@ export default function ProfileScreen() {
         domains.forEach(domain => {
           const domainStr = domain ? `; domain=${domain}` : "";
           document.cookie = `app_session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/${domainStr}; SameSite=None; Secure`;
-          console.log("[Logout] Deleted cookie for domain:", domain || "(current)");
         });
-        
-        // Check if cookies are actually deleted
-        console.log("[Logout] Remaining cookies:", document.cookie);
       }
-      
-      // Clear tRPC query cache to remove user data
-      console.log("[Logout] Invalidating tRPC cache...");
+
+      // 4. Clear tRPC query cache to remove all user data
+      console.log("[Logout] Clearing tRPC cache...");
       utils.invalidate();
-      
-      // Force page reload on web to clear all cached state
+      // Also reset the query client to clear stale data completely
+      utils.auth.me.reset();
+
+      // 5. Navigate
       if (Platform.OS === "web") {
         console.log("[Logout] Reloading page...");
-        // Use location.href to force full page reload and clear everything
         window.location.href = "/";
       } else {
         console.log("[Logout] Navigating to home (native)...");
-        // On native, just navigate
-        router.replace("/" as any);
+        // On native, navigate to home - useAuth state is already cleared
+        router.replace("/(tabs)" as any);
       }
     } catch (error) {
       console.error("[Logout] Failed to log out:", error);
-      // Even if logout fails, clear local data and reload
+      // Even if logout fails, force clear everything
+      try {
+        await Auth.removeSessionToken();
+        await Auth.clearUserInfo();
+      } catch (e) {
+        // ignore
+      }
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
+      utils.auth.me.reset();
       if (Platform.OS === "web") {
         window.location.href = "/";
       } else {
-        router.replace("/" as any);
+        router.replace("/(tabs)" as any);
       }
     }
   };
@@ -203,7 +196,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Admin Panel Section - Only visible to admin users */}
-          {user && user.role === "admin" && (
+          {user && (user as any).role === "admin" && (
             <View className="bg-surface rounded-xl border border-border overflow-hidden">
               <TouchableOpacity 
                 className="p-4 active:opacity-70"
@@ -216,7 +209,7 @@ export default function ProfileScreen() {
           )}
 
           {/* Driver Mode Section - Only visible to users with driver role */}
-          {user && user.role === "driver" && (
+          {user && (user as any).role === "driver" && (
             <View className="bg-surface rounded-xl border border-border overflow-hidden">
               <TouchableOpacity 
                 className="p-4 active:opacity-70"
@@ -224,6 +217,19 @@ export default function ProfileScreen() {
               >
                 <Text className="text-foreground font-semibold">🚗 Switch to Driver Mode</Text>
                 <Text className="text-muted text-sm mt-1">Start accepting delivery jobs</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Store Dashboard Section - Only visible to store staff */}
+          {user && (user as any).role === "store_staff" && (
+            <View className="bg-surface rounded-xl border border-border overflow-hidden">
+              <TouchableOpacity 
+                className="p-4 active:opacity-70"
+                onPress={() => router.push("/store" as any)}
+              >
+                <Text className="text-foreground font-semibold">🏪 Store Dashboard</Text>
+                <Text className="text-muted text-sm mt-1">Manage your store orders</Text>
               </TouchableOpacity>
             </View>
           )}
