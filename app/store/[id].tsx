@@ -5,19 +5,36 @@ import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useMemo } from "react";
 import { useCart } from "@/lib/cart-provider";
+import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } from "@/lib/store-hours";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [categorySearch, setCategorySearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [showHours, setShowHours] = useState(false);
   const { cart, addToCart, clearCart, getItemCount } = useCart();
   
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
   const { data: products, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId });
 
+  const storeOpen = store ? isStoreOpen(store) : true;
+  const todayHours = store ? getTodayHours(store) : null;
+  const nextOpen = store && !storeOpen ? getNextOpenTime(store) : null;
+  const weeklyHours = store ? getWeeklyHoursSummary(store) : [];
+
   const handleAddToCart = async (productId: number, productName: string, productPrice: string) => {
+    if (!storeOpen) {
+      Alert.alert(
+        "Store Closed",
+        `${store?.name} is currently closed. ${nextOpen || "Please check back later."}`,
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     const success = await addToCart(storeId, store?.name || "Store", {
       productId,
       productName,
@@ -26,15 +43,11 @@ export default function StoreDetailScreen() {
     });
 
     if (!success) {
-      // Show store restriction dialog
       Alert.alert(
         "Replace cart items?",
         `You have items from ${cart.storeName} in your cart.\n\nAdding items from ${store?.name} will remove your current cart.`,
         [
-          {
-            text: "Keep Current Cart",
-            style: "cancel",
-          },
+          { text: "Keep Current Cart", style: "cancel" },
           {
             text: "Start New Cart",
             onPress: () => {
@@ -126,14 +139,88 @@ export default function StoreDetailScreen() {
 
         <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {/* Store Header */}
-          <View className="px-4 pt-4 pb-6">
+          <View className="px-4 pt-4 pb-2">
             <View className="flex-row items-center gap-3 mb-2">
               <Text className="text-3xl font-bold text-foreground">{store.name}</Text>
+              {/* Open/Closed Badge */}
+              <View
+                style={{
+                  backgroundColor: storeOpen ? "#DCFCE7" : "#FEF2F2",
+                  paddingHorizontal: 10,
+                  paddingVertical: 3,
+                  borderRadius: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: storeOpen ? "#16A34A" : "#DC2626",
+                  }}
+                >
+                  {storeOpen ? "Open" : "Closed"}
+                </Text>
+              </View>
             </View>
             {store.address && (
-              <Text className="text-sm text-muted">{store.address}</Text>
+              <Text className="text-sm text-muted mb-1">{store.address}</Text>
             )}
           </View>
+
+          {/* Store Hours Section */}
+          <View className="px-4 pb-4">
+            <TouchableOpacity
+              onPress={() => setShowHours(!showHours)}
+              className="active:opacity-70"
+            >
+              <View className="flex-row items-center gap-2">
+                <Text style={{ fontSize: 13, color: storeOpen ? "#16A34A" : "#DC2626", fontWeight: "600" }}>
+                  {todayHours || "Hours not set"}
+                </Text>
+                <Text className="text-muted text-xs">{showHours ? "▲" : "▼"}</Text>
+              </View>
+              {!storeOpen && nextOpen && (
+                <Text style={{ fontSize: 12, color: "#DC2626", marginTop: 2 }}>
+                  {nextOpen}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Weekly Hours Dropdown */}
+            {showHours && weeklyHours.length > 0 && (
+              <View className="mt-3 bg-surface rounded-xl p-3 border border-border">
+                {weeklyHours.map((item, index) => {
+                  const isToday = index === new Date().getDay();
+                  return (
+                    <View
+                      key={item.day}
+                      className="flex-row justify-between py-1.5"
+                      style={isToday ? { backgroundColor: "rgba(0,229,255,0.08)", marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 6 } : undefined}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: isToday ? "#00E5FF" : "#687076" }}>
+                        {item.day}{isToday ? " (Today)" : ""}
+                      </Text>
+                      <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: item.hours === "Closed" ? "#DC2626" : (isToday ? "#00E5FF" : "#687076") }}>
+                        {item.hours}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          {/* Closed Store Banner */}
+          {!storeOpen && (
+            <View className="mx-4 mb-4 p-4 rounded-xl" style={{ backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#DC2626", marginBottom: 2 }}>
+                This store is currently closed
+              </Text>
+              <Text style={{ fontSize: 13, color: "#991B1B" }}>
+                You can browse the menu but ordering is not available right now.{nextOpen ? ` ${nextOpen}.` : ""}
+              </Text>
+            </View>
+          )}
 
           {/* Category Search Bar */}
           <View className="px-4 mb-4">
@@ -161,7 +248,6 @@ export default function StoreDetailScreen() {
                     className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                   >
                     <View className="flex-row items-center gap-3">
-                      {/* Category Icon/Image */}
                       <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
                         {category.products[0]?.category?.icon ? (
                           <Image
@@ -176,7 +262,6 @@ export default function StoreDetailScreen() {
                         )}
                       </View>
                       
-                      {/* Category Info */}
                       <View className="flex-1">
                         <Text className="text-lg font-semibold text-foreground mb-1">
                           {category.name}
@@ -186,7 +271,6 @@ export default function StoreDetailScreen() {
                         </Text>
                       </View>
                       
-                      {/* Arrow */}
                       <Text className="text-primary text-2xl">›</Text>
                     </View>
                   </TouchableOpacity>
@@ -217,6 +301,16 @@ export default function StoreDetailScreen() {
   const selectedCategory = categoriesWithProducts[selectedCategoryId];
   const categoryProducts = selectedCategory?.products || [];
 
+  // Filter products by search query
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return categoryProducts;
+    const query = productSearch.toLowerCase().trim();
+    return categoryProducts.filter((product) =>
+      product.name.toLowerCase().includes(query) ||
+      (product.description?.toLowerCase().includes(query) || false)
+    );
+  }, [categoryProducts, productSearch]);
+
   // Get quantity for a product from cart
   const getProductQuantity = (productId: number) => {
     const item = cart.items.find(i => i.productId === productId);
@@ -228,7 +322,7 @@ export default function StoreDetailScreen() {
       {/* Header with Back Button and Cart Icon */}
       <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
         <TouchableOpacity
-          onPress={() => setSelectedCategoryId(null)}
+          onPress={() => { setSelectedCategoryId(null); setProductSearch(""); }}
           className="active:opacity-70"
         >
           <Text className="text-primary text-2xl">‹ Categories</Text>
@@ -251,16 +345,37 @@ export default function StoreDetailScreen() {
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
-        <View className="px-4 pt-4 pb-6">
+        <View className="px-4 pt-4 pb-2">
           <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
-          <Text className="text-sm text-muted">{store.name}</Text>
+          <View className="flex-row items-center gap-2 mt-1">
+            <Text className="text-sm text-muted">{store.name}</Text>
+            {!storeOpen && (
+              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>Closed</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Product Search Bar */}
+        <View className="px-4 py-3">
+          <TextInput
+            className="bg-surface border border-border rounded-xl p-4 text-foreground"
+            placeholder="Search products..."
+            placeholderTextColor="#9BA1A6"
+            value={productSearch}
+            onChangeText={setProductSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+          />
         </View>
 
         {/* Products */}
         <View className="px-4">
-          {categoryProducts.length > 0 ? (
+          {filteredProducts.length > 0 ? (
             <View className="gap-3">
-              {categoryProducts.map((product) => {
+              {filteredProducts.map((product) => {
                 const quantity = getProductQuantity(product.id);
                 return (
                   <View
@@ -285,7 +400,12 @@ export default function StoreDetailScreen() {
                       {/* Add to Cart Button */}
                       <TouchableOpacity
                         onPress={() => handleAddToCart(product.id, product.name, product.price)}
-                        className="bg-primary px-4 py-2 rounded-lg active:opacity-70"
+                        className="rounded-lg active:opacity-70"
+                        style={{
+                          backgroundColor: storeOpen ? "#00E5FF" : "#9BA1A6",
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                        }}
                       >
                         <Text className="text-background font-semibold">
                           {quantity > 0 ? `+${quantity}` : "Add"}
@@ -298,7 +418,17 @@ export default function StoreDetailScreen() {
             </View>
           ) : (
             <View className="items-center py-8">
-              <Text className="text-muted">No products in this category</Text>
+              <Text className="text-muted">
+                {productSearch ? "No products match your search" : "No products in this category"}
+              </Text>
+              {productSearch && (
+                <TouchableOpacity
+                  onPress={() => setProductSearch("")}
+                  className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
+                >
+                  <Text className="text-background font-semibold">Clear Search</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>

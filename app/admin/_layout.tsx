@@ -17,7 +17,19 @@ export default function AdminLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: "Admin Panel",
+          title: "Dashboard",
+        }}
+      />
+      <Stack.Screen
+        name="orders"
+        options={{
+          title: "All Orders",
+        }}
+      />
+      <Stack.Screen
+        name="driver-management"
+        options={{
+          title: "Driver Management",
         }}
       />
       <Stack.Screen
@@ -30,6 +42,36 @@ export default function AdminLayout() {
         name="drivers"
         options={{
           title: "All Drivers",
+        }}
+      />
+      <Stack.Screen
+        name="products"
+        options={{
+          title: "Manage Products",
+        }}
+      />
+      <Stack.Screen
+        name="import-products"
+        options={{
+          title: "Import Products",
+        }}
+      />
+      <Stack.Screen
+        name="categories"
+        options={{
+          title: "Category Images",
+        }}
+      />
+      <Stack.Screen
+        name="batch-category-images"
+        options={{
+          title: "Batch Category Images",
+        }}
+      />
+      <Stack.Screen
+        name="store-logos"
+        options={{
+          title: "Store Logos",
         }}
       />
     </Stack>

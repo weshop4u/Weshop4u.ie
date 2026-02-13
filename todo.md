@@ -743,3 +743,34 @@
 - [x] Cancelled orders show in past orders section
 - [x] Unit tests for all three features (17 tests passing)
 - [x] All 58 tests passing across 4 test suites
+
+## Store Hours Enforcement
+- [x] Opening hours fields already existed in stores table (isOpen247, openingHours JSON)
+- [x] Set opening hours for existing stores (Spar 07:00-23:00, Centra 07:00-22:00)
+- [x] Created store-hours utility (isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary)
+- [x] Display open/closed badge on store cards (home screen) with color coding
+- [x] Show today's hours on store detail page with expandable weekly schedule
+- [x] Block ordering from closed stores with clear banner and alert
+- [x] "Opens at" message shown when store is closed
+- [x] Handles midnight-crossing hours and closed days
+
+## Product Search
+- [x] Category search bar on store detail page (filters categories by name)
+- [x] Product search bar within each category (filters by name and description)
+- [x] Case-insensitive search with real-time filtering
+- [x] "No results" state with clear search button
+- [x] Search uses useMemo for performance
+
+## Basic Admin Panel
+- [x] Backend admin router with getDashboardStats, getAllOrders, getAllDrivers endpoints
+- [x] Dashboard overview: today's orders, revenue, service fees, delivery fees, tips
+- [x] Revenue summary: this week, this month, all time with order counts
+- [x] Live status: active orders, online/available drivers, active stores
+- [x] Order status breakdown with color-coded badges
+- [x] Orders management page: filterable by status, expandable details with full breakdown
+- [x] Driver management page: online/offline status, earnings today, vehicle info, ratings
+- [x] Auto-refresh every 15-30 seconds for live data
+- [x] Pull-to-refresh on all admin screens
+- [x] Admin layout updated with all screen routes
+- [x] Unit tests for store hours, admin stats, and product search (16 tests)
+- [x] All 74 tests passing across 5 test suites
