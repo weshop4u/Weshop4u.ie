@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { orders, orderItems, products, stores, users, productCategories } from "../../drizzle/schema";
 import { eq, and, or, like, inArray } from "drizzle-orm";
+import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 
 export const storeRouter = router({
@@ -324,6 +325,62 @@ export const storeRouter = router({
       // Note: We don't have an "isReady" field in order_items table yet
       // For MVP, we'll just return success and handle this in frontend state
       // In production, you'd want to add a "status" or "isReady" field to order_items
+
+      return { success: true };
+    }),
+
+  // Update store opening hours (for store staff)
+  updateOpeningHours: publicProcedure
+    .input(
+      z.object({
+        storeId: z.number(),
+        userId: z.number(),
+        openingHours: z.record(
+          z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
+          z.object({
+            open: z.string().nullable(),
+            close: z.string().nullable(),
+          }).nullable()
+        ),
+        isOpen247: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Verify user is staff for this store
+      const staffCheck = await db
+        .select()
+        .from(storeStaff)
+        .where(
+          and(
+            eq(storeStaff.userId, input.userId),
+            eq(storeStaff.storeId, input.storeId)
+          )
+        )
+        .limit(1);
+
+      if (staffCheck.length === 0) {
+        throw new Error("You are not authorized to update this store's hours");
+      }
+
+      // Update store opening hours
+      const updateData: any = {
+        openingHours: JSON.stringify(input.openingHours),
+        updatedAt: new Date(),
+      };
+
+      if (input.isOpen247 !== undefined) {
+        updateData.isOpen247 = input.isOpen247;
+      }
+
+      await db
+        .update(stores)
+        .set(updateData)
+        .where(eq(stores.id, input.storeId));
 
       return { success: true };
     }),

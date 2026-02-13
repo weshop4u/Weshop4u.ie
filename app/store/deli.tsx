@@ -5,6 +5,27 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
+// Web-compatible alert/confirm helpers
+const showAlert = (title: string, message: string) => {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
+const confirmAction = (title: string, message: string): Promise<boolean> => {
+  if (Platform.OS === "web") {
+    return Promise.resolve(window.confirm(`${title}\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: "Confirm", onPress: () => resolve(true) },
+    ]);
+  });
+};
+
 export default function DeliViewScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -38,67 +59,47 @@ export default function DeliViewScreen() {
     return readyItems.has(`${orderId}-${itemId}`);
   };
 
-  const handleMarkItemReady = (orderId: number, itemId: number) => {
-    Alert.alert(
-      "Mark Item Ready",
-      "Is this deli item complete and ready?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Mark Ready",
-          onPress: async () => {
-            try {
-              if (Platform.OS !== "web") {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-              await markDeliItemMutation.mutateAsync({
-                orderItemId: itemId,
-                orderId,
-                storeId,
-              });
-              setReadyItems(prev => {
-                const next = new Set(prev);
-                next.add(`${orderId}-${itemId}`);
-                return next;
-              });
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to mark item ready");
-            }
-          },
-        },
-      ]
-    );
+  const handleMarkItemReady = async (orderId: number, itemId: number) => {
+    const confirmed = await confirmAction("Mark Item Ready", "Is this deli item complete and ready?");
+    if (!confirmed) return;
+    try {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      await markDeliItemMutation.mutateAsync({
+        orderItemId: itemId,
+        orderId,
+        storeId,
+      });
+      setReadyItems(prev => {
+        const next = new Set(prev);
+        next.add(`${orderId}-${itemId}`);
+        return next;
+      });
+    } catch (error: any) {
+      showAlert("Error", error.message || "Failed to mark item ready");
+    }
   };
 
-  const handleMarkAllReady = (orderId: number, items: any[]) => {
-    Alert.alert(
-      "Mark All Deli Items Ready",
-      "Are all deli items for this order complete?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Mark All Ready",
-          onPress: async () => {
-            try {
-              if (Platform.OS !== "web") {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }
-              // Mark all items locally
-              setReadyItems(prev => {
-                const next = new Set(prev);
-                items.forEach((item: any) => {
-                  next.add(`${orderId}-${item.id}`);
-                });
-                return next;
-              });
-              Alert.alert("Success", "All deli items marked as ready!");
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to mark items ready");
-            }
-          },
-        },
-      ]
-    );
+  const handleMarkAllReady = async (orderId: number, items: any[]) => {
+    const confirmed = await confirmAction("Mark All Deli Items Ready", "Are all deli items for this order complete?");
+    if (!confirmed) return;
+    try {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      // Mark all items locally
+      setReadyItems(prev => {
+        const next = new Set(prev);
+        items.forEach((item: any) => {
+          next.add(`${orderId}-${item.id}`);
+        });
+        return next;
+      });
+      showAlert("Success", "All deli items marked as ready!");
+    } catch (error: any) {
+      showAlert("Error", error.message || "Failed to mark items ready");
+    }
   };
 
   if (isLoading) {

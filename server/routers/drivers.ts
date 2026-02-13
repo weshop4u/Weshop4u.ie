@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns } from "../../drizzle/schema";
+import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns, orderTracking } from "../../drizzle/schema";
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
 
@@ -1081,6 +1081,160 @@ export const driversRouter = router({
           storeName: order.storeName || "Store",
           deliveryAddress: order.deliveryAddress,
         })),
+      };
+    }),
+
+  // Update driver location during active delivery
+  updateLocation: publicProcedure
+    .input(
+      z.object({
+        driverId: z.number(),
+        latitude: z.number(),
+        longitude: z.number(),
+        orderId: z.number().optional(), // if actively delivering
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Update driver's current location
+      await db
+        .update(drivers)
+        .set({
+          currentLatitude: String(input.latitude),
+          currentLongitude: String(input.longitude),
+          lastLocationUpdate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(drivers.userId, input.driverId));
+
+      // If actively delivering an order, also log to order_tracking
+      if (input.orderId) {
+        await db.insert(orderTracking).values({
+          orderId: input.orderId,
+          status: "location_update",
+          latitude: String(input.latitude),
+          longitude: String(input.longitude),
+        });
+      }
+
+      return { success: true };
+    }),
+
+  // Get driver location for a specific order (customer-facing)
+  getDriverLocation: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get the order to find the assigned driver
+      const orderResult = await db
+        .select({
+          driverId: orders.driverId,
+          status: orders.status,
+          storeId: orders.storeId,
+          deliveryLatitude: orders.deliveryLatitude,
+          deliveryLongitude: orders.deliveryLongitude,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        return { hasLocation: false, driver: null, store: null };
+      }
+
+      const order = orderResult[0];
+
+      // Only show driver location for active delivery statuses
+      if (!order.driverId || !["picked_up", "on_the_way"].includes(order.status)) {
+        // Return store location for pre-pickup statuses
+        const storeResult = await db
+          .select({ latitude: stores.latitude, longitude: stores.longitude, name: stores.name })
+          .from(stores)
+          .where(eq(stores.id, order.storeId))
+          .limit(1);
+
+        return {
+          hasLocation: false,
+          driver: null,
+          store: storeResult.length > 0 ? {
+            latitude: storeResult[0].latitude ? parseFloat(storeResult[0].latitude) : null,
+            longitude: storeResult[0].longitude ? parseFloat(storeResult[0].longitude) : null,
+            name: storeResult[0].name,
+          } : null,
+          delivery: {
+            latitude: order.deliveryLatitude ? parseFloat(order.deliveryLatitude) : null,
+            longitude: order.deliveryLongitude ? parseFloat(order.deliveryLongitude) : null,
+          },
+        };
+      }
+
+      // Get driver's current location
+      const driverResult = await db
+        .select({
+          currentLatitude: drivers.currentLatitude,
+          currentLongitude: drivers.currentLongitude,
+          lastLocationUpdate: drivers.lastLocationUpdate,
+          userId: drivers.userId,
+        })
+        .from(drivers)
+        .where(eq(drivers.userId, order.driverId))
+        .limit(1);
+
+      // Get driver user info
+      const driverUser = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, order.driverId))
+        .limit(1);
+
+      // Get store location
+      const storeResult = await db
+        .select({ latitude: stores.latitude, longitude: stores.longitude, name: stores.name })
+        .from(stores)
+        .where(eq(stores.id, order.storeId))
+        .limit(1);
+
+      if (driverResult.length === 0 || !driverResult[0].currentLatitude) {
+        return {
+          hasLocation: false,
+          driver: null,
+          store: storeResult.length > 0 ? {
+            latitude: storeResult[0].latitude ? parseFloat(storeResult[0].latitude) : null,
+            longitude: storeResult[0].longitude ? parseFloat(storeResult[0].longitude) : null,
+            name: storeResult[0].name,
+          } : null,
+          delivery: {
+            latitude: order.deliveryLatitude ? parseFloat(order.deliveryLatitude) : null,
+            longitude: order.deliveryLongitude ? parseFloat(order.deliveryLongitude) : null,
+          },
+        };
+      }
+
+      return {
+        hasLocation: true,
+        driver: {
+          latitude: parseFloat(driverResult[0].currentLatitude!),
+          longitude: parseFloat(driverResult[0].currentLongitude!),
+          lastUpdate: driverResult[0].lastLocationUpdate?.toISOString() || null,
+          name: driverUser.length > 0 ? driverUser[0].name : "Driver",
+        },
+        store: storeResult.length > 0 ? {
+          latitude: storeResult[0].latitude ? parseFloat(storeResult[0].latitude) : null,
+          longitude: storeResult[0].longitude ? parseFloat(storeResult[0].longitude) : null,
+          name: storeResult[0].name,
+        } : null,
+        delivery: {
+          latitude: order.deliveryLatitude ? parseFloat(order.deliveryLatitude) : null,
+          longitude: order.deliveryLongitude ? parseFloat(order.deliveryLongitude) : null,
+        },
       };
     }),
 

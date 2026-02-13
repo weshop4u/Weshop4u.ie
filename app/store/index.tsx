@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
@@ -139,6 +140,23 @@ export default function StoreDashboardScreen() {
     setRefreshing(false);
   };
 
+  const handleLogout = async () => {
+    const confirmed = await confirmAction("Log Out", "Are you sure you want to log out?");
+    if (!confirmed) return;
+    try {
+      // Clear session
+      await AsyncStorage.multiRemove(["user", "authToken", "userRole"]);
+      // Call backend logout
+      try {
+        const apiUrl = Platform.OS === "web" ? "/api/auth/logout" : `${process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:3000"}/api/auth/logout`;
+        await fetch(apiUrl, { method: "POST", credentials: "include" });
+      } catch (e) { /* ignore */ }
+      router.replace("/auth/store-login");
+    } catch (error) {
+      showAlert("Error", "Failed to log out");
+    }
+  };
+
   const handleAcceptOrder = useCallback(async (orderId: number) => {
     if (!storeId) return;
 
@@ -265,8 +283,18 @@ export default function StoreDashboardScreen() {
       <View className="flex-1">
         {/* Header */}
         <View className="bg-primary p-4">
-          <Text className="text-background text-2xl font-bold">{storeName}</Text>
-          <Text className="text-background/80 text-sm">Store Dashboard</Text>
+          <View className="flex-row justify-between items-center">
+            <View className="flex-1">
+              <Text className="text-background text-2xl font-bold">{storeName}</Text>
+              <Text className="text-background/80 text-sm">Store Dashboard</Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={{ backgroundColor: "rgba(0,0,0,0.2)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>Log Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* New Order Flash Banner */}
@@ -277,6 +305,22 @@ export default function StoreDashboardScreen() {
             </Text>
           </View>
         )}
+
+        {/* Quick Actions Bar */}
+        <View style={{ flexDirection: "row", backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/store/hours", params: { storeId: String(storeId) } })}
+            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Store Hours</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/store/deli", params: { storeId: String(storeId) } })}
+            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Deli View</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Navigation Tabs */}
         <View className="flex-row bg-surface border-b border-border">
@@ -305,11 +349,11 @@ export default function StoreDashboardScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push({ pathname: "/store/deli", params: { storeId: String(storeId) } })}
-            className="flex-1 p-3"
+            onPress={() => setFilter("ready_for_pickup")}
+            className={`flex-1 p-3 ${filter === "ready_for_pickup" ? "border-b-2 border-primary" : ""}`}
           >
-            <Text className="text-center font-semibold text-sm text-muted">
-              Deli View
+            <Text className={`text-center font-semibold text-sm ${filter === "ready_for_pickup" ? "text-primary" : "text-muted"}`}>
+              Ready{readyCount > 0 ? ` (${readyCount})` : ""}
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,7 @@ export default function ActiveDeliveryScreen() {
   );
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
   const returnJobMutation = trpc.orders.returnJob.useMutation();
+  const updateLocationMutation = trpc.drivers.updateLocation.useMutation();
   const { data: returnCount } = trpc.drivers.getReturnCount.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id }
@@ -29,6 +30,66 @@ export default function ActiveDeliveryScreen() {
   const [returnError, setReturnError] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Location tracking - send updates every 15 seconds during active delivery
+  useEffect(() => {
+    if (!user?.id || !orderId || deliveryStatus === "delivered") return;
+    if (Platform.OS === "web") {
+      // Web: use navigator.geolocation
+      if (!navigator.geolocation) return;
+
+      const sendLocation = () => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            updateLocationMutation.mutate({
+              driverId: user.id,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              orderId,
+            });
+          },
+          (err) => console.log("Geolocation error:", err.message),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      };
+
+      sendLocation(); // Send immediately
+      const locationInterval = setInterval(sendLocation, 15000);
+      return () => clearInterval(locationInterval);
+    } else {
+      // Native: use expo-location
+      let locationSub: any = null;
+      (async () => {
+        try {
+          const Location = await import("expo-location");
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted") return;
+
+          locationSub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 15000,
+              distanceInterval: 20,
+            },
+            (loc) => {
+              updateLocationMutation.mutate({
+                driverId: user!.id,
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+                orderId: orderId!,
+              });
+            }
+          );
+        } catch (e) {
+          console.log("Location tracking not available:", e);
+        }
+      })();
+
+      return () => {
+        if (locationSub) locationSub.remove();
+      };
+    }
+  }, [user?.id, orderId, deliveryStatus]);
 
   // Delivery timer - counts up from when driver accepted the order
   useEffect(() => {

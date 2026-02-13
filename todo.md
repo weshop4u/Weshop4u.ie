@@ -808,3 +808,38 @@
 - [x] Created Deli product category with 6 deli products (Chicken Fillet Roll, Breakfast Roll, Spicy Chicken Wrap, BLT Sandwich, Ham & Cheese Toastie, Sausage Roll)
 - [x] Fixed getDeliOrders to dynamically find deli category by name instead of hardcoded categoryId 1
 - [x] Deli view now uses real backend data with correct category filtering
+
+## Store Dashboard: Missing Logout & Deli View
+- [x] Add logout button to store dashboard header
+- [x] Fix deli view web compatibility (replaced Alert.alert with window.confirm)
+- [x] Deli view connected to real backend (trpc.store.getDeliOrders)
+
+## Feature: Store Hours Management from Dashboard
+- [x] Add backend endpoint for store staff to update opening hours (store.updateOpeningHours)
+- [x] Add "Store Hours" screen accessible from store dashboard quick actions bar
+- [x] Allow editing hours for each day of the week (24h time input)
+- [x] Allow toggling open/closed for each day with Switch
+- [x] Open 24/7 toggle option
+- [x] Quick presets (7am-11pm, 8am-10pm, Mon-Sat 9-6)
+- [x] "Apply to all days" shortcut per day
+- [x] Save changes to database with staff authorization check
+
+## Feature: Customer Order Tracking Improvements
+- [x] Enhanced status timeline with numbered steps, colored indicators, and timestamps
+- [x] Estimated delivery time banner based on distance and current status (~X min)
+- [x] Improved visual design: card-based layout, delivery banner, progress indicators
+- [x] Detailed timeline section showing all timestamps (placed, accepted, assigned, picked up, delivered)
+- [x] Status-specific descriptions ("Your order is being prepared now", etc.)
+- [x] Elapsed time display for current step
+- [x] Delivered celebration banner and cancelled state handling
+- [x] Auto-refresh every 8 seconds
+
+## Feature: Driver Location Tracking
+- [x] Add backend endpoint for driver to update location (drivers.updateLocation)
+- [x] Add backend endpoint to get driver location for an order (drivers.getDriverLocation)
+- [x] Update driver active-delivery screen to send location updates every 15s (web geolocation + native expo-location)
+- [x] Show driver location on customer order tracking screen with Leaflet live map
+- [x] Map shows store (shop emoji), delivery address (house emoji), and driver (car emoji) markers
+- [x] Auto-fit bounds to show all markers
+- [x] Native fallback message for non-web platforms
+- [x] Location data also logged to order_tracking table for history
