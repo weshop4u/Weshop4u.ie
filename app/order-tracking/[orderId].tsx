@@ -686,6 +686,23 @@ export default function OrderTrackingScreen() {
 
           {isDelivered && (
             <TouchableOpacity
+              onPress={() => router.push({ pathname: "/receipt/[orderId]", params: { orderId: String(orderIdNum) } })}
+              style={{
+                backgroundColor: "#22C55E",
+                padding: 16,
+                borderRadius: 12,
+                alignItems: "center",
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>🧾 View Receipt</Text>
+            </TouchableOpacity>
+          )}
+
+          {isDelivered && (
+            <TouchableOpacity
               onPress={() => router.push("/(tabs)/orders")}
               style={{
                 backgroundColor: "#fff",

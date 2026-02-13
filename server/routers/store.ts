@@ -496,4 +496,162 @@ export const storeRouter = router({
         totalRevenue,
       };
     }),
+
+  // ===== PRODUCT MANAGEMENT =====
+
+  // Get all products for a store
+  getProducts: publicProcedure
+    .input(z.object({ storeId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const result = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          description: products.description,
+          price: products.price,
+          salePrice: products.salePrice,
+          stockStatus: products.stockStatus,
+          isActive: products.isActive,
+          categoryId: products.categoryId,
+          categoryName: productCategories.name,
+          quantity: products.quantity,
+          sku: products.sku,
+          barcode: products.barcode,
+          createdAt: products.createdAt,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(eq(products.storeId, input.storeId))
+        .orderBy(products.name);
+
+      return result;
+    }),
+
+  // Get categories for a store
+  getCategories: publicProcedure
+    .input(z.object({ storeId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Categories are global (no storeId), but we can filter by which categories have products in this store
+      // For now return all categories so store can assign any category
+      const result = await db
+        .select()
+        .from(productCategories)
+        .orderBy(productCategories.name);
+
+      return result;
+    }),
+
+  // Add a new product
+  addProduct: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      price: z.string(),
+      categoryId: z.number().optional(),
+      stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const result = await db.insert(products).values({
+        storeId: input.storeId,
+        name: input.name,
+        description: input.description || null,
+        price: input.price,
+        categoryId: input.categoryId || null,
+        stockStatus: input.stockStatus || "in_stock",
+        isActive: input.isActive ?? true,
+      });
+
+      return { id: Number(result[0].insertId), success: true };
+    }),
+
+  // Update a product
+  updateProduct: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      price: z.string().optional(),
+      categoryId: z.number().nullable().optional(),
+      stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const updates: Record<string, any> = {};
+      if (input.name !== undefined) updates.name = input.name;
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.price !== undefined) updates.price = input.price;
+      if (input.categoryId !== undefined) updates.categoryId = input.categoryId;
+      if (input.stockStatus !== undefined) updates.stockStatus = input.stockStatus;
+      if (input.isActive !== undefined) updates.isActive = input.isActive;
+
+      await db.update(products).set(updates).where(eq(products.id, input.productId));
+
+      return { success: true };
+    }),
+
+  // Delete a product
+  deleteProduct: publicProcedure
+    .input(z.object({ productId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Soft delete - mark as inactive
+      await db.update(products).set({ isActive: false }).where(eq(products.id, input.productId));
+
+      return { success: true };
+    }),
+
+  // Toggle product availability
+  toggleProductStock: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(products)
+        .set({ stockStatus: input.stockStatus })
+        .where(eq(products.id, input.productId));
+
+      return { success: true };
+    }),
+
+  // Add a new category
+  addCategory: publicProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Generate slug from name
+      const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+      const result = await db.insert(productCategories).values({
+        name: input.name,
+        slug,
+        description: input.description || null,
+      });
+
+      return { id: Number(result[0].insertId), success: true };
+    }),
 });

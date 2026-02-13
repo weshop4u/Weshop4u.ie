@@ -909,3 +909,29 @@
 - [x] Chat message notification sound for incoming messages
 - [x] Auto-scroll to latest message
 - [x] Chat only available during active order statuses
+
+## Feature: Order receipt/invoice
+- [x] Created receipt screen at /receipt/[orderId] with itemized order breakdown
+- [x] Shows delivery fee, service fee, tip, and total with clear formatting
+- [x] Added "View Receipt" button on delivered order tracking screen
+- [x] Shows store name, order number, date, payment method, and delivery address
+
+## Feature: Store product management
+- [x] Added backend CRUD endpoints: getProducts, addProduct, updateProduct, deleteProduct, toggleProductStock
+- [x] Added backend endpoints: getCategories, addCategory
+- [x] Created product management screen at /store/products with search and category filter
+- [x] Stats bar showing total, in-stock, and out-of-stock counts
+- [x] Inline edit for product name, description, price, category
+- [x] Toggle in-stock/out-of-stock with colored indicators
+- [x] Soft delete (marks as inactive)
+- [x] Add new category inline
+- [x] Products button added to store dashboard quick actions
+
+## Feature: Driver earnings dashboard
+- [x] Enhanced earnings screen with period tabs (Today/Week/All Time)
+- [x] Hero card with dynamic earnings, deliveries, tips, avg/delivery based on selected period
+- [x] Delivery history filtered by selected period with count
+- [x] Tip breakdown shown per delivery (fee + tip split)
+- [x] Career summary section with total earnings, tips, deliveries, average
+- [x] 7-day bar chart with daily breakdown
+- [x] Payment schedule info banner

@@ -2,14 +2,48 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "rea
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
+import { useState, useMemo } from "react";
+
+type TabType = "today" | "week" | "all";
 
 export default function DriverEarningsScreen() {
   const router = useRouter();
   const { data: user } = trpc.auth.me.useQuery();
+  const [activeTab, setActiveTab] = useState<TabType>("today");
   const { data: earnings, isLoading } = trpc.drivers.getEarnings.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id }
   );
+
+  // Filter deliveries based on active tab
+  const filteredDeliveries = useMemo(() => {
+    if (!earnings?.recentDeliveries) return [];
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    if (activeTab === "today") {
+      return earnings.recentDeliveries.filter((d) => {
+        const dDate = d.completedAt ? new Date(d.completedAt).toISOString().split("T")[0] : null;
+        return dDate === todayStr;
+      });
+    }
+    if (activeTab === "week") {
+      const weekStart = new Date();
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      return earnings.recentDeliveries.filter((d) => {
+        const dDate = d.completedAt ? new Date(d.completedAt) : null;
+        return dDate && dDate >= weekStart;
+      });
+    }
+    return earnings.recentDeliveries;
+  }, [earnings, activeTab]);
+
+  const tabSummary = useMemo(() => {
+    if (!earnings) return { earnings: 0, tips: 0, deliveries: 0 };
+    if (activeTab === "today") return { earnings: earnings.todayEarnings, tips: earnings.todayTips, deliveries: earnings.todayDeliveries };
+    if (activeTab === "week") return { earnings: earnings.weekEarnings, tips: earnings.weekTips, deliveries: earnings.weekDeliveries };
+    return { earnings: earnings.totalEarnings, tips: earnings.totalTips, deliveries: earnings.totalDeliveries };
+  }, [earnings, activeTab]);
 
   if (isLoading || !earnings) {
     return (
@@ -40,53 +74,55 @@ export default function DriverEarningsScreen() {
           <Text className="text-muted">Track your delivery income</Text>
         </View>
 
-        {/* Today's Earnings - Highlighted */}
-        <View style={{ backgroundColor: '#E0F7FA', borderWidth: 2, borderColor: '#0a7ea4', padding: 24, borderRadius: 12, marginBottom: 20 }}>
-          <Text className="text-muted text-sm mb-2">Today's Earnings</Text>
-          <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 36, marginBottom: 4 }}>
-            €{earnings.todayEarnings.toFixed(2)}
+        {/* Earnings Hero Card */}
+        <View style={{ backgroundColor: '#0a7ea4', borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600', letterSpacing: 1 }}>
+            {activeTab === 'today' ? "TODAY'S EARNINGS" : activeTab === 'week' ? 'THIS WEEK' : 'ALL TIME'}
           </Text>
-          {(earnings.todayTips || 0) > 0 && (
-            <Text style={{ color: '#0a7ea4', fontSize: 14, marginBottom: 4 }}>
-              Includes €{(earnings.todayTips || 0).toFixed(2)} in tips
-            </Text>
-          )}
-          <Text className="text-muted">
-            {earnings.todayDeliveries} deliver{earnings.todayDeliveries !== 1 ? 'ies' : 'y'} completed
+          <Text style={{ color: '#fff', fontSize: 42, fontWeight: '800', marginTop: 4 }}>
+            €{tabSummary.earnings.toFixed(2)}
           </Text>
+          <View style={{ flexDirection: 'row', gap: 24, marginTop: 12 }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Deliveries</Text>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{tabSummary.deliveries}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Tips</Text>
+              <Text style={{ color: '#00E5FF', fontSize: 18, fontWeight: '700' }}>€{tabSummary.tips.toFixed(2)}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Avg/Delivery</Text>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
+                €{tabSummary.deliveries > 0 ? (tabSummary.earnings / tabSummary.deliveries).toFixed(2) : '0.00'}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Summary Cards */}
-        <View className="flex-row gap-3 mb-6">
-          <View className="flex-1 bg-surface p-4 rounded-lg">
-            <Text className="text-muted text-sm mb-1">This Week</Text>
-            <Text className="text-foreground font-bold text-xl">
-              €{earnings.weekEarnings.toFixed(2)}
-            </Text>
-            {(earnings.weekTips || 0) > 0 && (
-              <Text style={{ color: '#0a7ea4', fontSize: 11, marginTop: 2 }}>
-                +€{(earnings.weekTips || 0).toFixed(2)} tips
+        {/* Period Tabs */}
+        <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 3 }}>
+          {(['today', 'week', 'all'] as TabType[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                borderRadius: 8,
+                alignItems: 'center',
+                backgroundColor: activeTab === tab ? '#fff' : 'transparent',
+              }}
+            >
+              <Text style={{
+                fontSize: 13,
+                fontWeight: activeTab === tab ? '700' : '500',
+                color: activeTab === tab ? '#11181C' : '#687076',
+              }}>
+                {tab === 'today' ? 'Today' : tab === 'week' ? 'This Week' : 'All Time'}
               </Text>
-            )}
-            <Text className="text-muted text-xs mt-1">
-              {earnings.weekDeliveries} deliver{earnings.weekDeliveries !== 1 ? 'ies' : 'y'}
-            </Text>
-          </View>
-
-          <View className="flex-1 bg-surface p-4 rounded-lg">
-            <Text className="text-muted text-sm mb-1">All Time</Text>
-            <Text className="text-foreground font-bold text-xl">
-              €{earnings.totalEarnings.toFixed(2)}
-            </Text>
-            {(earnings.totalTips || 0) > 0 && (
-              <Text style={{ color: '#0a7ea4', fontSize: 11, marginTop: 2 }}>
-                +€{(earnings.totalTips || 0).toFixed(2)} tips
-              </Text>
-            )}
-            <Text className="text-muted text-xs mt-1">
-              {earnings.totalDeliveries} deliver{earnings.totalDeliveries !== 1 ? 'ies' : 'y'}
-            </Text>
-          </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* 7-Day Bar Chart */}
@@ -160,17 +196,19 @@ export default function DriverEarningsScreen() {
           </View>
         </View>
 
-        {/* Recent Deliveries */}
+        {/* Delivery History */}
         <View className="bg-surface p-4 rounded-lg mb-6">
-          <Text className="text-foreground font-bold text-lg mb-4">Recent Deliveries</Text>
+          <Text className="text-foreground font-bold text-lg mb-4">Delivery History ({filteredDeliveries.length})</Text>
           
-          {earnings.recentDeliveries.length === 0 ? (
+          {filteredDeliveries.length === 0 ? (
             <View className="py-8 items-center">
-              <Text className="text-muted text-center">No completed deliveries yet.</Text>
-              <Text className="text-muted text-center text-sm mt-1">Your delivery history will appear here.</Text>
+              <Text style={{ fontSize: 32, marginBottom: 8 }}>🚗</Text>
+              <Text className="text-muted text-center">
+                {activeTab === 'today' ? 'No deliveries today yet' : activeTab === 'week' ? 'No deliveries this week' : 'No deliveries yet'}
+              </Text>
             </View>
           ) : (
-            earnings.recentDeliveries.map((delivery, idx) => (
+            filteredDeliveries.map((delivery, idx) => (
               <View
                 key={delivery.id}
                 style={{
@@ -178,7 +216,7 @@ export default function DriverEarningsScreen() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   paddingVertical: 12,
-                  borderBottomWidth: idx < earnings.recentDeliveries.length - 1 ? 1 : 0,
+                  borderBottomWidth: idx < filteredDeliveries.length - 1 ? 1 : 0,
                   borderBottomColor: '#E5E7EB',
                 }}
               >
@@ -201,11 +239,12 @@ export default function DriverEarningsScreen() {
                   <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>
                     €{delivery.amount.toFixed(2)}
                   </Text>
-                  {(delivery.tip || 0) > 0 && (
-                    <Text style={{ color: '#0a7ea4', fontSize: 12, fontWeight: '600' }}>
-                      €{(delivery.baseFee || delivery.amount).toFixed(2)} + €{delivery.tip.toFixed(2)} tip
-                    </Text>
-                  )}
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+                    <Text style={{ fontSize: 11, color: '#687076' }}>Fee: €{delivery.baseFee.toFixed(2)}</Text>
+                    {(delivery.tip || 0) > 0 && (
+                      <Text style={{ color: '#0a7ea4', fontSize: 11, fontWeight: '600' }}>Tip: €{delivery.tip.toFixed(2)}</Text>
+                    )}
+                  </View>
                 </View>
               </View>
             ))
