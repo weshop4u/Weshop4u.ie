@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
+import { AppState } from "react-native";
 
 // Estimate delivery time based on status and distance
 function getEstimatedTime(order: any): string | null {
@@ -202,26 +203,34 @@ export default function OrderHistoryScreen() {
   // Track last known statuses for notification triggers
   const lastStatusesRef = useRef<Record<number, string>>({});
 
-  // Request notification permissions on mount
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      Notifications.requestPermissionsAsync();
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-    }
-  }, []);
-
   // Fetch user's orders with auto-refresh for active orders
   const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
     refetchInterval: 5000, // Poll every 5 seconds for real-time tracking
   });
+
+  // Listen for push notifications to trigger immediate refetch
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data;
+      if (data?.type === "order_update") {
+        refetch();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [refetch]);
+
+  // Refetch when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refetch();
+      }
+    });
+    return () => subscription.remove();
+  }, [refetch]);
 
   // Send local notification when order status changes
   useEffect(() => {

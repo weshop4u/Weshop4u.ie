@@ -1,22 +1,32 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
+import * as Notifications from "expo-notifications";
+import * as Haptics from "expo-haptics";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export default function StoreDashboardScreen() {
   const router = useRouter();
   const { data: user, isLoading: userLoading } = trpc.auth.me.useQuery();
+
+  // Register push token for store staff
+  usePushNotifications(user?.id);
+
   const [refreshing, setRefreshing] = useState(false);
-  const [lastOrderCount, setLastOrderCount] = useState(0);
-  const audioPlayer = useAudioPlayer("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"); // Notification sound
+  const prevPendingIdsRef = useRef<Set<number>>(new Set());
+  const isFirstLoadRef = useRef(true);
+  const audioPlayer = useAudioPlayer("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [newOrderFlash, setNewOrderFlash] = useState(false);
+  const repeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Get pending orders for the store
   const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(
     undefined,
-    { enabled: !!user, refetchInterval: 5000 } // Poll every 5 seconds
+    { enabled: !!user, refetchInterval: 5000 }
   );
 
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
@@ -28,17 +38,107 @@ export default function StoreDashboardScreen() {
     }
   }, []);
 
-  // Play sound when new order arrives
+  // Listen for push notifications (new order alerts from server)
   useEffect(() => {
-    if (orders && orders.length > lastOrderCount && lastOrderCount > 0 && audioEnabled) {
-      if (Platform.OS !== "web") {
-        audioPlayer.play();
+    if (Platform.OS === "web") return;
+
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data;
+      if (data?.type === "new_order") {
+        // Immediately refetch orders when we get a push notification
+        refetch();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [refetch]);
+
+  // Refetch when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refetch();
+      }
+    });
+    return () => subscription.remove();
+  }, [refetch]);
+
+  // Detect new pending orders and play alert
+  useEffect(() => {
+    if (!orders) return;
+
+    const currentPendingIds = new Set(
+      orders.filter((o: any) => o.status === "pending").map((o: any) => o.id)
+    );
+
+    if (isFirstLoadRef.current) {
+      // First load — just record current state, don't alert
+      prevPendingIdsRef.current = currentPendingIds;
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    // Check if there are any NEW pending orders (IDs we haven't seen before)
+    const newPendingOrders: number[] = [];
+    currentPendingIds.forEach((id) => {
+      if (!prevPendingIdsRef.current.has(id)) {
+        newPendingOrders.push(id);
+      }
+    });
+
+    if (newPendingOrders.length > 0) {
+      // New order(s) detected!
+      setNewOrderFlash(true);
+      setTimeout(() => setNewOrderFlash(false), 3000);
+
+      if (audioEnabled && Platform.OS !== "web") {
+        // Play alert sound
+        try {
+          audioPlayer.seekTo(0);
+          audioPlayer.play();
+        } catch (e) {
+          console.error("[Audio] Failed to play alert:", e);
+        }
+
+        // Haptic feedback
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     }
-    if (orders) {
-      setLastOrderCount(orders.length);
+
+    prevPendingIdsRef.current = currentPendingIds;
+  }, [orders, audioEnabled, audioPlayer]);
+
+  // Repeating alert sound while there are unaccepted pending orders
+  useEffect(() => {
+    const pendingOrders = orders?.filter((o: any) => o.status === "pending") || [];
+
+    if (pendingOrders.length > 0 && audioEnabled && Platform.OS !== "web") {
+      // Clear any existing timer
+      if (repeatTimerRef.current) clearInterval(repeatTimerRef.current);
+
+      // Play alert every 30 seconds while orders are pending
+      repeatTimerRef.current = setInterval(() => {
+        try {
+          audioPlayer.seekTo(0);
+          audioPlayer.play();
+        } catch (e) {
+          // Ignore audio errors
+        }
+      }, 30000);
+    } else {
+      if (repeatTimerRef.current) {
+        clearInterval(repeatTimerRef.current);
+        repeatTimerRef.current = null;
+      }
     }
-  }, [orders, lastOrderCount, audioEnabled, audioPlayer]);
+
+    return () => {
+      if (repeatTimerRef.current) {
+        clearInterval(repeatTimerRef.current);
+        repeatTimerRef.current = null;
+      }
+    };
+  }, [orders, audioEnabled, audioPlayer]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -48,6 +148,9 @@ export default function StoreDashboardScreen() {
 
   const handleUpdateStatus = async (orderId: number, status: string) => {
     try {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
       await updateStatusMutation.mutateAsync({
         orderId,
         status: status as any,
@@ -126,31 +229,56 @@ export default function StoreDashboardScreen() {
         </View>
 
         {/* Audio Toggle */}
-        <View className="bg-surface p-4 rounded-lg mb-6 flex-row items-center justify-between">
+        <View className="bg-surface p-4 rounded-lg mb-4 flex-row items-center justify-between">
           <View className="flex-1">
             <Text className="text-foreground font-bold">Audio Alerts</Text>
-            <Text className="text-muted text-sm">Play sound for new orders</Text>
+            <Text className="text-muted text-sm">
+              {audioEnabled ? "Sound plays when new orders arrive" : "Audio alerts are muted"}
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => setAudioEnabled(!audioEnabled)}
-            className={`w-16 h-8 rounded-full justify-center px-1 ${
-              audioEnabled ? "bg-success" : "bg-border"
-            }`}
+            style={{
+              width: 64,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: audioEnabled ? "#22C55E" : "#9BA1A6",
+              justifyContent: "center",
+              paddingHorizontal: 4,
+            }}
           >
             <View
-              className={`w-6 h-6 rounded-full bg-background shadow-lg ${
-                audioEnabled ? "self-end" : "self-start"
-              }`}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: "#fff",
+                alignSelf: audioEnabled ? "flex-end" : "flex-start",
+              }}
             />
           </TouchableOpacity>
         </View>
 
+        {/* New Order Flash Banner */}
+        {newOrderFlash && (
+          <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: "#F59E0B" }}>
+            <Text style={{ color: "#92400E", fontWeight: "700", textAlign: "center", fontSize: 16 }}>
+              🔔 NEW ORDER RECEIVED!
+            </Text>
+          </View>
+        )}
+
         {/* Pending Orders */}
         {pendingOrders.length > 0 && (
           <View className="mb-6">
-            <Text className="text-xl font-bold text-foreground mb-3">
-              🔔 New Orders ({pendingOrders.length})
-            </Text>
+            <View className="flex-row items-center mb-3">
+              <Text className="text-xl font-bold text-foreground">
+                🔔 New Orders
+              </Text>
+              <View style={{ backgroundColor: "#EF4444", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8 }}>
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>{pendingOrders.length}</Text>
+              </View>
+            </View>
             {pendingOrders.map((order: any) => {
               const nextStatus = getNextStatus(order.status);
               return (
@@ -170,10 +298,25 @@ export default function StoreDashboardScreen() {
                     <Text className="text-xl font-bold text-foreground">€{order.total}</Text>
                   </View>
 
+                  {/* Payment Method */}
+                  <View className="mb-2">
+                    <Text className="text-xs text-muted mb-1">PAYMENT</Text>
+                    <Text className="text-foreground font-semibold">
+                      {order.paymentMethod === "card" ? "💳 Card" : "💵 Cash on Delivery"}
+                    </Text>
+                  </View>
+
                   <View className="mb-3">
                     <Text className="text-xs text-muted mb-1">DELIVERY TO</Text>
                     <Text className="text-foreground">{order.deliveryAddress}</Text>
                   </View>
+
+                  {order.customerNotes ? (
+                    <View className="mb-3">
+                      <Text className="text-xs text-muted mb-1">NOTES</Text>
+                      <Text className="text-foreground italic">{order.customerNotes}</Text>
+                    </View>
+                  ) : null}
 
                   {nextStatus && (
                     <TouchableOpacity
@@ -231,6 +374,12 @@ export default function StoreDashboardScreen() {
                       <Text className="text-xs text-muted">Order Total</Text>
                       <Text className="text-foreground font-semibold">€{order.total}</Text>
                     </View>
+                    <View>
+                      <Text className="text-xs text-muted">Payment</Text>
+                      <Text className="text-foreground font-semibold">
+                        {order.paymentMethod === "card" ? "💳 Card" : "💵 Cash"}
+                      </Text>
+                    </View>
                   </View>
 
                   {nextStatus && (
@@ -256,7 +405,7 @@ export default function StoreDashboardScreen() {
             <Text className="text-4xl mb-4">📦</Text>
             <Text className="text-xl font-bold text-foreground mb-2">No Orders Yet</Text>
             <Text className="text-muted text-center">
-              New orders will appear here. Pull down to refresh.
+              New orders will appear here. You'll get an alert when one comes in.
             </Text>
           </View>
         )}

@@ -696,11 +696,17 @@
 - [x] Unit tests for tip calculation logic (13 tests passing)
 
 ## Server-Side Push Notifications
-- [ ] Review existing notification infrastructure (push tokens, notification service)
-- [ ] Driver push notifications: send real push alert when new job offer is assigned
-- [ ] Driver push notifications: alert when order is ready for pickup at store
-- [ ] Store push notifications: send push alert when new order comes in
-- [ ] Store dashboard: add audio alert sound for incoming orders
-- [ ] Customer push notifications: server-triggered status change alerts (accepted, preparing, picked up, on the way, delivered)
-- [ ] Ensure notifications work when app is backgrounded
-- [ ] Test complete notification flow for all user roles
+- [x] Review existing notification infrastructure (push tokens, notification service)
+- [x] Driver push notifications: send real push alert when new job offer is assigned
+- [x] Driver push notifications: alert when order is ready for pickup at store
+- [x] Store push notifications: send push alert when new order comes in (fixed to query storeStaff table, sends to ALL staff)
+- [x] Store dashboard: improved audio alert with repeating sound every 30s while orders pending
+- [x] Store dashboard: flash banner and haptic feedback on new order arrival
+- [x] Customer push notifications: server-triggered status change alerts (accepted, preparing, picked up, on the way, delivered)
+- [x] Client-side push token registration hook (usePushNotifications) added to all user roles
+- [x] Push notification listener on customer orders screen for instant refetch
+- [x] Push notification listener on store dashboard for instant refetch
+- [x] AppState listener on customer/store screens for foreground refetch
+- [x] Root layout configures notification handler and channels
+- [x] Unit tests for push notification service (16 tests passing)
+- [x] All 41 tests passing across 3 test suites

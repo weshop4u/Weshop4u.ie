@@ -92,6 +92,41 @@ async function offerOldestOrderToDriver(driverId: number) {
       expiresAt,
     });
     console.log(`[FIFO] Offered oldest eligible order ${order.id} to driver ${driverId}, expires at ${expiresAt.toISOString()}`);
+
+    // Send server-side push notification to driver
+    try {
+      const driverUser = await db
+        .select({ pushToken: users.pushToken })
+        .from(users)
+        .where(eq(users.id, driverId))
+        .limit(1);
+      if (driverUser.length > 0 && driverUser[0].pushToken) {
+        // Get order details for the notification
+        const orderDetails = await db
+          .select({
+            deliveryFee: orders.deliveryFee,
+            storeId: orders.storeId,
+          deliveryDistance: orders.deliveryDistance,
+        })
+        .from(orders)
+        .where(eq(orders.id, order.id))
+        .limit(1);
+      if (orderDetails.length > 0) {
+        const storeInfo = await db
+          .select({ name: stores.name })
+          .from(stores)
+          .where(eq(stores.id, orderDetails[0].storeId))
+          .limit(1);
+        const storeName = storeInfo.length > 0 ? storeInfo[0].name : "Store";
+        const fee = parseFloat(orderDetails[0].deliveryFee || "0");
+        const dist = parseFloat(orderDetails[0].deliveryDistance || "0");
+          await sendJobOfferNotification(driverUser[0].pushToken, order.id, storeName, fee, dist);
+          console.log(`[Push] Sent job offer notification to driver ${driverId} for order ${order.id}`);
+        }
+      }
+    } catch (pushError) {
+      console.error(`[Push] Failed to send job offer notification to driver ${driverId}:`, pushError);
+    }
     return;
   }
 
@@ -136,6 +171,40 @@ async function offerToNextDriver(orderId: number) {
   });
 
   console.log(`[Queue] Offered order ${orderId} to driver ${nextDriver.driverId} (position ${nextDriver.position}), expires at ${expiresAt.toISOString()}`);
+
+  // Send server-side push notification to the driver
+  try {
+    const driverUser = await db
+      .select({ pushToken: users.pushToken })
+      .from(users)
+      .where(eq(users.id, nextDriver.driverId))
+      .limit(1);
+    if (driverUser.length > 0 && driverUser[0].pushToken) {
+      const orderDetails = await db
+        .select({
+          deliveryFee: orders.deliveryFee,
+          storeId: orders.storeId,
+          deliveryDistance: orders.deliveryDistance,
+        })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1);
+      if (orderDetails.length > 0) {
+        const storeInfo = await db
+          .select({ name: stores.name })
+          .from(stores)
+          .where(eq(stores.id, orderDetails[0].storeId))
+          .limit(1);
+        const storeName = storeInfo.length > 0 ? storeInfo[0].name : "Store";
+        const fee = parseFloat(orderDetails[0].deliveryFee || "0");
+        const dist = parseFloat(orderDetails[0].deliveryDistance || "0");
+        await sendJobOfferNotification(driverUser[0].pushToken, orderId, storeName, fee, dist);
+        console.log(`[Push] Sent job offer notification to driver ${nextDriver.driverId} for order ${orderId}`);
+      }
+    }
+  } catch (pushError) {
+    console.error(`[Push] Failed to send job offer notification to driver ${nextDriver.driverId}:`, pushError);
+  }
 }
 
 // Called when a new order is placed - start the offer cascade

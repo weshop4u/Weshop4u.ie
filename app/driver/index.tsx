@@ -6,10 +6,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
+
+  // Register push token for driver
+  usePushNotifications(user?.id);
+
   const { data: stats, refetch: refetchStats } = trpc.drivers.getStats.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id }

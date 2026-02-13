@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
-import { sendNewOrderNotification } from "../services/notifications";
+import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 
@@ -249,16 +249,18 @@ export const ordersRouter = router({
         }
       }
 
-      // Send notification to store staff
-      // Get store staff for this store
-      const storeStaff = await db
-        .select()
-        .from(users)
-        .where(and(eq(users.role, "store_staff"), eq(users.id, storeData.id)))
-        .limit(1);
+      // Send push notification to ALL store staff for this store
+      try {
+        const storeStaffMembers = await db
+          .select({
+            userId: storeStaffTable.userId,
+            pushToken: users.pushToken,
+          })
+          .from(storeStaffTable)
+          .innerJoin(users, eq(storeStaffTable.userId, users.id))
+          .where(eq(storeStaffTable.storeId, storeData.id));
 
-      if (storeStaff.length > 0 && storeStaff[0].pushToken) {
-        // Get customer name (use guest name if guest order)
+        // Get customer name
         let customerName = "Customer";
         if (input.customerId) {
           const customer = await db
@@ -271,13 +273,21 @@ export const ordersRouter = router({
           customerName = input.guestName;
         }
 
-        await sendNewOrderNotification(
-          storeStaff[0].pushToken,
-          Number(orderId),
-          customerName,
-          input.items.length,
-          total
-        );
+        // Send to each staff member with a push token
+        for (const staff of storeStaffMembers) {
+          if (staff.pushToken) {
+            await sendNewOrderNotification(
+              staff.pushToken,
+              Number(orderId),
+              customerName,
+              input.items.length,
+              total
+            );
+            console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+          }
+        }
+      } catch (pushError) {
+        console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
       }
 
       // Trigger driver queue - offer to first available driver
@@ -733,16 +743,17 @@ export const ordersRouter = router({
 
         const notification = notificationMessages[input.status];
         if (notification) {
-          // Note: sendNewOrderNotification expects (pushToken, orderId, customerName, itemCount, total)
-          // For status updates, we'll use a simplified approach
-          // TODO: Create a dedicated sendStatusUpdateNotification function
-          await sendNewOrderNotification(
-            pushToken,
-            input.orderId,
-            notification.title,
-            0,
-            0
-          );
+          await sendPushNotification(pushToken, {
+            title: notification.title,
+            body: notification.body,
+            data: {
+              type: "order_update",
+              orderId: input.orderId,
+              status: input.status,
+            },
+            channelId: "orders",
+          });
+          console.log(`[Push] Sent status update notification to customer for order ${input.orderId}: ${input.status}`);
         }
       }
 
