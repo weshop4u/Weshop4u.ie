@@ -212,7 +212,7 @@ export default function OrderTrackingScreen() {
 
   // Show chat only for active orders with a driver assigned
   const showChat = order && currentUserId &&
-    ["preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) &&
+    ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) &&
     order.driverId;
 
   if (isLoading) {

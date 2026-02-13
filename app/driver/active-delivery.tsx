@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -433,16 +433,24 @@ export default function ActiveDeliveryScreen() {
             </View>
 
             {deliveryStatus === "going_to_store" && (
-              <TouchableOpacity
+              <Pressable
                 onPress={handleArrivedAtStore}
                 disabled={notifyAtStoreMutation.isPending}
-                style={[{ backgroundColor: '#F59E0B', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 12 }, notifyAtStoreMutation.isPending ? { opacity: 0.5 } : undefined]}
-                activeOpacity={0.7}
+                style={({ pressed }) => ([
+                  {
+                    backgroundColor: '#F59E0B',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    marginTop: 12,
+                    opacity: (notifyAtStoreMutation.isPending || pressed) ? 0.7 : 1,
+                  }
+                ])}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
                   {notifyAtStoreMutation.isPending ? "Notifying..." : "🏪 I've Arrived at Store"}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
 
             {deliveryStatus === "at_store" && (

@@ -973,3 +973,9 @@
 - [x] Fix job offer system to properly offer waiting orders - Fixed getActiveDelivery to include ready_for_pickup status
 - [x] Fix active delivery persistence across navigation - Driver dashboard auto-redirect now works correctly
 - [ ] Test complete workflow on Expo Go
+
+## Bug: Platform-specific issues (FIXED)
+- [x] "Arrived at Store" button works on web preview but not on Expo Go mobile - Replaced TouchableOpacity with Pressable for better native support
+- [x] Customer chat panel not showing on customer order tracking screen - Added "accepted" status to showChat condition
+- [x] Investigate TouchableOpacity behavior difference between web and native - Issue was with style array syntax
+- [x] Simplified button styling with Pressable and function-based style prop
