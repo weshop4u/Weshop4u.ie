@@ -264,6 +264,16 @@ export default function ActiveDeliveryScreen() {
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
+        {/* Back to Dashboard Link */}
+        {deliveryStatus !== "delivered" && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 4 }}
+          >
+            <Text style={{ fontSize: 16, color: '#0a7ea4', fontWeight: '600' }}>← Back to Dashboard</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Return Job Confirmation Modal */}
         {showReturnConfirm && (
           <View className="bg-error/5 border-2 border-error p-4 rounded-lg mb-6">

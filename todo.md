@@ -852,3 +852,17 @@
 - [x] Confirmation banner shown to driver after notifying ("Customer has been notified")
 - [x] driver_at_store notification message added to notification service
 - [x] Estimated delivery time updated for driver_at_store status
+
+## Bug: Active delivery orders not visible on store dashboard
+- [x] Fixed: storeId detection now uses store_staff table (see fix below)
+- [x] Store dashboard correctly queries all active orders for the correct store
+
+## Bug: Order not visible on store dashboard during active delivery
+- [x] Root cause: storeId was being detected from getUserOrders (customer orders) instead of store_staff table
+- [x] Added store.getMyStore endpoint to properly look up storeId from store_staff table
+- [x] Updated store dashboard to use getMyStore for reliable storeId detection
+
+## Bug: Driver cannot navigate back to dashboard during active delivery
+- [x] Added "← Back to Dashboard" link at top of active-delivery screen
+- [x] Added "Active Delivery in Progress" banner on driver dashboard that links back to active delivery
+- [x] Banner shows order number and store name, polls every 5 seconds

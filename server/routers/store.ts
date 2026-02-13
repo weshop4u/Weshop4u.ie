@@ -7,6 +7,49 @@ import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 
 export const storeRouter = router({
+  // Get the store linked to the current staff user
+  getMyStore: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const staffLink = await db
+        .select({
+          storeId: storeStaff.storeId,
+          role: storeStaff.role,
+        })
+        .from(storeStaff)
+        .where(eq(storeStaff.userId, input.userId))
+        .limit(1);
+
+      if (staffLink.length === 0) {
+        return null;
+      }
+
+      const store = await db
+        .select()
+        .from(stores)
+        .where(eq(stores.id, staffLink[0].storeId))
+        .limit(1);
+
+      if (store.length === 0) {
+        return null;
+      }
+
+      return {
+        storeId: store[0].id,
+        storeName: store[0].name,
+        staffRole: staffLink[0].role,
+      };
+    }),
+
   // Get all orders for a specific store
   getOrders: publicProcedure
     .input(

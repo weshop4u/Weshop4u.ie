@@ -26,6 +26,12 @@ export default function DriverHomeScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastNotifiedOfferId = useRef<number | null>(null);
 
+  // Check for active delivery
+  const { data: activeDelivery } = trpc.drivers.getActiveDelivery.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id, refetchInterval: 5000 }
+  );
+
   // tRPC mutations
   const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
   const acceptOfferMutation = trpc.drivers.acceptOffer.useMutation();
@@ -251,6 +257,34 @@ export default function DriverHomeScreen() {
           <Text className="text-3xl font-bold text-foreground mb-2">Driver Dashboard</Text>
           <Text className="text-muted">Welcome back, {user.name}!</Text>
         </View>
+
+        {/* Active Delivery Banner */}
+        {activeDelivery && activeDelivery.id && (
+          <TouchableOpacity
+            onPress={() => router.push(`/driver/active-delivery?orderId=${activeDelivery.id}`)}
+            style={{
+              backgroundColor: '#FEF3C7',
+              borderWidth: 2,
+              borderColor: '#F59E0B',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#92400E', marginBottom: 4 }}>
+                🚗 Active Delivery in Progress
+              </Text>
+              <Text style={{ fontSize: 13, color: '#92400E' }}>
+                {activeDelivery.orderNumber || `Order #${activeDelivery.id}`} • {activeDelivery.store?.name || 'Store'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 24, color: '#F59E0B' }}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Online/Offline Toggle */}
         <View className="bg-surface p-6 rounded-lg mb-6">

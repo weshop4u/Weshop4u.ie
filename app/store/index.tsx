@@ -49,36 +49,28 @@ export default function StoreDashboardScreen() {
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [markingReadyId, setMarkingReadyId] = useState<number | null>(null);
 
+  // Get the store linked to this staff user from store_staff table
+  const { data: myStore } = trpc.store.getMyStore.useQuery(
+    { userId: user?.id! },
+    { enabled: !!user && user.role === "store_staff" }
+  );
+
+  // Set storeId from the store_staff link
+  useEffect(() => {
+    if (myStore && storeId === null) {
+      setStoreId(myStore.storeId);
+    }
+  }, [myStore, storeId]);
+
   // Use store.getOrders with the correct storeId
   const { data: storeOrders, isLoading, refetch } = trpc.store.getOrders.useQuery(
     { storeId: storeId || 1, status: "all" },
     { enabled: !!user && storeId !== null, refetchInterval: 5000 }
   );
 
-  // Get store info to display name
-  const { data: storeInfo } = trpc.stores.getById.useQuery(
-    { id: storeId || 1 },
-    { enabled: storeId !== null }
-  );
-
   // Use the correct store router mutations
   const acceptOrderMutation = trpc.store.acceptOrder.useMutation();
   const markReadyMutation = trpc.store.markOrderReady.useMutation();
-
-  // Determine storeId from user's store_staff link via getUserOrders
-  const { data: userOrders } = trpc.orders.getUserOrders.useQuery(undefined, {
-    enabled: !!user && user.role === "store_staff" && storeId === null,
-  });
-
-  // Extract storeId from the first order or default to 1
-  useEffect(() => {
-    if (userOrders && userOrders.length > 0 && storeId === null) {
-      setStoreId(userOrders[0].storeId);
-    } else if (user && user.role === "store_staff" && storeId === null) {
-      // Default to store 1 (Spar) - will be updated when orders come in
-      setStoreId(1);
-    }
-  }, [userOrders, user, storeId]);
 
   // Listen for push notifications
   useEffect(() => {
@@ -264,7 +256,7 @@ export default function StoreDashboardScreen() {
     );
   }
 
-  const storeName = storeInfo?.name || "Store Dashboard";
+  const storeName = myStore?.storeName || "Store Dashboard";
   const allOrders = storeOrders || [];
 
   // Filter orders based on selected tab
