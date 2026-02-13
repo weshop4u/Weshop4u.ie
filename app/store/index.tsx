@@ -372,9 +372,9 @@ export default function StoreDashboardScreen() {
 
   return (
     <ScreenContainer>
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         {/* Header */}
-        <View className="bg-primary p-4">
+        <View className="bg-primary p-4" style={{ flexGrow: 0, flexShrink: 0 }}>
           <View className="flex-row justify-between items-center">
             <View className="flex-1">
               <Text className="text-background text-2xl font-bold">{storeName}</Text>
@@ -418,7 +418,7 @@ export default function StoreDashboardScreen() {
         )}
 
         {/* Quick Actions Bar */}
-        <View style={{ flexDirection: "row", backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+        <View style={{ flexDirection: "row", backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexGrow: 0, flexShrink: 0 }}>
           <TouchableOpacity
             onPress={() => router.push({ pathname: "/store/hours", params: { storeId: String(storeId) } })}
             style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
@@ -440,7 +440,7 @@ export default function StoreDashboardScreen() {
         </View>
 
         {/* Navigation Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#f5f5f5" }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#f5f5f5", flexGrow: 0, flexShrink: 0 }}>
           <View style={{ flexDirection: "row" }}>
             <TouchableOpacity
               onPress={() => setFilter("all")}
@@ -487,7 +487,7 @@ export default function StoreDashboardScreen() {
 
         {/* Orders List */}
         <ScrollView
-          style={{ flex: 1 }}
+          style={{ flex: 1, minHeight: 0 }}
           contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
