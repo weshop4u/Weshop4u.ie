@@ -138,6 +138,10 @@ export async function sendOrderStatusNotification(
       title: "Driver Assigned! 🚗",
       body: `A driver is on the way to pick up your order`,
     },
+    driver_at_store: {
+      title: "Driver at Store! 🏪",
+      body: `Your driver has arrived at ${storeName} to collect your order`,
+    },
     picked_up: {
       title: "Order Picked Up! 🚀",
       body: `Your order is on the way to you`,

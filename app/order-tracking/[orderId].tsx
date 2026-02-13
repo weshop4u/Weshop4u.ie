@@ -25,6 +25,9 @@ function getEstimatedDelivery(order: any): { label: string; minutes: number | nu
     case "ready_for_pickup":
       // Waiting for driver + drive
       return { label: "Estimated delivery", minutes: 5 + driveMins };
+    case "driver_at_store":
+      // Driver at store, waiting for pickup + drive
+      return { label: "Estimated delivery", minutes: 3 + driveMins };
     case "picked_up":
     case "on_the_way":
       // Drive only
@@ -179,10 +182,18 @@ export default function OrderTrackingScreen() {
     { key: "accepted", label: "Store Accepted", icon: "2", activeColor: "#0a7ea4" },
     { key: "preparing", label: "Preparing Your Order", icon: "3", activeColor: "#F59E0B" },
     { key: "ready_for_pickup", label: "Ready for Pickup", icon: "4", activeColor: "#22C55E" },
-    { key: "picked_up", label: "Driver Picked Up", icon: "5", activeColor: "#22C55E" },
-    { key: "on_the_way", label: "On the Way to You", icon: "6", activeColor: "#0a7ea4" },
+    { key: "driver_at_store", label: "Driver at Store", icon: "5", activeColor: "#F59E0B" },
+    { key: "picked_up", label: "Driver Picked Up", icon: "6", activeColor: "#22C55E" },
+    { key: "on_the_way", label: "On the Way to You", icon: "7", activeColor: "#0a7ea4" },
     { key: "delivered", label: "Delivered!", icon: "✓", activeColor: "#22C55E" },
   ], []);
+
+  // Check if driver_at_store tracking event exists for this order
+  // We infer this from the order tracking data - if the order is past ready_for_pickup
+  // and has a driver, we show driver_at_store as completed
+  const hasDriverAtStore = order?.driverAssignedAt && (
+    order.status === "picked_up" || order.status === "on_the_way" || order.status === "delivered"
+  );
 
   const estimated = order ? getEstimatedDelivery(order) : null;
 
@@ -210,7 +221,12 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  const currentStatusIndex = statusSteps.findIndex(step => step.key === order.status);
+  // For the timeline, map the actual order status to include driver_at_store
+  // driver_at_store is a virtual step - it's not a DB status, but we show it in the timeline
+  // when the order has progressed past that point
+  let currentStatusIndex = statusSteps.findIndex(step => step.key === order.status);
+  // If the status is picked_up or later, driver_at_store should also be shown as completed
+  // The driver_at_store step is between ready_for_pickup and picked_up
   const isCancelled = order.status === "cancelled";
   const isDelivered = order.status === "delivered";
 
@@ -221,6 +237,7 @@ export default function OrderTrackingScreen() {
       case "accepted": return order.acceptedAt;
       case "preparing": return order.acceptedAt; // preparing starts when accepted
       case "ready_for_pickup": return null; // no separate timestamp in schema
+      case "driver_at_store": return order.driverAssignedAt; // driver assigned ~ arrived at store
       case "picked_up": return order.pickedUpAt;
       case "on_the_way": return order.pickedUpAt; // on_the_way starts at pickup
       case "delivered": return order.deliveredAt;
@@ -277,9 +294,10 @@ export default function OrderTrackingScreen() {
               justifyContent: "center",
             }}>
               <Text style={{ fontSize: 24 }}>
-                {order.status === "on_the_way" || order.status === "picked_up" ? "🚗" :
-                 order.status === "preparing" ? "👨‍🍳" :
-                 order.status === "ready_for_pickup" ? "📦" : "⏳"}
+                {(order.status as string) === "on_the_way" || (order.status as string) === "picked_up" ? "🚗" :
+                 (order.status as string) === "preparing" ? "👨‍🍳" :
+                 (order.status as string) === "ready_for_pickup" ? "📦" :
+                 (order.status as string) === "driver_at_store" ? "🏪" : "⏳"}
               </Text>
             </View>
           </View>
@@ -457,6 +475,7 @@ export default function OrderTrackingScreen() {
                           {step.key === "accepted" && "Store has accepted — preparing soon!"}
                           {step.key === "preparing" && "Your order is being prepared now"}
                           {step.key === "ready_for_pickup" && "Waiting for a driver to pick up"}
+                          {step.key === "driver_at_store" && "Driver has arrived at the store!"}
                           {step.key === "picked_up" && "Driver has your order"}
                           {step.key === "on_the_way" && "Driver is on the way to you!"}
                         </Text>

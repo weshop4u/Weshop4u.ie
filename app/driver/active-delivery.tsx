@@ -18,6 +18,7 @@ export default function ActiveDeliveryScreen() {
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
   const returnJobMutation = trpc.orders.returnJob.useMutation();
   const updateLocationMutation = trpc.drivers.updateLocation.useMutation();
+  const notifyAtStoreMutation = trpc.drivers.notifyDriverAtStore.useMutation();
   const { data: returnCount } = trpc.drivers.getReturnCount.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id }
@@ -160,6 +161,20 @@ export default function ActiveDeliveryScreen() {
       }
       console.error("Failed to return job:", error);
       setIsReturning(false);
+    }
+  };
+
+  const handleArrivedAtStore = async () => {
+    if (!orderId || !user?.id) return;
+    
+    try {
+      await notifyAtStoreMutation.mutateAsync({
+        orderId,
+        driverId: user.id,
+      });
+      setDeliveryStatus("at_store");
+    } catch (error) {
+      console.error("Failed to notify arrived at store:", error);
     }
   };
 
@@ -390,11 +405,29 @@ export default function ActiveDeliveryScreen() {
 
             {deliveryStatus === "going_to_store" && (
               <TouchableOpacity
-                onPress={handlePickedUp}
-                className="mt-3 bg-success p-4 rounded-lg items-center active:opacity-70"
+                onPress={handleArrivedAtStore}
+                style={[{ backgroundColor: '#F59E0B', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 12 }, notifyAtStoreMutation.isPending ? { opacity: 0.5 } : undefined]}
               >
-                <Text className="text-background font-bold text-lg">✓ Picked Up Order</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+                  {notifyAtStoreMutation.isPending ? "Notifying..." : "🏪 I've Arrived at Store"}
+                </Text>
               </TouchableOpacity>
+            )}
+
+            {deliveryStatus === "at_store" && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#F59E0B' }}>
+                  <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
+                    ✅ Customer has been notified you're at the store
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handlePickedUp}
+                  className="bg-success p-4 rounded-lg items-center active:opacity-70"
+                >
+                  <Text className="text-background font-bold text-lg">✓ Picked Up Order</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}

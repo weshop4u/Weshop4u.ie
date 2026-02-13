@@ -843,3 +843,12 @@
 - [x] Auto-fit bounds to show all markers
 - [x] Native fallback message for non-web platforms
 - [x] Location data also logged to order_tracking table for history
+
+## Feature: Arrived at Store Step in Driver Flow
+- [x] Add "Arrived at Store" button to driver active-delivery screen (between Going to Store and Picked Up)
+- [x] Send notification to customer when driver arrives at store (drivers.notifyDriverAtStore endpoint)
+- [x] Update driver delivery flow: Going to Store → Arrived at Store → Picked Up → Delivering → Delivered
+- [x] Update customer order tracking timeline to show "Driver at Store" step (8 steps now)
+- [x] Confirmation banner shown to driver after notifying ("Customer has been notified")
+- [x] driver_at_store notification message added to notification service
+- [x] Estimated delivery time updated for driver_at_store status

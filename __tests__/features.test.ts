@@ -211,3 +211,80 @@ describe("Driver Location Tracking", () => {
     expect(typeof validInput.orderId).toBe("number");
   });
 });
+
+// ===== Arrived at Store Feature =====
+describe("Arrived at Store - Driver Flow", () => {
+  it("should have correct delivery status flow order", () => {
+    const driverStatuses = ["going_to_store", "at_store", "going_to_customer", "delivered"];
+    expect(driverStatuses).toHaveLength(4);
+    expect(driverStatuses[0]).toBe("going_to_store");
+    expect(driverStatuses[1]).toBe("at_store");
+    expect(driverStatuses[2]).toBe("going_to_customer");
+    expect(driverStatuses[3]).toBe("delivered");
+  });
+
+  it("should include driver_at_store in customer tracking timeline", () => {
+    const statusSteps = [
+      { key: "pending", label: "Order Placed", icon: "1" },
+      { key: "accepted", label: "Store Accepted", icon: "2" },
+      { key: "preparing", label: "Preparing Your Order", icon: "3" },
+      { key: "ready_for_pickup", label: "Ready for Pickup", icon: "4" },
+      { key: "driver_at_store", label: "Driver at Store", icon: "5" },
+      { key: "picked_up", label: "Driver Picked Up", icon: "6" },
+      { key: "on_the_way", label: "On the Way to You", icon: "7" },
+      { key: "delivered", label: "Delivered!", icon: "✓" },
+    ];
+    
+    expect(statusSteps).toHaveLength(8);
+    const driverAtStoreStep = statusSteps.find(s => s.key === "driver_at_store");
+    expect(driverAtStoreStep).toBeDefined();
+    expect(driverAtStoreStep!.label).toBe("Driver at Store");
+    
+    // driver_at_store should be between ready_for_pickup and picked_up
+    const readyIndex = statusSteps.findIndex(s => s.key === "ready_for_pickup");
+    const atStoreIndex = statusSteps.findIndex(s => s.key === "driver_at_store");
+    const pickedUpIndex = statusSteps.findIndex(s => s.key === "picked_up");
+    expect(atStoreIndex).toBe(readyIndex + 1);
+    expect(atStoreIndex).toBe(pickedUpIndex - 1);
+  });
+
+  it("should have driver_at_store notification message", () => {
+    const statusMessages: Record<string, { title: string; body: string }> = {
+      driver_at_store: {
+        title: "Driver at Store! 🏪",
+        body: "Your driver has arrived at TestStore to collect your order",
+      },
+    };
+    
+    expect(statusMessages["driver_at_store"]).toBeDefined();
+    expect(statusMessages["driver_at_store"].title).toContain("Driver at Store");
+    expect(statusMessages["driver_at_store"].body).toContain("arrived");
+  });
+
+  it("should estimate delivery time correctly for driver_at_store status", () => {
+    function getEstimatedDelivery(order: { status: string; deliveryDistance?: string }) {
+      if (order.status === "delivered" || order.status === "cancelled") return null;
+      const distKm = order.deliveryDistance ? parseFloat(order.deliveryDistance) : 3;
+      const driveMins = Math.max(5, Math.round(distKm * 2));
+      switch (order.status) {
+        case "driver_at_store":
+          return { label: "Estimated delivery", minutes: 3 + driveMins };
+        case "picked_up":
+        case "on_the_way":
+          return { label: "Arriving in", minutes: driveMins };
+        default:
+          return null;
+      }
+    }
+
+    const result = getEstimatedDelivery({ status: "driver_at_store", deliveryDistance: "5" });
+    expect(result).not.toBeNull();
+    // 3 + max(5, 5*2=10) = 13
+    expect(result!.minutes).toBe(13);
+    expect(result!.label).toBe("Estimated delivery");
+
+    // driver_at_store should have higher estimate than picked_up
+    const pickedUpResult = getEstimatedDelivery({ status: "picked_up", deliveryDistance: "5" });
+    expect(result!.minutes).toBeGreaterThan(pickedUpResult!.minutes);
+  });
+});

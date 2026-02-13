@@ -494,6 +494,54 @@ export const driversRouter = router({
       };
     }),
 
+  // Notify customer that driver has arrived at store
+  notifyDriverAtStore: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        driverId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get order details for notification
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .leftJoin(users, eq(orders.customerId, users.id))
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        throw new Error("Order not found");
+      }
+
+      const customer = orderResult[0].users;
+      const store = orderResult[0].stores;
+
+      // Log to order_tracking
+      await db.insert(orderTracking).values({
+        orderId: input.orderId,
+        status: "driver_at_store",
+        notes: `Driver arrived at ${store?.name || "store"}`,
+      });
+
+      // Send push notification to customer
+      if (customer && customer.pushToken && store) {
+        await sendOrderStatusNotification(
+          customer.pushToken,
+          input.orderId,
+          "driver_at_store",
+          store.name
+        );
+      }
+
+      return { success: true };
+    }),
+
   // Update delivery status
   updateDeliveryStatus: publicProcedure
     .input(
