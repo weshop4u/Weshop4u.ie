@@ -516,3 +516,33 @@ export const driverRatingsRelations = relations(driverRatings, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+
+// ===== CHAT MESSAGES =====
+export const chatMessages = mysqlTable(
+  "chat_messages",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    orderId: int("order_id").notNull(),
+    senderId: int("sender_id").notNull(),
+    senderRole: mysqlEnum("sender_role", ["customer", "driver"]).notNull(),
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orderIdIdx: index("chat_order_id_idx").on(table.orderId),
+    senderIdIdx: index("chat_sender_id_idx").on(table.senderId),
+    createdAtIdx: index("chat_created_at_idx").on(table.createdAt),
+  })
+);
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  order: one(orders, {
+    fields: [chatMessages.orderId],
+    references: [orders.id],
+  }),
+  sender: one(users, {
+    fields: [chatMessages.senderId],
+    references: [users.id],
+  }),
+}));

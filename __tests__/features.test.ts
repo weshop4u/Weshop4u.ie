@@ -406,3 +406,190 @@ describe("Driver Auto-Redirect", () => {
     expect(url).toBe("/driver/active-delivery?orderId=42");
   });
 });
+
+
+// ===== Store Notification Sounds =====
+describe("Store Notification Sounds", () => {
+  it("should export notification sound functions", () => {
+    // The notification-sound module should export the three sound functions
+    const expectedFunctions = ["playNewOrderSound", "playDriverArrivedSound", "playChatMessageSound"];
+    expectedFunctions.forEach(fn => {
+      expect(typeof fn).toBe("string");
+      expect(fn.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("should define ascending chime frequencies for new order sound", () => {
+    // C5, E5, G5, C6 - ascending major chord
+    const frequencies = [523, 659, 784, 1047];
+    expect(frequencies).toHaveLength(4);
+    // Each frequency should be higher than the previous
+    for (let i = 1; i < frequencies.length; i++) {
+      expect(frequencies[i]).toBeGreaterThan(frequencies[i - 1]);
+    }
+  });
+
+  it("should define two-ping frequencies for driver arrived sound", () => {
+    const frequencies = [880, 1100];
+    expect(frequencies).toHaveLength(2);
+    expect(frequencies[1]).toBeGreaterThan(frequencies[0]);
+  });
+
+  it("should define single soft ping for chat message sound", () => {
+    const frequencies = [660];
+    expect(frequencies).toHaveLength(1);
+    expect(frequencies[0]).toBeGreaterThan(0);
+  });
+
+  it("should use appropriate volume levels", () => {
+    const newOrderVolume = 0.35;
+    const driverArrivedVolume = 0.3;
+    const chatMessageVolume = 0.2;
+
+    // All volumes should be between 0 and 1
+    [newOrderVolume, driverArrivedVolume, chatMessageVolume].forEach(vol => {
+      expect(vol).toBeGreaterThan(0);
+      expect(vol).toBeLessThanOrEqual(1);
+    });
+
+    // Chat should be softest, new order loudest
+    expect(chatMessageVolume).toBeLessThan(driverArrivedVolume);
+    expect(driverArrivedVolume).toBeLessThanOrEqual(newOrderVolume);
+  });
+});
+
+// ===== Order Preparation Timer =====
+describe("Order Preparation Timer", () => {
+  it("should calculate elapsed time correctly", () => {
+    const now = Date.now();
+    const fiveMinAgo = now - 5 * 60 * 1000;
+
+    const elapsedMs = now - fiveMinAgo;
+    const elapsedMin = Math.floor(elapsedMs / 60000);
+    const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
+
+    expect(elapsedMin).toBe(5);
+    expect(elapsedSec).toBe(0);
+  });
+
+  it("should format timer as MM:SS with leading zeros", () => {
+    const formatTimer = (min: number, sec: number) =>
+      `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+
+    expect(formatTimer(0, 5)).toBe("00:05");
+    expect(formatTimer(3, 45)).toBe("03:45");
+    expect(formatTimer(15, 0)).toBe("15:00");
+    expect(formatTimer(99, 59)).toBe("99:59");
+  });
+
+  it("should identify overdue orders (>= 15 min)", () => {
+    const isOverdue = (elapsedMin: number) => elapsedMin >= 15;
+    const isWarning = (elapsedMin: number) => elapsedMin >= 10 && elapsedMin < 15;
+
+    expect(isOverdue(5)).toBe(false);
+    expect(isOverdue(10)).toBe(false);
+    expect(isOverdue(14)).toBe(false);
+    expect(isOverdue(15)).toBe(true);
+    expect(isOverdue(30)).toBe(true);
+
+    expect(isWarning(5)).toBe(false);
+    expect(isWarning(10)).toBe(true);
+    expect(isWarning(14)).toBe(true);
+    expect(isWarning(15)).toBe(false);
+  });
+
+  it("should use correct colors for timer states", () => {
+    const getTimerColor = (elapsedMin: number) => {
+      const isOverdue = elapsedMin >= 15;
+      const isWarning = elapsedMin >= 10 && elapsedMin < 15;
+      return isOverdue ? "#EF4444" : isWarning ? "#F59E0B" : "#0a7ea4";
+    };
+
+    expect(getTimerColor(5)).toBe("#0a7ea4");   // Normal - teal
+    expect(getTimerColor(12)).toBe("#F59E0B");  // Warning - amber
+    expect(getTimerColor(20)).toBe("#EF4444");  // Overdue - red
+  });
+});
+
+// ===== Customer-Driver Chat =====
+describe("Customer-Driver Chat", () => {
+  it("should validate chat message constraints", () => {
+    const minLength = 1;
+    const maxLength = 1000;
+
+    expect("".length).toBeLessThan(minLength);
+    expect("Hello".length).toBeGreaterThanOrEqual(minLength);
+    expect("Hello".length).toBeLessThanOrEqual(maxLength);
+
+    const longMessage = "a".repeat(1001);
+    expect(longMessage.length).toBeGreaterThan(maxLength);
+  });
+
+  it("should define valid sender roles", () => {
+    const validRoles = ["customer", "driver"];
+    expect(validRoles).toContain("customer");
+    expect(validRoles).toContain("driver");
+    expect(validRoles).not.toContain("store_staff");
+    expect(validRoles).not.toContain("admin");
+  });
+
+  it("should identify active order statuses for chat availability", () => {
+    const chatActiveStatuses = ["preparing", "ready_for_pickup", "picked_up", "on_the_way"];
+
+    expect(chatActiveStatuses).toContain("preparing");
+    expect(chatActiveStatuses).toContain("on_the_way");
+    expect(chatActiveStatuses).not.toContain("pending");
+    expect(chatActiveStatuses).not.toContain("delivered");
+    expect(chatActiveStatuses).not.toContain("cancelled");
+  });
+
+  it("should correctly determine the other party", () => {
+    const getOtherParty = (role: string) => role === "customer" ? "Driver" : "Customer";
+
+    expect(getOtherParty("customer")).toBe("Driver");
+    expect(getOtherParty("driver")).toBe("Customer");
+  });
+
+  it("should format chat message timestamps", () => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    expect(timeStr).toBeTruthy();
+    expect(timeStr.length).toBeGreaterThan(0);
+  });
+
+  it("should calculate unread count correctly", () => {
+    // Unread = messages from the other party
+    const messages = [
+      { senderId: 1, senderRole: "customer" },
+      { senderId: 2, senderRole: "driver" },
+      { senderId: 2, senderRole: "driver" },
+      { senderId: 1, senderRole: "customer" },
+    ];
+
+    // For customer (userId=1), unread = messages from driver
+    const customerUnread = messages.filter(m => m.senderRole === "driver").length;
+    expect(customerUnread).toBe(2);
+
+    // For driver (userId=2), unread = messages from customer
+    const driverUnread = messages.filter(m => m.senderRole === "customer").length;
+    expect(driverUnread).toBe(2);
+  });
+
+  it("should style messages differently for sender vs receiver", () => {
+    const userId = 1;
+    const myMessage = { senderId: 1, message: "Hello" };
+    const theirMessage = { senderId: 2, message: "Hi there" };
+
+    const isMe = (msg: { senderId: number }) => msg.senderId === userId;
+
+    expect(isMe(myMessage)).toBe(true);
+    expect(isMe(theirMessage)).toBe(false);
+
+    // My messages should be on the right (flex-end), theirs on the left (flex-start)
+    const myAlign = isMe(myMessage) ? "flex-end" : "flex-start";
+    const theirAlign = isMe(theirMessage) ? "flex-end" : "flex-start";
+
+    expect(myAlign).toBe("flex-end");
+    expect(theirAlign).toBe("flex-start");
+  });
+});

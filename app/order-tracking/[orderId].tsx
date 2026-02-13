@@ -2,7 +2,9 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform }
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChatPanel } from "@/components/chat-panel";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /** Compute estimated delivery time based on status and timestamps. */
 function getEstimatedDelivery(order: any): { label: string; minutes: number | null } | null {
@@ -196,6 +198,22 @@ export default function OrderTrackingScreen() {
   );
 
   const estimated = order ? getEstimatedDelivery(order) : null;
+
+  // Chat state
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  // Get current user ID from AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem("userId").then((id) => {
+      if (id) setCurrentUserId(parseInt(id));
+    });
+  }, []);
+
+  // Show chat only for active orders with a driver assigned
+  const showChat = order && currentUserId &&
+    ["preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) &&
+    order.driverId;
 
   if (isLoading) {
     return (
@@ -683,6 +701,17 @@ export default function OrderTrackingScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Chat Panel */}
+      {showChat && currentUserId && (
+        <ChatPanel
+          orderId={orderIdNum}
+          userId={currentUserId}
+          userRole="customer"
+          isExpanded={chatExpanded}
+          onToggle={() => setChatExpanded(!chatExpanded)}
+        />
+      )}
     </ScreenContainer>
   );
 }

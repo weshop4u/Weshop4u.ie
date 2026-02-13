@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
+import { ChatPanel } from "@/components/chat-panel";
 
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function ActiveDeliveryScreen() {
   );
   
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
+  const [chatExpanded, setChatExpanded] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [isReturning, setIsReturning] = useState(false);
@@ -616,6 +618,17 @@ export default function ActiveDeliveryScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Chat Panel */}
+      {orderId && user?.id && deliveryStatus !== "delivered" && (
+        <ChatPanel
+          orderId={orderId}
+          userId={user.id}
+          userRole="driver"
+          isExpanded={chatExpanded}
+          onToggle={() => setChatExpanded(!chatExpanded)}
+        />
+      )}
     </ScreenContainer>
   );
 }

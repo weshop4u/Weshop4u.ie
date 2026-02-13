@@ -884,3 +884,28 @@
 - [x] Automatically redirect to active-delivery screen if one exists
 - [x] Uses hasAutoRedirected flag to prevent redirect loops
 - [x] Active delivery banner still visible on dashboard if driver navigates back
+
+## Feature: Store notification sound
+- [x] Play audio alert when a new order comes in on store dashboard (ascending major chord chime, plays twice)
+- [x] Play audio alert when a driver arrives at the store (two quick high pings)
+- [x] Use web Audio API for web platform (synthetic tones, no audio files needed)
+- [x] Chat message notification sound (single soft ping)
+- [x] Haptic feedback on native for both events
+
+## Feature: Order preparation timer
+- [x] Show elapsed time since order moved to "Preparing" status on each order card
+- [x] Live-updating timer (MM:SS format, ticks every second)
+- [x] Visual warning at 10+ min (amber) and overdue at 15+ min (red with border)
+- [x] Timer uses tracking events or acceptedAt/updatedAt timestamps
+
+## Feature: Customer-driver in-app chat
+- [x] Created chat_messages database table (order_id, sender_id, sender_role, message)
+- [x] Created backend endpoints: chat.sendMessage, chat.getMessages, chat.getUnreadCount
+- [x] Reusable ChatPanel component with bubble-style messages
+- [x] Added chat to customer order tracking screen (shows when driver assigned)
+- [x] Added chat to driver active-delivery screen
+- [x] Real-time polling (3s when expanded, 10s when collapsed)
+- [x] Unread message count badge on collapsed chat button
+- [x] Chat message notification sound for incoming messages
+- [x] Auto-scroll to latest message
+- [x] Chat only available during active order statuses

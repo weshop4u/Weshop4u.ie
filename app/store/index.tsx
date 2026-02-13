@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
 
 // Web-compatible confirm dialog
 function confirmAction(title: string, message: string): Promise<boolean> {
@@ -43,6 +44,8 @@ export default function StoreDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "preparing" | "ready_for_pickup" | "completed">("all");
   const prevPendingIdsRef = useRef<Set<number>>(new Set());
+  const prevDriverAtStoreIdsRef = useRef<Set<number>>(new Set());
+  const [now, setNow] = useState(Date.now());
   const isFirstLoadRef = useRef(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
   const [storeId, setStoreId] = useState<number | null>(null);
@@ -118,6 +121,9 @@ export default function StoreDashboardScreen() {
       setNewOrderFlash(true);
       setTimeout(() => setNewOrderFlash(false), 3000);
 
+      // Play new order sound on web
+      playNewOrderSound();
+
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
@@ -125,6 +131,43 @@ export default function StoreDashboardScreen() {
 
     prevPendingIdsRef.current = currentPendingIds;
   }, [storeOrders]);
+
+  // Detect when a driver arrives at the store and play sound
+  useEffect(() => {
+    if (!storeOrders) return;
+
+    const currentDriverAtStoreIds = new Set(
+      storeOrders
+        .filter((o: any) =>
+          (o.status === "ready_for_pickup" || o.status === "picked_up") &&
+          o.tracking?.some((t: any) => t.status === "driver_at_store")
+        )
+        .map((o: any) => o.id)
+    );
+
+    // Check for newly arrived drivers
+    let hasNewArrival = false;
+    currentDriverAtStoreIds.forEach((id) => {
+      if (!prevDriverAtStoreIdsRef.current.has(id)) {
+        hasNewArrival = true;
+      }
+    });
+
+    if (hasNewArrival) {
+      playDriverArrivedSound();
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    }
+
+    prevDriverAtStoreIdsRef.current = currentDriverAtStoreIds;
+  }, [storeOrders]);
+
+  // Tick every second for preparation timer
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -469,6 +512,47 @@ export default function StoreDashboardScreen() {
                     <Text className="font-semibold text-sm">{getStatusText(order.status)}</Text>
                   </View>
                 </View>
+
+                {/* Preparation Timer */}
+                {order.status === "preparing" && (() => {
+                  // Find when order moved to preparing (from tracking or use acceptedAt/updatedAt)
+                  const preparingEvent = order.tracking?.find((t: any) => t.status === "preparing" || t.status === "accepted");
+                  const startTime = preparingEvent?.createdAt
+                    ? new Date(preparingEvent.createdAt).getTime()
+                    : order.acceptedAt
+                    ? new Date(order.acceptedAt).getTime()
+                    : new Date(order.updatedAt || order.createdAt).getTime();
+                  const elapsedMs = now - startTime;
+                  const elapsedMin = Math.floor(elapsedMs / 60000);
+                  const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
+                  const isOverdue = elapsedMin >= 15;
+                  const isWarning = elapsedMin >= 10 && elapsedMin < 15;
+                  const timerColor = isOverdue ? "#EF4444" : isWarning ? "#F59E0B" : "#0a7ea4";
+                  const bgColor = isOverdue ? "rgba(239,68,68,0.1)" : isWarning ? "rgba(245,158,11,0.1)" : "rgba(10,126,164,0.08)";
+                  return (
+                    <View style={{
+                      backgroundColor: bgColor,
+                      borderRadius: 8,
+                      padding: 10,
+                      marginBottom: 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderWidth: isOverdue ? 1 : 0,
+                      borderColor: isOverdue ? "#EF4444" : "transparent",
+                    }}>
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Text style={{ fontSize: 16, marginRight: 6 }}>{isOverdue ? "⚠️" : "⏱️"}</Text>
+                        <Text style={{ color: timerColor, fontWeight: "600", fontSize: 13 }}>
+                          {isOverdue ? "Overdue!" : isWarning ? "Getting long..." : "Preparing"}
+                        </Text>
+                      </View>
+                      <Text style={{ color: timerColor, fontWeight: "700", fontSize: 18, fontVariant: ["tabular-nums"] }}>
+                        {String(elapsedMin).padStart(2, "0")}:{String(elapsedSec).padStart(2, "0")}
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 {/* Order Items */}
                 <View className="bg-background p-3 rounded-lg mb-3">
