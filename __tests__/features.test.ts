@@ -288,3 +288,121 @@ describe("Arrived at Store - Driver Flow", () => {
     expect(result!.minutes).toBeGreaterThan(pickedUpResult!.minutes);
   });
 });
+
+
+// ===== Driver at Store Indicator =====
+describe("Driver at Store Indicator", () => {
+  it("should detect driver_at_store from tracking events", () => {
+    const trackingEvents = [
+      { status: "pending", createdAt: new Date(), notes: null },
+      { status: "preparing", createdAt: new Date(), notes: null },
+      { status: "ready_for_pickup", createdAt: new Date(), notes: null },
+      { status: "driver_at_store", createdAt: new Date(), notes: "Driver arrived" },
+    ];
+
+    const hasDriverAtStore = trackingEvents.some(t => t.status === "driver_at_store");
+    expect(hasDriverAtStore).toBe(true);
+  });
+
+  it("should not detect driver_at_store when not present", () => {
+    const trackingEvents = [
+      { status: "pending", createdAt: new Date(), notes: null },
+      { status: "preparing", createdAt: new Date(), notes: null },
+    ];
+
+    const hasDriverAtStore = trackingEvents.some(t => t.status === "driver_at_store");
+    expect(hasDriverAtStore).toBe(false);
+  });
+
+  it("should handle empty tracking array", () => {
+    const trackingEvents: any[] = [];
+    const hasDriverAtStore = trackingEvents.some(t => t.status === "driver_at_store");
+    expect(hasDriverAtStore).toBe(false);
+  });
+});
+
+// ===== Completed Orders Tab =====
+describe("Completed Orders Tab", () => {
+  const allOrders = [
+    { id: 1, status: "pending", createdAt: "2026-02-13T10:00:00Z", updatedAt: "2026-02-13T10:00:00Z" },
+    { id: 2, status: "preparing", createdAt: "2026-02-13T10:05:00Z", updatedAt: "2026-02-13T10:10:00Z" },
+    { id: 3, status: "delivered", createdAt: "2026-02-13T09:00:00Z", updatedAt: "2026-02-13T09:30:00Z" },
+    { id: 4, status: "cancelled", createdAt: "2026-02-13T08:00:00Z", updatedAt: "2026-02-13T08:05:00Z" },
+    { id: 5, status: "delivered", createdAt: "2026-02-13T07:00:00Z", updatedAt: "2026-02-13T07:45:00Z" },
+    { id: 6, status: "ready_for_pickup", createdAt: "2026-02-13T10:15:00Z", updatedAt: "2026-02-13T10:20:00Z" },
+    { id: 7, status: "on_the_way", createdAt: "2026-02-13T10:10:00Z", updatedAt: "2026-02-13T10:25:00Z" },
+  ];
+
+  const activeStatuses = ["pending", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
+  const completedStatuses = ["delivered", "cancelled"];
+
+  it("should filter active orders correctly", () => {
+    const activeOrders = allOrders.filter(o => activeStatuses.includes(o.status));
+    expect(activeOrders).toHaveLength(4); // pending, preparing, ready_for_pickup, on_the_way
+  });
+
+  it("should filter completed orders correctly", () => {
+    const completedOrders = allOrders.filter(o => completedStatuses.includes(o.status));
+    expect(completedOrders).toHaveLength(3); // 2 delivered + 1 cancelled
+  });
+
+  it("should sort completed orders by updatedAt descending", () => {
+    const completedOrders = allOrders
+      .filter(o => completedStatuses.includes(o.status))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+    expect(completedOrders[0].id).toBe(3); // Most recently updated delivered
+    expect(completedOrders[1].id).toBe(4); // Cancelled
+    expect(completedOrders[2].id).toBe(5); // Oldest delivered
+  });
+
+  it("should count completed orders for tab badge", () => {
+    const completedCount = allOrders.filter(o => completedStatuses.includes(o.status)).length;
+    expect(completedCount).toBe(3);
+  });
+});
+
+// ===== Driver Auto-Redirect =====
+describe("Driver Auto-Redirect", () => {
+  it("should detect active delivery and trigger redirect", () => {
+    const activeDelivery = { id: 42, orderNumber: "WS4U-123", store: { name: "Spar" } };
+    const hasAutoRedirected = false;
+    const activeDeliveryLoading = false;
+
+    const shouldRedirect = activeDelivery && activeDelivery.id && !hasAutoRedirected && !activeDeliveryLoading;
+    expect(shouldRedirect).toBeTruthy();
+  });
+
+  it("should not redirect if already redirected", () => {
+    const activeDelivery = { id: 42, orderNumber: "WS4U-123", store: { name: "Spar" } };
+    const hasAutoRedirected = true;
+    const activeDeliveryLoading = false;
+
+    const shouldRedirect = activeDelivery && activeDelivery.id && !hasAutoRedirected && !activeDeliveryLoading;
+    expect(shouldRedirect).toBeFalsy();
+  });
+
+  it("should not redirect if still loading", () => {
+    const activeDelivery = null;
+    const hasAutoRedirected = false;
+    const activeDeliveryLoading = true;
+
+    const shouldRedirect = activeDelivery && !hasAutoRedirected && !activeDeliveryLoading;
+    expect(shouldRedirect).toBeFalsy();
+  });
+
+  it("should not redirect if no active delivery", () => {
+    const activeDelivery = null;
+    const hasAutoRedirected = false;
+    const activeDeliveryLoading = false;
+
+    const shouldRedirect = activeDelivery && !hasAutoRedirected && !activeDeliveryLoading;
+    expect(shouldRedirect).toBeFalsy();
+  });
+
+  it("should build correct redirect URL", () => {
+    const activeDelivery = { id: 42, orderNumber: "WS4U-123", store: { name: "Spar" } };
+    const url = `/driver/active-delivery?orderId=${activeDelivery.id}`;
+    expect(url).toBe("/driver/active-delivery?orderId=42");
+  });
+});

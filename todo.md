@@ -866,3 +866,21 @@
 - [x] Added "← Back to Dashboard" link at top of active-delivery screen
 - [x] Added "Active Delivery in Progress" banner on driver dashboard that links back to active delivery
 - [x] Banner shows order number and store name, polls every 5 seconds
+
+## Feature: Driver at Store indicator on store dashboard
+- [x] Show a visual indicator on the store dashboard when a driver has arrived at the store for an order
+- [x] Include driver name and order number in the indicator (blue banner + per-order card indicator)
+- [x] Make it prominent so staff can prepare the order (top-level banner + "Hand order to driver" action)
+- [x] Backend updated to include tracking events and driver name in getOrders response
+
+## Feature: Completed orders tab on store dashboard
+- [x] Add a "Completed" tab to the store dashboard tab bar (scrollable tabs)
+- [x] Show delivered and cancelled orders with timestamps
+- [x] Display order totals and completion times
+- [x] Sorted by most recently updated first
+
+## Feature: Driver auto-redirect to active delivery on login
+- [x] When driver logs in or opens the app, check for active delivery via getActiveDelivery query
+- [x] Automatically redirect to active-delivery screen if one exists
+- [x] Uses hasAutoRedirected flag to prevent redirect loops
+- [x] Active delivery banner still visible on dashboard if driver navigates back

@@ -41,7 +41,7 @@ export default function StoreDashboardScreen() {
   usePushNotifications(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<"all" | "pending" | "preparing" | "ready_for_pickup">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "preparing" | "ready_for_pickup" | "completed">("all");
   const prevPendingIdsRef = useRef<Set<number>>(new Set());
   const isFirstLoadRef = useRef(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
@@ -213,6 +213,8 @@ export default function StoreDashboardScreen() {
       case "preparing": return "bg-primary/10 border-primary";
       case "ready_for_pickup": return "bg-success/10 border-success";
       case "picked_up": case "on_the_way": return "bg-success/10 border-success";
+      case "delivered": return "bg-surface border-border";
+      case "cancelled": return "bg-error/10 border-error";
       default: return "bg-surface border-border";
     }
   };
@@ -228,6 +230,19 @@ export default function StoreDashboardScreen() {
       case "cancelled": return "Cancelled";
       default: return status;
     }
+  };
+
+  // Check if an order has a "driver_at_store" tracking event
+  const hasDriverAtStore = (order: any): boolean => {
+    if (!order.tracking) return false;
+    return order.tracking.some((t: any) => t.status === "driver_at_store");
+  };
+
+  // Get driver name from order (if assigned)
+  const getDriverName = (order: any): string | null => {
+    if (order.driver?.user?.name) return order.driver.user.name;
+    if (order.driverName) return order.driverName;
+    return null;
   };
 
   if (userLoading || isLoading || storeId === null) {
@@ -261,14 +276,28 @@ export default function StoreDashboardScreen() {
 
   // Filter orders based on selected tab
   const activeStatuses = ["pending", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
+  const completedStatuses = ["delivered", "cancelled"];
+
   const filteredOrders = allOrders.filter((order: any) => {
     if (filter === "all") return activeStatuses.includes(order.status);
+    if (filter === "completed") return completedStatuses.includes(order.status);
     return order.status === filter;
   });
+
+  // Sort: for completed tab, show newest first
+  const sortedOrders = filter === "completed"
+    ? [...filteredOrders].sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+    : filteredOrders;
 
   const pendingCount = allOrders.filter((o: any) => o.status === "pending").length;
   const preparingCount = allOrders.filter((o: any) => o.status === "preparing").length;
   const readyCount = allOrders.filter((o: any) => o.status === "ready_for_pickup").length;
+  const completedCount = allOrders.filter((o: any) => completedStatuses.includes(o.status)).length;
+
+  // Count orders where driver is at the store
+  const driverAtStoreOrders = allOrders.filter((o: any) =>
+    (o.status === "ready_for_pickup" || o.status === "picked_up") && hasDriverAtStore(o)
+  );
 
   return (
     <ScreenContainer>
@@ -298,6 +327,25 @@ export default function StoreDashboardScreen() {
           </View>
         )}
 
+        {/* Driver at Store Alert Banner */}
+        {driverAtStoreOrders.length > 0 && filter !== "completed" && (
+          <View style={{ backgroundColor: "#DBEAFE", padding: 12, borderWidth: 1, borderColor: "#3B82F6" }}>
+            {driverAtStoreOrders.map((order: any) => {
+              const driverName = getDriverName(order);
+              return (
+                <View key={order.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 2 }}>
+                  <Text style={{ color: "#1E40AF", fontWeight: "700", fontSize: 14, textAlign: "center" }}>
+                    🚗 Driver{driverName ? ` ${driverName}` : ""} is at the store for {order.orderNumber || `#${order.id}`}
+                  </Text>
+                </View>
+              );
+            })}
+            <Text style={{ color: "#1E40AF", fontSize: 12, textAlign: "center", marginTop: 2 }}>
+              Please have the order ready at the counter
+            </Text>
+          </View>
+        )}
+
         {/* Quick Actions Bar */}
         <View style={{ flexDirection: "row", backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
           <TouchableOpacity
@@ -315,60 +363,100 @@ export default function StoreDashboardScreen() {
         </View>
 
         {/* Navigation Tabs */}
-        <View className="flex-row bg-surface border-b border-border">
-          <TouchableOpacity
-            onPress={() => setFilter("all")}
-            className={`flex-1 p-3 ${filter === "all" ? "border-b-2 border-primary" : ""}`}
-          >
-            <Text className={`text-center font-semibold text-sm ${filter === "all" ? "text-primary" : "text-muted"}`}>
-              All Orders
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilter("pending")}
-            className={`flex-1 p-3 ${filter === "pending" ? "border-b-2 border-primary" : ""}`}
-          >
-            <Text className={`text-center font-semibold text-sm ${filter === "pending" ? "text-primary" : "text-muted"}`}>
-              Pending{pendingCount > 0 ? ` (${pendingCount})` : ""}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilter("preparing")}
-            className={`flex-1 p-3 ${filter === "preparing" ? "border-b-2 border-primary" : ""}`}
-          >
-            <Text className={`text-center font-semibold text-sm ${filter === "preparing" ? "text-primary" : "text-muted"}`}>
-              Preparing{preparingCount > 0 ? ` (${preparingCount})` : ""}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setFilter("ready_for_pickup")}
-            className={`flex-1 p-3 ${filter === "ready_for_pickup" ? "border-b-2 border-primary" : ""}`}
-          >
-            <Text className={`text-center font-semibold text-sm ${filter === "ready_for_pickup" ? "text-primary" : "text-muted"}`}>
-              Ready{readyCount > 0 ? ` (${readyCount})` : ""}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#f5f5f5" }}>
+          <View style={{ flexDirection: "row" }}>
+            <TouchableOpacity
+              onPress={() => setFilter("all")}
+              style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: filter === "all" ? 2 : 0, borderBottomColor: "#0a7ea4" }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 13, color: filter === "all" ? "#0a7ea4" : "#687076" }}>
+                All Active
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilter("pending")}
+              style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: filter === "pending" ? 2 : 0, borderBottomColor: "#0a7ea4" }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 13, color: filter === "pending" ? "#0a7ea4" : "#687076" }}>
+                Pending{pendingCount > 0 ? ` (${pendingCount})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilter("preparing")}
+              style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: filter === "preparing" ? 2 : 0, borderBottomColor: "#0a7ea4" }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 13, color: filter === "preparing" ? "#0a7ea4" : "#687076" }}>
+                Preparing{preparingCount > 0 ? ` (${preparingCount})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilter("ready_for_pickup")}
+              style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: filter === "ready_for_pickup" ? 2 : 0, borderBottomColor: "#0a7ea4" }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 13, color: filter === "ready_for_pickup" ? "#0a7ea4" : "#687076" }}>
+                Ready{readyCount > 0 ? ` (${readyCount})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilter("completed")}
+              style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: filter === "completed" ? 2 : 0, borderBottomColor: "#0a7ea4" }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 13, color: filter === "completed" ? "#0a7ea4" : "#687076" }}>
+                Completed{completedCount > 0 ? ` (${completedCount})` : ""}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
 
         {/* Orders List */}
         <ScrollView
           className="flex-1 p-4"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
-          {filteredOrders.length === 0 ? (
+          {sortedOrders.length === 0 ? (
             <View className="items-center justify-center py-12">
-              <Text className="text-4xl mb-4">📦</Text>
-              <Text className="text-muted text-lg">No orders</Text>
+              <Text className="text-4xl mb-4">{filter === "completed" ? "✅" : "📦"}</Text>
+              <Text className="text-muted text-lg">
+                {filter === "completed" ? "No completed orders yet" : "No orders"}
+              </Text>
               <Text className="text-muted text-sm mt-2">
-                {filter === "all" ? "New orders will appear here" : `No ${filter.replace(/_/g, " ")} orders`}
+                {filter === "all" ? "New orders will appear here" :
+                 filter === "completed" ? "Delivered and cancelled orders will appear here" :
+                 `No ${filter.replace(/_/g, " ")} orders`}
               </Text>
             </View>
           ) : (
-            filteredOrders.map((order: any) => (
+            sortedOrders.map((order: any) => (
               <View
                 key={order.id}
                 className={`mb-4 p-4 rounded-lg border-2 ${getStatusColor(order.status)}`}
               >
+                {/* Driver at Store Indicator - prominent banner at top of order card */}
+                {hasDriverAtStore(order) && (order.status === "ready_for_pickup" || order.status === "picked_up") && (
+                  <View style={{
+                    backgroundColor: "#DBEAFE",
+                    borderWidth: 1,
+                    borderColor: "#3B82F6",
+                    borderRadius: 8,
+                    padding: 10,
+                    marginBottom: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}>
+                    <Text style={{ fontSize: 20, marginRight: 8 }}>🚗</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#1E40AF", fontWeight: "700", fontSize: 14 }}>
+                        Driver is at the store!
+                      </Text>
+                      {getDriverName(order) && (
+                        <Text style={{ color: "#1E40AF", fontSize: 12 }}>
+                          {getDriverName(order)} is waiting to collect this order
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
                 {/* Order Header */}
                 <View className="flex-row justify-between items-center mb-3">
                   <View className="flex-1">
@@ -425,7 +513,30 @@ export default function StoreDashboardScreen() {
                   </View>
                 ) : null}
 
-                {/* Action Buttons - NO confirmation dialog, direct action for reliability */}
+                {/* Completed order info */}
+                {order.status === "delivered" && (
+                  <View style={{ backgroundColor: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
+                    <Text style={{ color: "#22C55E", fontWeight: "700" }}>✅ Delivered</Text>
+                    {order.updatedAt && (
+                      <Text style={{ color: "#687076", fontSize: 12, marginTop: 4 }}>
+                        {new Date(order.updatedAt).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {order.status === "cancelled" && (
+                  <View style={{ backgroundColor: "rgba(239,68,68,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
+                    <Text style={{ color: "#EF4444", fontWeight: "700" }}>✕ Cancelled</Text>
+                    {order.updatedAt && (
+                      <Text style={{ color: "#687076", fontSize: 12, marginTop: 4 }}>
+                        {new Date(order.updatedAt).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Action Buttons */}
                 {order.status === "pending" && (
                   <TouchableOpacity
                     onPress={() => handleAcceptOrder(order.id)}
@@ -456,9 +567,15 @@ export default function StoreDashboardScreen() {
                   </TouchableOpacity>
                 )}
 
-                {order.status === "ready_for_pickup" && (
+                {order.status === "ready_for_pickup" && !hasDriverAtStore(order) && (
                   <View style={{ backgroundColor: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
                     <Text style={{ color: "#22C55E", fontWeight: "700" }}>⏳ Waiting for Driver Pickup</Text>
+                  </View>
+                )}
+
+                {order.status === "ready_for_pickup" && hasDriverAtStore(order) && (
+                  <View style={{ backgroundColor: "rgba(59,130,246,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
+                    <Text style={{ color: "#1E40AF", fontWeight: "700" }}>📦 Hand order to driver</Text>
                   </View>
                 )}
 

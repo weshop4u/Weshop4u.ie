@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores, users, productCategories } from "../../drizzle/schema";
-import { eq, and, or, like, inArray } from "drizzle-orm";
+import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers } from "../../drizzle/schema";
+import { eq, and, or, like, inArray, desc } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 
@@ -93,11 +93,44 @@ export const storeRouter = router({
             .leftJoin(products, eq(orderItems.productId, products.id))
             .where(eq(orderItems.orderId, order.id));
 
+          // Get tracking events for this order (for driver_at_store detection)
+          const tracking = await db
+            .select()
+            .from(orderTracking)
+            .where(eq(orderTracking.orderId, order.id))
+            .orderBy(desc(orderTracking.createdAt));
+
+          // Get driver name if assigned
+          let driverName: string | null = null;
+          if (order.driverId) {
+            const driverResult = await db
+              .select({ userId: drivers.userId })
+              .from(drivers)
+              .where(eq(drivers.id, order.driverId))
+              .limit(1);
+            if (driverResult.length > 0) {
+              const userResult = await db
+                .select({ name: users.name })
+                .from(users)
+                .where(eq(users.id, driverResult[0].userId))
+                .limit(1);
+              if (userResult.length > 0) {
+                driverName = userResult[0].name;
+              }
+            }
+          }
+
           return {
             ...order,
+            driverName,
             items: items.map(item => ({
               ...item.order_items,
               product: item.products,
+            })),
+            tracking: tracking.map(t => ({
+              status: t.status,
+              createdAt: t.createdAt,
+              notes: t.notes,
             })),
           };
         })

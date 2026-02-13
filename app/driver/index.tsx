@@ -27,10 +27,19 @@ export default function DriverHomeScreen() {
   const lastNotifiedOfferId = useRef<number | null>(null);
 
   // Check for active delivery
-  const { data: activeDelivery } = trpc.drivers.getActiveDelivery.useQuery(
+  const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchInterval: 5000 }
   );
+  const [hasAutoRedirected, setHasAutoRedirected] = useState(false);
+
+  // Auto-redirect to active delivery on login/open
+  useEffect(() => {
+    if (activeDelivery && activeDelivery.id && !hasAutoRedirected && !activeDeliveryLoading) {
+      setHasAutoRedirected(true);
+      router.push(`/driver/active-delivery?orderId=${activeDelivery.id}`);
+    }
+  }, [activeDelivery, hasAutoRedirected, activeDeliveryLoading]);
 
   // tRPC mutations
   const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
