@@ -774,3 +774,19 @@
 - [x] Admin layout updated with all screen routes
 - [x] Unit tests for store hours, admin stats, and product search (16 tests)
 - [x] All 74 tests passing across 5 test suites
+
+## Store Staff Test Account
+- [x] Create store staff user account for Spar Balbriggan (spar@weshop4u.ie)
+- [x] Link user to Spar store in store_staff table (user_id: 60001, store_id: 1, role: manager)
+- [x] Verified store staff link in database
+
+## Bug Fix: Store Dashboard Buttons Not Working
+- [x] Root cause: /app/store/index.tsx was using mock data instead of real backend API
+- [x] Rewrote /app/store/index.tsx with real tRPC API calls (updateStatus mutation)
+- [x] Fixed getUserOrders backend to return store orders when user is store_staff
+- [x] "Accept & Start Preparing" button now calls API to set status to preparing
+- [x] "Mark Ready for Pickup" button now calls API to set status to ready_for_pickup
+- [x] Orders move between tabs after status change (auto-refetch)
+- [x] Added confirmation dialogs before status changes
+- [x] Added push notification listener for new order alerts
+- [x] Added pull-to-refresh and auto-refresh every 5 seconds

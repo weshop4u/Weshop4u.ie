@@ -377,9 +377,28 @@ export const ordersRouter = router({
       throw new Error("Database not available");
     }
 
-    // For now, get orders for the authenticated user
-    // In production, get from ctx.user.id
-    const userId = ctx.user?.id || 1; // Default to user 1 for testing
+    // Get user info to determine role
+    const userId = ctx.user?.id || 1;
+    const userRole = ctx.user?.role || "customer";
+
+    // If store staff, find their store and return store orders
+    let whereCondition;
+    if (userRole === "store_staff") {
+      const staffLink = await db
+        .select({ storeId: storeStaffTable.storeId })
+        .from(storeStaffTable)
+        .where(eq(storeStaffTable.userId, userId))
+        .limit(1);
+
+      if (staffLink.length > 0) {
+        whereCondition = eq(orders.storeId, staffLink[0].storeId);
+      } else {
+        // No store linked, return empty
+        return [];
+      }
+    } else {
+      whereCondition = eq(orders.customerId, userId);
+    }
 
     const userOrders = await db
       .select({
@@ -411,7 +430,7 @@ export const ordersRouter = router({
       .leftJoin(stores, eq(orders.storeId, stores.id))
       .leftJoin(drivers, eq(orders.driverId, drivers.id))
       .leftJoin(users, eq(drivers.userId, users.id))
-      .where(eq(orders.customerId, userId))
+      .where(whereCondition)
       .orderBy(desc(orders.createdAt));
 
     // Get order items for each order
