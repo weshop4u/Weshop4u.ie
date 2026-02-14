@@ -979,3 +979,10 @@
 - [x] Customer chat panel not showing on customer order tracking screen - Added "accepted" status to showChat condition
 - [x] Investigate TouchableOpacity behavior difference between web and native - Issue was with style array syntax
 - [x] Simplified button styling with Pressable and function-based style prop
+
+## Bug: "Arrived at Store" button still not working on Expo Go (CRITICAL)
+- [ ] Button works on web preview but not on native Expo Go
+- [ ] Pressable change didn't fix the issue
+- [ ] Need to investigate if onPress is being called at all
+- [ ] Check if deliveryStatus state is correct when button shows
+- [ ] Verify API endpoint is reachable from native

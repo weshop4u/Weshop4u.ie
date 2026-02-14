@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -168,16 +168,19 @@ export default function ActiveDeliveryScreen() {
 
   const handleArrivedAtStore = async () => {
     console.log("[Driver] handleArrivedAtStore called", { orderId, userId: user?.id });
+    
+    // Show immediate feedback that button was pressed
+    Alert.alert("Button Pressed", `OrderId: ${orderId}, UserId: ${user?.id}, Status: ${deliveryStatus}`);
+    
     if (!orderId || !user?.id) {
       console.log("[Driver] Missing orderId or userId, aborting");
-      if (Platform.OS === "web") {
-        alert("Error: Missing order or user information");
-      }
+      Alert.alert("Error", "Missing order or user information");
       return;
     }
     
     // Update state immediately for instant UI feedback
     setDeliveryStatus("at_store");
+    Alert.alert("State Updated", "Status changed to at_store");
     
     try {
       console.log("[Driver] Calling notifyAtStoreMutation...");
@@ -186,14 +189,12 @@ export default function ActiveDeliveryScreen() {
         driverId: user.id,
       });
       console.log("[Driver] notifyAtStoreMutation success:", result);
+      Alert.alert("Success", "Notification sent successfully");
     } catch (error) {
       console.error("[Driver] Failed to notify arrived at store:", error);
       // Revert state on error
       setDeliveryStatus("going_to_store");
-      // Show error to user
-      if (Platform.OS === "web") {
-        alert("Failed to notify. Please try again.");
-      }
+      Alert.alert("Error", `Failed to notify: ${error}`);
     }
   };
 
