@@ -420,13 +420,17 @@ export default function CartScreen() {
             className={`mt-3 p-4 rounded-lg items-center ${
               calculateDeliveryFeeMutation.isPending || !streetAddress.trim() || !eircode.trim()
                 ? "bg-surface"
-                : "bg-secondary active:opacity-70"
+                : "bg-primary active:opacity-70"
             }`}
           >
             {calculateDeliveryFeeMutation.isPending ? (
               <ActivityIndicator color="#00E5FF" />
             ) : (
-              <Text className="text-background font-semibold">
+              <Text className={`font-semibold ${
+                calculateDeliveryFeeMutation.isPending || !streetAddress.trim() || !eircode.trim()
+                  ? "text-muted"
+                  : "text-background"
+              }`}>
                 {deliveryFeeCalculated ? "✓ Delivery Fee Calculated" : "Calculate Delivery Fee"}
               </Text>
             )}
