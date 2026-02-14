@@ -997,3 +997,14 @@
 - [x] Button shows Alert "Missing order or user information" - Fixed navigation in job-offer.tsx
 - [x] orderId was not being passed in router.push from job-offer screen
 - [x] Removed debug Alert dialogs
+
+
+## Known Issues (To Fix Next Session)
+- [ ] Driver buttons not working on Expo Go native (work on web preview)
+  - [ ] "I've Arrived at Store" button shows "Missing orderId or userId" error
+  - [ ] useAuth returns undefined on native but server logs show user is authenticated
+  - [ ] Need to fix authentication persistence on native
+- [ ] Order data not loading properly on native
+  - [ ] order.driverId is undefined when button is pressed
+  - [ ] May need to add loading states to disable buttons until data loads
+- [x] Calculate Delivery Fee button was invisible (FIXED - changed to bg-primary with conditional text color)
