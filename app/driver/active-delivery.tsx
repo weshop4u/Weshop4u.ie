@@ -167,34 +167,25 @@ export default function ActiveDeliveryScreen() {
   };
 
   const handleArrivedAtStore = async () => {
-    console.log("[Driver] handleArrivedAtStore called", { orderId, userId: user?.id });
-    
-    // Show immediate feedback that button was pressed
-    Alert.alert("Button Pressed", `OrderId: ${orderId}, UserId: ${user?.id}, Status: ${deliveryStatus}`);
-    
     if (!orderId || !user?.id) {
-      console.log("[Driver] Missing orderId or userId, aborting");
-      Alert.alert("Error", "Missing order or user information");
+      console.error("[Driver] Missing orderId or userId", { orderId, userId: user?.id });
+      Alert.alert("Error", "Unable to update status. Please try again.");
       return;
     }
     
     // Update state immediately for instant UI feedback
     setDeliveryStatus("at_store");
-    Alert.alert("State Updated", "Status changed to at_store");
     
     try {
-      console.log("[Driver] Calling notifyAtStoreMutation...");
-      const result = await notifyAtStoreMutation.mutateAsync({
+      await notifyAtStoreMutation.mutateAsync({
         orderId,
         driverId: user.id,
       });
-      console.log("[Driver] notifyAtStoreMutation success:", result);
-      Alert.alert("Success", "Notification sent successfully");
     } catch (error) {
       console.error("[Driver] Failed to notify arrived at store:", error);
       // Revert state on error
       setDeliveryStatus("going_to_store");
-      Alert.alert("Error", `Failed to notify: ${error}`);
+      Alert.alert("Error", "Failed to update status. Please try again.");
     }
   };
 

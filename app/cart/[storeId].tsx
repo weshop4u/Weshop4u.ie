@@ -141,6 +141,7 @@ export default function CartScreen() {
   const total = subtotal + serviceFee + deliveryFee + (paymentMethod === "card" ? tipValue : 0);
 
   const handleCheckout = async () => {
+    console.log("[Checkout] Starting checkout process...");
     // Validate guest fields
     if (isGuest) {
       if (!guestName.trim()) {
@@ -174,6 +175,16 @@ export default function CartScreen() {
         quantity: product!.cartQuantity,
       }));
 
+      console.log("[Checkout] Order items prepared:", orderItems);
+      console.log("[Checkout] Calling createOrderMutation with:", {
+        customerId: user?.id || null,
+        storeId: storeIdNum,
+        itemCount: orderItems.length,
+        deliveryAddress: `${streetAddress}, ${eircode}, Ireland`,
+        paymentMethod,
+        isGuest
+      });
+
       // Create order with guest info if not logged in
       const result = await createOrderMutation.mutateAsync({
         customerId: user?.id || null, // null for guest orders
@@ -200,6 +211,7 @@ export default function CartScreen() {
       // Navigate to order confirmation screen
       router.push(`/order-confirmation/${result.orderId}`);
     } catch (error: any) {
+      console.error("[Checkout] Error placing order:", error);
       Alert.alert("Error", error.message || "Failed to place order. Please try again.");
     }
   };

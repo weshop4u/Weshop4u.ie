@@ -986,3 +986,14 @@
 - [ ] Need to investigate if onPress is being called at all
 - [ ] Check if deliveryStatus state is correct when button shows
 - [ ] Verify API endpoint is reachable from native
+
+## Bug: Checkout button infinite loading on Expo Go (CRITICAL)
+- [ ] Customer can add items to cart but checkout button shows infinite loading spinner
+- [ ] API call is failing or timing out
+- [ ] Check server logs for errors
+- [ ] Investigate orders.createOrder endpoint
+
+## Bug: Driver "I've Arrived at Store" button error (FIXED)
+- [x] Button shows Alert "Missing order or user information" - Fixed navigation in job-offer.tsx
+- [x] orderId was not being passed in router.push from job-offer screen
+- [x] Removed debug Alert dialogs

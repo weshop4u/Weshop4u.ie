@@ -43,7 +43,7 @@ export default function JobOfferScreen() {
         [
           {
             text: "Start Navigation",
-            onPress: () => router.push("/driver/active-delivery"),
+            onPress: () => router.push(`/driver/active-delivery?orderId=${jobOffer.orderId}`),
           },
         ]
       );
