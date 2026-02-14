@@ -9,8 +9,18 @@ import { ChatPanel } from "@/components/chat-panel";
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const orderId = params.orderId ? parseInt(params.orderId as string) : null;
+  
+  // Extract orderId - params can be string or string array
+  const orderIdParam = Array.isArray(params.orderId) ? params.orderId[0] : params.orderId;
+  const orderId = orderIdParam ? parseInt(orderIdParam as string) : null;
+  
+  console.log("[ActiveDelivery] Params:", params);
+  console.log("[ActiveDelivery] Extracted orderId:", orderId);
+  
   const { user } = useAuth();
+  
+  console.log("[ActiveDelivery] User object:", user);
+  console.log("[ActiveDelivery] User ID:", user?.id);
   
   const { data: order, isLoading } = trpc.orders.getById.useQuery(
     { orderId: orderId! },
@@ -167,8 +177,8 @@ export default function ActiveDeliveryScreen() {
   };
 
   const handleArrivedAtStore = async () => {
-    if (!orderId || !user?.id) {
-      console.error("[Driver] Missing orderId or userId", { orderId, userId: user?.id });
+    if (!orderId || !order?.driverId) {
+      console.error("[Driver] Missing orderId or driverId", { orderId, driverId: order?.driverId, user: user?.id });
       Alert.alert("Error", "Unable to update status. Please try again.");
       return;
     }
@@ -179,7 +189,7 @@ export default function ActiveDeliveryScreen() {
     try {
       await notifyAtStoreMutation.mutateAsync({
         orderId,
-        driverId: user.id,
+        driverId: order.driverId,
       });
     } catch (error) {
       console.error("[Driver] Failed to notify arrived at store:", error);
