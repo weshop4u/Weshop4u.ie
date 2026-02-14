@@ -26,6 +26,10 @@ export default function ActiveDeliveryScreen() {
     { orderId: orderId! },
     { enabled: !!orderId }
   );
+  
+  console.log("[ActiveDelivery] Order data:", order);
+  console.log("[ActiveDelivery] Order loading:", isLoading);
+  console.log("[ActiveDelivery] Order driverId:", order?.driverId);
   const updateStatusMutation = trpc.orders.updateStatus.useMutation();
   const returnJobMutation = trpc.orders.returnJob.useMutation();
   const updateLocationMutation = trpc.drivers.updateLocation.useMutation();
@@ -177,9 +181,20 @@ export default function ActiveDeliveryScreen() {
   };
 
   const handleArrivedAtStore = async () => {
-    if (!orderId || !order?.driverId) {
-      console.error("[Driver] Missing orderId or driverId", { orderId, driverId: order?.driverId, user: user?.id });
-      Alert.alert("Error", "Unable to update status. Please try again.");
+    console.log("[Driver] handleArrivedAtStore called", { orderId, order, driverId: order?.driverId, userId: user?.id });
+    
+    if (!orderId) {
+      console.error("[Driver] Missing orderId");
+      Alert.alert("Error", "Order information not found.");
+      return;
+    }
+    
+    // Use order.driverId if available, otherwise fall back to user.id
+    const driverId = order?.driverId || user?.id;
+    
+    if (!driverId) {
+      console.error("[Driver] Missing driverId", { orderId, driverId: order?.driverId, userId: user?.id });
+      Alert.alert("Error", "Driver information not found. Please try again.");
       return;
     }
     
@@ -189,7 +204,7 @@ export default function ActiveDeliveryScreen() {
     try {
       await notifyAtStoreMutation.mutateAsync({
         orderId,
-        driverId: order.driverId,
+        driverId,
       });
     } catch (error) {
       console.error("[Driver] Failed to notify arrived at store:", error);
