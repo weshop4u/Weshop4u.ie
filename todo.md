@@ -1149,3 +1149,11 @@
 - [x] loadCart() sets cart state → saveCart() runs → writes to AsyncStorage → triggers re-render → infinite loop
 - [x] Fix: Added isInitialized flag that prevents saveCart() from running until after first loadCart() completes
 - [x] Now saveCart() only runs when cart changes AFTER initialization
+
+## Bug: Customer chat STILL not visible after fix (FIXED)
+- [x] Previous fix did not work - customer still sees no chat panel when order is "Picked Up"
+- [x] Order shows "Picked Up" status at 05:40, driver is assigned, but no chat button appears
+- [x] Root cause: Customer was viewing order from "My Orders" tab (orders.tsx), not the order-tracking route
+- [x] The order-tracking/[orderId].tsx screen has the chat panel, but orders.tsx did not have a way to access it
+- [x] Fix: Added "Chat with Driver" button to active orders in orders.tsx that navigates to order-tracking route
+- [x] Button only shows when driver is assigned and order status is active (accepted, preparing, ready_for_pickup, picked_up, on_the_way)

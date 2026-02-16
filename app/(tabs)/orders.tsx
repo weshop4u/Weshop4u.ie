@@ -455,6 +455,28 @@ export default function OrderHistoryScreen() {
 
                   {/* Status Timeline */}
                   <StatusTimeline order={order} />
+
+                  {/* Chat with Driver button - only show when driver is assigned and order is active */}
+                  {order.driverId && ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) && (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/order-tracking/${order.id}` as any)}
+                      style={{
+                        backgroundColor: "#0a7ea4",
+                        padding: 12,
+                        borderRadius: 10,
+                        marginTop: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 18 }}>💬</Text>
+                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+                        Chat with Driver
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Expand for items */}
