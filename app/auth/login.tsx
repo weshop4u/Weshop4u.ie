@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
@@ -50,11 +50,26 @@ export default function LoginScreen() {
 
       if (sessionResponse.ok) {
         const sessionData = await sessionResponse.json();
+        console.log("[Login] Session response data:", {
+          hasSessionToken: !!sessionData.sessionToken,
+          hasUser: !!sessionData.user,
+          platform: Platform.OS,
+          sessionToken: sessionData.sessionToken ? `${sessionData.sessionToken.substring(0, 30)}...` : null,
+        });
         
         // Step 4: Store session token in SecureStore for native persistence
-        if (Platform.OS !== "web" && sessionData.sessionToken) {
-          await Auth.setSessionToken(sessionData.sessionToken);
-          console.log("[Login] Session token stored in SecureStore");
+        if (Platform.OS !== "web") {
+          if (sessionData.sessionToken) {
+            console.log("[Login] Storing session token on native...");
+            await Auth.setSessionToken(sessionData.sessionToken);
+            console.log("[Login] Session token stored in SecureStore successfully");
+            
+            // Verify it was stored
+            const storedToken = await Auth.getSessionToken();
+            console.log("[Login] Verification - token retrieved:", storedToken ? `${storedToken.substring(0, 30)}...` : "FAILED TO RETRIEVE");
+          } else {
+            console.error("[Login] ERROR: No sessionToken in response for native platform!");
+          }
         }
 
         // Step 5: Cache user info for quick session restore
