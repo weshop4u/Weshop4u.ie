@@ -35,6 +35,7 @@ export default function LoginScreen() {
 
       // Step 2: Store user data in AsyncStorage for quick access
       await AsyncStorage.setItem("user", JSON.stringify(result.user));
+      await AsyncStorage.setItem("userId", String(result.user.id));
       if (result.profile) {
         await AsyncStorage.setItem("profile", JSON.stringify(result.profile));
       }
@@ -80,6 +81,7 @@ export default function LoginScreen() {
           email: result.user.email,
           loginMethod: "password",
           lastSignedIn: new Date(),
+          role: result.user.role || null,
         });
       }
 

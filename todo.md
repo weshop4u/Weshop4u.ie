@@ -1008,3 +1008,32 @@
   - [ ] order.driverId is undefined when button is pressed
   - [ ] May need to add loading states to disable buttons until data loads
 - [x] Calculate Delivery Fee button was invisible (FIXED - changed to bg-primary with conditional text color)
+
+
+## Bug: Driver receives job offers when offline (FIXED)
+- [x] Jobs were being offered because local isOnline state wasn't synced with DB on mount
+- [x] Fix: Load driver profile from DB on mount and sync isOnline state so polling is disabled when offline
+- [x] Server already checks isOnline and isAvailable before offering
+- [x] Tested: offline drivers don't receive offers
+
+
+## Bug: Profile tab shows login prompt when user is already logged in (FIXED)
+- [x] Root cause: Auth.User type didn't include role field, so profile couldn't detect user role
+- [x] Fix: Added role to Auth.User type, useAuth stores role from API, login caches role in Auth.User
+- [x] Profile tab now correctly detects logged-in user with role
+- [x] Role-based sections (driver mode, store dashboard, admin) now visible
+
+## Bug: Order tracking status not updating in real-time (FIXED)
+- [x] Root cause: Manual setInterval(refetch, 8000) was unreliable and too slow
+- [x] Fix: Switched to tRPC built-in refetchInterval: 5000 for more reliable 5-second polling
+- [x] Status updates are correctly saved to database by updateStatus endpoint
+- [x] Order tracking screen now polls every 5 seconds
+- [x] Status mapping between driver actions and customer view verified
+
+
+## Bug: Chat not visible on native (Expo Go) - only works on web preview (FIXED)
+- [x] Root cause: currentUserId was loaded from AsyncStorage.getItem("userId") which was never set during login
+- [x] Fix: Use useAuth().user?.id as primary source, added AsyncStorage.setItem("userId") during login, added fallback chain
+- [x] Chat component renders correctly with userId from useAuth
+- [x] Driver active-delivery already uses useAuth().user?.id correctly
+- [x] Customer order-tracking now uses useAuth as primary source with AsyncStorage fallback

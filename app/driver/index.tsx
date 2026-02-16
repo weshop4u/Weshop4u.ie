@@ -29,6 +29,19 @@ export default function DriverHomeScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastNotifiedOfferId = useRef<number | null>(null);
 
+  // Load driver profile to get actual online status from DB
+  const { data: driverProfile } = trpc.drivers.getProfile.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id }
+  );
+
+  // Sync local isOnline state with DB state on mount
+  useEffect(() => {
+    if (driverProfile && driverProfile.isOnline !== undefined && driverProfile.isOnline !== null) {
+      setIsOnline(driverProfile.isOnline);
+    }
+  }, [driverProfile?.isOnline]);
+
   // Check for active delivery
   const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(
     { driverId: user?.id! },

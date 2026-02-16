@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ChatPanel } from "@/components/chat-panel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/hooks/use-auth";
 
 /** Compute estimated delivery time based on status and timestamps. */
 function getEstimatedDelivery(order: any): { label: string; minutes: number | null } | null {
@@ -159,25 +160,26 @@ export default function OrderTrackingScreen() {
   const router = useRouter();
   const orderIdNum = parseInt(orderId);
 
-  const { data: order, isLoading, refetch } = trpc.orders.getById.useQuery({ orderId: orderIdNum });
-
-  // Get driver location (only when order is picked up or on the way)
-  const isActiveDelivery = order?.status === "picked_up" || order?.status === "on_the_way";
-  const { data: locationData } = trpc.drivers.getDriverLocation.useQuery(
+  const { data: order, isLoading, refetch } = trpc.orders.getById.useQuery(
     { orderId: orderIdNum },
     {
-      enabled: !!order && (isActiveDelivery || order?.status === "preparing" || order?.status === "ready_for_pickup" || order?.status === "pending" || order?.status === "accepted"),
-      refetchInterval: isActiveDelivery ? 10000 : 30000, // 10s during delivery, 30s otherwise
+      // Poll every 5s for real-time status updates
+      refetchInterval: 5000,
     }
   );
 
-  // Auto-refresh order status every 8 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [refetch]);
+  // Determine if order is in an active (non-terminal) state
+  const isTerminal = order?.status === "delivered" || order?.status === "cancelled";
+  const isActiveDelivery = order?.status === "picked_up" || order?.status === "on_the_way";
+
+  // Get driver location (only when order is picked up or on the way)
+  const { data: locationData } = trpc.drivers.getDriverLocation.useQuery(
+    { orderId: orderIdNum },
+    {
+      enabled: !!order && !isTerminal,
+      refetchInterval: isActiveDelivery ? 10000 : 30000, // 10s during delivery, 30s otherwise
+    }
+  );
 
   const statusSteps = useMemo(() => [
     { key: "pending", label: "Order Placed", icon: "1", activeColor: "#0a7ea4" },
@@ -201,14 +203,34 @@ export default function OrderTrackingScreen() {
 
   // Chat state
   const [chatExpanded, setChatExpanded] = useState(false);
+  const { user: authUser } = useAuth();
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-  // Get current user ID from AsyncStorage
+  // Get current user ID from useAuth (primary) or AsyncStorage (fallback)
   useEffect(() => {
+    if (authUser?.id) {
+      setCurrentUserId(authUser.id);
+      return;
+    }
+    // Fallback: try AsyncStorage userId key, then parse user object
     AsyncStorage.getItem("userId").then((id) => {
-      if (id) setCurrentUserId(parseInt(id));
+      if (id) {
+        setCurrentUserId(parseInt(id));
+      } else {
+        // Try parsing the full user object
+        AsyncStorage.getItem("user").then((userStr) => {
+          if (userStr) {
+            try {
+              const parsed = JSON.parse(userStr);
+              if (parsed.id) setCurrentUserId(parsed.id);
+            } catch (e) {
+              console.error("Failed to parse user from AsyncStorage", e);
+            }
+          }
+        });
+      }
     });
-  }, []);
+  }, [authUser?.id]);
 
   // Show chat only for active orders with a driver assigned
   const showChat = order && currentUserId &&

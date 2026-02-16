@@ -68,6 +68,7 @@ export function useAuth(options?: UseAuthOptions) {
             email: apiUser.email,
             loginMethod: apiUser.loginMethod,
             lastSignedIn: new Date(apiUser.lastSignedIn),
+            role: apiUser.role || null,
           };
           await Auth.setUserInfo(userInfo);
           notifyListeners(userInfo);
@@ -105,6 +106,7 @@ export function useAuth(options?: UseAuthOptions) {
             email: apiUser.email,
             loginMethod: apiUser.loginMethod,
             lastSignedIn: new Date(apiUser.lastSignedIn),
+            role: apiUser.role || null,
           };
           await Auth.setUserInfo(userInfo);
           notifyListeners(userInfo);
