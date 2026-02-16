@@ -126,8 +126,17 @@ export default function ActiveDeliveryScreen() {
     }
   }, [user?.id, orderId, deliveryStatus]);
 
-  // Delivery timer - counts up from when driver accepted the order
+  // Delivery timer - counts up from when  // Timer for elapsed time
   useEffect(() => {
+    // Don't start timer if delivery is already complete
+    if (deliveryStatus === "delivered") {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    
     if (order?.driverAssignedAt) {
       const assignedTime = new Date(order.driverAssignedAt).getTime();
       const updateTimer = () => {
@@ -145,8 +154,7 @@ export default function ActiveDeliveryScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [order?.driverAssignedAt]);
-
+  }, [order?.driverAssignedAt, deliveryStatus]);
   const formatElapsed = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;

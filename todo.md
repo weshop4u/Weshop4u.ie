@@ -1105,3 +1105,23 @@
 - [x] Removed redundant currentUserId check in ChatPanel rendering condition
 - [ ] Waiting for user to test and report what the debug banner shows
 - [ ] Likely causes: currentUserId is null, or status/driverId mismatch
+
+
+## Bug: Driver keyboard hidden behind Android navigation bar (FIXED)
+- [x] Chat text input "Message customer..." was at the very bottom of the screen
+- [x] Android navigation bar (back button, home, recents) covered the text input
+- [x] Fix: Added +8px to paddingBottom calculation in chat-panel.tsx input container
+- [x] Now uses Math.max(insets.bottom, 8) + 8 for proper spacing above Android nav bar
+
+## Bug: Timer keeps running after delivery complete (ALREADY FIXED)
+- [x] Timer was continuing to run after driver marked delivery as complete
+- [x] Fix was already implemented in previous session (lines 130-138 of active-delivery.tsx)
+- [x] Timer properly checks if deliveryStatus === "delivered" and clears interval
+- [x] No additional changes needed
+
+## Bug: Customer chat not visible and debug banner not showing (FIXED)
+- [x] Customer order tracking showed "Picked Up" but no chat button appeared
+- [x] Debug banner was also not rendering
+- [x] Root cause: Both ChatPanel and debug banner were inside ScrollView and being clipped
+- [x] Fix: Moved both ChatPanel and debug banner outside ScrollView in order-tracking/[orderId].tsx
+- [x] Chat button and debug banner now render correctly at the bottom of the screen
