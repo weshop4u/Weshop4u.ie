@@ -242,9 +242,14 @@ export default function OrderTrackingScreen() {
   
   // Debug logging
   useEffect(() => {
-    if (order) {
-      console.log("[OrderTracking] showChat:", showChat, "| currentUserId:", currentUserId, "| status:", order.status, "| driverId:", order.driverId);
-    }
+    console.log("[OrderTracking] Debug:", {
+      hasOrder: !!order,
+      currentUserId,
+      orderStatus: order?.status,
+      driverId: order?.driverId,
+      statusInList: order ? ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) : false,
+      showChat,
+    });
   }, [showChat, currentUserId, order]);
 
   if (isLoading) {
@@ -752,14 +757,23 @@ export default function OrderTrackingScreen() {
       </ScrollView>
 
       {/* Chat Panel */}
-      {showChat && currentUserId && (
+      {showChat && (
         <ChatPanel
           orderId={orderIdNum}
-          userId={currentUserId}
+          userId={currentUserId!}
           userRole="customer"
           isExpanded={chatExpanded}
           onToggle={() => setChatExpanded(!chatExpanded)}
         />
+      )}
+      
+      {/* Debug: Show why chat isn't visible */}
+      {!showChat && order && (
+        <View style={{ padding: 16, backgroundColor: "#FFF3CD", borderTopWidth: 1, borderTopColor: "#FFE69C" }}>
+          <Text style={{ fontSize: 12, color: "#856404" }}>
+            Chat Debug: hasOrder={!!order} | userId={currentUserId || "null"} | status={order.status} | driverId={order.driverId || "null"}
+          </Text>
+        </View>
       )}
     </ScreenContainer>
   );

@@ -1089,3 +1089,19 @@
 - [x] Root cause: No useEffect to sync local deliveryStatus state with order.status from server
 - [x] Fix: Added useEffect that maps order.status to deliveryStatus on mount and when status changes
 - [x] Driver now stays on "Delivered" screen with summary and "Back to Dashboard" button works correctly
+
+
+## Bug: Driver chat button expanded but text input not pressable (FIXED)
+- [x] Chat panel was visible and expanded on driver side
+- [x] "Message customer..." text input field was visible but couldn't be tapped/focused
+- [x] Root cause: KeyboardAvoidingView had fixed maxHeight: 350 which caused layout issues
+- [x] Fix: Changed maxHeight to "50%" and added keyboardVerticalOffset for proper keyboard handling
+- [x] Text input is now accessible and keyboard moves the input up correctly
+
+## Bug: Customer chat button not visible at all (IN PROGRESS)
+- [x] Order tracking shows "Picked Up" status with driver assigned
+- [x] No chat button appears at the bottom of the customer order tracking screen
+- [x] Added debug banner to show why chat isn't visible (displays values when showChat is false)
+- [x] Removed redundant currentUserId check in ChatPanel rendering condition
+- [ ] Waiting for user to test and report what the debug banner shows
+- [ ] Likely causes: currentUserId is null, or status/driverId mismatch

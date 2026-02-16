@@ -122,11 +122,12 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       style={{
         borderTopWidth: 1,
         borderTopColor: "#E5E7EB",
         backgroundColor: "#fff",
-        maxHeight: 350,
+        maxHeight: "50%",
       }}
     >
       {/* Chat Header */}
