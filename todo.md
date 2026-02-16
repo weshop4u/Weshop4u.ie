@@ -1056,3 +1056,17 @@
 - [x] Root cause: tRPC query was called after conditional early return, violating Rules of Hooks
 - [x] Fix: Moved tRPC query before the conditional return, added enabled: !!user option
 - [x] Query is now disabled when user is not authenticated, preventing unnecessary API calls
+
+
+## Bug: Chat button stuck at bottom of screen overlapping other UI elements (FIXED)
+- [x] In active delivery screen, "Chat with Customer" button was positioned at the very bottom
+- [x] Button was overlapping with back button and navigation elements
+- [x] Fix: Added useSafeAreaInsets() and set marginBottom: Math.max(insets.bottom, 8) + 8
+- [x] Chat button now has proper spacing from bottom edge on all devices
+
+## Bug: Driver job not visible on login until toggling offline/online (FIXED)
+- [x] Root cause: Local isOnline state starts as false, DB loads with true, but offer query doesn't trigger
+- [x] Fix: When driverProfile loads with isOnline=true and local state was false, trigger immediate refetchOffer()
+- [x] Driver online status is loaded from database on mount and applied immediately
+- [x] If there's a pending offer when driver opens dashboard, it now appears without requiring toggle
+- [x] Added 500ms delay to ensure query is enabled before refetch

@@ -38,7 +38,13 @@ export default function DriverHomeScreen() {
   // Sync local isOnline state with DB state on mount
   useEffect(() => {
     if (driverProfile && driverProfile.isOnline !== undefined && driverProfile.isOnline !== null) {
-      setIsOnline(driverProfile.isOnline);
+      const wasOffline = !isOnline;
+      const nowOnline = driverProfile.isOnline;
+      setIsOnline(nowOnline);
+      // If driver was offline and is now online (from DB), immediately check for offers
+      if (wasOffline && nowOnline) {
+        setTimeout(() => refetchOffer(), 500);
+      }
     }
   }, [driverProfile?.isOnline]);
 

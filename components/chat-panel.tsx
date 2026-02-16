@@ -1,5 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { useState, useEffect, useRef } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/lib/trpc";
 import { playChatMessageSound } from "@/lib/notification-sound";
 
@@ -12,6 +13,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: ChatPanelProps) {
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -89,7 +91,8 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
           paddingHorizontal: 20,
           borderRadius: 25,
           marginHorizontal: 16,
-          marginVertical: 8,
+          marginTop: 8,
+          marginBottom: Math.max(insets.bottom, 8) + 8,
         }}
       >
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
