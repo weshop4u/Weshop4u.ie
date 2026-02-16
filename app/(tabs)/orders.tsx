@@ -208,6 +208,12 @@ export default function OrderHistoryScreen() {
   // Track last known statuses for notification triggers
   const lastStatusesRef = useRef<Record<number, string>>({});
 
+  // Fetch user's orders with auto-refresh for active orders (only when authenticated)
+  const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
+    refetchInterval: 5000, // Poll every 5 seconds for real-time tracking
+    enabled: !!user, // Only fetch when user is authenticated
+  });
+
   // Show login prompt if user is not authenticated
   if (!user) {
     return (
@@ -247,11 +253,6 @@ export default function OrderHistoryScreen() {
       </ScreenContainer>
     );
   }
-
-  // Fetch user's orders with auto-refresh for active orders
-  const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
-    refetchInterval: 5000, // Poll every 5 seconds for real-time tracking
-  });
 
   // Listen for push notifications to trigger immediate refetch
   useEffect(() => {

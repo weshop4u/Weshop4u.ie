@@ -1049,3 +1049,10 @@
 - [x] Fix: Call await refreshAuth() after storing session token and before navigation
 - [x] This ensures all useAuth instances have the latest user state when landing on home screen
 - [x] Profile tab now correctly shows user info and role-based sections after login
+
+
+## Bug: React Hooks order violation in Orders tab (FIXED)
+- [x] "React has detected a change in the order of Hooks called by OrderHistoryScreen"
+- [x] Root cause: tRPC query was called after conditional early return, violating Rules of Hooks
+- [x] Fix: Moved tRPC query before the conditional return, added enabled: !!user option
+- [x] Query is now disabled when user is not authenticated, preventing unnecessary API calls
