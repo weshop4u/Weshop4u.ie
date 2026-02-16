@@ -1037,3 +1037,15 @@
 - [x] Chat component renders correctly with userId from useAuth
 - [x] Driver active-delivery already uses useAuth().user?.id correctly
 - [x] Customer order-tracking now uses useAuth as primary source with AsyncStorage fallback
+
+
+## Bug: Orders tab visible when not logged in (FIXED)
+- [x] Orders tab was showing past orders even when user is not authenticated
+- [x] Fix: Added useAuth check at top of OrderHistoryScreen, shows login prompt if !user
+- [x] Orders are now only visible after authentication
+
+## Bug: Profile tab shows login prompt after successful login (FIXED)
+- [x] Root cause: useAuth state wasn't synced after login, so profile tab still saw user as null
+- [x] Fix: Call await refreshAuth() after storing session token and before navigation
+- [x] This ensures all useAuth instances have the latest user state when landing on home screen
+- [x] Profile tab now correctly shows user info and role-based sections after login

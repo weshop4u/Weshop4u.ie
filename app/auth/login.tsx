@@ -6,9 +6,11 @@ import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { refresh: refreshAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -85,7 +87,12 @@ export default function LoginScreen() {
         });
       }
 
-      // Step 6: Navigate based on role
+      // Step 6: Refresh useAuth to sync user state across all components
+      console.log("[Login] Refreshing auth state...");
+      await refreshAuth();
+      console.log("[Login] Auth state refreshed, navigating...");
+
+      // Step 7: Navigate based on role
       if (Platform.OS === "web") {
         if (result.user.role === "driver") {
           window.location.href = "/driver";

@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
 import { Alert, AppState } from "react-native";
 import Constants from "expo-constants";
+import { useAuth } from "@/hooks/use-auth";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
@@ -196,6 +197,7 @@ function StatusTimeline({ order }: { order: any }) {
 
 export default function OrderHistoryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [ratingOrderId, setRatingOrderId] = useState<number | null>(null);
   const [selectedRating, setSelectedRating] = useState(0);
@@ -205,6 +207,46 @@ export default function OrderHistoryScreen() {
 
   // Track last known statuses for notification triggers
   const lastStatusesRef = useRef<Record<number, string>>({});
+
+  // Show login prompt if user is not authenticated
+  if (!user) {
+    return (
+      <ScreenContainer className="p-6">
+        <View className="flex-1 items-center justify-center gap-6 px-6">
+          <View className="w-32 h-32 bg-primary rounded-full items-center justify-center mb-4">
+            <Text className="text-6xl">📦</Text>
+          </View>
+          <Text className="text-3xl font-bold text-foreground text-center">
+            Log In to Continue
+          </Text>
+          <Text className="text-base text-muted text-center">
+            Create an account or log in to track orders, save addresses, and enjoy faster checkout
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/login" as any)}
+            style={{
+              backgroundColor: "#0a7ea4",
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 25,
+              marginTop: 16,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Log In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/signup" as any)}
+            style={{
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+            }}
+          >
+            <Text style={{ color: "#0a7ea4", fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   // Fetch user's orders with auto-refresh for active orders
   const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
