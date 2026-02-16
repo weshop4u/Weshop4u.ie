@@ -120,12 +120,15 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
 
   // Expanded chat panel
   return (
-    <View style={{
-      borderTopWidth: 1,
-      borderTopColor: "#E5E7EB",
-      backgroundColor: "#fff",
-      maxHeight: 350,
-    }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+        backgroundColor: "#fff",
+        maxHeight: 350,
+      }}
+    >
       {/* Chat Header */}
       <TouchableOpacity
         onPress={onToggle}
@@ -251,6 +254,6 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
           <Text style={{ color: "#fff", fontSize: 18 }}>↑</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

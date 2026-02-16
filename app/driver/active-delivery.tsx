@@ -48,6 +48,24 @@ export default function ActiveDeliveryScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Sync local deliveryStatus with order status from server
+  useEffect(() => {
+    if (!order) return;
+    
+    // Map order status to delivery status
+    if (order.status === "delivered") {
+      setDeliveryStatus("delivered");
+    } else if (order.status === "picked_up" || order.status === "on_the_way") {
+      setDeliveryStatus("going_to_customer");
+    } else if (order.status === "ready_for_pickup") {
+      setDeliveryStatus("at_store");
+    } else {
+      // Default to going_to_store for other statuses
+      if (deliveryStatus === "delivered") return; // Don't reset if already delivered
+      setDeliveryStatus("going_to_store");
+    }
+  }, [order?.status]);
+
   // Location tracking - send updates every 15 seconds during active delivery
   useEffect(() => {
     if (!user?.id || !orderId || deliveryStatus === "delivered") return;

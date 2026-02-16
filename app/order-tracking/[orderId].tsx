@@ -208,34 +208,44 @@ export default function OrderTrackingScreen() {
 
   // Get current user ID from useAuth (primary) or AsyncStorage (fallback)
   useEffect(() => {
-    if (authUser?.id) {
-      setCurrentUserId(authUser.id);
-      return;
-    }
-    // Fallback: try AsyncStorage userId key, then parse user object
-    AsyncStorage.getItem("userId").then((id) => {
-      if (id) {
-        setCurrentUserId(parseInt(id));
-      } else {
-        // Try parsing the full user object
-        AsyncStorage.getItem("user").then((userStr) => {
-          if (userStr) {
-            try {
-              const parsed = JSON.parse(userStr);
-              if (parsed.id) setCurrentUserId(parsed.id);
-            } catch (e) {
-              console.error("Failed to parse user from AsyncStorage", e);
-            }
-          }
-        });
+    const loadUserId = async () => {
+      if (authUser?.id) {
+        setCurrentUserId(authUser.id);
+        return;
       }
-    });
+      // Fallback: try AsyncStorage userId key, then parse user object
+      try {
+        const userIdStr = await AsyncStorage.getItem("userId");
+        if (userIdStr) {
+          setCurrentUserId(parseInt(userIdStr));
+          return;
+        }
+        const userStr = await AsyncStorage.getItem("user");
+        if (userStr) {
+          const parsed = JSON.parse(userStr);
+          if (parsed.id) {
+            setCurrentUserId(parsed.id);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load user ID from AsyncStorage", e);
+      }
+    };
+    loadUserId();
   }, [authUser?.id]);
 
   // Show chat only for active orders with a driver assigned
   const showChat = order && currentUserId &&
     ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) &&
     order.driverId;
+  
+  // Debug logging
+  useEffect(() => {
+    if (order) {
+      console.log("[OrderTracking] showChat:", showChat, "| currentUserId:", currentUserId, "| status:", order.status, "| driverId:", order.driverId);
+    }
+  }, [showChat, currentUserId, order]);
 
   if (isLoading) {
     return (

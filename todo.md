@@ -1070,3 +1070,22 @@
 - [x] Driver online status is loaded from database on mount and applied immediately
 - [x] If there's a pending offer when driver opens dashboard, it now appears without requiring toggle
 - [x] Added 500ms delay to ensure query is enabled before refetch
+
+
+## Bug: Chat text input hidden under keyboard on driver side (FIXED)
+- [x] When driver expands chat panel, the text input field was hidden behind the keyboard/bottom UI
+- [x] Root cause: Expanded chat panel was wrapped in View instead of KeyboardAvoidingView
+- [x] Fix: Wrapped expanded chat panel in KeyboardAvoidingView with behavior="padding" on iOS, "height" on Android
+- [x] Text input now moves up when keyboard appears, user can see what they're typing
+
+## Bug: No visible chat button on customer side (FIXED)
+- [x] Customer order tracking shows "Picked Up" status but chat button wasn't appearing
+- [x] Root cause: currentUserId loading was async and showChat condition was evaluated before userId loaded
+- [x] Fix: Simplified async loading logic, added debug logging, ensured useAuth is primary source
+- [x] Chat button now appears correctly when driver picks up the order and all conditions are met
+
+## Bug: Driver returns to wrong screen after completing delivery (FIXED)
+- [x] After marking delivery as complete, driver was sent back to "Going to Store" / "At Store" screen
+- [x] Root cause: No useEffect to sync local deliveryStatus state with order.status from server
+- [x] Fix: Added useEffect that maps order.status to deliveryStatus on mount and when status changes
+- [x] Driver now stays on "Delivered" screen with summary and "Back to Dashboard" button works correctly
