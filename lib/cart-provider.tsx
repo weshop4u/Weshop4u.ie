@@ -35,16 +35,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     storeName: null,
     items: [],
   });
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load cart from storage on mount
   useEffect(() => {
     loadCart();
   }, []);
 
-  // Save cart to storage whenever it changes
+  // Save cart to storage whenever it changes (but not on initial load)
   useEffect(() => {
-    saveCart();
-  }, [cart]);
+    if (isInitialized) {
+      saveCart();
+    }
+  }, [cart, isInitialized]);
 
   const loadCart = async () => {
     try {
@@ -54,6 +57,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to load cart:", error);
+    } finally {
+      // Mark as initialized after first load
+      setIsInitialized(true);
     }
   };
 

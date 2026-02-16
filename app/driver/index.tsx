@@ -38,15 +38,19 @@ export default function DriverHomeScreen() {
   // Sync local isOnline state with DB state on mount
   useEffect(() => {
     if (driverProfile && driverProfile.isOnline !== undefined && driverProfile.isOnline !== null) {
-      const wasOffline = !isOnline;
       const nowOnline = driverProfile.isOnline;
       setIsOnline(nowOnline);
-      // If driver was offline and is now online (from DB), immediately check for offers
-      if (wasOffline && nowOnline) {
-        setTimeout(() => refetchOffer(), 500);
-      }
     }
   }, [driverProfile?.isOnline]);
+
+  // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
+  useEffect(() => {
+    if (isOnline && user?.id) {
+      console.log('[Driver] isOnline is true, triggering offer check');
+      // Wait for query to be enabled, then refetch
+      setTimeout(() => refetchOffer(), 500);
+    }
+  }, [isOnline, user?.id]);
 
   // Check for active delivery
   const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(

@@ -207,29 +207,41 @@ export default function OrderTrackingScreen() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Get current user ID from useAuth (primary) or AsyncStorage (fallback)
+  // CRITICAL: Customers are often guest users, so we MUST check AsyncStorage first
   useEffect(() => {
     const loadUserId = async () => {
-      if (authUser?.id) {
-        setCurrentUserId(authUser.id);
-        return;
-      }
-      // Fallback: try AsyncStorage userId key, then parse user object
+      // First, try AsyncStorage (where guest user ID is stored after order placement)
       try {
+        const guestIdStr = await AsyncStorage.getItem("guestUserId");
+        if (guestIdStr) {
+          const guestId = parseInt(guestIdStr);
+          console.log('[OrderTracking] Loaded guest user ID from AsyncStorage:', guestId);
+          setCurrentUserId(guestId);
+          return;
+        }
         const userIdStr = await AsyncStorage.getItem("userId");
         if (userIdStr) {
-          setCurrentUserId(parseInt(userIdStr));
+          const userId = parseInt(userIdStr);
+          console.log('[OrderTracking] Loaded user ID from AsyncStorage:', userId);
+          setCurrentUserId(userId);
           return;
         }
         const userStr = await AsyncStorage.getItem("user");
         if (userStr) {
           const parsed = JSON.parse(userStr);
           if (parsed.id) {
+            console.log('[OrderTracking] Loaded user ID from user object:', parsed.id);
             setCurrentUserId(parsed.id);
             return;
           }
         }
       } catch (e) {
         console.error("Failed to load user ID from AsyncStorage", e);
+      }
+      // Finally, use authUser if available
+      if (authUser?.id) {
+        console.log('[OrderTracking] Using authUser ID:', authUser.id);
+        setCurrentUserId(authUser.id);
       }
     };
     loadUserId();
@@ -245,12 +257,21 @@ export default function OrderTrackingScreen() {
     console.log("[OrderTracking] Debug:", {
       hasOrder: !!order,
       currentUserId,
+      currentUserIdType: typeof currentUserId,
+      authUserId: authUser?.id,
       orderStatus: order?.status,
       driverId: order?.driverId,
+      driverIdType: typeof order?.driverId,
       statusInList: order ? ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) : false,
       showChat,
+      showChatConditions: {
+        hasOrder: !!order,
+        hasUserId: !!currentUserId,
+        statusMatch: order ? ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) : false,
+        hasDriverId: !!order?.driverId,
+      },
     });
-  }, [showChat, currentUserId, order]);
+  }, [showChat, currentUserId, order, authUser?.id]);
 
   if (isLoading) {
     return (

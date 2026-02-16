@@ -1125,3 +1125,27 @@
 - [x] Root cause: Both ChatPanel and debug banner were inside ScrollView and being clipped
 - [x] Fix: Moved both ChatPanel and debug banner outside ScrollView in order-tracking/[orderId].tsx
 - [x] Chat button and debug banner now render correctly at the bottom of the screen
+
+## Bug: Driver job not visible on login until toggle (FIXED)
+- [x] When driver logs in, dashboard shows "You're Online" but no job offer appears
+- [x] Job offer only appears after toggling offline then back online
+- [x] Root cause: The offer query has enabled: !!user?.id && isOnline
+- [x] When driverProfile loads and sets isOnline=true, the query doesn't re-run because isOnline state change happens in same render
+- [x] Fix: Created separate useEffect that watches isOnline state and triggers refetchOffer() when it becomes true
+- [x] This ensures the offer check runs AFTER isOnline state is updated and query is enabled
+
+## Bug: Customer chat panel not visible (FIXED)
+- [x] Driver can send messages and chat panel works on driver side
+- [x] Customer order tracking shows "Picked Up" status but NO chat button/panel appears at all
+- [x] Root cause: currentUserId was undefined because guest users don't have authUser
+- [x] Fix: Changed loadUserId() to check AsyncStorage FIRST for guestUserId, userId, or user object
+- [x] Only falls back to authUser if AsyncStorage checks fail
+- [x] Added console logging to track which user ID source is used
+
+## Bug: React render error when tracking new order (FIXED)
+- [x] When customer places order and immediately clicks "Track Order", app shows red error screen
+- [x] Error: "Maximum update depth exceeded" in cart-provider.tsx line 32
+- [x] Root cause: saveCart() effect runs on every cart change, including initial load from AsyncStorage
+- [x] loadCart() sets cart state → saveCart() runs → writes to AsyncStorage → triggers re-render → infinite loop
+- [x] Fix: Added isInitialized flag that prevents saveCart() from running until after first loadCart() completes
+- [x] Now saveCart() only runs when cart changes AFTER initialization
