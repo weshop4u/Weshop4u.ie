@@ -32,17 +32,19 @@ export default function DriverHomeScreen() {
   const lastExpiredOfferId = useRef<number | null>(null);
 
   // Load driver profile to get actual online status from DB
+  // Only fetch once on mount - don't refetch automatically to avoid overriding local state
+  const hasSyncedProfile = useRef(false);
   const { data: driverProfile } = trpc.drivers.getProfile.useQuery(
     { driverId: user?.id! },
-    { enabled: !!user?.id }
+    { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
 
-  // Sync local isOnline state with DB state on mount (but not during auto-toggle)
+  // Sync local isOnline state with DB state ONLY on initial mount
   useEffect(() => {
-    if (isAutoTogglingOffRef.current) return; // Don't override during auto-toggle
+    if (hasSyncedProfile.current) return; // Only sync once
     if (driverProfile && driverProfile.isOnline !== undefined && driverProfile.isOnline !== null) {
-      const nowOnline = driverProfile.isOnline;
-      setIsOnline(nowOnline);
+      hasSyncedProfile.current = true;
+      setIsOnline(driverProfile.isOnline);
     }
   }, [driverProfile?.isOnline]);
 
@@ -88,9 +90,12 @@ export default function DriverHomeScreen() {
   );
 
   // Current offer query (polls every 3 seconds when online)
+  // Use isOnlineRef to immediately cut off polling when auto-toggling offline
+  const isOnlineRef = useRef(isOnline);
+  isOnlineRef.current = isOnline;
   const { data: offerData, refetch: refetchOffer } = trpc.drivers.getCurrentOffer.useQuery(
     { driverId: user?.id! },
-    { enabled: !!user?.id && isOnline, refetchInterval: 3000 }
+    { enabled: !!user?.id && isOnline, refetchInterval: isOnline ? 3000 : false }
   );
 
   // Check if user is authorized to access driver dashboard
@@ -161,79 +166,98 @@ export default function DriverHomeScreen() {
     }
   }, [offerData?.offer?.offerId]);
 
-  // Auto-toggle offline function (extracted to avoid closure issues)
-  const autoToggleOffline = useCallback(async () => {
+  // Auto-toggle offline: use a ref-based approach to avoid stale closures
+  // Store user.id in a ref so the callback always has the latest value
+  const userIdRef = useRef(user?.id);
+  userIdRef.current = user?.id;
+  
+  const autoToggleOffline = useCallback(() => {
     if (isAutoTogglingOffRef.current) return; // Prevent double-fire
     isAutoTogglingOffRef.current = true;
     console.log('[Driver] Auto-toggling offline due to expired offer');
     
-    // Set offline locally FIRST to stop all polling immediately
-    setIsOnline(false);
+    // 1. Clear countdown immediately
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
     setCountdown(0);
+    
+    // 2. Set offline locally to stop all polling
+    setIsOnline(false);
+    
+    // 3. Persist to server (fire and forget - don't await to avoid closure issues)
+    const driverId = userIdRef.current;
+    if (driverId) {
+      toggleOnlineMutation.mutate(
+        { driverId, isOnline: false },
+        {
+          onSuccess: () => console.log('[Driver] Successfully auto-toggled offline on server'),
+          onError: (err) => console.error('[Driver] Failed to auto-toggle offline:', err),
+        }
+      );
+    }
+    
+    // Reset flag after a delay
+    setTimeout(() => { isAutoTogglingOffRef.current = false; }, 3000);
+  }, []);
+
+  // Countdown timer for offers - uses a self-contained interval that doesn't depend on React state
+  const countdownOfferIdRef = useRef<number | null>(null);
+  
+  useEffect(() => {
+    // Clean up previous countdown
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
     
-    // Then persist to server
-    if (user?.id) {
-      try {
-        await toggleOnlineMutation.mutateAsync({
-          driverId: user.id,
-          isOnline: false,
-        });
-        console.log('[Driver] Successfully auto-toggled offline');
-      } catch (err) {
-        console.error('[Driver] Failed to auto-toggle offline:', err);
-      }
-    }
-    // Reset flag after a delay to prevent re-triggering
-    setTimeout(() => { isAutoTogglingOffRef.current = false; }, 2000);
-  }, [user?.id]);
-
-  // Countdown timer for offers
-  useEffect(() => {
-    if (offerData?.hasOffer && offerData.offer) {
-      const offerId = offerData.offer.offerId;
-      const expiresAt = new Date(offerData.offer.expiresAt).getTime();
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
-      
-      // If this offer already expired (remaining is 0), auto-toggle offline immediately
-      if (remaining <= 0) {
-        if (lastExpiredOfferId.current !== offerId) {
-          lastExpiredOfferId.current = offerId;
-          autoToggleOffline();
-        }
-        return;
-      }
-      
-      setCountdown(remaining);
-
-      // Clear any existing countdown
-      if (countdownRef.current) clearInterval(countdownRef.current);
-
-      countdownRef.current = setInterval(() => {
-        const newRemaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-        setCountdown(newRemaining);
-        if (newRemaining <= 0) {
-          if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-          lastExpiredOfferId.current = offerId;
-          autoToggleOffline();
-        }
-      }, 1000);
-    } else {
-      // No offer - if we were counting down and it disappeared, the server expired it
-      if (countdown > 0) {
-        // Offer was removed server-side (expired) - auto-toggle offline
+    if (!offerData?.hasOffer || !offerData.offer) {
+      // No offer available
+      // If we were tracking an offer (had a countdown running), it was removed server-side
+      if (countdownOfferIdRef.current !== null) {
+        console.log('[Driver] Offer disappeared server-side, auto-toggling offline');
+        countdownOfferIdRef.current = null;
         setCountdown(0);
-        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
         autoToggleOffline();
       } else {
         setCountdown(0);
-        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
       }
+      return;
     }
-
+    
+    const offerId = offerData.offer.offerId;
+    const expiresAt = new Date(offerData.offer.expiresAt).getTime();
+    
+    // Calculate initial remaining time
+    const initialRemaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    
+    // If already expired on arrival
+    if (initialRemaining <= 0) {
+      if (lastExpiredOfferId.current !== offerId) {
+        lastExpiredOfferId.current = offerId;
+        countdownOfferIdRef.current = null;
+        setCountdown(0);
+        autoToggleOffline();
+      }
+      return;
+    }
+    
+    // Track this offer
+    countdownOfferIdRef.current = offerId;
+    setCountdown(initialRemaining);
+    
+    // Start countdown interval
+    countdownRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setCountdown(remaining);
+      
+      if (remaining <= 0) {
+        // Timer expired!
+        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+        lastExpiredOfferId.current = offerId;
+        countdownOfferIdRef.current = null;
+        console.log('[Driver] Countdown reached 0, auto-toggling offline');
+        autoToggleOffline();
+      }
+    }, 1000);
+    
     return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
     };
   }, [offerData?.offer?.offerId, offerData?.hasOffer]);
 
