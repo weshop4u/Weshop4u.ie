@@ -14,6 +14,14 @@ export default function OrderTrackingScreen() {
 
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ orderId });
 
+  // CRITICAL: useEffect must be called before any conditional returns to comply with Rules of Hooks
+  // Redirect to the main order tracking screen which has the full timeline + map
+  useEffect(() => {
+    if (order && !isLoading) {
+      router.replace(`/order-tracking/${orderId}` as any);
+    }
+  }, [orderId, order, isLoading]);
+
   const getStatusText = (status: string) => {
     switch (status) {
       case "picked_up":
@@ -46,11 +54,6 @@ export default function OrderTrackingScreen() {
       </ScreenContainer>
     );
   }
-
-  // Redirect to the main order tracking screen which has the full timeline + map
-  useEffect(() => {
-    router.replace(`/order-tracking/${orderId}` as any);
-  }, [orderId]);
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>

@@ -1171,3 +1171,12 @@
 - [x] Root cause: saveCart() was being called repeatedly during rapid state changes (navigation transitions)
 - [x] Fix: Added isSavingRef to track if save is in progress and prevent concurrent saves
 - [x] Now saveCart() waits for previous save to complete before running again
+
+## Bug: Previous fixes applied to wrong files - errors still occurring on native (FIXED)
+- [x] Error 1: "React has detected a change in the order of Hooks" still happening in /order-tracking/[id].tsx at line 51
+- [x] Error 2: "Rendered more hooks than during the previous render" in /order-tracking/[id].tsx at line 11
+- [x] Error 3: "Maximum update depth exceeded" still happening in cart-provider.tsx at line 32
+- [x] Root cause: There are TWO order tracking files - [id].tsx and [orderId].tsx - fixes were applied to [orderId].tsx but errors are in [id].tsx
+- [x] Fixed by moving useEffect hook before conditional returns in [id].tsx (lines 19-23)
+- [x] Cart provider fix was already correctly applied with isSavingRef guard (lines 39, 49-54)
+- [x] Both "Track Order" button and "Chat with Driver" button should now work without crashes
