@@ -778,29 +778,6 @@ export default function OrderTrackingScreen() {
         </View>
       </ScrollView>
 
-      {/* Debug: Show why chat isn't visible - Outside ScrollView */}
-      {!showChat && order && (
-        <View style={{ padding: 16, margin: 16, backgroundColor: "#FFF3CD", borderWidth: 2, borderColor: "#FF6B6B", borderRadius: 8 }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: "#856404", marginBottom: 8 }}>
-            🐛 Chat Debug Info:
-          </Text>
-          <Text style={{ fontSize: 12, color: "#856404" }}>
-            • Order exists: {!!order ? "YES" : "NO"}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#856404" }}>
-            • User ID: {currentUserId || "NULL (not logged in?)"}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#856404" }}>
-            • Order status: {order.status}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#856404" }}>
-            • Driver ID: {order.driverId || "NULL (no driver assigned)"}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#856404", marginTop: 8 }}>
-            • showChat result: {showChat ? "TRUE" : "FALSE"}
-          </Text>
-        </View>
-      )}
 
       {/* Chat Panel */}
       {showChat && (

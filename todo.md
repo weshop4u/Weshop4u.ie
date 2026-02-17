@@ -1195,3 +1195,5 @@
 - [x] When driver toggles back online, they should be offered the oldest job first (longest waiting) - already implemented in server
 - [x] Expired/declined jobs should go back into the queue - already implemented in server
 - [x] Updated waitingOrdersCount to include all unassigned orders (pending, accepted, preparing, ready_for_pickup)
+
+- [x] Remove "Chat Debug Info" box from order tracking screen - visible to customers
