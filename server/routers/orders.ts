@@ -425,10 +425,11 @@ export const ordersRouter = router({
         deliveredAt: orders.deliveredAt,
         storeName: stores.name,
         driverName: users.name,
+        driverDisplayNumber: drivers.displayNumber,
       })
       .from(orders)
       .leftJoin(stores, eq(orders.storeId, stores.id))
-      .leftJoin(drivers, eq(orders.driverId, drivers.id))
+      .leftJoin(drivers, eq(orders.driverId, drivers.userId))
       .leftJoin(users, eq(drivers.userId, users.id))
       .where(whereCondition)
       .orderBy(desc(orders.createdAt));
@@ -463,7 +464,7 @@ export const ordersRouter = router({
         return {
           ...order,
           store: { name: order.storeName },
-          driver: order.driverName ? { name: order.driverName } : null,
+          driver: order.driverDisplayNumber ? { name: `Driver ${order.driverDisplayNumber}` } : null,
           hasRating: !!orderRating,
           items: items.map((item) => ({
             id: item.id,

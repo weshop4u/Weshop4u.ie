@@ -892,6 +892,7 @@ export const driversRouter = router({
           itemCount: items.length,
           items: items.map(i => ({ quantity: i.quantity, name: i.productName || "Item" })),
           estimatedDistanceKm,
+          allowSubstitution: order.orders.allowSubstitution || false,
         },
       };
     }),
@@ -1232,16 +1233,10 @@ export const driversRouter = router({
           currentLongitude: drivers.currentLongitude,
           lastLocationUpdate: drivers.lastLocationUpdate,
           userId: drivers.userId,
+          displayNumber: drivers.displayNumber,
         })
         .from(drivers)
         .where(eq(drivers.userId, order.driverId))
-        .limit(1);
-
-      // Get driver user info
-      const driverUser = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, order.driverId))
         .limit(1);
 
       // Get store location
@@ -1273,7 +1268,7 @@ export const driversRouter = router({
           latitude: parseFloat(driverResult[0].currentLatitude!),
           longitude: parseFloat(driverResult[0].currentLongitude!),
           lastUpdate: driverResult[0].lastLocationUpdate?.toISOString() || null,
-          name: driverUser.length > 0 ? driverUser[0].name : "Driver",
+          name: driverResult[0].displayNumber ? `Driver ${driverResult[0].displayNumber}` : "Driver",
         },
         store: storeResult.length > 0 ? {
           latitude: storeResult[0].latitude ? parseFloat(storeResult[0].latitude) : null,

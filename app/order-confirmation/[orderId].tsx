@@ -2,10 +2,12 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "rea
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function OrderConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const orderIdNum = parseInt(orderId);
 
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ orderId: orderIdNum });
@@ -163,7 +165,7 @@ export default function OrderConfirmationScreen() {
         </View>
 
         {/* Action Buttons */}
-        <View className="mb-8 gap-3">
+        <View style={{ marginBottom: Math.max(insets.bottom, 16) + 16, gap: 12 }}>
           <TouchableOpacity
             onPress={() => router.push(`/order-tracking/${orderId}`)}
             className="bg-primary p-4 rounded-lg items-center active:opacity-70"

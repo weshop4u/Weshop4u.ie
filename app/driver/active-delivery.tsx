@@ -5,9 +5,11 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ChatPanel } from "@/components/chat-panel";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   
   // Extract orderId - params can be string or string array
@@ -450,6 +452,15 @@ export default function ActiveDeliveryScreen() {
           </View>
         )}
 
+        {/* Substitution Notice */}
+        {order.allowSubstitution && (
+          <View style={{ backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#3B82F6", padding: 12, borderRadius: 8, marginBottom: 16, flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ fontSize: 14, color: "#1D4ED8", fontWeight: "600" }}>
+              🔄 Substitutions allowed if items out of stock
+            </Text>
+          </View>
+        )}
+
         {/* Store Information */}
         {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
           <View className="bg-surface p-4 rounded-lg mb-6">
@@ -687,6 +698,8 @@ export default function ActiveDeliveryScreen() {
             </View>
           )}
         </View>
+        {/* Bottom safe area spacer */}
+        <View style={{ height: Math.max(insets.bottom, 16) }} />
       </ScrollView>
 
       {/* Chat Panel */}

@@ -190,34 +190,22 @@ export const adminRouter = router({
         );
       }
 
-      // Get driver names
-      const driverIds = ordersList
+      // Get driver display numbers (orders.driverId stores users.id)
+      const driverUserIds = ordersList
         .filter(o => o.driverId)
         .map(o => o.driverId!);
 
       let driverMap: Record<number, string> = {};
-      if (driverIds.length > 0) {
-        const uniqueDriverIds = [...new Set(driverIds)];
+      if (driverUserIds.length > 0) {
+        const uniqueDriverUserIds = [...new Set(driverUserIds)];
         const driverRows = await db
-          .select({ id: drivers.id, userId: drivers.userId })
+          .select({ userId: drivers.userId, displayNumber: drivers.displayNumber })
           .from(drivers)
-          .where(sql`${drivers.id} IN (${sql.join(uniqueDriverIds.map(id => sql`${id}`), sql`, `)})`);
+          .where(sql`${drivers.userId} IN (${sql.join(uniqueDriverUserIds.map(id => sql`${id}`), sql`, `)})`);
 
-        const driverUserIds = driverRows.map(d => d.userId);
-        if (driverUserIds.length > 0) {
-          const driverUserRows = await db
-            .select({ id: users.id, name: users.name, email: users.email })
-            .from(users)
-            .where(sql`${users.id} IN (${sql.join(driverUserIds.map(id => sql`${id}`), sql`, `)})`);
-
-          const userMap = Object.fromEntries(
-            driverUserRows.map(u => [u.id, u.name || u.email || "Unknown"])
-          );
-
-          driverMap = Object.fromEntries(
-            driverRows.map(d => [d.id, userMap[d.userId] || "Unknown"])
-          );
-        }
+        driverMap = Object.fromEntries(
+          driverRows.map(d => [d.userId, d.displayNumber ? `Driver ${d.displayNumber}` : "Driver"])
+        );
       }
 
       return ordersList.map(order => ({

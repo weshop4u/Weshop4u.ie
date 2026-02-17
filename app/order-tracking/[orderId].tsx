@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChatPanel } from "@/components/chat-panel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/hooks/use-auth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Compute estimated delivery time based on status and timestamps. */
 function getEstimatedDelivery(order: any): { label: string; minutes: number | null } | null {
@@ -158,6 +159,7 @@ ${fitBoundsJs}
 export default function OrderTrackingScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const orderIdNum = parseInt(orderId);
 
   const { data: order, isLoading, refetch } = trpc.orders.getById.useQuery(
@@ -447,7 +449,7 @@ export default function OrderTrackingScreen() {
               </Text>
               {locationData.hasLocation && locationData.driver?.name && (
                 <Text style={{ color: "#687076", fontSize: 12, marginTop: 2 }}>
-                  Driver: {locationData.driver.name}
+                  {locationData.driver.name}
                   {locationData.driver.lastUpdate && (
                     <Text> · Updated {getElapsed(locationData.driver.lastUpdate)}</Text>
                   )}
@@ -776,6 +778,8 @@ export default function OrderTrackingScreen() {
             </TouchableOpacity>
           )}
         </View>
+        {/* Bottom safe area spacer */}
+        <View style={{ height: Math.max(insets.bottom, 16) }} />
       </ScrollView>
 
 

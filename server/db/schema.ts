@@ -188,6 +188,7 @@ export const drivers = mysqlTable(
     id: int("id").primaryKey().autoincrement(),
     userId: int("user_id").notNull().unique(),
     zoneId: int("zone_id"),
+    displayNumber: varchar("display_number", { length: 10 }),
     vehicleType: varchar("vehicle_type", { length: 100 }),
     vehicleNumber: varchar("vehicle_number", { length: 50 }),
     licenseNumber: varchar("license_number", { length: 100 }),

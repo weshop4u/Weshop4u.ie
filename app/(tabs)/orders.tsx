@@ -448,7 +448,7 @@ export default function OrderHistoryScreen() {
                   {order.driverId && !getEstimatedTime(order) && (
                     <View style={{ backgroundColor: "#E0F2FE", padding: 10, borderRadius: 8, marginBottom: 12 }}>
                       <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600" }}>
-                        🚗 A driver has been assigned to your order
+                        🚗 {order.driver?.name ? `${order.driver.name} has been assigned` : "A driver has been assigned to your order"}
                       </Text>
                     </View>
                   )}

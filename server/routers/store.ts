@@ -100,23 +100,18 @@ export const storeRouter = router({
             .where(eq(orderTracking.orderId, order.id))
             .orderBy(desc(orderTracking.createdAt));
 
-          // Get driver name if assigned
+          // Get driver display number if assigned
           let driverName: string | null = null;
           if (order.driverId) {
             const driverResult = await db
-              .select({ userId: drivers.userId })
+              .select({ displayNumber: drivers.displayNumber })
               .from(drivers)
-              .where(eq(drivers.id, order.driverId))
+              .where(eq(drivers.userId, order.driverId))
               .limit(1);
-            if (driverResult.length > 0) {
-              const userResult = await db
-                .select({ name: users.name })
-                .from(users)
-                .where(eq(users.id, driverResult[0].userId))
-                .limit(1);
-              if (userResult.length > 0) {
-                driverName = userResult[0].name;
-              }
+            if (driverResult.length > 0 && driverResult[0].displayNumber) {
+              driverName = `Driver ${driverResult[0].displayNumber}`;
+            } else {
+              driverName = "Driver";
             }
           }
 

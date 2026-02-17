@@ -10,7 +10,7 @@ describe("Critical Navigation Fixes", () => {
   describe("Hooks Ordering Fix in OrderTrackingScreen", () => {
     it("should ensure isTerminal and isActiveDelivery are always boolean", () => {
       // Simulate the fix: these values should always be boolean, never undefined
-      const order: { status: string } | undefined = undefined;
+      const order = undefined as { status: string } | undefined;
       
       // Before fix: these could be undefined when order is undefined
       // After fix: explicit || false ensures they're always boolean

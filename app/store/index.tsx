@@ -10,6 +10,7 @@ import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
@@ -41,6 +42,7 @@ function showAlert(title: string, message: string) {
 
 export default function StoreDashboardScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: user, isLoading: userLoading } = trpc.auth.me.useQuery();
 
   // Register push token for store staff
@@ -311,7 +313,7 @@ export default function StoreDashboardScreen() {
 
   // Get driver name from order (if assigned)
   const getDriverName = (order: any): string | null => {
-    if (order.driver?.user?.name) return order.driver.user.name;
+    // driverName now returns "Driver 01" format from server
     if (order.driverName) return order.driverName;
     return null;
   };
@@ -406,7 +408,7 @@ export default function StoreDashboardScreen() {
               return (
                 <View key={order.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 2 }}>
                   <Text style={{ color: "#1E40AF", fontWeight: "700", fontSize: 14, textAlign: "center" }}>
-                    🚗 Driver{driverName ? ` ${driverName}` : ""} is at the store for {order.orderNumber || `#${order.id}`}
+                    🚗 {driverName || "Driver"} is at the store for {order.orderNumber || `#${order.id}`}
                   </Text>
                 </View>
               );
@@ -632,6 +634,15 @@ export default function StoreDashboardScreen() {
                   </View>
                 ) : null}
 
+                {/* Substitution Notice */}
+                {order.allowSubstitution && (
+                  <View style={{ backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#3B82F6", padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ fontSize: 13, color: "#1D4ED8", fontWeight: "600" }}>
+                      🔄 Customer allows substitutions if items out of stock
+                    </Text>
+                  </View>
+                )}
+
                 {/* Completed order info */}
                 {order.status === "delivered" && (
                   <View style={{ backgroundColor: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
@@ -700,12 +711,14 @@ export default function StoreDashboardScreen() {
 
                 {(order.status === "picked_up" || order.status === "on_the_way") && (
                   <View style={{ backgroundColor: "rgba(34,197,94,0.1)", padding: 12, borderRadius: 8, alignItems: "center" }}>
-                    <Text style={{ color: "#22C55E", fontWeight: "700" }}>🚗 Driver is delivering</Text>
+                    <Text style={{ color: "#22C55E", fontWeight: "700" }}>🚗 {getDriverName(order) || "Driver"} is delivering</Text>
                   </View>
                 )}
               </View>
             ))
           )}
+          {/* Bottom safe area spacer */}
+          <View style={{ height: Math.max(insets.bottom, 16) }} />
         </ScrollView>
       </View>
     </ScreenContainer>

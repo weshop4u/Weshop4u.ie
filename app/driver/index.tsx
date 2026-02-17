@@ -8,11 +8,13 @@ import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
 
   // Register push token for driver
@@ -535,6 +537,13 @@ export default function DriverHomeScreen() {
                   <Text className="text-foreground text-sm">{offerData.offer.customerNotes}</Text>
                 </View>
               )}
+              {offerData.offer.allowSubstitution && (
+                <View style={{ backgroundColor: "#EFF6FF", padding: 8, borderRadius: 6, marginTop: 8, flexDirection: "row", alignItems: "center" }}>
+                  <Text style={{ fontSize: 13, color: "#1D4ED8", fontWeight: "600" }}>
+                    🔄 Substitutions allowed if items out of stock
+                  </Text>
+                </View>
+              )}
               <View className="flex-row justify-between mt-2 pt-2 border-t border-border">
                 <Text className="text-muted text-sm">
                   {offerData.offer.itemCount} item{offerData.offer.itemCount !== 1 ? "s" : ""}
@@ -658,7 +667,8 @@ export default function DriverHomeScreen() {
         {/* Switch to Customer Mode */}
         <TouchableOpacity
           onPress={handleSwitchToCustomerMode}
-          className="bg-surface border border-border p-4 rounded-lg mb-6 active:opacity-70"
+          className="bg-surface border border-border p-4 rounded-lg active:opacity-70"
+          style={{ marginBottom: Math.max(insets.bottom, 16) + 8 }}
         >
           <Text className="text-foreground font-semibold text-center">🛒 Switch to Customer Mode</Text>
           <Text className="text-muted text-sm text-center mt-1">Browse stores and place orders</Text>

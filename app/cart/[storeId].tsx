@@ -4,10 +4,12 @@ import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart-provider";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
   const { data: user } = trpc.auth.me.useQuery();
   const isGuest = !user;
@@ -608,7 +610,8 @@ export default function CartScreen() {
         <TouchableOpacity
           onPress={handleCheckout}
           disabled={!deliveryFeeCalculated || createOrderMutation.isPending}
-          className={`p-4 rounded-lg items-center mb-8 ${
+          style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
+          className={`p-4 rounded-lg items-center ${
             deliveryFeeCalculated && !createOrderMutation.isPending ? "bg-primary active:opacity-70" : "bg-surface"
           }`}
         >

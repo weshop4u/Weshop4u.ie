@@ -1198,3 +1198,29 @@
 
 - [x] Remove "Chat Debug Info" box from order tracking screen - visible to customers
 - [x] Bug: Driver not auto-toggled offline when countdown expires - fixed with autoToggleOffline callback, isAutoTogglingOffRef guard, and lastExpiredOfferId tracking
+
+## Feature: Driver numbering system
+- [x] Add driverNumber field to drivers table in DB schema
+- [x] Admin can assign driver numbers (Driver 01, Driver 02, etc.)
+- [x] Customer-facing screens show "Driver 01" instead of real name (chat, tracking, notifications)
+- [x] Admin dashboard shows display number for orders
+- [x] Driver number is reusable if driver leaves
+- [x] Fixed orders.driverId join bug (was joining on drivers.id, now correctly joins on drivers.userId)
+
+## Feature: Substitution checkbox visibility
+- [x] Ensure cart has single global "get something similar" checkbox for entire order
+- [x] Save substitution preference with the order in DB
+- [x] Show "Customer allows substitutions" notice on store dashboard (only when ticked)
+- [x] Show "Substitutions allowed" notice on driver offer card (only when ticked)
+- [x] Show "Substitutions allowed" notice on driver active delivery screen (only when ticked)
+- [x] Show nothing extra when box is NOT ticked
+
+## Fix: Bottom safe area padding on Android
+- [x] Audit all screens with bottom action buttons
+- [x] Add useSafeAreaInsets().bottom padding to order confirmation screen
+- [x] Add bottom padding to cart/checkout screen
+- [x] Add bottom padding to order tracking screen
+- [x] Add bottom padding to driver index screen
+- [x] Add bottom padding to driver active delivery screen
+- [x] Add bottom padding to store dashboard screen
+- [x] Ensure buttons are not overlapped by Android navigation bar
