@@ -1188,3 +1188,10 @@
 - [x] CartProvider error was a RED HERRING - it's the top-level component so React reports it there
 - [x] Solution: Deleted [id].tsx entirely, keeping only [orderId].tsx as the single route
 - [x] Also improved cart-provider with useRef/useCallback pattern and fixed reorder forEach(async) race condition
+
+## Bug: Driver job offer system needs fixes
+- [x] When countdown expires (driver doesn't accept), driver should be auto-toggled offline
+- [x] When offline, banner should show "X jobs waiting" (e.g., "1 job waiting", "3 jobs waiting")
+- [x] When driver toggles back online, they should be offered the oldest job first (longest waiting) - already implemented in server
+- [x] Expired/declined jobs should go back into the queue - already implemented in server
+- [x] Updated waitingOrdersCount to include all unassigned orders (pending, accepted, preparing, ready_for_pickup)

@@ -174,8 +174,18 @@ export default function DriverHomeScreen() {
         setCountdown(newRemaining);
         if (newRemaining <= 0) {
           if (countdownRef.current) clearInterval(countdownRef.current);
-          // Refetch to get next offer or clear
-          refetchOffer();
+          // Auto-toggle driver offline when countdown expires without acceptance
+          if (user?.id) {
+            toggleOnlineMutation.mutateAsync({
+              driverId: user.id,
+              isOnline: false,
+            }).then(() => {
+              console.log('[Driver] Auto-toggled offline due to expired offer');
+            }).catch((err) => {
+              console.error('[Driver] Failed to auto-toggle offline:', err);
+            });
+          }
+          setIsOnline(false);
         }
       }, 1000);
     } else {
@@ -341,12 +351,12 @@ export default function DriverHomeScreen() {
               <Text className="text-muted text-sm">
                 {isOnline 
                   ? "Ready to receive delivery requests" 
-                  : "Toggle on to start receiving jobs"}
+                  : "Go online to start receiving jobs"}
               </Text>
               {!isOnline && (waitingData?.count ?? 0) > 0 && (
                 <View style={{ marginTop: 8, backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={{ fontSize: 14, color: '#92400E', fontWeight: '600' }}>
-                    📦 {waitingData!.count} order{waitingData!.count !== 1 ? 's' : ''} waiting for delivery
+                    🔔 {waitingData!.count} job{waitingData!.count !== 1 ? 's' : ''} waiting
                   </Text>
                 </View>
               )}

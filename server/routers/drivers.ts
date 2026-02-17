@@ -1292,13 +1292,13 @@ export const driversRouter = router({
     const db = await getDb();
     if (!db) return { count: 0 };
 
-    // Count orders that are pending and have no assigned driver
+    // Count all orders waiting for a driver (any status that needs delivery)
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(orders)
       .where(
         and(
-          eq(orders.status, "pending"),
+          inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
           isNull(orders.driverId)
         )
       );
