@@ -1224,3 +1224,54 @@
 - [x] Add bottom padding to driver active delivery screen
 - [x] Add bottom padding to store dashboard screen
 - [x] Ensure buttons are not overlapped by Android navigation bar
+
+## Future: GPS-Based Store Visibility (when expanding to multiple towns)
+- [ ] Add location prompt or Eircode input to home screen before showing stores
+- [ ] Update getStores API to accept latitude/longitude and filter by proximity
+- [ ] Sort store results by distance from customer
+- [ ] Cache customer location in AsyncStorage (with "Change location" option)
+- [ ] Ensure store names include town (e.g., "Spar Balbriggan" vs "Spar Swords")
+- [ ] Per-store maxDeliveryRadius field (default ~8 km)
+- [ ] Note: Database and Haversine calculation already in place — straightforward to add when needed
+
+## Future: Store Open/Closed Visibility (Option C — show all, sort open first)
+- [ ] Show all stores at all times regardless of opening hours
+- [ ] Open stores appear at top with green "Open" badge (already exists)
+- [ ] Closed stores pushed to bottom with greyed-out styling and "Closed — Opens at X:XX AM" label
+- [ ] Allow customers to tap into closed stores and browse menu
+- [ ] Disable checkout/order placement for closed stores
+- [ ] Show next opening time on closed store cards
+- [ ] Note: Both current stores are 24/7 — implement when onboarding stores with limited hours
+
+## Phase 1: Admin Dashboard (Priority — build first)
+- [ ] Live order board showing all orders in real time with status (pending, accepted, preparing, ready, in delivery, delivered, cancelled)
+- [ ] Order actions: assign/reassign driver, cancel order, complete order
+- [ ] Driver management panel: view all drivers, online/offline status, assign display numbers
+- [ ] Phone order entry form: select store, browse/search products, add items, enter customer name/phone/address/Eircode, select payment method, substitution preference
+- [ ] Tag orders by source (app / website / phone) for reporting
+- [ ] Customer lookup by phone number for repeat callers (pull up previous orders and saved address)
+- [ ] Store monitoring: which stores have pending orders, order wait times
+- [ ] Basic reporting: orders today, revenue, active drivers
+- [ ] Alert when order pending too long without driver assignment (e.g., 5+ minutes)
+- [ ] Admin authentication: admin role login at /admin route
+- [ ] Real-time updates via polling or WebSockets
+
+## Phase 2: Customer-Facing Website (weshop4u.ie)
+- [ ] Home page with branding, hero banner, "Order Now" button, store listings
+- [ ] Store detail page with product browsing by category
+- [ ] Shopping cart and checkout flow (address, Eircode, payment method, substitution preference)
+- [ ] Order tracking page with live status updates
+- [ ] User registration and login (shared auth with mobile app)
+- [ ] Order history page
+- [ ] About us page (migrate content from old weshop4u.ie)
+- [ ] Contact page (phone: 0894 626262, email: Weshop4u247@gmail.com)
+- [ ] Terms & conditions and privacy policy pages
+- [ ] Responsive design (desktop, tablet, mobile browser)
+- [ ] Consistent branding matching the mobile app
+
+## Phase 3: Integration & Polish
+- [ ] Shared authentication between app and website
+- [ ] End-to-end testing of all flows (app order, website order, phone order via admin)
+- [ ] Migrate content/images from old weshop4u.ie
+- [ ] DNS/domain setup guidance for pointing weshop4u.ie to new site
+- [ ] SMS order confirmation for phone orders (optional)
