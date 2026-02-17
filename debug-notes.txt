@@ -1,0 +1,29 @@
+ROUTING ANALYSIS:
+=================
+
+1. order-confirmation/[orderId].tsx pushes to: router.push(`/order-tracking/${orderId}`)
+   - orderId is a STRING from useLocalSearchParams
+
+2. There are TWO files in order-tracking/:
+   - [id].tsx - a redirect/fallback screen
+   - [orderId].tsx - the main tracking screen
+
+3. PROBLEM: When pushing to /order-tracking/123, Expo Router has TWO dynamic routes:
+   - [id].tsx matches with id=123
+   - [orderId].tsx matches with orderId=123
+   
+   Having TWO dynamic route files in the same directory creates AMBIGUITY.
+   Expo Router may pick [id].tsx first, which then does router.replace to /order-tracking/123,
+   which again matches [id].tsx, creating an INFINITE REDIRECT LOOP.
+   
+   This infinite redirect loop causes the NavigationContainer to re-render infinitely,
+   which triggers "Maximum update depth exceeded" - and CartProvider is at the top of the
+   component tree so it appears in the error stack.
+
+4. SOLUTION: Delete [id].tsx entirely. The order-confirmation screen already pushes to
+   /order-tracking/${orderId} which should match [orderId].tsx directly.
+   Or rename [orderId].tsx to [id].tsx and update all references.
+
+5. The cart-provider error is a RED HERRING - it's not the cart that's looping,
+   it's the NAVIGATION that's looping, and CartProvider is just the top-level component
+   that React reports the error on.

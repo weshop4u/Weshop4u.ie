@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface CartItem {
@@ -29,143 +29,138 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = "@weshop4u_cart";
 
+const EMPTY_CART: CartState = {
+  storeId: null,
+  storeName: null,
+  items: [],
+};
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<CartState>({
-    storeId: null,
-    storeName: null,
-    items: [],
-  });
-  const [isInitialized, setIsInitialized] = useState(false);
-  const isSavingRef = useRef(false);
+  const [cart, setCart] = useState<CartState>(EMPTY_CART);
+
+  // Keep a ref that always mirrors the latest cart state
+  // This avoids closure/race issues when reading current state in async functions
+  const cartRef = useRef<CartState>(EMPTY_CART);
+
+  // Update ref whenever cart state changes - NO other side effects here
+  useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
 
   // Load cart from storage on mount
   useEffect(() => {
-    loadCart();
+    (async () => {
+      try {
+        const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        if (cartData) {
+          const parsed = JSON.parse(cartData) as CartState;
+          cartRef.current = parsed;
+          setCart(parsed);
+        }
+      } catch (error) {
+        console.error("Failed to load cart:", error);
+      }
+    })();
   }, []);
 
-  // Save cart to storage whenever it changes (but not on initial load)
-  // Use a ref to prevent infinite loops during rapid state changes
-  useEffect(() => {
-    if (isInitialized && !isSavingRef.current) {
-      isSavingRef.current = true;
-      saveCart().finally(() => {
-        isSavingRef.current = false;
-      });
-    }
-  }, [cart, isInitialized]);
+  // Fire-and-forget save - no state changes, no re-renders
+  const saveCart = useCallback((cartData: CartState) => {
+    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartData)).catch(
+      (error) => console.error("Failed to save cart:", error)
+    );
+  }, []);
 
-  const loadCart = async () => {
-    try {
-      const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
-      if (cartData) {
-        setCart(JSON.parse(cartData));
-      }
-    } catch (error) {
-      console.error("Failed to load cart:", error);
-    } finally {
-      // Mark as initialized after first load
-      setIsInitialized(true);
-    }
-  };
-
-  const saveCart = async () => {
-    try {
-      await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    } catch (error) {
-      console.error("Failed to save cart:", error);
-    }
-  };
-
-  const addToCart = async (
+  const addToCart = useCallback(async (
     storeId: number,
     storeName: string,
     item: CartItem
   ): Promise<boolean> => {
+    const current = cartRef.current;
+
     // Check if adding from different store
-    if (cart.storeId !== null && cart.storeId !== storeId) {
-      // Return false to trigger confirmation dialog
+    if (current.storeId !== null && current.storeId !== storeId) {
       return false;
     }
 
-    setCart((prev) => {
-      // Check if item already exists
-      const existingItemIndex = prev.items.findIndex(
-        (i) => i.productId === item.productId
-      );
+    // Compute next state synchronously from the ref
+    const existingItemIndex = current.items.findIndex(
+      (i) => i.productId === item.productId
+    );
 
-      if (existingItemIndex >= 0) {
-        // Update quantity
-        const newItems = [...prev.items];
-        newItems[existingItemIndex].quantity += item.quantity;
-        return {
-          ...prev,
-          items: newItems,
-        };
-      } else {
-        // Add new item
-        return {
-          storeId,
-          storeName,
-          items: [...prev.items, item],
-        };
-      }
-    });
+    let nextCart: CartState;
+    if (existingItemIndex >= 0) {
+      const newItems = [...current.items];
+      newItems[existingItemIndex] = {
+        ...newItems[existingItemIndex],
+        quantity: newItems[existingItemIndex].quantity + item.quantity,
+      };
+      nextCart = { ...current, items: newItems };
+    } else {
+      nextCart = {
+        storeId,
+        storeName,
+        items: [...current.items, item],
+      };
+    }
+
+    // Update ref immediately so subsequent calls see the latest state
+    cartRef.current = nextCart;
+    // Update React state
+    setCart(nextCart);
+    // Persist (fire-and-forget, no state changes)
+    saveCart(nextCart);
 
     return true;
-  };
+  }, [saveCart]);
 
-  const removeFromCart = (productId: number) => {
-    setCart((prev) => {
-      const newItems = prev.items.filter((item) => item.productId !== productId);
-      
-      // If cart is empty, reset store info
-      if (newItems.length === 0) {
-        return {
-          storeId: null,
-          storeName: null,
-          items: [],
-        };
-      }
+  const removeFromCart = useCallback((productId: number) => {
+    const current = cartRef.current;
+    const newItems = current.items.filter((item) => item.productId !== productId);
 
-      return {
-        ...prev,
-        items: newItems,
-      };
-    });
-  };
+    const nextCart: CartState = newItems.length === 0
+      ? EMPTY_CART
+      : { ...current, items: newItems };
 
-  const updateQuantity = (productId: number, quantity: number) => {
+    cartRef.current = nextCart;
+    setCart(nextCart);
+    saveCart(nextCart);
+  }, [saveCart]);
+
+  const updateQuantity = useCallback((productId: number, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
 
-    setCart((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
+    const current = cartRef.current;
+    const nextCart: CartState = {
+      ...current,
+      items: current.items.map((item) =>
         item.productId === productId ? { ...item, quantity } : item
       ),
-    }));
-  };
+    };
 
-  const clearCart = () => {
-    setCart({
-      storeId: null,
-      storeName: null,
-      items: [],
-    });
-  };
+    cartRef.current = nextCart;
+    setCart(nextCart);
+    saveCart(nextCart);
+  }, [removeFromCart, saveCart]);
 
-  const getItemCount = () => {
-    return cart.items.reduce((total, item) => total + item.quantity, 0);
-  };
+  const clearCart = useCallback(() => {
+    cartRef.current = EMPTY_CART;
+    setCart(EMPTY_CART);
+    saveCart(EMPTY_CART);
+  }, [saveCart]);
 
-  const getCartTotal = () => {
-    return cart.items.reduce(
+  const getItemCount = useCallback(() => {
+    return cartRef.current.items.reduce((total, item) => total + item.quantity, 0);
+  }, []);
+
+  const getCartTotal = useCallback(() => {
+    return cartRef.current.items.reduce(
       (total, item) => total + parseFloat(item.productPrice) * item.quantity,
       0
     );
-  };
+  }, []);
 
   return (
     <CartContext.Provider

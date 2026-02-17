@@ -347,9 +347,9 @@ export default function OrderHistoryScreen() {
     );
   };
 
-  const handleReorder = (order: any) => {
+  const handleReorder = async (order: any) => {
     clearCart();
-    order.items.forEach(async (item: any) => {
+    for (const item of order.items) {
       await addToCart(
         order.storeId,
         order.store?.name || "Store",
@@ -360,7 +360,7 @@ export default function OrderHistoryScreen() {
           quantity: item.quantity,
         }
       );
-    });
+    }
     router.push(`/cart/${order.storeId}`);
   };
 

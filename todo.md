@@ -1180,3 +1180,11 @@
 - [x] Fixed by moving useEffect hook before conditional returns in [id].tsx (lines 19-23)
 - [x] Cart provider fix was already correctly applied with isSavingRef guard (lines 39, 49-54)
 - [x] Both "Track Order" button and "Chat with Driver" button should now work without crashes
+
+## Bug: Cart save loop still happening despite isSavingRef fix (FIXED)
+- [x] Error: "Maximum update depth exceeded" in cart-provider.tsx line 32
+- [x] REAL Root cause: TWO dynamic route files in order-tracking/ directory ([id].tsx and [orderId].tsx)
+- [x] [id].tsx redirects to /order-tracking/${orderId} which matches [id].tsx again → infinite redirect loop
+- [x] CartProvider error was a RED HERRING - it's the top-level component so React reports it there
+- [x] Solution: Deleted [id].tsx entirely, keeping only [orderId].tsx as the single route
+- [x] Also improved cart-provider with useRef/useCallback pattern and fixed reorder forEach(async) race condition
