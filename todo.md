@@ -1157,3 +1157,17 @@
 - [x] The order-tracking/[orderId].tsx screen has the chat panel, but orders.tsx did not have a way to access it
 - [x] Fix: Added "Chat with Driver" button to active orders in orders.tsx that navigates to order-tracking route
 - [x] Button only shows when driver is assigned and order status is active (accepted, preparing, ready_for_pickup, picked_up, on_the_way)
+
+## Bug: React hooks ordering error when clicking "Track Order" after checkout (FIXED)
+- [x] When customer places order and clicks "Track Order" button on receipt page, app crashes
+- [x] Error: "React has detected a change in the order of Hooks called by OrderTrackingScreen"
+- [x] Error: "Rendered more hooks than during the previous render"
+- [x] Root cause: isTerminal and isActiveDelivery values changed between renders when order loaded
+- [x] Fix: Added explicit || false to ensure these values are always boolean, preventing hooks from seeing different dependencies
+
+## Bug: Infinite loop when clicking "Chat with Driver" button (FIXED)
+- [x] When customer clicks "Chat with Driver" button in Orders tab, app crashes
+- [x] Error: "Maximum update depth exceeded" in cart-provider.tsx line 32
+- [x] Root cause: saveCart() was being called repeatedly during rapid state changes (navigation transitions)
+- [x] Fix: Added isSavingRef to track if save is in progress and prevent concurrent saves
+- [x] Now saveCart() waits for previous save to complete before running again

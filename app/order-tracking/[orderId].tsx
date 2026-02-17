@@ -169,8 +169,9 @@ export default function OrderTrackingScreen() {
   );
 
   // Determine if order is in an active (non-terminal) state
-  const isTerminal = order?.status === "delivered" || order?.status === "cancelled";
-  const isActiveDelivery = order?.status === "picked_up" || order?.status === "on_the_way";
+  // Use nullish coalescing to ensure these values are stable even when order is undefined
+  const isTerminal = order?.status === "delivered" || order?.status === "cancelled" || false;
+  const isActiveDelivery = order?.status === "picked_up" || order?.status === "on_the_way" || false;
 
   // Get driver location (only when order is picked up or on the way)
   const { data: locationData } = trpc.drivers.getDriverLocation.useQuery(

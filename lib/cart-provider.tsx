@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface CartItem {
@@ -36,6 +36,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     items: [],
   });
   const [isInitialized, setIsInitialized] = useState(false);
+  const isSavingRef = useRef(false);
 
   // Load cart from storage on mount
   useEffect(() => {
@@ -43,9 +44,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Save cart to storage whenever it changes (but not on initial load)
+  // Use a ref to prevent infinite loops during rapid state changes
   useEffect(() => {
-    if (isInitialized) {
-      saveCart();
+    if (isInitialized && !isSavingRef.current) {
+      isSavingRef.current = true;
+      saveCart().finally(() => {
+        isSavingRef.current = false;
+      });
     }
   }, [cart, isInitialized]);
 
