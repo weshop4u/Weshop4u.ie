@@ -1197,3 +1197,4 @@
 - [x] Updated waitingOrdersCount to include all unassigned orders (pending, accepted, preparing, ready_for_pickup)
 
 - [x] Remove "Chat Debug Info" box from order tracking screen - visible to customers
+- [x] Bug: Driver not auto-toggled offline when countdown expires - fixed with autoToggleOffline callback, isAutoTogglingOffRef guard, and lastExpiredOfferId tracking
