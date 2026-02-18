@@ -162,7 +162,7 @@ export default function StoreDetailScreen() {
 
   // Get product image helper
   const getProductImage = useCallback((product: any): string | null => {
-    const productImages = product.images ? (typeof product.images === "string" ? JSON.parse(product.images) : product.images) : [];
+    const productImages = Array.isArray(product.images) ? product.images : [];
     return productImages.length > 0 ? productImages[0] : null;
   }, []);
 

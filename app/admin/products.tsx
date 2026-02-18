@@ -131,21 +131,23 @@ export default function ProductsManagementScreen() {
     if (!editingProduct) return;
 
     try {
-      const imageValue = pendingImageBase64
-        ? `data:image/jpeg;base64,${pendingImageBase64}`
-        : editingProduct.images?.[0];
-
-      await updateMutation.mutateAsync({
+      const payload: any = {
         id: editingProduct.id,
         name: editingProduct.name,
         description: editingProduct.description || "",
         price: editingProduct.price,
-        image: imageValue,
         quantity: editingProduct.quantity,
         sku: editingProduct.sku || "",
         stockStatus: editingProduct._stockStatus,
         categoryId: editingProduct._categoryId,
-      });
+      };
+
+      // Only send image if it was actually changed (new image picked)
+      if (pendingImageBase64) {
+        payload.image = `data:image/jpeg;base64,${pendingImageBase64}`;
+      }
+
+      await updateMutation.mutateAsync(payload);
 
       setMessage("Product updated successfully!");
       setMessageType("success");
@@ -188,7 +190,7 @@ export default function ProductsManagementScreen() {
         <View style={{ flexDirection: "row", gap: 12 }}>
           {product.images && product.images.length > 0 ? (
             <Image
-              source={{ uri: typeof product.images === "string" ? JSON.parse(product.images)[0] : product.images[0] }}
+              source={{ uri: Array.isArray(product.images) ? product.images[0] : product.images }}
               style={{ width: 60, height: 60, borderRadius: 8 }}
               contentFit="cover"
             />
@@ -301,7 +303,7 @@ export default function ProductsManagementScreen() {
           </View>
 
           {/* Filters row */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
             {/* Missing desc filter */}
             <TouchableOpacity
               onPress={() => setFilterMissingDesc(!filterMissingDesc)}
@@ -383,7 +385,7 @@ export default function ProductsManagementScreen() {
               {editingProduct?.images && editingProduct.images.length > 0 && (
                 <View style={{ alignItems: "center" }}>
                   <Image
-                    source={{ uri: typeof editingProduct.images === "string" ? JSON.parse(editingProduct.images)[0] : editingProduct.images[0] }}
+                    source={{ uri: Array.isArray(editingProduct.images) ? editingProduct.images[0] : editingProduct.images }}
                     style={{ width: 120, height: 120, borderRadius: 12 }}
                     contentFit="cover"
                   />

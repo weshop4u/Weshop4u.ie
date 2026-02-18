@@ -122,7 +122,11 @@ export const storesRouter = router({
           )
         );
 
-      return productsList;
+      // Parse images JSON string to array for client
+      return productsList.map(p => ({
+        ...p,
+        images: p.images ? (() => { try { return JSON.parse(p.images as string); } catch { return [p.images]; } })() : [],
+      }));
     }),
 
   // Get all stores (including inactive for admin)
@@ -209,7 +213,7 @@ export const storesRouter = router({
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
       if (input.price !== undefined) updateData.price = input.price;
-      if (input.image !== undefined) updateData.images = [input.image];
+      if (input.image !== undefined) updateData.images = JSON.stringify([input.image]);
       if (input.quantity !== undefined) updateData.quantity = input.quantity;
       if (input.sku !== undefined) updateData.sku = input.sku;
       if (input.stockStatus !== undefined) updateData.stockStatus = input.stockStatus;

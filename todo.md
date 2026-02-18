@@ -1471,3 +1471,7 @@
 ## Bug: Admin products screen - category bar clipped and edit modal empty (FIXED)
 - [x] Category filter bar was clipped — removed maxHeight: 36, added paddingVertical: 4
 - [x] Edit modal was empty — ScrollView had flex: 1 which collapsed to 0 inside the modal; changed to flexGrow: 0, flexShrink: 1 and added nestedScrollEnabled
+
+## Bug: Category bar still clipped + JSON parse error on save (FIXED)
+- [x] Category filter pills — added minHeight: 40 and alignItems: center to ensure full visibility
+- [x] JSON Parse error — root cause: images stored as JSON string in DB, server was returning raw string. Fixed server to parse images JSON and return arrays. Removed all client-side JSON.parse of images. Also fixed handleSave to only send image when actually changed (not sending huge existing URLs unnecessarily)
