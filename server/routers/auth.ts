@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users, drivers, storeStaff } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export const authRouter = router({
@@ -98,9 +98,30 @@ export const authRouter = router({
 
       const userId = Number(userResult.insertId);
 
-      // Create driver profile
+      // Auto-assign the next available display number
+      // Get all existing display numbers to find the lowest available
+      const existingDrivers = await db
+        .select({ displayNumber: drivers.displayNumber })
+        .from(drivers)
+        .where(sql`${drivers.displayNumber} IS NOT NULL AND ${drivers.displayNumber} != ''`);
+
+      const usedNumbers = new Set(
+        existingDrivers
+          .map(d => parseInt(d.displayNumber || "0", 10))
+          .filter(n => !isNaN(n) && n > 0)
+      );
+
+      // Find the lowest available number starting from 1
+      let nextNumber = 1;
+      while (usedNumbers.has(nextNumber)) {
+        nextNumber++;
+      }
+      const displayNumber = String(nextNumber).padStart(2, "0");
+
+      // Create driver profile with auto-assigned display number
       await db.insert(drivers).values({
         userId,
+        displayNumber,
         vehicleType: input.vehicleType,
         vehicleNumber: input.vehicleNumber,
         licenseNumber: input.licenseNumber || null,
@@ -111,6 +132,7 @@ export const authRouter = router({
       return {
         success: true,
         userId,
+        displayNumber,
         role: "driver" as const,
       };
     }),

@@ -1,14 +1,18 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, TextInput, Alert, Modal } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, TextInput, Platform, Pressable } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/use-colors";
 
 export default function AdminDriverManagement() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editingDisplayNumber, setEditingDisplayNumber] = useState<{ userId: number; value: string } | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const { data: drivers, isLoading, refetch } = trpc.admin.getAllDrivers.useQuery(undefined, {
     refetchInterval: 15000,
@@ -18,9 +22,15 @@ export default function AdminDriverManagement() {
     onSuccess: () => {
       refetch();
       setEditingDisplayNumber(null);
-      Alert.alert("Success", "Display number updated");
+      setSuccessMsg("Display number updated");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 3000);
     },
-    onError: (err) => { Alert.alert("Error", err.message); },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setSuccessMsg("");
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
   });
 
   const onRefresh = useCallback(async () => {
@@ -73,6 +83,18 @@ export default function AdminDriverManagement() {
         </View>
       </View>
 
+      {/* Success/Error Messages */}
+      {successMsg ? (
+        <View style={{ backgroundColor: "#22C55E20", padding: 12, marginHorizontal: 12, marginTop: 8, borderRadius: 8 }}>
+          <Text style={{ color: "#22C55E", fontWeight: "600", textAlign: "center" }}>{successMsg}</Text>
+        </View>
+      ) : null}
+      {errorMsg ? (
+        <View style={{ backgroundColor: "#EF444420", padding: 12, marginHorizontal: 12, marginTop: 8, borderRadius: 8 }}>
+          <Text style={{ color: "#EF4444", fontWeight: "600", textAlign: "center" }}>{errorMsg}</Text>
+        </View>
+      ) : null}
+
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 20 + insets.bottom, paddingHorizontal: 12, paddingTop: 8 }}
@@ -92,42 +114,48 @@ export default function AdminDriverManagement() {
                 : "Offline";
 
               return (
-                <TouchableOpacity
+                <View
                   key={driver.id}
-                  onPress={() => setExpandedId(expanded ? null : driver.id)}
-                  className="bg-surface rounded-xl border border-border overflow-hidden active:opacity-80"
+                  className="bg-surface rounded-xl border border-border overflow-hidden"
                 >
-                  <View className="p-4">
-                    <View className="flex-row items-center justify-between mb-2">
-                      <View className="flex-row items-center gap-3">
-                        {/* Status Indicator */}
-                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: statusColor }} />
-                        <View>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Text className="text-base font-bold text-foreground">{driver.name}</Text>
-                            {(driver as any).displayNumber && (
-                              <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
-                                <Text style={{ fontSize: 11, fontWeight: "700", color: "#2563EB" }}>
-                                  #{(driver as any).displayNumber}
-                                </Text>
-                              </View>
-                            )}
+                  {/* Header row — tappable to expand/collapse */}
+                  <TouchableOpacity
+                    onPress={() => setExpandedId(expanded ? null : driver.id)}
+                    style={{ opacity: 1 }}
+                    activeOpacity={0.7}
+                  >
+                    <View className="p-4">
+                      <View className="flex-row items-center justify-between mb-2">
+                        <View className="flex-row items-center gap-3">
+                          {/* Status Indicator */}
+                          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: statusColor }} />
+                          <View>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              <Text className="text-base font-bold text-foreground">{driver.name}</Text>
+                              {(driver as any).displayNumber && (
+                                <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#2563EB" }}>
+                                    #{(driver as any).displayNumber}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusText}</Text>
                           </View>
-                          <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusText}</Text>
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-sm text-muted">{driver.totalDeliveries || 0} deliveries</Text>
+                          {driver.earningsToday > 0 && (
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: "#22C55E" }}>
+                              €{driver.earningsToday.toFixed(2)} today
+                            </Text>
+                          )}
                         </View>
                       </View>
-                      <View className="items-end">
-                        <Text className="text-sm text-muted">{driver.totalDeliveries || 0} deliveries</Text>
-                        {driver.earningsToday > 0 && (
-                          <Text style={{ fontSize: 14, fontWeight: "700", color: "#22C55E" }}>
-                            €{driver.earningsToday.toFixed(2)} today
-                          </Text>
-                        )}
-                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
 
-                  {/* Expanded Details */}
+                  {/* Expanded Details — NOT inside the TouchableOpacity */}
                   {expanded && (
                     <View className="px-4 pb-4 border-t border-border pt-3">
                       <View className="gap-2">
@@ -168,9 +196,9 @@ export default function AdminDriverManagement() {
 
                         {/* Display Number Assignment */}
                         <View className="mt-3 pt-3 border-t border-border">
-                          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 8 }}>DISPLAY NUMBER</Text>
+                          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 8, letterSpacing: 0.5 }}>DISPLAY NUMBER</Text>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <View style={{ flex: 1, backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10 }}>
+                            <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                               <TextInput
                                 value={editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value : ((driver as any).displayNumber || "")}
                                 onChangeText={(text) => setEditingDisplayNumber({ userId: driver.userId, value: text })}
@@ -180,29 +208,34 @@ export default function AdminDriverManagement() {
                                   }
                                 }}
                                 placeholder="e.g. 01, 02"
-                                placeholderTextColor="#687076"
-                                style={{ fontSize: 15, color: "#ECEDEE" }}
+                                placeholderTextColor={colors.muted}
+                                style={{ fontSize: 15, color: colors.foreground }}
                                 returnKeyType="done"
                                 onSubmitEditing={handleSaveDisplayNumber}
                               />
                             </View>
-                            {editingDisplayNumber?.userId === driver.userId && (
-                              <TouchableOpacity
-                                onPress={handleSaveDisplayNumber}
-                                style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }}
-                              >
-                                <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Save</Text>
-                              </TouchableOpacity>
-                            )}
+                            <TouchableOpacity
+                              onPress={handleSaveDisplayNumber}
+                              disabled={!editingDisplayNumber || editingDisplayNumber.userId !== driver.userId}
+                              style={{
+                                backgroundColor: editingDisplayNumber?.userId === driver.userId ? "#00E5FF" : colors.border,
+                                paddingHorizontal: 16,
+                                paddingVertical: 10,
+                                borderRadius: 10,
+                                opacity: editingDisplayNumber?.userId === driver.userId ? 1 : 0.5,
+                              }}
+                            >
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Save</Text>
+                            </TouchableOpacity>
                           </View>
-                          <Text style={{ fontSize: 11, color: "#687076", marginTop: 4 }}>
+                          <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
                             Customers will see "Driver {editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value || "??" : ((driver as any).displayNumber || "??")}"
                           </Text>
                         </View>
                       </View>
                     </View>
                   )}
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>

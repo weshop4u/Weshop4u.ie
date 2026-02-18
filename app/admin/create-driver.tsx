@@ -16,6 +16,7 @@ export default function CreateDriverScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [assignedNumber, setAssignedNumber] = useState("");
 
   const registerDriverMutation = trpc.auth.registerDriver.useMutation();
 
@@ -37,7 +38,7 @@ export default function CreateDriverScreen() {
     setLoading(true);
 
     try {
-      await registerDriverMutation.mutateAsync({
+      const result = await registerDriverMutation.mutateAsync({
         name: name.trim(),
         email: email.toLowerCase().trim(),
         phone: phone.trim(),
@@ -48,6 +49,7 @@ export default function CreateDriverScreen() {
       });
 
       setSuccess(true);
+      setAssignedNumber((result as any).displayNumber || "");
       
       // Clear form
       setName("");
@@ -92,6 +94,9 @@ export default function CreateDriverScreen() {
           {success ? (
             <View className="bg-success/10 border border-success rounded-lg p-4 mb-4">
               <Text className="text-success font-semibold">Driver account created successfully!</Text>
+              {assignedNumber ? (
+                <Text className="text-success mt-1">Assigned display number: <Text className="font-bold">#{assignedNumber}</Text></Text>
+              ) : null}
             </View>
           ) : null}
 

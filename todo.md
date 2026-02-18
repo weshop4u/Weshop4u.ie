@@ -1310,3 +1310,11 @@
 - [x] Fix SQL insert error: NaN for user_id — changed db.insert() to use array destructuring [result] to properly access insertId
 - [x] Fixed same issue in registerCustomer endpoint for consistency
 - [x] Both registerDriver and registerCustomer now use same pattern as working admin.createPhoneOrder
+
+## Driver Display Number Improvements
+- [x] Fix display number input field closing when tapped — moved expanded details outside TouchableOpacity, only header row triggers collapse
+- [x] Auto-assign next available display number when creating a new driver account (finds lowest gap: 01, 02, 03...)
+- [x] Recycle display numbers when a driver is deleted — algorithm always finds lowest available, so deleted numbers get reused
+- [x] Show assigned display number in create-driver success message and in driver management list badge
+- [x] Replaced Alert.alert in driver management with inline success/error messages (web-compatible)
+- [x] Used theme-aware colors for display number input field
