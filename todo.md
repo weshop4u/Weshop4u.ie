@@ -1324,3 +1324,14 @@
 - [x] Added "Driver Number" row in expanded details section under Vehicle row showing #02 or "Not assigned"
 - [x] Input field now shows current saved value after refetch (removed `as any` casts since type is now correct)
 - [x] Header badge also shows #XX next to driver name when display number is set
+
+## Feature: Manage Stores (Admin Dashboard)
+- [x] Store list screen showing all stores with status, category, quick active toggle, and tap to edit
+- [x] Store edit screen with 3 tabs: Details, Hours, Logo
+- [x] Details tab: name, description, category picker, address, Eircode (auto-geocodes), phone, email, GPS display
+- [x] Hours tab: 24/7 toggle, per-day open/close times with closed toggle per day
+- [x] Logo tab: shows current logo, links to Upload Store Logos tool
+- [x] Toggle store active/inactive from store list with Switch
+- [x] Added "Manage Stores" button to admin dashboard (teal, prominent placement)
+- [x] Server endpoints: getAllStoresAdmin, getStoreDetail, updateStore, updateStoreHours, toggleStoreActive, updateStoreLogo
+- [x] Eircode change auto-triggers GPS re-geocoding

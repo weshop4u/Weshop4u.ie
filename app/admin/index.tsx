@@ -208,6 +208,13 @@ export default function AdminPanel() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => router.push("/admin/manage-stores" as any)}
+            style={{ backgroundColor: "#0a7ea4", padding: 16, borderRadius: 12, marginBottom: 12 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center", fontSize: 16 }}>🏪 Manage Stores</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={() => router.push("/admin/products" as any)}
             className="bg-surface border border-border p-4 rounded-xl active:opacity-70 mb-3"
           >

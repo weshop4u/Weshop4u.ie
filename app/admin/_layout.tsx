@@ -75,6 +75,12 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
+        name="manage-stores"
+        options={{
+          title: "Manage Stores",
+        }}
+      />
+      <Stack.Screen
         name="phone-order"
         options={{
           title: "Create Phone Order",

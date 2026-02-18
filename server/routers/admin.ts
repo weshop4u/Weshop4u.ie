@@ -848,4 +848,115 @@ export const adminRouter = router({
 
       return productsList;
     }),
+
+  // ===== STORE MANAGEMENT =====
+
+  // Get all stores with full details (admin)
+  getAllStoresAdmin: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+    const storesList = await db.select().from(stores).orderBy(stores.name);
+    return storesList;
+  }),
+
+  // Get single store detail
+  getStoreDetail: publicProcedure
+    .input(z.object({ storeId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const [store] = await db.select().from(stores).where(eq(stores.id, input.storeId)).limit(1);
+      if (!store) throw new Error("Store not found");
+      return store;
+    }),
+
+  // Update store details
+  updateStore: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      category: z.enum(["convenience", "restaurant", "hardware", "electrical", "clothing", "grocery", "pharmacy", "other"]).optional(),
+      address: z.string().optional(),
+      eircode: z.string().optional(),
+      phone: z.string().optional(),
+      email: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const { storeId, ...updates } = input;
+      const updateData: Record<string, any> = {};
+
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.category !== undefined) updateData.category = updates.category;
+      if (updates.address !== undefined) updateData.address = updates.address;
+      if (updates.eircode !== undefined) updateData.eircode = updates.eircode;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.email !== undefined) updateData.email = updates.email;
+
+      // If Eircode changed, re-geocode
+      if (updates.eircode && updates.eircode.trim()) {
+        try {
+          const location = await geocodeAddress(updates.eircode);
+          if (location) {
+            updateData.latitude = location.latitude.toString();
+            updateData.longitude = location.longitude.toString();
+          }
+        } catch (e) {
+          console.error("[Store] Failed to geocode Eircode:", e);
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await db.update(stores).set(updateData).where(eq(stores.id, storeId));
+      }
+
+      return { success: true };
+    }),
+
+  // Update store opening hours
+  updateStoreHours: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      isOpen247: z.boolean(),
+      openingHours: z.string().optional(), // JSON string of hours per day
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(stores).set({
+        isOpen247: input.isOpen247,
+        openingHours: input.isOpen247 ? null : (input.openingHours || null),
+      }).where(eq(stores.id, input.storeId));
+
+      return { success: true };
+    }),
+
+  // Toggle store active/inactive
+  toggleStoreActive: publicProcedure
+    .input(z.object({ storeId: z.number(), isActive: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(stores).set({ isActive: input.isActive }).where(eq(stores.id, input.storeId));
+
+      return { success: true, isActive: input.isActive };
+    }),
+
+  // Update store logo URL
+  updateStoreLogo: publicProcedure
+    .input(z.object({ storeId: z.number(), logoUrl: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(stores).set({ logo: input.logoUrl }).where(eq(stores.id, input.storeId));
+
+      return { success: true };
+    }),
 });
