@@ -27,3 +27,11 @@ ROUTING ANALYSIS:
 5. The cart-provider error is a RED HERRING - it's not the cart that's looping,
    it's the NAVIGATION that's looping, and CartProvider is just the top-level component
    that React reports the error on.
+
+
+PRINT BUTTON ISSUE (Feb 18):
+============================
+User sees tabs: All Active | Pending | Preparing (1) | Ready (1) | Completed
+The tab-filtered views likely render order cards differently from renderOrderCard.
+Need to find the tab rendering code that shows individual order views.
+The renderOrderCard with the Print button is only used in the "All Active" section at the bottom.

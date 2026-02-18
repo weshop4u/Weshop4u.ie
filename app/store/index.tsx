@@ -11,6 +11,7 @@ import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/use-colors";
 
 const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
@@ -58,6 +59,9 @@ export default function StoreDashboardScreen() {
   const [storeId, setStoreId] = useState<number | null>(null);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [markingReadyId, setMarkingReadyId] = useState<number | null>(null);
+  const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
+  const [printSuccess, setPrintSuccess] = useState<number | null>(null);
+  const colors = useColors();
 
   // Get the store linked to this staff user from store_staff table
   const { data: myStore } = trpc.store.getMyStore.useQuery(
@@ -81,6 +85,7 @@ export default function StoreDashboardScreen() {
   // Use the correct store router mutations
   const acceptOrderMutation = trpc.store.acceptOrder.useMutation();
   const markReadyMutation = trpc.store.markOrderReady.useMutation();
+  const createPrintJobMutation = trpc.print.createPrintJob.useMutation();
 
   // Listen for push notifications
   useEffect(() => {
@@ -221,6 +226,53 @@ export default function StoreDashboardScreen() {
       }
     }
   };
+
+  const handlePrintOrder = useCallback(async (orderId: number) => {
+    if (!storeId) return;
+    try {
+      setPrintingOrderId(orderId);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      const result = await createPrintJobMutation.mutateAsync({
+        orderId,
+        storeId,
+      });
+      setPrintSuccess(orderId);
+      setTimeout(() => setPrintSuccess(null), 3000);
+
+      // If on POS device, also trigger local print via browser
+      if (typeof window !== "undefined" && result?.receiptContent) {
+        try {
+          const printFrame = document.createElement("iframe");
+          printFrame.style.position = "fixed";
+          printFrame.style.right = "0";
+          printFrame.style.bottom = "0";
+          printFrame.style.width = "0";
+          printFrame.style.height = "0";
+          printFrame.style.border = "none";
+          document.body.appendChild(printFrame);
+          const doc = printFrame.contentDocument || printFrame.contentWindow?.document;
+          if (doc) {
+            doc.open();
+            doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:58mm auto;margin:0}body{font-family:'Courier New',monospace;font-size:12px;line-height:1.3;margin:0;padding:4mm;width:50mm;white-space:pre-wrap;word-wrap:break-word}</style></head><body>${result.receiptContent.replace(/\n/g, "<br>")}</body></html>`);
+            doc.close();
+            setTimeout(() => {
+              try { printFrame.contentWindow?.print(); } catch(e) {}
+              setTimeout(() => document.body.removeChild(printFrame), 1000);
+            }, 300);
+          }
+        } catch (e) {
+          console.log("[Print] Local print attempt:", e);
+        }
+      }
+    } catch (error: any) {
+      console.error("Print error:", error);
+      showAlert("Print Error", error.message || "Failed to send print job");
+    } finally {
+      setPrintingOrderId(null);
+    }
+  }, [storeId, createPrintJobMutation]);
 
   const handleAcceptOrder = useCallback(async (orderId: number) => {
     if (!storeId) return;
@@ -664,6 +716,30 @@ export default function StoreDashboardScreen() {
                       </Text>
                     )}
                   </View>
+                )}
+
+                {/* Print Pick List Button - visible for accepted/preparing/ready orders */}
+                {(order.status === "preparing" || order.status === "ready_for_pickup" || order.status === "accepted") && (
+                  <TouchableOpacity
+                    onPress={() => handlePrintOrder(order.id)}
+                    disabled={printingOrderId === order.id}
+                    style={{
+                      backgroundColor: printSuccess === order.id ? "#22C55E" : "#1a1a2e",
+                      padding: 14,
+                      borderRadius: 8,
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: 8,
+                      marginBottom: 10,
+                      opacity: printingOrderId === order.id ? 0.6 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{printSuccess === order.id ? "\u2705" : "\uD83D\uDDA8"}</Text>
+                    <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                      {printingOrderId === order.id ? "Sending to Printer..." : printSuccess === order.id ? "Sent to Printer!" : "Print Pick List"}
+                    </Text>
+                  </TouchableOpacity>
                 )}
 
                 {/* Action Buttons */}
