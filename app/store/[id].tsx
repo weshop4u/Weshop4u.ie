@@ -1,12 +1,16 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useCart } from "@/lib/cart-provider";
 import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } from "@/lib/store-hours";
 import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
+import * as Haptics from "expo-haptics";
+import { StyleSheet } from "react-native";
+
+type SortOption = "az" | "za" | "price_low" | "price_high";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +19,9 @@ export default function StoreDetailScreen() {
   const [categorySearch, setCategorySearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [showHours, setShowHours] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("az");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [modalQuantity, setModalQuantity] = useState(1);
   const { cart, addToCart, clearCart, getItemCount } = useCart();
   
   const storeId = parseInt(id);
@@ -26,7 +33,7 @@ export default function StoreDetailScreen() {
   const nextOpen = store && !storeOpen ? getNextOpenTime(store) : null;
   const weeklyHours = store ? getWeeklyHoursSummary(store) : [];
 
-  const handleAddToCart = async (productId: number, productName: string, productPrice: string, categorySchedule?: string | null) => {
+  const handleAddToCart = async (productId: number, productName: string, productPrice: string, categorySchedule?: string | null, qty: number = 1) => {
     if (!storeOpen) {
       Alert.alert(
         "Store Closed",
@@ -43,11 +50,15 @@ export default function StoreDetailScreen() {
       return;
     }
 
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
     const success = await addToCart(storeId, store?.name || "Store", {
       productId,
       productName,
       productPrice,
-      quantity: 1,
+      quantity: qty,
     });
 
     if (!success) {
@@ -64,7 +75,7 @@ export default function StoreDetailScreen() {
                 productId,
                 productName,
                 productPrice,
-                quantity: 1,
+                quantity: qty,
               });
             },
           },
@@ -110,21 +121,60 @@ export default function StoreDetailScreen() {
   const catAvailable = isCategoryAvailable(selectedCategory?.availabilitySchedule);
   const catAvailMsg = getAvailabilityMessage(selectedCategory?.availabilitySchedule);
 
-  // Filter products by search query
+  // Filter and sort products
   const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return categoryProducts;
-    const query = productSearch.toLowerCase().trim();
-    return categoryProducts.filter((product) =>
-      product.name.toLowerCase().includes(query) ||
-      (product.description?.toLowerCase().includes(query) || false)
-    );
-  }, [categoryProducts, productSearch]);
+    let result = categoryProducts;
+    
+    // Filter by search
+    if (productSearch.trim()) {
+      const query = productSearch.toLowerCase().trim();
+      result = result.filter((product) =>
+        product.name.toLowerCase().includes(query) ||
+        (product.description?.toLowerCase().includes(query) || false)
+      );
+    }
+    
+    // Sort
+    const sorted = [...result];
+    switch (sortBy) {
+      case "az":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "za":
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case "price_low":
+        sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        break;
+      case "price_high":
+        sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+        break;
+    }
+    
+    return sorted;
+  }, [categoryProducts, productSearch, sortBy]);
 
   // Get quantity for a product from cart
-  const getProductQuantity = (productId: number) => {
+  const getProductQuantity = useCallback((productId: number) => {
     const item = cart.items.find(i => i.productId === productId);
     return item?.quantity || 0;
-  };
+  }, [cart.items]);
+
+  // Get product image helper
+  const getProductImage = useCallback((product: any): string | null => {
+    const productImages = product.images ? (typeof product.images === "string" ? JSON.parse(product.images) : product.images) : [];
+    return productImages.length > 0 ? productImages[0] : null;
+  }, []);
+
+  // Open product detail modal
+  const openProductDetail = useCallback((product: any) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    const existingQty = getProductQuantity(product.id);
+    setModalQuantity(existingQty > 0 ? existingQty : 1);
+    setSelectedProduct(product);
+  }, [getProductQuantity]);
 
   if (storeLoading || productsLoading) {
     return (
@@ -357,12 +407,219 @@ export default function StoreDetailScreen() {
     );
   }
 
+  // Product detail modal
+  const renderProductModal = () => {
+    if (!selectedProduct) return null;
+    const productImage = getProductImage(selectedProduct);
+    const isRestricted = !catAvailable;
+    const isOutOfStock = selectedProduct.stockStatus === "out_of_stock";
+    const canAdd = !isRestricted && storeOpen && !isOutOfStock;
+    const quantity = getProductQuantity(selectedProduct.id);
+
+    return (
+      <Modal
+        visible={!!selectedProduct}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedProduct(null)}
+          />
+          <View style={styles.modalContent}>
+            {/* Handle bar */}
+            <View style={styles.handleBar} />
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={() => setSelectedProduct(null)}
+                style={styles.closeButton}
+              >
+                <Text style={{ fontSize: 18, color: "#687076", fontWeight: "600" }}>✕</Text>
+              </TouchableOpacity>
+
+              {/* Product Image */}
+              {productImage ? (
+                <View style={styles.modalImageContainer}>
+                  <Image
+                    source={{ uri: productImage }}
+                    style={styles.modalImage}
+                    contentFit="contain"
+                  />
+                </View>
+              ) : (
+                <View style={[styles.modalImageContainer, styles.modalImagePlaceholder]}>
+                  <Text style={{ fontSize: 64 }}>📦</Text>
+                </View>
+              )}
+
+              {/* Product Info */}
+              <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+                {/* Name and badges */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
+                  {selectedCategory?.ageRestricted && (
+                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Price */}
+                <Text style={styles.modalPrice}>
+                  €{parseFloat(selectedProduct.price).toFixed(2)}
+                </Text>
+
+                {/* Stock status */}
+                {isOutOfStock && (
+                  <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>Out of Stock</Text>
+                  </View>
+                )}
+
+                {/* Restricted banner */}
+                {isRestricted && catAvailMsg && (
+                  <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderRadius: 10, marginTop: 12, borderWidth: 1, borderColor: "#FDE68A" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>
+                      🕐 {catAvailMsg}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Description */}
+                {selectedProduct.description ? (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", marginBottom: 6 }}>Description</Text>
+                    <Text style={{ fontSize: 14, color: "#687076", lineHeight: 21 }}>
+                      {selectedProduct.description}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* SKU */}
+                {selectedProduct.sku ? (
+                  <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 12 }}>
+                    SKU: {selectedProduct.sku}
+                  </Text>
+                ) : null}
+
+                {/* Already in cart indicator */}
+                {quantity > 0 && (
+                  <View style={{ backgroundColor: "#DCFCE7", padding: 10, borderRadius: 10, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontSize: 13, color: "#16A34A", fontWeight: "600" }}>
+                      ✓ {quantity} already in cart
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Bottom: Quantity Selector + Add to Cart */}
+            {canAdd && (
+              <View style={styles.modalBottom}>
+                {/* Quantity Selector */}
+                <View style={styles.quantitySelector}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (modalQuantity > 1) {
+                        setModalQuantity(modalQuantity - 1);
+                        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    style={[styles.quantityButton, modalQuantity <= 1 && { opacity: 0.3 }]}
+                    disabled={modalQuantity <= 1}
+                  >
+                    <Text style={styles.quantityButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.quantityText}>{modalQuantity}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setModalQuantity(modalQuantity + 1);
+                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={styles.quantityButton}
+                  >
+                    <Text style={styles.quantityButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Add to Cart Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    handleAddToCart(
+                      selectedProduct.id,
+                      selectedProduct.name,
+                      selectedProduct.price,
+                      selectedCategory?.availabilitySchedule,
+                      modalQuantity
+                    );
+                    setSelectedProduct(null);
+                  }}
+                  style={styles.addToCartButton}
+                >
+                  <Text style={styles.addToCartText}>
+                    Add to Cart · €{(parseFloat(selectedProduct.price) * modalQuantity).toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Disabled state button */}
+            {!canAdd && (
+              <View style={styles.modalBottom}>
+                <View style={[styles.addToCartButton, { backgroundColor: "#9BA1A6", flex: 1 }]}>
+                  <Text style={styles.addToCartText}>
+                    {isOutOfStock ? "Out of Stock" : !storeOpen ? "Store Closed" : "Not Available Right Now"}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // Sort pill component
+  const SortPill = ({ label, value }: { label: string; value: SortOption }) => {
+    const isActive = sortBy === value;
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          setSortBy(value);
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        style={[
+          styles.sortPill,
+          isActive && styles.sortPillActive,
+        ]}
+      >
+        <Text style={[
+          styles.sortPillText,
+          isActive && styles.sortPillTextActive,
+        ]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <ScreenContainer className="bg-background">
+      {/* Product Detail Modal */}
+      {renderProductModal()}
+
       {/* Header with Back Button and Cart Icon */}
       <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
         <TouchableOpacity
-          onPress={() => { setSelectedCategoryId(null); setProductSearch(""); }}
+          onPress={() => { setSelectedCategoryId(null); setProductSearch(""); setSortBy("az"); }}
           className="active:opacity-70"
         >
           <Text className="text-primary text-2xl">‹ Categories</Text>
@@ -395,7 +652,7 @@ export default function StoreDetailScreen() {
             )}
           </View>
           <View className="flex-row items-center gap-2 mt-1">
-            <Text className="text-sm text-muted">{store.name}</Text>
+            <Text className="text-sm text-muted">{store.name} · {filteredProducts.length} items</Text>
             {!storeOpen && (
               <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>Closed</Text>
@@ -417,7 +674,7 @@ export default function StoreDetailScreen() {
         )}
 
         {/* Product Search Bar */}
-        <View className="px-4 py-3">
+        <View className="px-4 pt-3 pb-2">
           <TextInput
             className="bg-surface border border-border rounded-xl p-4 text-foreground"
             placeholder="Search products..."
@@ -430,69 +687,85 @@ export default function StoreDetailScreen() {
           />
         </View>
 
+        {/* Sort Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}
+        >
+          <SortPill label="A → Z" value="az" />
+          <SortPill label="Z → A" value="za" />
+          <SortPill label="Price ↑" value="price_low" />
+          <SortPill label="Price ↓" value="price_high" />
+        </ScrollView>
+
         {/* Products */}
-        <View className="px-4">
+        <View className="px-4 pt-2">
           {filteredProducts.length > 0 ? (
             <View className="gap-3">
               {filteredProducts.map((product) => {
                 const quantity = getProductQuantity(product.id);
                 const isRestricted = !catAvailable;
-                const productImages = product.images ? (typeof product.images === "string" ? JSON.parse(product.images) : product.images) : [];
-                const productImage = productImages.length > 0 ? productImages[0] : null;
+                const productImage = getProductImage(product);
 
                 return (
-                  <View
+                  <TouchableOpacity
                     key={product.id}
-                    className="bg-surface rounded-xl p-4 border border-border"
+                    onPress={() => openProductDetail(product)}
+                    activeOpacity={0.7}
                     style={isRestricted ? { opacity: 0.45 } : undefined}
                   >
-                    <View className="flex-row justify-between items-start">
-                      {/* Product Image */}
-                      {productImage && (
-                        <View style={{ width: 64, height: 64, borderRadius: 10, overflow: "hidden", marginRight: 12 }}>
-                          <Image
-                            source={{ uri: productImage }}
-                            style={{ width: 64, height: 64 }}
-                            contentFit="cover"
-                          />
-                        </View>
-                      )}
+                    <View className="bg-surface rounded-xl p-4 border border-border">
+                      <View className="flex-row justify-between items-start">
+                        {/* Product Image */}
+                        {productImage && (
+                          <View style={{ width: 64, height: 64, borderRadius: 10, overflow: "hidden", marginRight: 12 }}>
+                            <Image
+                              source={{ uri: productImage }}
+                              style={{ width: 64, height: 64 }}
+                              contentFit="cover"
+                            />
+                          </View>
+                        )}
 
-                      <View className="flex-1 pr-3">
-                        <Text className="text-base font-semibold text-foreground mb-1" numberOfLines={2}>
-                          {product.name}
-                        </Text>
-                        {product.description && (
-                          <Text className="text-sm text-muted mb-2" numberOfLines={2}>
-                            {product.description}
+                        <View className="flex-1 pr-3">
+                          <Text className="text-base font-semibold text-foreground mb-1" numberOfLines={2}>
+                            {product.name}
                           </Text>
-                        )}
-                        <Text className="text-lg font-bold text-primary">
-                          €{parseFloat(product.price).toFixed(2)}
-                        </Text>
-                        {product.stockStatus === "out_of_stock" && (
-                          <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
-                        )}
-                      </View>
+                          {product.description && (
+                            <Text className="text-sm text-muted mb-2" numberOfLines={2}>
+                              {product.description}
+                            </Text>
+                          )}
+                          <Text className="text-lg font-bold text-primary">
+                            €{parseFloat(product.price).toFixed(2)}
+                          </Text>
+                          {product.stockStatus === "out_of_stock" && (
+                            <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
+                          )}
+                        </View>
 
-                      {/* Add to Cart Button */}
-                      <TouchableOpacity
-                        onPress={() => handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule)}
-                        className="rounded-lg active:opacity-70"
-                        style={{
-                          backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF",
-                          paddingHorizontal: 16,
-                          paddingVertical: 8,
-                          alignSelf: "center",
-                        }}
-                        disabled={product.stockStatus === "out_of_stock"}
-                      >
-                        <Text className="text-background font-semibold">
-                          {product.stockStatus === "out_of_stock" ? "N/A" : quantity > 0 ? `+${quantity}` : "Add"}
-                        </Text>
-                      </TouchableOpacity>
+                        {/* Add to Cart Button */}
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
+                          }}
+                          style={[
+                            styles.quickAddButton,
+                            {
+                              backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF",
+                            },
+                          ]}
+                          disabled={product.stockStatus === "out_of_stock"}
+                        >
+                          <Text className="text-background font-semibold">
+                            {product.stockStatus === "out_of_stock" ? "N/A" : quantity > 0 ? `+${quantity}` : "Add"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -530,3 +803,146 @@ export default function StoreDetailScreen() {
     </ScreenContainer>
   );
 }
+
+const { width: screenWidth } = Dimensions.get("window");
+
+const styles = StyleSheet.create({
+  // Sort pills
+  sortPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  sortPillActive: {
+    backgroundColor: "#00E5FF",
+    borderColor: "#00E5FF",
+  },
+  sortPillText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#687076",
+  },
+  sortPillTextActive: {
+    color: "#ffffff",
+  },
+  // Quick add button on list
+  quickAddButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: "center",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+    minHeight: "50%",
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#D1D5DB",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 4,
+    right: 16,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalImageContainer: {
+    width: "100%",
+    height: 240,
+    backgroundColor: "#f9f9f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalImage: {
+    width: "100%",
+    height: 240,
+  },
+  modalImagePlaceholder: {
+    backgroundColor: "#f0f0f0",
+  },
+  modalProductName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#11181C",
+    flexShrink: 1,
+  },
+  modalPrice: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#00E5FF",
+    marginTop: 4,
+  },
+  modalBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    gap: 12,
+  },
+  quantitySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  quantityButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quantityButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#11181C",
+  },
+  quantityText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#11181C",
+    minWidth: 28,
+    textAlign: "center",
+  },
+  addToCartButton: {
+    flex: 1,
+    backgroundColor: "#00E5FF",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  addToCartText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+});

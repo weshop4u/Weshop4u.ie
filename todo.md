@@ -1415,3 +1415,25 @@
 - [x] "Rendered more hooks than during the previous render" error at app/store/[id].tsx line 345
 - [x] Root cause: useMemo for filteredProducts and getProductQuantity were after conditional return (selectedCategoryId === null)
 - [x] Fix: Moved selectedCategory, categoryProducts, catAvailable, catAvailMsg, filteredProducts useMemo, and getProductQuantity before all conditional returns
+
+## Feature: Product Sorting Filters
+- [x] Add sort bar below search field with pill-shaped buttons
+- [x] Sort options: A-Z, Z-A, Price Low to High, Price High to Low
+- [x] Apply sorting to filtered products list
+- [x] Persist sort selection while browsing category
+- [x] 17 unit tests passing (sort + filter + combined)
+
+## Feature: Product Detail Modal
+- [x] Tap product card to open bottom sheet / modal
+- [x] Large product image at top (or placeholder icon)
+- [x] Full product name and full description (untruncated)
+- [x] Price prominently displayed
+- [x] Stock status indicator (out of stock badge)
+- [x] Add to Cart button with quantity selector (+/-)
+- [x] 18+ badge for age-restricted categories
+- [x] Category availability message if restricted
+- [x] Quick "Add" button on list still works for fast adds
+- [x] Shows total price based on quantity (e.g. "Add to Cart · €7.00")
+- [x] Shows "already in cart" indicator
+- [x] Close button and tap-outside-to-dismiss
+- [x] Haptic feedback on interactions
