@@ -1318,3 +1318,9 @@
 - [x] Show assigned display number in create-driver success message and in driver management list badge
 - [x] Replaced Alert.alert in driver management with inline success/error messages (web-compatible)
 - [x] Used theme-aware colors for display number input field
+
+## Bug Fix: Display number not visible after saving
+- [x] Display number saves but input field shows placeholder — fixed: added displayNumber to getAllDrivers select query
+- [x] Added "Driver Number" row in expanded details section under Vehicle row showing #02 or "Not assigned"
+- [x] Input field now shows current saved value after refetch (removed `as any` casts since type is now correct)
+- [x] Header badge also shows #XX next to driver name when display number is set

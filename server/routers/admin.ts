@@ -249,6 +249,7 @@ export const adminRouter = router({
       .select({
         id: drivers.id,
         userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
         vehicleType: drivers.vehicleType,
         vehicleNumber: drivers.vehicleNumber,
         isOnline: drivers.isOnline,

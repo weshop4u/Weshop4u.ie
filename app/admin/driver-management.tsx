@@ -132,10 +132,10 @@ export default function AdminDriverManagement() {
                           <View>
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                               <Text className="text-base font-bold text-foreground">{driver.name}</Text>
-                              {(driver as any).displayNumber && (
+                              {driver.displayNumber && (
                                 <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
                                   <Text style={{ fontSize: 11, fontWeight: "700", color: "#2563EB" }}>
-                                    #{(driver as any).displayNumber}
+                                    #{driver.displayNumber}
                                   </Text>
                                 </View>
                               )}
@@ -174,6 +174,12 @@ export default function AdminDriverManagement() {
                           </Text>
                         </View>
                         <View className="flex-row justify-between">
+                          <Text className="text-sm text-muted">Driver Number</Text>
+                          <Text className="text-sm text-foreground font-semibold">
+                            {driver.displayNumber ? `#${driver.displayNumber}` : "Not assigned"}
+                          </Text>
+                        </View>
+                        <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Rating</Text>
                           <Text className="text-sm text-foreground">
                             {driver.rating ? parseFloat(driver.rating).toFixed(1) : "5.0"}/5.0
@@ -200,11 +206,11 @@ export default function AdminDriverManagement() {
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                             <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                               <TextInput
-                                value={editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value : ((driver as any).displayNumber || "")}
+                                value={editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value : (driver.displayNumber || "")}
                                 onChangeText={(text) => setEditingDisplayNumber({ userId: driver.userId, value: text })}
                                 onFocus={() => {
                                   if (!editingDisplayNumber || editingDisplayNumber.userId !== driver.userId) {
-                                    setEditingDisplayNumber({ userId: driver.userId, value: (driver as any).displayNumber || "" });
+                                    setEditingDisplayNumber({ userId: driver.userId, value: driver.displayNumber || "" });
                                   }
                                 }}
                                 placeholder="e.g. 01, 02"
@@ -229,7 +235,7 @@ export default function AdminDriverManagement() {
                             </TouchableOpacity>
                           </View>
                           <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
-                            Customers will see "Driver {editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value || "??" : ((driver as any).displayNumber || "??")}"
+                            Customers will see "Driver {editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value || "??" : (driver.displayNumber || "??")}"
                           </Text>
                         </View>
                       </View>
