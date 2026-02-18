@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
+import { storagePut } from "../storage";
 
 export const storesRouter = router({
   // Get all active stores
@@ -244,12 +245,24 @@ export const storesRouter = router({
       return { success: true };
     }),
 
-  // Upload store logo
+  // Upload store logo from base64 data
   uploadLogo: publicProcedure
-    .input(z.object({ uri: z.string() }))
+    .input(z.object({
+      base64: z.string(),
+      mimeType: z.string().default("image/jpeg"),
+    }))
     .mutation(async ({ input }) => {
-      // TODO: Implement actual S3 upload
-      // For now, return the URI as-is
-      return { url: input.uri };
+      try {
+        const buffer = Buffer.from(input.base64, "base64");
+        const ext = input.mimeType.split("/")[1] || "jpg";
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const filename = `store-logo-${timestamp}-${random}.${ext}`;
+
+        const result = await storagePut(`store-logos/${filename}`, buffer, input.mimeType);
+        return { url: result.url };
+      } catch (error: any) {
+        throw new Error(`Failed to upload logo: ${error.message}`);
+      }
     }),
 });

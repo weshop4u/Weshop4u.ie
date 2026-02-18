@@ -1339,3 +1339,10 @@
 ## Bug Fix: Store Logos "Invalid hook call" error
 - [x] Fixed useMutation called inside handleUpload function — moved to component top level
 - [x] uploadMutation now declared alongside updateMutation at component level, used in handler via mutateAsync
+
+## Bug Fix: Category images showing garbled text instead of actual images
+- [x] Root cause: local file:// URIs saved to DB instead of S3 URLs; server tried axios.get on local URI
+- [x] Fixed: client now reads image as base64, sends to server, server uploads to S3 via storagePut
+- [x] Fixed same issue in store-logos.tsx (uploadLogo was returning URI as-is)
+- [x] Both categories and store logos now properly upload to S3 and display correctly
+- [x] Also fixed useMutation hook-in-handler bug in both screens (moved to component level)

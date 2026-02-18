@@ -5,9 +5,13 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { useColors } from "@/hooks/use-colors";
+import { StyleSheet } from "react-native";
 
 export default function CategoriesScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -17,6 +21,7 @@ export default function CategoriesScreen() {
 
   const { data: categories, refetch } = trpc.categories.getAll.useQuery();
   const updateMutation = trpc.categories.updateImage.useMutation();
+  const uploadMutation = trpc.categories.uploadImage.useMutation();
 
   const handlePickImage = async () => {
     if (!selectedCategory) {
@@ -36,7 +41,8 @@ export default function CategoriesScreen() {
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         setPreviewUri(uri);
-        setImageUrl(uri);
+        // Don't set imageUrl to local URI — it will be uploaded as base64
+        setImageUrl("");
       }
     } catch (error: any) {
       setMessage(error.message || "Failed to pick image");
@@ -44,24 +50,45 @@ export default function CategoriesScreen() {
     }
   };
 
-  const handleUploadImage = async (uri: string): Promise<string | null> => {
-    if (!selectedCategory) return null;
-
-    try {
-      // Upload to S3 via backend
-      const uploadMutation = trpc.categories.uploadImage.useMutation();
-      const response = await uploadMutation.mutateAsync({ uri });
-      return response.url;
-    } catch (error: any) {
-      setMessage(error.message || "Failed to upload image");
-      setMessageType("error");
-      return null;
+  const readImageAsBase64 = async (uri: string): Promise<{ base64: string; mimeType: string }> => {
+    if (Platform.OS === "web") {
+      // On web, fetch the blob and convert to base64
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const mimeType = blob.type || "image/jpeg";
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          // Strip the data:image/...;base64, prefix
+          const base64 = dataUrl.split(",")[1];
+          resolve({ base64, mimeType });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } else {
+      // On native, use FileSystem
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      // Guess mime type from extension
+      const ext = uri.split(".").pop()?.toLowerCase() || "jpg";
+      const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+      const mimeType = mimeMap[ext] || "image/jpeg";
+      return { base64, mimeType };
     }
   };
 
   const handleUpdateImage = async () => {
-    if (!selectedCategory || !imageUrl.trim()) {
-      setMessage("Please select a category and enter an image URL");
+    if (!selectedCategory) {
+      setMessage("Please select a category first");
+      setMessageType("error");
+      return;
+    }
+
+    if (!previewUri && !imageUrl.trim()) {
+      setMessage("Please pick an image or enter a URL");
       setMessageType("error");
       return;
     }
@@ -70,19 +97,22 @@ export default function CategoriesScreen() {
     setMessage("");
 
     try {
-      // If preview exists, upload the image first
-      let finalImageUrl = imageUrl;
-      if (previewUri && previewUri.startsWith("file://")) {
-        const uploadResult = await handleUploadImage(previewUri);
-        if (!uploadResult) {
-          throw new Error("Failed to upload image");
-        }
-        finalImageUrl = uploadResult;
+      let finalImageUrl = imageUrl.trim();
+
+      // If user picked an image from device, upload it as base64
+      if (previewUri) {
+        const { base64, mimeType } = await readImageAsBase64(previewUri);
+        const uploadResult = await uploadMutation.mutateAsync({ base64, mimeType });
+        finalImageUrl = uploadResult.url;
+      }
+
+      if (!finalImageUrl) {
+        throw new Error("No image URL available");
       }
 
       await updateMutation.mutateAsync({
         id: selectedCategory,
-        imageUrl: finalImageUrl.trim(),
+        imageUrl: finalImageUrl,
       });
 
       setMessage("Category image updated successfully!");
@@ -101,37 +131,22 @@ export default function CategoriesScreen() {
 
   return (
     <ScreenContainer className="bg-background">
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="active:opacity-70"
-        >
-          <Text className="text-primary text-2xl">‹ Back</Text>
-        </TouchableOpacity>
-        <Text className="text-xl font-bold text-foreground">Manage Categories</Text>
-        <View className="w-12" />
-      </View>
-
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         <View className="p-4 gap-4">
           {/* Instructions */}
           <View className="bg-surface rounded-xl p-4 border border-border">
             <Text className="text-lg font-semibold text-foreground mb-2">Upload Category Images</Text>
             <Text className="text-sm text-muted">
-              Select a category and paste an image URL to update its icon.{"\n\n"}
-              You can upload images to any image hosting service (Imgur, Cloudinary, etc.) or use the built-in file upload feature.
+              Select a category, then pick an image from your device or paste a URL to update its icon.
             </Text>
           </View>
 
           {/* Message */}
-          {message && (
-            <View className={`rounded-xl p-4 ${messageType === "error" ? "bg-error/10 border border-error" : "bg-success/10 border border-success"}`}>
-              <Text className={messageType === "error" ? "text-error" : "text-success"}>
-                {message}
-              </Text>
+          {message ? (
+            <View style={[styles.messageBox, { borderColor: messageType === "error" ? colors.error : "#22C55E", backgroundColor: messageType === "error" ? "#FEE2E2" : "#DCFCE7" }]}>
+              <Text style={{ color: messageType === "error" ? colors.error : "#16A34A", fontWeight: "600" }}>{message}</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Categories List */}
           <View>
@@ -142,7 +157,9 @@ export default function CategoriesScreen() {
                   key={category.id}
                   onPress={() => {
                     setSelectedCategory(category.id);
-                    setImageUrl(category.icon || "");
+                    setImageUrl(category.icon && category.icon.startsWith("http") ? category.icon : "");
+                    setPreviewUri(null);
+                    setMessage("");
                   }}
                   className={`p-4 rounded-xl border flex-row items-center gap-3 ${
                     selectedCategory === category.id
@@ -160,7 +177,7 @@ export default function CategoriesScreen() {
                       />
                     ) : (
                       <View className="w-full h-full items-center justify-center">
-                        <Text className="text-2xl">{category.icon || "📦"}</Text>
+                        <Text className="text-2xl">📦</Text>
                       </View>
                     )}
                   </View>
@@ -174,90 +191,127 @@ export default function CategoriesScreen() {
                     </Text>
                     <Text className="text-xs text-muted">{category.slug}</Text>
                   </View>
+
+                  {/* Status indicator */}
+                  {category.icon && category.icon.startsWith("http") ? (
+                    <Text style={{ fontSize: 11, color: "#22C55E", fontWeight: "600" }}>Has image</Text>
+                  ) : (
+                    <Text style={{ fontSize: 11, color: colors.muted }}>No image</Text>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Upload Button */}
-          {selectedCategory && (
-            <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">Upload Image</Text>
-              <TouchableOpacity
-                onPress={handlePickImage}
-                disabled={isUploading}
-                className={`py-4 rounded-xl border-2 border-dashed ${isUploading ? "border-muted bg-muted/10" : "border-primary bg-primary/5"} active:opacity-70 mb-4`}
-              >
-                <Text className="text-primary text-center font-semibold">
-                  📷 Choose Image from Device
-                </Text>
-              </TouchableOpacity>
-              
-              <Text className="text-sm text-muted text-center mb-4">— OR —</Text>
-            </View>
-          )}
-
-          {/* Image Preview */}
-          {previewUri && selectedCategory && (
-            <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">Preview</Text>
-              <View className="bg-surface rounded-xl p-4 border border-border items-center">
-                <Image
-                  source={{ uri: previewUri }}
-                  style={{ width: 200, height: 200, borderRadius: 12 }}
-                  contentFit="cover"
-                />
+          {/* Upload Section */}
+          {selectedCategory ? (
+            <View className="gap-4">
+              {/* Pick from device */}
+              <View>
+                <Text className="text-sm font-semibold text-foreground mb-2">Upload Image</Text>
                 <TouchableOpacity
-                  onPress={() => {
-                    setPreviewUri(null);
-                    setImageUrl("");
-                  }}
-                  className="mt-3 px-4 py-2 bg-error/10 rounded-lg active:opacity-70"
+                  onPress={handlePickImage}
+                  disabled={isUploading}
+                  className={`py-4 rounded-xl border-2 border-dashed ${isUploading ? "border-muted bg-muted/10" : "border-primary bg-primary/5"} active:opacity-70`}
                 >
-                  <Text className="text-error font-semibold">Remove</Text>
+                  <Text className="text-primary text-center font-semibold">
+                    📷 Choose Image from Device
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
 
-          {/* Image URL Input */}
-          {selectedCategory && (
-            <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">Paste Image URL</Text>
-              <TextInput
-                className="bg-surface border border-border rounded-xl p-4 text-foreground"
-                placeholder="https://example.com/category-image.jpg"
-                placeholderTextColor="#9BA1A6"
-                value={imageUrl}
-                onChangeText={setImageUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
-              <Text className="text-xs text-muted mt-2">
-                Tip: Upload your image to Imgur.com and paste the direct link here
-              </Text>
-            </View>
-          )}
+              {/* Image Preview */}
+              {previewUri ? (
+                <View>
+                  <Text className="text-sm font-semibold text-foreground mb-2">Preview</Text>
+                  <View className="bg-surface rounded-xl p-4 border border-border items-center">
+                    <Image
+                      source={{ uri: previewUri }}
+                      style={{ width: 200, height: 200, borderRadius: 12 }}
+                      contentFit="cover"
+                    />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPreviewUri(null);
+                        setImageUrl("");
+                      }}
+                      className="mt-3 px-4 py-2 bg-error/10 rounded-lg active:opacity-70"
+                    >
+                      <Text className="text-error font-semibold">Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
 
-          {/* Update Button */}
-          {selectedCategory && (
-            <TouchableOpacity
-              onPress={handleUpdateImage}
-              disabled={isUploading}
-              className={`py-4 rounded-xl ${isUploading ? "bg-muted" : "bg-primary"} active:opacity-70`}
-            >
-              {isUploading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className="text-background text-center font-bold text-lg">
-                  Update Category Image
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
+              {/* OR divider */}
+              {!previewUri ? (
+                <Text className="text-sm text-muted text-center">— OR paste a URL —</Text>
+              ) : null}
+
+              {/* Image URL Input (only show if no device image picked) */}
+              {!previewUri ? (
+                <View>
+                  <Text className="text-sm font-semibold text-foreground mb-2">Paste Image URL</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                    placeholder="https://example.com/category-image.jpg"
+                    placeholderTextColor={colors.muted}
+                    value={imageUrl}
+                    onChangeText={setImageUrl}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                  />
+                  <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
+                    Tip: Upload your image to Imgur.com and paste the direct link here
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Update Button */}
+              <TouchableOpacity
+                onPress={handleUpdateImage}
+                disabled={isUploading || (!previewUri && !imageUrl.trim())}
+                style={[styles.saveButton, { opacity: isUploading || (!previewUri && !imageUrl.trim()) ? 0.5 : 1 }]}
+              >
+                {isUploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    {previewUri ? "Upload & Save" : "Save Image URL"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  messageBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  saveButton: {
+    backgroundColor: "#0a7ea4",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});

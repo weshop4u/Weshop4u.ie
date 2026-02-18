@@ -4,7 +4,6 @@ import { getDb } from "../db";
 import { productCategories } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { storagePut } from "../storage";
-import axios from "axios";
 
 export const categoriesRouter = router({
   // Get all categories
@@ -40,27 +39,23 @@ export const categoriesRouter = router({
       return { success: true };
     }),
 
-  // Upload category image
+  // Upload category image from base64 data
   uploadImage: publicProcedure
     .input(
       z.object({
-        uri: z.string(),
+        base64: z.string(),
+        mimeType: z.string().default("image/jpeg"),
       })
     )
     .mutation(async ({ input }) => {
       try {
-        // Download image from URI
-        const response = await axios.get(input.uri, { responseType: "arraybuffer" });
-        const buffer = Buffer.from(response.data);
-        const contentType = response.headers["content-type"] || "image/jpeg";
-        
-        // Generate unique filename
+        const buffer = Buffer.from(input.base64, "base64");
+        const ext = input.mimeType.split("/")[1] || "jpg";
         const timestamp = Date.now();
-        const ext = contentType.split("/")[1] || "jpg";
-        const filename = `category-${timestamp}.${ext}`;
-        
-        // Upload to storage
-        const result = await storagePut(`category-images/${filename}`, buffer, contentType);
+        const random = Math.random().toString(36).substring(2, 8);
+        const filename = `category-${timestamp}-${random}.${ext}`;
+
+        const result = await storagePut(`category-images/${filename}`, buffer, input.mimeType);
         return { url: result.url };
       } catch (error: any) {
         throw new Error(`Failed to upload image: ${error.message}`);
