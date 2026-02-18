@@ -180,6 +180,13 @@ export default function AdminPanel() {
           <Text className="text-lg font-bold text-foreground mb-3">Management</Text>
 
           <TouchableOpacity
+            onPress={() => router.push("/admin/phone-order" as any)}
+            style={{ backgroundColor: "#22C55E", padding: 16, borderRadius: 12, marginBottom: 12 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center", fontSize: 16 }}>📞 Create Phone Order</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={() => router.push("/admin/orders" as any)}
             className="bg-primary p-4 rounded-xl active:opacity-70 mb-3"
           >

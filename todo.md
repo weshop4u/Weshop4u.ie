@@ -1275,3 +1275,15 @@
 - [ ] Migrate content/images from old weshop4u.ie
 - [ ] DNS/domain setup guidance for pointing weshop4u.ie to new site
 - [ ] SMS order confirmation for phone orders (optional)
+
+## Admin Dashboard Enhancement (Current Sprint)
+- [x] Add order action buttons: assign driver, reassign driver, cancel order, update status
+- [x] Add order detail view with driver info, price breakdown, delivery address
+- [x] Add phone order creation form (4-step: store select, product search, customer details, confirm)
+- [x] Add driver display number assignment in driver management
+- [x] Add order source tagging (phone orders get WS4U-PH prefix)
+- [x] Add real-time auto-refresh (10s for orders, 15s for drivers, 30s for dashboard)
+- [x] Add pending order alerts (yellow banner for orders waiting 5+ min without driver)
+- [x] Enhance admin dashboard home with phone order quick-action button
+- [x] Add cash/substitution badges to admin order views
+- [x] Server: add admin endpoints for updateOrderStatus, assignDriver, createPhoneOrder, setDriverDisplayNumber, getAvailableDrivers, getStores, getStoreProducts

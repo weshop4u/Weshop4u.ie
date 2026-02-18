@@ -1,8 +1,30 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products } from "../../drizzle/schema";
-import { eq, and, desc, gte, sql, count } from "drizzle-orm";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable } from "../../drizzle/schema";
+import { eq, and, desc, gte, sql, count, inArray, isNull } from "drizzle-orm";
+import { offerOrderToQueue } from "./drivers";
+import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
+
+// Helper function to calculate distance between two points (Haversine formula)
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 100) / 100;
+}
+
+function calculateDeliveryFee(distanceKm: number): number {
+  const BASE_FEE = 3.50;
+  const BASE_DISTANCE = 2.8;
+  const COST_PER_KM = 1.00;
+  if (distanceKm <= BASE_DISTANCE) return BASE_FEE;
+  return Math.round((BASE_FEE + (distanceKm - BASE_DISTANCE) * COST_PER_KM) * 100) / 100;
+}
 
 export const adminRouter = router({
   // Get dashboard overview stats
@@ -281,4 +303,417 @@ export const adminRouter = router({
       earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
     }));
   }),
+
+  // Get single order with full details (items, customer, driver, store)
+  getOrderDetail: publicProcedure
+    .input(z.object({ orderId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [order] = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+
+      if (!order) throw new Error("Order not found");
+
+      // Get order items
+      const items = await db
+        .select({
+          id: orderItems.id,
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          productPrice: orderItems.productPrice,
+          quantity: orderItems.quantity,
+          subtotal: orderItems.subtotal,
+          notes: orderItems.notes,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, input.orderId));
+
+      // Get customer info
+      let customerInfo = { name: order.orders.guestName || "Guest", phone: order.orders.guestPhone || "", email: order.orders.guestEmail || "" };
+      if (order.orders.customerId) {
+        const [customer] = await db
+          .select({ name: users.name, phone: users.phone, email: users.email })
+          .from(users)
+          .where(eq(users.id, order.orders.customerId))
+          .limit(1);
+        if (customer) {
+          customerInfo = { name: customer.name || "Unknown", phone: customer.phone || "", email: customer.email || "" };
+        }
+      }
+
+      // Get driver info
+      let driverInfo = null;
+      if (order.orders.driverId) {
+        const [driverRecord] = await db
+          .select({ displayNumber: drivers.displayNumber, vehicleType: drivers.vehicleType })
+          .from(drivers)
+          .where(eq(drivers.userId, order.orders.driverId))
+          .limit(1);
+        const [driverUser] = await db
+          .select({ name: users.name, phone: users.phone })
+          .from(users)
+          .where(eq(users.id, order.orders.driverId))
+          .limit(1);
+        driverInfo = {
+          userId: order.orders.driverId,
+          name: driverUser?.name || "Unknown",
+          phone: driverUser?.phone || "",
+          displayNumber: driverRecord?.displayNumber || null,
+          vehicleType: driverRecord?.vehicleType || null,
+        };
+      }
+
+      return {
+        ...order.orders,
+        store: order.stores,
+        items,
+        customer: customerInfo,
+        driver: driverInfo,
+      };
+    }),
+
+  // Admin update order status (can change to any status)
+  updateOrderStatus: publicProcedure
+    .input(z.object({
+      orderId: z.number(),
+      status: z.enum(["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way", "delivered", "cancelled"]),
+      reason: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const updateFields: Record<string, any> = { status: input.status };
+      const now = new Date();
+
+      if (input.status === "accepted") updateFields.acceptedAt = now;
+      else if (input.status === "picked_up" || input.status === "on_the_way") updateFields.pickedUpAt = now;
+      else if (input.status === "delivered") updateFields.deliveredAt = now;
+      else if (input.status === "cancelled") {
+        updateFields.cancelledAt = now;
+        updateFields.cancellationReason = input.reason || "Cancelled by admin";
+      }
+
+      await db.update(orders).set(updateFields).where(eq(orders.id, input.orderId));
+
+      // If cancelled, expire any pending offers
+      if (input.status === "cancelled") {
+        await db
+          .update(orderOffers)
+          .set({ status: "expired" })
+          .where(and(eq(orderOffers.orderId, input.orderId), eq(orderOffers.status, "pending")));
+      }
+
+      // If delivered, mark driver as available again
+      if (input.status === "delivered") {
+        const [orderData] = await db.select({ driverId: orders.driverId }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        if (orderData?.driverId) {
+          await db.update(drivers).set({ isAvailable: true }).where(eq(drivers.userId, orderData.driverId));
+        }
+      }
+
+      // Send push notification to customer
+      const [orderData] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+      if (orderData?.customerId) {
+        const [customer] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, orderData.customerId)).limit(1);
+        if (customer?.pushToken) {
+          const msgs: Record<string, { title: string; body: string }> = {
+            accepted: { title: "Order Confirmed!", body: `Order #${orderData.orderNumber} has been confirmed.` },
+            preparing: { title: "Preparing Your Order", body: `Order #${orderData.orderNumber} is being prepared.` },
+            ready_for_pickup: { title: "Order Ready", body: `Order #${orderData.orderNumber} is ready for pickup.` },
+            on_the_way: { title: "On the Way!", body: `Order #${orderData.orderNumber} is on its way to you!` },
+            delivered: { title: "Order Delivered!", body: `Order #${orderData.orderNumber} has been delivered. Enjoy!` },
+            cancelled: { title: "Order Cancelled", body: `Order #${orderData.orderNumber} has been cancelled.` },
+          };
+          const msg = msgs[input.status];
+          if (msg) {
+            await sendPushNotification(customer.pushToken, { title: msg.title, body: msg.body, data: { type: "order_update", orderId: input.orderId, status: input.status }, channelId: "orders" });
+          }
+        }
+      }
+
+      console.log(`[Admin] Order ${input.orderId} status updated to ${input.status}`);
+      return { success: true };
+    }),
+
+  // Admin assign driver to order
+  assignDriver: publicProcedure
+    .input(z.object({
+      orderId: z.number(),
+      driverUserId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Verify driver exists
+      const [driver] = await db.select().from(drivers).where(eq(drivers.userId, input.driverUserId)).limit(1);
+      if (!driver) throw new Error("Driver not found");
+
+      // Get current order state
+      const [order] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+      if (!order) throw new Error("Order not found");
+
+      // If order already had a driver, make old driver available again
+      if (order.driverId && order.driverId !== input.driverUserId) {
+        await db.update(drivers).set({ isAvailable: true }).where(eq(drivers.userId, order.driverId));
+      }
+
+      // Assign new driver
+      await db.update(orders).set({
+        driverId: input.driverUserId,
+        driverAssignedAt: new Date(),
+      }).where(eq(orders.id, input.orderId));
+
+      // Mark driver as busy
+      await db.update(drivers).set({ isAvailable: false }).where(eq(drivers.userId, input.driverUserId));
+
+      // Expire any pending offers for this order
+      await db.update(orderOffers).set({ status: "expired" })
+        .where(and(eq(orderOffers.orderId, input.orderId), eq(orderOffers.status, "pending")));
+
+      // Send push notification to driver
+      const [driverUser] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, input.driverUserId)).limit(1);
+      if (driverUser?.pushToken) {
+        await sendPushNotification(driverUser.pushToken, {
+          title: "New Job Assigned",
+          body: `You have been assigned order #${order.orderNumber}. Check your dashboard.`,
+          data: { type: "job_assigned", orderId: input.orderId },
+          channelId: "driver",
+        });
+      }
+
+      console.log(`[Admin] Driver ${input.driverUserId} assigned to order ${input.orderId}`);
+      return { success: true };
+    }),
+
+  // Get available drivers for assignment
+  getAvailableDriversForAssignment: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const driversList = await db
+      .select({
+        id: drivers.id,
+        userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
+        isOnline: drivers.isOnline,
+        isAvailable: drivers.isAvailable,
+        vehicleType: drivers.vehicleType,
+        totalDeliveries: drivers.totalDeliveries,
+        rating: drivers.rating,
+      })
+      .from(drivers);
+
+    const userIds = driversList.map(d => d.userId);
+    let userMap: Record<number, { name: string; phone: string }> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, name: users.name, phone: users.phone })
+        .from(users)
+        .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
+      userMap = Object.fromEntries(userRows.map(u => [u.id, { name: u.name || "Unknown", phone: u.phone || "" }]));
+    }
+
+    return driversList
+      .sort((a, b) => {
+        // Online & available first, then online & busy, then offline
+        const scoreA = a.isOnline ? (a.isAvailable ? 2 : 1) : 0;
+        const scoreB = b.isOnline ? (b.isAvailable ? 2 : 1) : 0;
+        return scoreB - scoreA;
+      })
+      .map(d => ({
+        userId: d.userId,
+        name: userMap[d.userId]?.name || "Unknown",
+        phone: userMap[d.userId]?.phone || "",
+        displayNumber: d.displayNumber,
+        isOnline: d.isOnline,
+        isAvailable: d.isAvailable,
+        vehicleType: d.vehicleType,
+        totalDeliveries: d.totalDeliveries,
+        rating: d.rating,
+      }));
+  }),
+
+  // Set driver display number
+  setDriverDisplayNumber: publicProcedure
+    .input(z.object({
+      driverUserId: z.number(),
+      displayNumber: z.string().max(10),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(drivers)
+        .set({ displayNumber: input.displayNumber })
+        .where(eq(drivers.userId, input.driverUserId));
+
+      console.log(`[Admin] Driver ${input.driverUserId} display number set to ${input.displayNumber}`);
+      return { success: true };
+    }),
+
+  // Create phone order (admin creates on behalf of customer)
+  createPhoneOrder: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      items: z.array(z.object({
+        productId: z.number(),
+        quantity: z.number().min(1),
+      })),
+      customerName: z.string(),
+      customerPhone: z.string(),
+      deliveryAddress: z.string(),
+      deliveryEircode: z.string().optional(),
+      deliveryLatitude: z.number(),
+      deliveryLongitude: z.number(),
+      paymentMethod: z.enum(["card", "cash_on_delivery"]),
+      customerNotes: z.string().optional(),
+      allowSubstitution: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get store location
+      const [store] = await db.select().from(stores).where(eq(stores.id, input.storeId)).limit(1);
+      if (!store) throw new Error("Store not found");
+      if (!store.latitude || !store.longitude) throw new Error("Store location not available");
+
+      // Calculate distance and delivery fee
+      const distance = calculateDistance(
+        parseFloat(store.latitude), parseFloat(store.longitude),
+        input.deliveryLatitude, input.deliveryLongitude
+      );
+      const deliveryFee = calculateDeliveryFee(distance);
+
+      // Get product details and calculate subtotal
+      let subtotal = 0;
+      const orderItemsData = [];
+      for (const item of input.items) {
+        const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+        if (!product) throw new Error(`Product ${item.productId} not found`);
+        const price = parseFloat(product.price);
+        const itemSubtotal = price * item.quantity;
+        subtotal += itemSubtotal;
+        orderItemsData.push({
+          productId: item.productId,
+          productName: product.name,
+          productPrice: product.price,
+          quantity: item.quantity,
+          subtotal: itemSubtotal.toFixed(2),
+        });
+      }
+
+      const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
+      const total = Math.round((subtotal + serviceFee + deliveryFee) * 100) / 100;
+      const orderNumber = `WS4U-PH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      // Check if customer phone matches an existing user
+      let customerId: number | null = null;
+      if (input.customerPhone) {
+        const [existingUser] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.phone, input.customerPhone))
+          .limit(1);
+        if (existingUser) customerId = existingUser.id;
+      }
+
+      // Create order
+      const [order] = await db.insert(orders).values({
+        orderNumber,
+        customerId,
+        storeId: input.storeId,
+        status: "pending",
+        paymentMethod: input.paymentMethod,
+        paymentStatus: input.paymentMethod === "card" ? "completed" : "pending",
+        subtotal: subtotal.toFixed(2),
+        serviceFee: serviceFee.toFixed(2),
+        deliveryFee: deliveryFee.toFixed(2),
+        tipAmount: "0.00",
+        total: total.toFixed(2),
+        deliveryAddress: input.deliveryAddress,
+        deliveryLatitude: input.deliveryLatitude.toString(),
+        deliveryLongitude: input.deliveryLongitude.toString(),
+        deliveryDistance: distance.toFixed(2),
+        customerNotes: input.customerNotes || null,
+        allowSubstitution: input.allowSubstitution || false,
+        guestName: customerId ? null : input.customerName,
+        guestPhone: customerId ? null : input.customerPhone,
+      });
+
+      const orderId = order.insertId;
+
+      // Create order items
+      for (const item of orderItemsData) {
+        await db.insert(orderItems).values({ orderId: Number(orderId), ...item });
+      }
+
+      // Send push notification to store staff
+      try {
+        const storeStaffMembers = await db
+          .select({ userId: storeStaffTable.userId, pushToken: users.pushToken })
+          .from(storeStaffTable)
+          .innerJoin(users, eq(storeStaffTable.userId, users.id))
+          .where(eq(storeStaffTable.storeId, input.storeId));
+
+        for (const staff of storeStaffMembers) {
+          if (staff.pushToken) {
+            await sendNewOrderNotification(staff.pushToken, Number(orderId), input.customerName, input.items.length, total);
+          }
+        }
+      } catch (e) {
+        console.error(`[Push] Failed to notify store staff for phone order ${orderId}:`, e);
+      }
+
+      // Offer to driver queue
+      try {
+        await offerOrderToQueue(Number(orderId));
+      } catch (e) {
+        console.error(`[Queue] Failed to offer phone order ${orderId} to queue:`, e);
+      }
+
+      console.log(`[Admin] Phone order ${orderId} (#${orderNumber}) created for ${input.customerName}`);
+      return { orderId: Number(orderId), orderNumber, subtotal, serviceFee, deliveryFee, total, distance };
+    }),
+
+  // Get all stores (for phone order store selection)
+  getStores: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+    const storesList = await db.select({ id: stores.id, name: stores.name, address: stores.address, isActive: stores.isActive }).from(stores).where(eq(stores.isActive, true));
+    return storesList;
+  }),
+
+  // Get products for a store (for phone order product selection)
+  getStoreProducts: publicProcedure
+    .input(z.object({ storeId: z.number(), search: z.string().optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      let conditions = [eq(products.storeId, input.storeId), eq(products.isActive, true)];
+
+      const productsList = await db
+        .select({ id: products.id, name: products.name, price: products.price, images: products.images, stockStatus: products.stockStatus })
+        .from(products)
+        .where(and(...conditions))
+        .orderBy(products.name)
+        .limit(200);
+
+      // Filter by search term in JS if provided
+      if (input.search && input.search.trim()) {
+        const term = input.search.toLowerCase().trim();
+        return productsList.filter(p => p.name.toLowerCase().includes(term));
+      }
+
+      return productsList;
+    }),
 });

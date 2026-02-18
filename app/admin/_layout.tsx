@@ -74,6 +74,12 @@ export default function AdminLayout() {
           title: "Store Logos",
         }}
       />
+      <Stack.Screen
+        name="phone-order"
+        options={{
+          title: "Create Phone Order",
+        }}
+      />
     </Stack>
   );
 }

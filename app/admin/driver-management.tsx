@@ -1,14 +1,26 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, TextInput, Alert, Modal } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AdminDriverManagement() {
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingDisplayNumber, setEditingDisplayNumber] = useState<{ userId: number; value: string } | null>(null);
 
   const { data: drivers, isLoading, refetch } = trpc.admin.getAllDrivers.useQuery(undefined, {
     refetchInterval: 15000,
+  });
+
+  const setDisplayNumberMutation = trpc.admin.setDriverDisplayNumber.useMutation({
+    onSuccess: () => {
+      refetch();
+      setEditingDisplayNumber(null);
+      Alert.alert("Success", "Display number updated");
+    },
+    onError: (err) => { Alert.alert("Error", err.message); },
   });
 
   const onRefresh = useCallback(async () => {
@@ -16,6 +28,14 @@ export default function AdminDriverManagement() {
     await refetch();
     setRefreshing(false);
   }, [refetch]);
+
+  const handleSaveDisplayNumber = () => {
+    if (!editingDisplayNumber) return;
+    setDisplayNumberMutation.mutate({
+      driverUserId: editingDisplayNumber.userId,
+      displayNumber: editingDisplayNumber.value.trim(),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -55,7 +75,7 @@ export default function AdminDriverManagement() {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 12, paddingTop: 8 }}
+        contentContainerStyle={{ paddingBottom: 20 + insets.bottom, paddingHorizontal: 12, paddingTop: 8 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" />
         }
@@ -83,7 +103,16 @@ export default function AdminDriverManagement() {
                         {/* Status Indicator */}
                         <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: statusColor }} />
                         <View>
-                          <Text className="text-base font-bold text-foreground">{driver.name}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Text className="text-base font-bold text-foreground">{driver.name}</Text>
+                            {(driver as any).displayNumber && (
+                              <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                                <Text style={{ fontSize: 11, fontWeight: "700", color: "#2563EB" }}>
+                                  #{(driver as any).displayNumber}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusText}</Text>
                         </View>
                       </View>
@@ -119,7 +148,7 @@ export default function AdminDriverManagement() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Rating</Text>
                           <Text className="text-sm text-foreground">
-                            ⭐ {driver.rating ? parseFloat(driver.rating).toFixed(1) : "5.0"}
+                            {driver.rating ? parseFloat(driver.rating).toFixed(1) : "5.0"}/5.0
                           </Text>
                         </View>
                         <View className="flex-row justify-between">
@@ -134,6 +163,40 @@ export default function AdminDriverManagement() {
                           <Text className="text-sm text-muted">Joined</Text>
                           <Text className="text-sm text-foreground">
                             {driver.createdAt ? new Date(driver.createdAt).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                          </Text>
+                        </View>
+
+                        {/* Display Number Assignment */}
+                        <View className="mt-3 pt-3 border-t border-border">
+                          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 8 }}>DISPLAY NUMBER</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <View style={{ flex: 1, backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10 }}>
+                              <TextInput
+                                value={editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value : ((driver as any).displayNumber || "")}
+                                onChangeText={(text) => setEditingDisplayNumber({ userId: driver.userId, value: text })}
+                                onFocus={() => {
+                                  if (!editingDisplayNumber || editingDisplayNumber.userId !== driver.userId) {
+                                    setEditingDisplayNumber({ userId: driver.userId, value: (driver as any).displayNumber || "" });
+                                  }
+                                }}
+                                placeholder="e.g. 01, 02"
+                                placeholderTextColor="#687076"
+                                style={{ fontSize: 15, color: "#ECEDEE" }}
+                                returnKeyType="done"
+                                onSubmitEditing={handleSaveDisplayNumber}
+                              />
+                            </View>
+                            {editingDisplayNumber?.userId === driver.userId && (
+                              <TouchableOpacity
+                                onPress={handleSaveDisplayNumber}
+                                style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }}
+                              >
+                                <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Save</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 11, color: "#687076", marginTop: 4 }}>
+                            Customers will see "Driver {editingDisplayNumber?.userId === driver.userId ? editingDisplayNumber.value || "??" : ((driver as any).displayNumber || "??")}"
                           </Text>
                         </View>
                       </View>
