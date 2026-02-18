@@ -194,6 +194,9 @@ export const storesRouter = router({
         price: z.string().optional(),
         image: z.string().optional(),
         quantity: z.number().optional(),
+        sku: z.string().optional(),
+        stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
+        categoryId: z.number().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -208,6 +211,9 @@ export const storesRouter = router({
       if (input.price !== undefined) updateData.price = input.price;
       if (input.image !== undefined) updateData.images = [input.image];
       if (input.quantity !== undefined) updateData.quantity = input.quantity;
+      if (input.sku !== undefined) updateData.sku = input.sku;
+      if (input.stockStatus !== undefined) updateData.stockStatus = input.stockStatus;
+      if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 

@@ -1443,5 +1443,22 @@
 - [x] Build server endpoint to generate product descriptions via built-in LLM
 - [x] Create bulk script to find all products missing descriptions
 - [x] Run AI description generation on all 1,976 products without descriptions (0 errors, 139 batches)
-- [ ] Ensure admin dashboard has product description edit capability
-- [ ] Add indicator in admin for products missing descriptions
+- [x] Ensure admin dashboard has product description edit capability
+- [x] Add indicator in admin for products missing descriptions (NO DESC badge + filter)
+
+## Feature: Admin Product Editing
+- [x] Product edit screen in admin dashboard (enhanced with full editing)
+- [x] Edit product name
+- [x] Edit product description (multi-line text area with MISSING indicator)
+- [x] Edit product price
+- [x] Edit product SKU
+- [x] Edit product stock status (in stock / out of stock / low stock)
+- [x] Edit product image (pick from gallery)
+- [x] Change product category (horizontal scrollable category pills)
+- [x] Delete product (with confirmation dialog)
+- [x] Indicator for products missing descriptions (yellow NO DESC badge + filter pill)
+- [x] Server endpoint for updating product details (name, desc, price, sku, stockStatus, categoryId)
+- [x] Server endpoint for deleting products
+- [x] Category filter pills in product list
+- [x] Search by name or SKU
+- [x] FlatList for performance with large product lists

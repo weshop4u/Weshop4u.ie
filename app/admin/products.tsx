@@ -1,12 +1,20 @@
-import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Modal, StyleSheet, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Modal, StyleSheet, Platform, FlatList } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+
+type StockStatus = "in_stock" | "out_of_stock" | "low_stock";
+
+const STOCK_STATUS_OPTIONS: { value: StockStatus; label: string; color: string }[] = [
+  { value: "in_stock", label: "In Stock", color: "#22C55E" },
+  { value: "out_of_stock", label: "Out of Stock", color: "#EF4444" },
+  { value: "low_stock", label: "Low Stock", color: "#F59E0B" },
+];
 
 export default function ProductsManagementScreen() {
   const router = useRouter();
@@ -19,18 +27,69 @@ export default function ProductsManagementScreen() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
+  const [filterMissingDesc, setFilterMissingDesc] = useState(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: products, refetch } = trpc.stores.getProducts.useQuery(
     { storeId: selectedStore! },
     { enabled: !!selectedStore }
   );
+  const { data: categories } = trpc.categories.getAll.useQuery();
 
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
 
+  // Get unique categories from products for this store
+  const storeCategories = useMemo(() => {
+    if (!products) return [];
+    const catMap = new Map<number, string>();
+    products.forEach(p => {
+      if (p.category?.id && p.category?.name) {
+        catMap.set(p.category.id, p.category.name);
+      }
+    });
+    return Array.from(catMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products]);
+
+  // Count products missing descriptions
+  const missingDescCount = useMemo(() => {
+    if (!products) return 0;
+    return products.filter(p => !p.description || p.description.trim() === "").length;
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    let filtered = [...products];
+
+    // Filter by search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        (p.sku && p.sku.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by missing description
+    if (filterMissingDesc) {
+      filtered = filtered.filter(p => !p.description || p.description.trim() === "");
+    }
+
+    // Filter by category
+    if (selectedCategoryFilter !== "all") {
+      filtered = filtered.filter(p => p.category?.id === selectedCategoryFilter);
+    }
+
+    return filtered;
+  }, [products, searchQuery, filterMissingDesc, selectedCategoryFilter]);
+
   const handleEdit = (product: any) => {
-    setEditingProduct({ ...product });
+    setEditingProduct({
+      ...product,
+      _stockStatus: product.stockStatus || "in_stock",
+      _categoryId: product.category?.id || null,
+    });
     setShowEditModal(true);
     setPendingImageBase64(null);
     setMessage("");
@@ -50,7 +109,6 @@ export default function ProductsManagementScreen() {
         const asset = result.assets[0];
         let base64Data = asset.base64;
 
-        // If base64 not returned by picker, read from file
         if (!base64Data && asset.uri && Platform.OS !== "web") {
           const fileData = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
           base64Data = fileData;
@@ -58,7 +116,6 @@ export default function ProductsManagementScreen() {
 
         if (base64Data) {
           setPendingImageBase64(base64Data);
-          // Show preview using local URI
           setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
         } else {
           setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
@@ -74,7 +131,6 @@ export default function ProductsManagementScreen() {
     if (!editingProduct) return;
 
     try {
-      // If we have a new image as base64, pass it; otherwise pass the existing URL
       const imageValue = pendingImageBase64
         ? `data:image/jpeg;base64,${pendingImageBase64}`
         : editingProduct.images?.[0];
@@ -82,10 +138,13 @@ export default function ProductsManagementScreen() {
       await updateMutation.mutateAsync({
         id: editingProduct.id,
         name: editingProduct.name,
-        description: editingProduct.description,
+        description: editingProduct.description || "",
         price: editingProduct.price,
         image: imageValue,
         quantity: editingProduct.quantity,
+        sku: editingProduct.sku || "",
+        stockStatus: editingProduct._stockStatus,
+        categoryId: editingProduct._categoryId,
       });
 
       setMessage("Product updated successfully!");
@@ -115,121 +174,172 @@ export default function ProductsManagementScreen() {
     }
   };
 
-  const filteredProducts = products?.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getStockBadge = (status: string) => {
+    const opt = STOCK_STATUS_OPTIONS.find(o => o.value === status);
+    return opt || STOCK_STATUS_OPTIONS[0];
+  };
+
+  const renderProductItem = ({ item: product }: { item: any }) => {
+    const hasDesc = product.description && product.description.trim() !== "";
+    const stockBadge = getStockBadge(product.stockStatus);
+
+    return (
+      <View style={[itemStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          {product.images && product.images.length > 0 ? (
+            <Image
+              source={{ uri: typeof product.images === "string" ? JSON.parse(product.images)[0] : product.images[0] }}
+              style={{ width: 60, height: 60, borderRadius: 8 }}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ fontSize: 24 }}>📦</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14, flex: 1 }} numberOfLines={1}>{product.name}</Text>
+              {!hasDesc && (
+                <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ color: "#F59E0B", fontSize: 10, fontWeight: "700" }}>NO DESC</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+              {product.description || "No description"}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+              <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>€{product.price}</Text>
+              <View style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ color: stockBadge.color, fontSize: 10, fontWeight: "700" }}>{stockBadge.label}</Text>
+              </View>
+              {product.sku && (
+                <Text style={{ color: colors.muted, fontSize: 10 }}>SKU: {product.sku}</Text>
+              )}
+            </View>
+            {product.category?.name && (
+              <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>📁 {product.category.name}</Text>
+            )}
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+          <TouchableOpacity
+            onPress={() => handleEdit(product)}
+            style={[itemStyles.actionBtn, { backgroundColor: colors.primary + "15" }]}
+          >
+            <Text style={{ color: colors.primary, textAlign: "center", fontWeight: "600", fontSize: 13 }}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setDeleteConfirmId(product.id)}
+            style={[itemStyles.actionBtn, { backgroundColor: "#EF444415" }]}
+          >
+            <Text style={{ color: "#EF4444", textAlign: "center", fontWeight: "600", fontSize: 13 }}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <ScreenContainer className="bg-background">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="active:opacity-70"
-        >
-          <Text className="text-primary text-2xl">‹ Back</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ opacity: 1 }}>
+          <Text style={{ color: colors.primary, fontSize: 22 }}>‹ Back</Text>
         </TouchableOpacity>
-        <Text className="text-xl font-bold text-foreground">Manage Products</Text>
-        <View className="w-12" />
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Manage Products</Text>
+        <View style={{ width: 48 }} />
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
-        <View className="p-4 gap-4">
-          {/* Message */}
-          {message && (
-            <TouchableOpacity onPress={() => setMessage("")}>
-              <View className={`rounded-xl p-4 ${messageType === "error" ? "bg-error/10 border border-error" : "bg-success/10 border border-success"}`}>
-                <Text className={messageType === "error" ? "text-error" : "text-success"}>
-                  {message}
-                </Text>
-              </View>
+      {!selectedStore ? (
+        /* Store Selection */
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>Select Store</Text>
+          {stores?.map((store) => (
+            <TouchableOpacity
+              key={store.id}
+              onPress={() => setSelectedStore(store.id)}
+              style={[itemStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <Text style={{ fontWeight: "600", color: colors.foreground, fontSize: 16 }}>{store.name}</Text>
+              <Text style={{ color: colors.muted, fontSize: 13, marginTop: 2 }}>{(store as any).category || ""}</Text>
             </TouchableOpacity>
-          )}
-
-          {/* Store Selection */}
-          <View>
-            <Text className="text-sm font-semibold text-foreground mb-2">Select Store</Text>
-            <View className="gap-2">
-              {stores?.map((store) => (
-                <TouchableOpacity
-                  key={store.id}
-                  onPress={() => setSelectedStore(store.id)}
-                  className={`p-4 rounded-xl border ${
-                    selectedStore === store.id
-                      ? "bg-primary/10 border-primary"
-                      : "bg-surface border-border"
-                  } active:opacity-70`}
-                >
-                  <Text className={`font-semibold ${
-                    selectedStore === store.id ? "text-primary" : "text-foreground"
-                  }`}>
-                    {store.name}
-                  </Text>
-                  <Text className="text-sm text-muted">{(store as any).category || ""}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {/* Store header + back to stores */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+            <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setSelectedCategoryFilter("all"); }}>
+              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 6 }}>
+              {stores?.find(s => s.id === selectedStore)?.name} — {filteredProducts.length} products
+            </Text>
           </View>
 
+          {/* Message */}
+          {message ? (
+            <TouchableOpacity onPress={() => setMessage("")} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+              <View style={{ borderRadius: 12, padding: 12, backgroundColor: messageType === "error" ? "#EF444415" : "#22C55E15", borderWidth: 1, borderColor: messageType === "error" ? "#EF4444" : "#22C55E" }}>
+                <Text style={{ color: messageType === "error" ? "#EF4444" : "#22C55E", fontSize: 13 }}>{message}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
           {/* Search */}
-          {selectedStore && (
-            <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">Search Products</Text>
-              <TextInput
-                className="bg-surface border border-border rounded-xl p-4 text-foreground"
-                placeholder="Search by name..."
-                placeholderTextColor={colors.muted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-          )}
+          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, color: colors.foreground, fontSize: 14 }}
+              placeholder="Search by name or SKU..."
+              placeholderTextColor={colors.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="done"
+            />
+          </View>
+
+          {/* Filters row */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, maxHeight: 36 }} contentContainerStyle={{ gap: 8 }}>
+            {/* Missing desc filter */}
+            <TouchableOpacity
+              onPress={() => setFilterMissingDesc(!filterMissingDesc)}
+              style={[itemStyles.filterPill, { backgroundColor: filterMissingDesc ? "#F59E0B" : colors.surface, borderColor: filterMissingDesc ? "#F59E0B" : colors.border }]}
+            >
+              <Text style={{ color: filterMissingDesc ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                ⚠️ No Desc ({missingDescCount})
+              </Text>
+            </TouchableOpacity>
+
+            {/* Category filters */}
+            <TouchableOpacity
+              onPress={() => setSelectedCategoryFilter("all")}
+              style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === "all" ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === "all" ? colors.primary : colors.border }]}
+            >
+              <Text style={{ color: selectedCategoryFilter === "all" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>All</Text>
+            </TouchableOpacity>
+            {storeCategories.map(cat => (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setSelectedCategoryFilter(cat.id === selectedCategoryFilter ? "all" : cat.id)}
+                style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === cat.id ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === cat.id ? colors.primary : colors.border }]}
+              >
+                <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           {/* Products List */}
-          {selectedStore && filteredProducts && (
-            <View>
-              <Text className="text-sm font-semibold text-foreground mb-2">
-                Products ({filteredProducts.length})
-              </Text>
-              <View className="gap-3">
-                {filteredProducts.map((product) => (
-                  <View key={product.id} className="bg-surface rounded-xl p-4 border border-border">
-                    <View className="flex-row gap-3">
-                      {product.images && product.images.length > 0 && (
-                        <Image
-                          source={{ uri: product.images[0] }}
-                          style={{ width: 60, height: 60, borderRadius: 8 }}
-                          contentFit="cover"
-                        />
-                      )}
-                      <View className="flex-1">
-                        <Text className="text-foreground font-semibold">{product.name}</Text>
-                        <Text className="text-sm text-muted" numberOfLines={2}>{product.description}</Text>
-                        <Text className="text-primary font-bold mt-1">€{product.price}</Text>
-                        <Text className="text-xs text-muted">Stock: {product.quantity}</Text>
-                      </View>
-                    </View>
-                    <View className="flex-row gap-2 mt-3">
-                      <TouchableOpacity
-                        onPress={() => handleEdit(product)}
-                        className="flex-1 py-2 bg-primary/10 rounded-lg active:opacity-70"
-                      >
-                        <Text className="text-primary text-center font-semibold">Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setDeleteConfirmId(product.id)}
-                        className="flex-1 py-2 bg-error/10 rounded-lg active:opacity-70"
-                      >
-                        <Text className="text-error text-center font-semibold">Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
+          <FlatList
+            data={filteredProducts}
+            renderItem={renderProductItem}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 10 }}
+            showsVerticalScrollIndicator={false}
+          />
         </View>
-      </ScrollView>
+      )}
 
       {/* Delete Confirmation Overlay */}
       {deleteConfirmId !== null && (
@@ -260,69 +370,152 @@ export default function ProductsManagementScreen() {
       {/* Edit Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "90%" }}>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground, marginBottom: 16 }}>Edit Product</Text>
-            
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16 }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "92%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Edit Product</Text>
+              <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); }}>
+                <Text style={{ fontSize: 28, color: colors.muted }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
               {/* Image */}
               {editingProduct?.images && editingProduct.images.length > 0 && (
-                <View className="items-center">
+                <View style={{ alignItems: "center" }}>
                   <Image
-                    source={{ uri: editingProduct.images[0] }}
-                    style={{ width: 150, height: 150, borderRadius: 12 }}
+                    source={{ uri: typeof editingProduct.images === "string" ? JSON.parse(editingProduct.images)[0] : editingProduct.images[0] }}
+                    style={{ width: 120, height: 120, borderRadius: 12 }}
                     contentFit="cover"
                   />
                   <TouchableOpacity
                     onPress={handlePickImage}
                     style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary + "20", borderRadius: 8 }}
                   >
-                    <Text style={{ color: colors.primary, fontWeight: "600" }}>Change Image</Text>
+                    <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>Change Image</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {/* Name */}
               <View>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Name</Text>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Name</Text>
                 <TextInput
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                   value={editingProduct?.name}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, name: text })}
+                  returnKeyType="done"
                 />
               </View>
 
               {/* Description */}
               <View>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Description</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <Text style={[editStyles.label, { color: colors.foreground, marginBottom: 0 }]}>Description</Text>
+                  {(!editingProduct?.description || editingProduct.description.trim() === "") && (
+                    <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ color: "#F59E0B", fontSize: 10, fontWeight: "700" }}>MISSING</Text>
+                    </View>
+                  )}
+                </View>
                 <TextInput
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
-                  value={editingProduct?.description}
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 80, textAlignVertical: "top" }]}
+                  value={editingProduct?.description || ""}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, description: text })}
                   multiline
-                  numberOfLines={3}
+                  numberOfLines={4}
+                  placeholder="Enter product description..."
+                  placeholderTextColor={colors.muted}
                 />
               </View>
 
               {/* Price */}
               <View>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Price (€)</Text>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Price (€)</Text>
                 <TextInput
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                   value={editingProduct?.price}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, price: text })}
                   keyboardType="decimal-pad"
+                  returnKeyType="done"
                 />
               </View>
 
-              {/* Quantity */}
+              {/* SKU */}
               <View>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Stock Quantity</Text>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>SKU</Text>
                 <TextInput
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
-                  value={editingProduct?.quantity?.toString()}
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={editingProduct?.sku || ""}
+                  onChangeText={(text) => setEditingProduct({ ...editingProduct, sku: text })}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Stock Status */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Stock Status</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {STOCK_STATUS_OPTIONS.map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      onPress={() => setEditingProduct({ ...editingProduct, _stockStatus: opt.value })}
+                      style={[
+                        editStyles.stockPill,
+                        {
+                          backgroundColor: editingProduct?._stockStatus === opt.value ? opt.color : colors.surface,
+                          borderColor: editingProduct?._stockStatus === opt.value ? opt.color : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={{
+                        color: editingProduct?._stockStatus === opt.value ? "#fff" : colors.foreground,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Stock Quantity */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Stock Quantity</Text>
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={editingProduct?.quantity?.toString() || "0"}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, quantity: parseInt(text) || 0 })}
                   keyboardType="number-pad"
+                  returnKeyType="done"
                 />
+              </View>
+
+              {/* Category */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  {categories?.map((cat: any) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setEditingProduct({ ...editingProduct, _categoryId: cat.id })}
+                      style={[
+                        editStyles.stockPill,
+                        {
+                          backgroundColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.surface,
+                          borderColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: editingProduct?._categoryId === cat.id ? "#fff" : colors.foreground,
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                        numberOfLines={1}
+                      >{cat.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             </ScrollView>
 
@@ -342,7 +535,9 @@ export default function ProductsManagementScreen() {
                 onPress={handleSave}
                 style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.primary, borderRadius: 12, alignItems: "center" }}
               >
-                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Save Changes</Text>
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -351,6 +546,46 @@ export default function ProductsManagementScreen() {
     </ScreenContainer>
   );
 }
+
+const itemStyles = StyleSheet.create({
+  card: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+});
+
+const editStyles = StyleSheet.create({
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+  },
+  stockPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+});
 
 const styles = StyleSheet.create({
   overlay: {
