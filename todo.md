@@ -1375,3 +1375,27 @@
 - [x] Deletes driver record and associated user account
 - [x] Returns freed display number in success message
 - [x] Display number auto-recycled: registerDriver always picks lowest available number
+
+## Product Import from CSV (Spar Balbriggan)
+- [x] Build server endpoint to import products from CSV data
+- [x] Filter CSV to only Spar/WeShop4U Main products (2,910 items)
+- [x] Map CSV categories to app categories (create new categories as needed)
+- [x] Strip HTML from product descriptions
+- [x] Use existing weshop4u.ie image URLs directly
+- [x] Handle uncategorized products (assign to "General" category)
+- [x] Skip pending/draft products (only import published)
+- [x] Handle duplicate product names within same store
+- [x] Execute bulk import of 2,900 Spar products into store_id=1
+- [ ] Verify imported products appear in customer app
+
+## Category Management (Admin Dashboard)
+- [x] Rename category feature
+- [x] Time availability per category (per-day schedule for alcohol restrictions)
+- [x] Option B: Show restricted products greyed out with "Available from X" message
+- [x] 18+ age restriction badge on alcohol/tobacco categories
+- [x] Category edit screen in admin dashboard (rename, time availability, age restriction, merge, delete, sort)
+- [x] Irish alcohol hours preset (Mon-Sat 10:30-22:00, Sun 12:30-22:00)
+- [x] Auto-detected 6 age-restricted categories during import
+- [x] Block add-to-cart for restricted products outside hours with alert
+- [x] Category availability utility with unit tests (21 tests passing)
+- [x] Product images displayed in store product list

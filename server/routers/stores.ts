@@ -109,6 +109,8 @@ export const storesRouter = router({
             name: productCategories.name,
             slug: productCategories.slug,
             icon: productCategories.icon,
+            ageRestricted: productCategories.ageRestricted,
+            availabilitySchedule: productCategories.availabilitySchedule,
           },
         })
         .from(products)

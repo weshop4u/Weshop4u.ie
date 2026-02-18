@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useMemo } from "react";
 import { useCart } from "@/lib/cart-provider";
 import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } from "@/lib/store-hours";
+import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,13 +26,20 @@ export default function StoreDetailScreen() {
   const nextOpen = store && !storeOpen ? getNextOpenTime(store) : null;
   const weeklyHours = store ? getWeeklyHoursSummary(store) : [];
 
-  const handleAddToCart = async (productId: number, productName: string, productPrice: string) => {
+  const handleAddToCart = async (productId: number, productName: string, productPrice: string, categorySchedule?: string | null) => {
     if (!storeOpen) {
       Alert.alert(
         "Store Closed",
         `${store?.name} is currently closed. ${nextOpen || "Please check back later."}`,
         [{ text: "OK" }]
       );
+      return;
+    }
+
+    // Check category availability
+    if (categorySchedule && !isCategoryAvailable(categorySchedule)) {
+      const msg = getAvailabilityMessage(categorySchedule) || "This product is not available right now.";
+      Alert.alert("Not Available", msg, [{ text: "OK" }]);
       return;
     }
 
@@ -75,12 +83,15 @@ export default function StoreDetailScreen() {
       acc[product.categoryId] = {
         id: product.categoryId,
         name: product.category?.name || "Uncategorized",
+        icon: product.category?.icon || null,
+        ageRestricted: product.category?.ageRestricted || false,
+        availabilitySchedule: product.category?.availabilitySchedule || null,
         products: [],
       };
     }
     acc[product.categoryId].products.push(product);
     return acc;
-  }, {} as Record<number, { id: number; name: string; products: typeof products }>) || {};
+  }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>) || {};
 
   const categories = Object.values(categoriesWithProducts);
 
@@ -241,40 +252,67 @@ export default function StoreDetailScreen() {
             
             {filteredCategories.length > 0 ? (
               <View className="gap-3">
-                {filteredCategories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    onPress={() => setSelectedCategoryId(category.id)}
-                    className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
-                  >
-                    <View className="flex-row items-center gap-3">
-                      <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
-                        {category.products[0]?.category?.icon ? (
-                          <Image
-                            source={{ uri: category.products[0].category.icon }}
-                            style={{ width: 56, height: 56 }}
-                            contentFit="cover"
-                          />
-                        ) : (
-                          <View className="w-full h-full items-center justify-center">
-                            <Text className="text-3xl">📦</Text>
+                {filteredCategories.map((category) => {
+                  const catAvailable = isCategoryAvailable(category.availabilitySchedule);
+                  const availMsg = getAvailabilityMessage(category.availabilitySchedule);
+                  const todayAvail = getTodayAvailability(category.availabilitySchedule);
+
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      onPress={() => setSelectedCategoryId(category.id)}
+                      className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
+                      style={!catAvailable ? { opacity: 0.55 } : undefined}
+                    >
+                      <View className="flex-row items-center gap-3">
+                        <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
+                          {category.icon ? (
+                            <Image
+                              source={{ uri: category.icon }}
+                              style={{ width: 56, height: 56 }}
+                              contentFit="cover"
+                            />
+                          ) : (
+                            <View className="w-full h-full items-center justify-center">
+                              <Text className="text-3xl">📦</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-1.5">
+                            <Text className="text-lg font-semibold text-foreground" numberOfLines={1} style={{ flexShrink: 1 }}>
+                              {category.name}
+                            </Text>
+                            {category.ageRestricted && (
+                              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                              </View>
+                            )}
                           </View>
-                        )}
+                          <Text className="text-sm text-muted">
+                            {category.products.length} {category.products.length === 1 ? 'item' : 'items'}
+                          </Text>
+                          {/* Availability message */}
+                          {!catAvailable && availMsg && (
+                            <View className="flex-row items-center gap-1 mt-1">
+                              <Text style={{ fontSize: 11, color: "#F59E0B", fontWeight: "600" }}>
+                                🕐 {availMsg}
+                              </Text>
+                            </View>
+                          )}
+                          {catAvailable && todayAvail && (
+                            <Text style={{ fontSize: 11, color: "#16A34A", marginTop: 2 }}>
+                              🕐 {todayAvail}
+                            </Text>
+                          )}
+                        </View>
+                        
+                        <Text className="text-primary text-2xl">›</Text>
                       </View>
-                      
-                      <View className="flex-1">
-                        <Text className="text-lg font-semibold text-foreground mb-1">
-                          {category.name}
-                        </Text>
-                        <Text className="text-sm text-muted">
-                          {category.products.length} {category.products.length === 1 ? 'item' : 'items'}
-                        </Text>
-                      </View>
-                      
-                      <Text className="text-primary text-2xl">›</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ) : (
               <View className="items-center py-8">
@@ -300,6 +338,8 @@ export default function StoreDetailScreen() {
   // Show products for selected category
   const selectedCategory = categoriesWithProducts[selectedCategoryId];
   const categoryProducts = selectedCategory?.products || [];
+  const catAvailable = isCategoryAvailable(selectedCategory?.availabilitySchedule);
+  const catAvailMsg = getAvailabilityMessage(selectedCategory?.availabilitySchedule);
 
   // Filter products by search query
   const filteredProducts = useMemo(() => {
@@ -346,7 +386,14 @@ export default function StoreDetailScreen() {
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-2">
-          <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
+            {selectedCategory?.ageRestricted && (
+              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+              </View>
+            )}
+          </View>
           <View className="flex-row items-center gap-2 mt-1">
             <Text className="text-sm text-muted">{store.name}</Text>
             {!storeOpen && (
@@ -356,6 +403,18 @@ export default function StoreDetailScreen() {
             )}
           </View>
         </View>
+
+        {/* Category Availability Banner */}
+        {!catAvailable && catAvailMsg && (
+          <View className="mx-4 mb-3 p-3 rounded-xl" style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A" }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>
+              🕐 {catAvailMsg}
+            </Text>
+            <Text style={{ fontSize: 12, color: "#92400E", marginTop: 2 }}>
+              You can browse but these items cannot be added to your cart right now.
+            </Text>
+          </View>
+        )}
 
         {/* Product Search Bar */}
         <View className="px-4 py-3">
@@ -377,14 +436,30 @@ export default function StoreDetailScreen() {
             <View className="gap-3">
               {filteredProducts.map((product) => {
                 const quantity = getProductQuantity(product.id);
+                const isRestricted = !catAvailable;
+                const productImages = product.images ? (typeof product.images === "string" ? JSON.parse(product.images) : product.images) : [];
+                const productImage = productImages.length > 0 ? productImages[0] : null;
+
                 return (
                   <View
                     key={product.id}
                     className="bg-surface rounded-xl p-4 border border-border"
+                    style={isRestricted ? { opacity: 0.45 } : undefined}
                   >
                     <View className="flex-row justify-between items-start">
-                      <View className="flex-1 pr-4">
-                        <Text className="text-lg font-semibold text-foreground mb-1">
+                      {/* Product Image */}
+                      {productImage && (
+                        <View style={{ width: 64, height: 64, borderRadius: 10, overflow: "hidden", marginRight: 12 }}>
+                          <Image
+                            source={{ uri: productImage }}
+                            style={{ width: 64, height: 64 }}
+                            contentFit="cover"
+                          />
+                        </View>
+                      )}
+
+                      <View className="flex-1 pr-3">
+                        <Text className="text-base font-semibold text-foreground mb-1" numberOfLines={2}>
                           {product.name}
                         </Text>
                         {product.description && (
@@ -392,23 +467,28 @@ export default function StoreDetailScreen() {
                             {product.description}
                           </Text>
                         )}
-                        <Text className="text-xl font-bold text-primary">
+                        <Text className="text-lg font-bold text-primary">
                           €{parseFloat(product.price).toFixed(2)}
                         </Text>
+                        {product.stockStatus === "out_of_stock" && (
+                          <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
+                        )}
                       </View>
 
                       {/* Add to Cart Button */}
                       <TouchableOpacity
-                        onPress={() => handleAddToCart(product.id, product.name, product.price)}
+                        onPress={() => handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule)}
                         className="rounded-lg active:opacity-70"
                         style={{
-                          backgroundColor: storeOpen ? "#00E5FF" : "#9BA1A6",
+                          backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF",
                           paddingHorizontal: 16,
                           paddingVertical: 8,
+                          alignSelf: "center",
                         }}
+                        disabled={product.stockStatus === "out_of_stock"}
                       >
                         <Text className="text-background font-semibold">
-                          {quantity > 0 ? `+${quantity}` : "Add"}
+                          {product.stockStatus === "out_of_stock" ? "N/A" : quantity > 0 ? `+${quantity}` : "Add"}
                         </Text>
                       </TouchableOpacity>
                     </View>

@@ -118,6 +118,9 @@ export const productCategories = mysqlTable("product_categories", {
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
   icon: varchar("icon", { length: 255 }),
+  ageRestricted: boolean("age_restricted").default(false), // 18+ products (alcohol, tobacco, vapes)
+  availabilitySchedule: text("availability_schedule"), // JSON: per-day schedule e.g. {"mon":{"open":"10:30","close":"22:00"},"sun":{"open":"12:30","close":"22:00"},...}
+  sortOrder: int("sort_order").default(0), // For custom ordering in the UI
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
