@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, FlatList, Modal } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, FlatList, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 type CartItem = {
   productId: number;
@@ -12,9 +13,15 @@ type CartItem = {
   quantity: number;
 };
 
-// Balbriggan default coordinates for delivery fee calculation
-const DEFAULT_DELIVERY_LAT = 53.6109;
-const DEFAULT_DELIVERY_LNG = -6.1811;
+type FeeInfo = {
+  distance: number;
+  deliveryFee: number;
+  serviceFee: number;
+  total: number;
+  deliveryLatitude: number;
+  deliveryLongitude: number;
+  formattedAddress: string;
+} | null;
 
 export default function PhoneOrderScreen() {
   const insets = useSafeAreaInsets();
@@ -40,8 +47,51 @@ export default function PhoneOrderScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
 
+  // Fee calculation
+  const [feeInfo, setFeeInfo] = useState<FeeInfo>(null);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState("");
+
+  // Customer lookup
+  const [lookupDone, setLookupDone] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupMessage, setLookupMessage] = useState("");
+  const [lookupPhone, setLookupPhone] = useState("");
+  const phoneDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // tRPC query for customer lookup (enabled when lookupPhone is set)
+  const { data: lookupData, isFetching: lookupFetching } = trpc.admin.lookupCustomerByPhone.useQuery(
+    { phone: lookupPhone },
+    { enabled: lookupPhone.length >= 7 }
+  );
+
+  // Process lookup results
+  useEffect(() => {
+    if (!lookupPhone || lookupPhone.length < 7) return;
+    if (lookupFetching) {
+      setLookupLoading(true);
+      return;
+    }
+    setLookupLoading(false);
+    if (lookupData) {
+      if (lookupData.found) {
+        if (lookupData.name) setCustomerName(lookupData.name);
+        if (lookupData.address) setDeliveryAddress(lookupData.address);
+        if (lookupData.eircode) setDeliveryEircode(lookupData.eircode);
+        setLookupMessage(`\u2705 Found: ${lookupData.name || "Customer"} — details auto-filled`);
+        setLookupDone(true);
+      } else {
+        setLookupMessage("No previous orders found for this number");
+        setLookupDone(true);
+      }
+    }
+  }, [lookupData, lookupFetching, lookupPhone]);
+
   // Submitting
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [orderResult, setOrderResult] = useState<{ orderNumber: string; total: number; distance: number; serviceFee: number; deliveryFee: number; subtotal: number } | null>(null);
+  const [submitError, setSubmitError] = useState("");
 
   // Queries
   const { data: storesList, isLoading: storesLoading } = trpc.admin.getStores.useQuery();
@@ -50,19 +100,8 @@ export default function PhoneOrderScreen() {
     { enabled: selectedStoreId !== null }
   );
 
-  const createPhoneOrderMutation = trpc.admin.createPhoneOrder.useMutation({
-    onSuccess: (data) => {
-      Alert.alert(
-        "Order Created",
-        `Order ${data.orderNumber} created successfully.\n\nSubtotal: €${data.subtotal.toFixed(2)}\nService Fee: €${data.serviceFee.toFixed(2)}\nDelivery Fee: €${data.deliveryFee.toFixed(2)}\nTotal: €${data.total.toFixed(2)}\nDistance: ${data.distance.toFixed(1)} km`,
-        [{ text: "OK", onPress: () => router.back() }]
-      );
-    },
-    onError: (err) => {
-      setSubmitting(false);
-      Alert.alert("Error", err.message);
-    },
-  });
+  const createPhoneOrderMutation = trpc.admin.createPhoneOrder.useMutation();
+  const calculateFeesMutation = trpc.admin.calculatePhoneOrderFees.useMutation();
 
   // Cart calculations
   const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
@@ -86,39 +125,117 @@ export default function PhoneOrderScreen() {
     }
   };
 
-  const handleSubmit = () => {
+  // ===== CUSTOMER LOOKUP BY PHONE =====
+  const handlePhoneChange = useCallback((text: string) => {
+    setCustomerPhone(text);
+    setLookupDone(false);
+    setLookupMessage("");
+
+    // Debounce: set lookupPhone after delay to trigger tRPC query
+    if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
+    const cleaned = text.replace(/\s+/g, "");
+    if (cleaned.length >= 7) {
+      phoneDebounceRef.current = setTimeout(() => {
+        setLookupPhone(cleaned);
+      }, 800);
+    } else {
+      setLookupPhone("");
+    }
+  }, []);
+
+  // ===== FEE CALCULATION =====
+  const calculateFees = useCallback(async () => {
+    if (!selectedStoreId || !deliveryEircode.trim() || cartSubtotal <= 0) return;
+
+    setFeeLoading(true);
+    setFeeError("");
+    setFeeInfo(null);
+
+    try {
+      const result = await calculateFeesMutation.mutateAsync({
+        storeId: selectedStoreId,
+        eircode: deliveryEircode.trim(),
+        subtotal: cartSubtotal,
+      });
+      setFeeInfo(result);
+    } catch (e: any) {
+      setFeeError(e.message || "Could not calculate fees");
+    } finally {
+      setFeeLoading(false);
+    }
+  }, [selectedStoreId, deliveryEircode, cartSubtotal]);
+
+  // Auto-calculate fees when Eircode changes (debounced)
+  const eircodeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleEircodeChange = useCallback((text: string) => {
+    setDeliveryEircode(text);
+    setFeeInfo(null);
+    setFeeError("");
+
+    if (eircodeDebounceRef.current) clearTimeout(eircodeDebounceRef.current);
+    const cleaned = text.replace(/\s+/g, "");
+    if (cleaned.length >= 5) {
+      eircodeDebounceRef.current = setTimeout(() => {
+        calculateFees();
+      }, 1000);
+    }
+  }, [calculateFees]);
+
+  // Recalculate when eircode debounce triggers (need latest values)
+  useEffect(() => {
+    // Cleanup debounce on unmount
+    return () => {
+      if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
+      if (eircodeDebounceRef.current) clearTimeout(eircodeDebounceRef.current);
+    };
+  }, []);
+
+  // ===== ORDER SUBMISSION (no Alert.alert) =====
+  const handleSubmit = useCallback(() => {
     if (!selectedStoreId || cart.length === 0 || !customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
-      Alert.alert("Missing Info", "Please fill in all required fields including Eircode (needed for delivery fee calculation).");
+      setSubmitError("Please fill in all required fields including Eircode.");
       return;
     }
+    setSubmitError("");
+    setShowConfirmModal(true);
+  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode]);
 
-    Alert.alert(
-      "Confirm Order",
-      `Create order for ${customerName}?\n${cartItemCount} items from ${selectedStoreName}\nSubtotal: €${cartSubtotal.toFixed(2)}\nPayment: ${paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Create Order",
-          onPress: () => {
-            setSubmitting(true);
-            createPhoneOrderMutation.mutate({
-              storeId: selectedStoreId,
-              items: cart.map(c => ({ productId: c.productId, quantity: c.quantity })),
-              customerName: customerName.trim(),
-              customerPhone: customerPhone.trim(),
-              deliveryAddress: deliveryAddress.trim(),
-              deliveryEircode: deliveryEircode.trim() || undefined,
-              deliveryLatitude: DEFAULT_DELIVERY_LAT,
-              deliveryLongitude: DEFAULT_DELIVERY_LNG,
-              paymentMethod,
-              customerNotes: customerNotes.trim() || undefined,
-              allowSubstitution,
-            });
-          },
-        },
-      ]
-    );
-  };
+  const confirmAndCreate = useCallback(async () => {
+    setShowConfirmModal(false);
+    setSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const lat = feeInfo?.deliveryLatitude ?? 53.6109;
+      const lng = feeInfo?.deliveryLongitude ?? -6.1811;
+
+      const data = await createPhoneOrderMutation.mutateAsync({
+        storeId: selectedStoreId!,
+        items: cart.map(c => ({ productId: c.productId, quantity: c.quantity })),
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        deliveryAddress: deliveryAddress.trim(),
+        deliveryEircode: deliveryEircode.trim() || undefined,
+        deliveryLatitude: lat,
+        deliveryLongitude: lng,
+        paymentMethod,
+        customerNotes: customerNotes.trim() || undefined,
+        allowSubstitution,
+      });
+
+      setOrderResult({
+        orderNumber: data.orderNumber,
+        total: data.total,
+        distance: data.distance,
+        serviceFee: data.serviceFee,
+        deliveryFee: data.deliveryFee,
+        subtotal: data.subtotal,
+      });
+    } catch (e: any) {
+      setSubmitting(false);
+      setSubmitError(e.message || "Failed to create order");
+    }
+  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode, paymentMethod, customerNotes, allowSubstitution, feeInfo]);
 
   // Step indicator
   const steps = [
@@ -128,6 +245,111 @@ export default function PhoneOrderScreen() {
     { key: "confirm", label: "Confirm" },
   ];
   const currentStepIndex = steps.findIndex(s => s.key === step);
+
+  // ===== ORDER SUCCESS SCREEN =====
+  if (orderResult) {
+    return (
+      <ScreenContainer className="bg-background">
+        <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 40 + insets.bottom, alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>✅</Text>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: "#ECEDEE", marginBottom: 8, textAlign: "center" }}>Order Created!</Text>
+          <Text style={{ fontSize: 16, color: "#9BA1A6", marginBottom: 24, textAlign: "center" }}>
+            {orderResult.orderNumber}
+          </Text>
+
+          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#334155", width: "100%", maxWidth: 400, marginBottom: 24 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: "#687076" }}>Subtotal</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.subtotal.toFixed(2)}</Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: "#687076" }}>Service Fee (10%)</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.serviceFee.toFixed(2)}</Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, color: "#687076" }}>Delivery Fee ({orderResult.distance.toFixed(1)} km)</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.deliveryFee.toFixed(2)}</Text>
+            </View>
+            <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 8 }} />
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: "#00E5FF" }}>€{orderResult.total.toFixed(2)}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ backgroundColor: "#00E5FF", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#151718" }}>Done</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  // ===== CONFIRM MODAL (web-compatible, replaces Alert.alert) =====
+  const ConfirmOverlay = showConfirmModal ? (
+    <View style={{
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      justifyContent: "center", alignItems: "center",
+      zIndex: 999,
+      padding: 24,
+    }}>
+      <View style={{
+        backgroundColor: "#1e2022",
+        borderRadius: 16,
+        padding: 24,
+        width: "100%",
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: "#334155",
+      }}>
+        <Text style={{ fontSize: 20, fontWeight: "800", color: "#ECEDEE", marginBottom: 12 }}>Confirm Order</Text>
+        <Text style={{ fontSize: 15, color: "#9BA1A6", marginBottom: 6 }}>
+          Create order for {customerName}?
+        </Text>
+        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
+          {cartItemCount} items from {selectedStoreName}
+        </Text>
+        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
+          Subtotal: €{cartSubtotal.toFixed(2)}
+        </Text>
+        {feeInfo && (
+          <>
+            <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
+              Service Fee: €{feeInfo.serviceFee.toFixed(2)}
+            </Text>
+            <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
+              Delivery Fee: €{feeInfo.deliveryFee.toFixed(2)} ({feeInfo.distance.toFixed(1)} km)
+            </Text>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#00E5FF", marginBottom: 4 }}>
+              Total: €{feeInfo.total.toFixed(2)}
+            </Text>
+          </>
+        )}
+        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 16 }}>
+          Payment: {paymentMethod === "cash_on_delivery" ? "Cash on Delivery" : "Card"}
+        </Text>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => setShowConfirmModal(false)}
+            style={{ flex: 1, backgroundColor: "#334155", padding: 14, borderRadius: 10, alignItems: "center" }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "600", color: "#ECEDEE" }}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={confirmAndCreate}
+            style={{ flex: 2, backgroundColor: "#22C55E", padding: 14, borderRadius: 10, alignItems: "center" }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Create Order</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  ) : null;
 
   return (
     <ScreenContainer className="bg-background">
@@ -302,6 +524,31 @@ export default function PhoneOrderScreen() {
           <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 4 }}>Customer Details</Text>
           <Text style={{ fontSize: 14, color: "#687076", marginBottom: 16 }}>Enter the caller's delivery information</Text>
 
+          {/* Phone Number (FIRST - for auto-fill) */}
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER * (enter first to auto-fill)</Text>
+          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: lookupDone ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
+            <TextInput
+              value={customerPhone}
+              onChangeText={handlePhoneChange}
+              placeholder="e.g. 089 123 4567"
+              placeholderTextColor="#687076"
+              style={{ fontSize: 15, color: "#ECEDEE" }}
+              keyboardType="phone-pad"
+              returnKeyType="next"
+            />
+          </View>
+          {lookupLoading && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+              <ActivityIndicator size="small" color="#00E5FF" />
+              <Text style={{ fontSize: 12, color: "#687076" }}>Looking up customer...</Text>
+            </View>
+          )}
+          {lookupMessage ? (
+            <Text style={{ fontSize: 12, color: lookupMessage.startsWith("✅") ? "#22C55E" : "#687076", marginBottom: 12 }}>
+              {lookupMessage}
+            </Text>
+          ) : <View style={{ height: 12 }} />}
+
           {/* Customer Name */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>CUSTOMER NAME *</Text>
           <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
@@ -311,20 +558,6 @@ export default function PhoneOrderScreen() {
               placeholder="e.g. John Murphy"
               placeholderTextColor="#687076"
               style={{ fontSize: 15, color: "#ECEDEE" }}
-              returnKeyType="next"
-            />
-          </View>
-
-          {/* Phone */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
-            <TextInput
-              value={customerPhone}
-              onChangeText={setCustomerPhone}
-              placeholder="e.g. 089 123 4567"
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
-              keyboardType="phone-pad"
               returnKeyType="next"
             />
           </View>
@@ -344,11 +577,11 @@ export default function PhoneOrderScreen() {
           </View>
 
           {/* Eircode */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE * (for delivery fee)</Text>
+          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: feeInfo ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
             <TextInput
               value={deliveryEircode}
-              onChangeText={setDeliveryEircode}
+              onChangeText={handleEircodeChange}
               placeholder="e.g. K32 AB12"
               placeholderTextColor="#687076"
               style={{ fontSize: 15, color: "#ECEDEE" }}
@@ -356,6 +589,52 @@ export default function PhoneOrderScreen() {
               returnKeyType="next"
             />
           </View>
+          {feeLoading && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <ActivityIndicator size="small" color="#00E5FF" />
+              <Text style={{ fontSize: 12, color: "#687076" }}>Calculating delivery fee...</Text>
+            </View>
+          )}
+          {feeError ? (
+            <Text style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>{feeError}</Text>
+          ) : null}
+          {!feeLoading && !feeError && deliveryEircode.replace(/\s+/g, "").length >= 5 && !feeInfo && (
+            <TouchableOpacity onPress={calculateFees} style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, color: "#00E5FF", fontWeight: "600" }}>Tap to calculate delivery fee</Text>
+            </TouchableOpacity>
+          )}
+          <View style={{ height: 4 }} />
+
+          {/* Fee Preview Box */}
+          {feeInfo && (
+            <View style={{
+              backgroundColor: "#0a2a1f",
+              borderRadius: 10,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: "#22C55E",
+              marginBottom: 16,
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#22C55E", marginBottom: 8 }}>💰 COST BREAKDOWN (tell customer)</Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Items subtotal</Text>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{cartSubtotal.toFixed(2)}</Text>
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Service fee (10%)</Text>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.serviceFee.toFixed(2)}</Text>
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Delivery ({feeInfo.distance.toFixed(1)} km)</Text>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.deliveryFee.toFixed(2)}</Text>
+              </View>
+              <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 6 }} />
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: "#22C55E" }}>€{feeInfo.total.toFixed(2)}</Text>
+              </View>
+            </View>
+          )}
 
           {/* Payment Method */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PAYMENT METHOD</Text>
@@ -439,9 +718,14 @@ export default function PhoneOrderScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
-                if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
-                  Alert.alert("Missing Info", "Please fill in name, phone, and delivery address.");
+                if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
+                  setSubmitError("Please fill in name, phone, address, and Eircode.");
                   return;
+                }
+                setSubmitError("");
+                // Calculate fees if not done yet
+                if (!feeInfo && deliveryEircode.trim().length >= 5) {
+                  calculateFees();
                 }
                 setStep("confirm");
               }}
@@ -450,6 +734,10 @@ export default function PhoneOrderScreen() {
               <Text style={{ fontSize: 15, fontWeight: "700", color: "#151718" }}>Review Order</Text>
             </TouchableOpacity>
           </View>
+
+          {submitError ? (
+            <Text style={{ fontSize: 13, color: "#EF4444", marginTop: 10, textAlign: "center" }}>{submitError}</Text>
+          ) : null}
         </ScrollView>
       )}
 
@@ -482,13 +770,44 @@ export default function PhoneOrderScreen() {
                 <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
               </View>
             ))}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 8 }}>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#ECEDEE" }}>Subtotal</Text>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{cartSubtotal.toFixed(2)}</Text>
+          </View>
+
+          {/* Price Breakdown */}
+          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 8 }}>PRICE BREAKDOWN</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+              <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Subtotal</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{cartSubtotal.toFixed(2)}</Text>
             </View>
-            <Text style={{ fontSize: 12, color: "#687076", marginTop: 4 }}>
-              + service fee + delivery fee (calculated on submit)
-            </Text>
+            {feeInfo ? (
+              <>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Service Fee (10%)</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.serviceFee.toFixed(2)}</Text>
+                </View>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Delivery Fee ({feeInfo.distance.toFixed(1)} km)</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.deliveryFee.toFixed(2)}</Text>
+                </View>
+                <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 6 }} />
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#00E5FF" }}>€{feeInfo.total.toFixed(2)}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 12, color: "#F59E0B", marginTop: 4 }}>
+                  ⚠️ Delivery fee not yet calculated. Fees will be calculated on submit.
+                </Text>
+                {!feeLoading && (
+                  <TouchableOpacity onPress={calculateFees} style={{ marginTop: 8 }}>
+                    <Text style={{ fontSize: 13, color: "#00E5FF", fontWeight: "600" }}>Calculate Fees Now</Text>
+                  </TouchableOpacity>
+                )}
+                {feeLoading && <ActivityIndicator size="small" color="#00E5FF" style={{ marginTop: 8 }} />}
+              </>
+            )}
           </View>
 
           {/* Payment & Options */}
@@ -515,6 +834,11 @@ export default function PhoneOrderScreen() {
           <View style={{ backgroundColor: "#DBEAFE", padding: 10, borderRadius: 10, marginBottom: 20, alignItems: "center" }}>
             <Text style={{ fontSize: 13, fontWeight: "700", color: "#2563EB" }}>📞 Phone Order — entered by staff</Text>
           </View>
+
+          {/* Error message */}
+          {submitError ? (
+            <Text style={{ fontSize: 13, color: "#EF4444", marginBottom: 10, textAlign: "center" }}>{submitError}</Text>
+          ) : null}
 
           {/* Action Buttons */}
           <View style={{ flexDirection: "row", gap: 10 }}>
@@ -544,6 +868,9 @@ export default function PhoneOrderScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* Confirm Modal Overlay */}
+      {ConfirmOverlay}
     </ScreenContainer>
   );
 }

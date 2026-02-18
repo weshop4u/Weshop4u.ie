@@ -1291,3 +1291,13 @@
 ## Fix: Eircode required in phone order
 - [x] Make Eircode field required (not optional) in phone order form
 - [x] Update validation to prevent submission without Eircode
+
+## Fix: Phone order improvements
+- [x] Show service fee + delivery fee in step 3 (customer details) as soon as Eircode is entered, and in step 4 (review)
+- [x] Fix Create Order button not working — replaced Alert.alert with web-compatible confirm modal overlay and success screen
+- [x] Auto-fill customer name, address, eircode when phone number matches previous order (tRPC lookupCustomerByPhone endpoint)
+- [x] Added server endpoint: calculatePhoneOrderFees (geocodes Eircode, calculates distance, delivery fee, service fee, total)
+- [x] Added server endpoint: lookupCustomerByPhone (checks registered users and guest orders by phone)
+- [x] Phone number field moved to top of customer details form with "enter first to auto-fill" hint
+- [x] Fee preview box shows green "COST BREAKDOWN (tell customer)" panel with all fees in step 3
+- [x] Eircode auto-triggers fee calculation after debounce (1 second)

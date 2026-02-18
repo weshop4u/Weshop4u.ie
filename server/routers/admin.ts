@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses } from "../../drizzle/schema";
 import { eq, and, desc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
+import { geocodeAddress } from "../services/geocoding";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -682,6 +683,136 @@ export const adminRouter = router({
 
       console.log(`[Admin] Phone order ${orderId} (#${orderNumber}) created for ${input.customerName}`);
       return { orderId: Number(orderId), orderNumber, subtotal, serviceFee, deliveryFee, total, distance };
+    }),
+
+  // Calculate fees for phone order preview (before creating order)
+  calculatePhoneOrderFees: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      eircode: z.string().min(1),
+      subtotal: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get store location
+      const [store] = await db.select().from(stores).where(eq(stores.id, input.storeId)).limit(1);
+      if (!store) throw new Error("Store not found");
+      if (!store.latitude || !store.longitude) throw new Error("Store location not available");
+
+      // Geocode the Eircode
+      const customerLocation = await geocodeAddress(input.eircode);
+      if (!customerLocation) {
+        throw new Error("Could not find that Eircode. Please check and try again.");
+      }
+
+      // Calculate distance and delivery fee
+      const distance = calculateDistance(
+        parseFloat(store.latitude), parseFloat(store.longitude),
+        customerLocation.latitude, customerLocation.longitude
+      );
+      const deliveryFee = calculateDeliveryFee(distance);
+      const serviceFee = Math.round(input.subtotal * 0.10 * 100) / 100;
+      const total = Math.round((input.subtotal + serviceFee + deliveryFee) * 100) / 100;
+
+      return {
+        distance,
+        deliveryFee,
+        serviceFee,
+        total,
+        deliveryLatitude: customerLocation.latitude,
+        deliveryLongitude: customerLocation.longitude,
+        formattedAddress: customerLocation.formattedAddress,
+      };
+    }),
+
+  // Look up customer by phone number from previous orders
+  lookupCustomerByPhone: publicProcedure
+    .input(z.object({ phone: z.string().min(3) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const normalizedPhone = input.phone.replace(/\s+/g, "").replace(/^\+353/, "0");
+
+      // First check registered users by phone
+      const userRows = await db.select({
+        id: users.id,
+        name: users.name,
+        phone: users.phone,
+      }).from(users);
+
+      const matchedUser = userRows.find(u => {
+        if (!u.phone) return false;
+        const normalized = u.phone.replace(/\s+/g, "").replace(/^\+353/, "0");
+        return normalized === normalizedPhone || normalized.endsWith(normalizedPhone) || normalizedPhone.endsWith(normalized);
+      });
+
+      if (matchedUser) {
+        // Get their most recent order for address info
+        const recentOrders = await db
+          .select({
+            deliveryAddress: orders.deliveryAddress,
+            deliveryLatitude: orders.deliveryLatitude,
+            deliveryLongitude: orders.deliveryLongitude,
+          })
+          .from(orders)
+          .where(eq(orders.customerId, matchedUser.id))
+          .orderBy(desc(orders.createdAt))
+          .limit(1);
+
+        // Get saved addresses
+        const addresses = await db
+          .select()
+          .from(savedAddresses)
+          .where(eq(savedAddresses.userId, matchedUser.id));
+
+        const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
+
+        return {
+          found: true,
+          name: matchedUser.name,
+          phone: matchedUser.phone || input.phone,
+          address: defaultAddr?.streetAddress || (recentOrders[0]?.deliveryAddress ?? ""),
+          eircode: defaultAddr?.eircode || "",
+          latitude: defaultAddr?.latitude ? parseFloat(defaultAddr.latitude) : (recentOrders[0]?.deliveryLatitude ? parseFloat(recentOrders[0].deliveryLatitude) : null),
+          longitude: defaultAddr?.longitude ? parseFloat(defaultAddr.longitude) : (recentOrders[0]?.deliveryLongitude ? parseFloat(recentOrders[0].deliveryLongitude) : null),
+        };
+      }
+
+      // Check guest orders by phone
+      const guestOrders = await db
+        .select({
+          guestName: orders.guestName,
+          guestPhone: orders.guestPhone,
+          deliveryAddress: orders.deliveryAddress,
+          deliveryLatitude: orders.deliveryLatitude,
+          deliveryLongitude: orders.deliveryLongitude,
+        })
+        .from(orders)
+        .orderBy(desc(orders.createdAt))
+        .limit(500);
+
+      const matchedGuest = guestOrders.find(o => {
+        if (!o.guestPhone) return false;
+        const normalized = o.guestPhone.replace(/\s+/g, "").replace(/^\+353/, "0");
+        return normalized === normalizedPhone || normalized.endsWith(normalizedPhone) || normalizedPhone.endsWith(normalized);
+      });
+
+      if (matchedGuest) {
+        return {
+          found: true,
+          name: matchedGuest.guestName || "",
+          phone: matchedGuest.guestPhone || input.phone,
+          address: matchedGuest.deliveryAddress || "",
+          eircode: "", // Guest orders don't store Eircode separately
+          latitude: matchedGuest.deliveryLatitude ? parseFloat(matchedGuest.deliveryLatitude) : null,
+          longitude: matchedGuest.deliveryLongitude ? parseFloat(matchedGuest.deliveryLongitude) : null,
+        };
+      }
+
+      return { found: false, name: "", phone: input.phone, address: "", eircode: "", latitude: null, longitude: null };
     }),
 
   // Get all stores (for phone order store selection)
