@@ -1301,3 +1301,12 @@
 - [x] Phone number field moved to top of customer details form with "enter first to auto-fill" hint
 - [x] Fee preview box shows green "COST BREAKDOWN (tell customer)" panel with all fees in step 3
 - [x] Eircode auto-triggers fee calculation after debounce (1 second)
+
+## Bug Fix: Order Created screen text barely visible in light mode
+- [x] Fix text colors on phone order success screen — replaced hardcoded dark theme colors with useColors() theme-aware colors
+- [x] Use theme-aware colors (colors.foreground, colors.muted, colors.surface, colors.border)
+
+## Bug Fix: Driver creation fails with NaN user_id
+- [x] Fix SQL insert error: NaN for user_id — changed db.insert() to use array destructuring [result] to properly access insertId
+- [x] Fixed same issue in registerCustomer endpoint for consistency
+- [x] Both registerDriver and registerCustomer now use same pattern as working admin.createPhoneOrder

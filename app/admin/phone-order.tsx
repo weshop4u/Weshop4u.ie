@@ -5,6 +5,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { getApiBaseUrl } from "@/constants/oauth";
+import { useColors } from "@/hooks/use-colors";
 
 type CartItem = {
   productId: number;
@@ -26,6 +27,7 @@ type FeeInfo = {
 export default function PhoneOrderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const colors = useColors();
 
   // Step tracking
   const [step, setStep] = useState<"store" | "products" | "details" | "confirm">("store");
@@ -252,27 +254,27 @@ export default function PhoneOrderScreen() {
       <ScreenContainer className="bg-background">
         <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 40 + insets.bottom, alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
           <Text style={{ fontSize: 48, marginBottom: 12 }}>✅</Text>
-          <Text style={{ fontSize: 24, fontWeight: "800", color: "#ECEDEE", marginBottom: 8, textAlign: "center" }}>Order Created!</Text>
-          <Text style={{ fontSize: 16, color: "#9BA1A6", marginBottom: 24, textAlign: "center" }}>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>Order Created!</Text>
+          <Text style={{ fontSize: 16, color: colors.muted, marginBottom: 24, textAlign: "center" }}>
             {orderResult.orderNumber}
           </Text>
 
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#334155", width: "100%", maxWidth: 400, marginBottom: 24 }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: "100%", maxWidth: 400, marginBottom: 24 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Subtotal</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.subtotal.toFixed(2)}</Text>
+              <Text style={{ fontSize: 14, color: colors.muted }}>Subtotal</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>€{orderResult.subtotal.toFixed(2)}</Text>
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Service Fee (10%)</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.serviceFee.toFixed(2)}</Text>
+              <Text style={{ fontSize: 14, color: colors.muted }}>Service Fee (10%)</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>€{orderResult.serviceFee.toFixed(2)}</Text>
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Delivery Fee ({orderResult.distance.toFixed(1)} km)</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{orderResult.deliveryFee.toFixed(2)}</Text>
+              <Text style={{ fontSize: 14, color: colors.muted }}>Delivery Fee ({orderResult.distance.toFixed(1)} km)</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>€{orderResult.deliveryFee.toFixed(2)}</Text>
             </View>
-            <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 8 }} />
+            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground }}>Total</Text>
               <Text style={{ fontSize: 16, fontWeight: "800", color: "#00E5FF" }}>€{orderResult.total.toFixed(2)}</Text>
             </View>
           </View>

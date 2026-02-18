@@ -37,7 +37,7 @@ export const authRouter = router({
       const passwordHash = await bcrypt.hash(input.password, 10);
 
       // Create user
-      const result = await db.insert(users).values({
+      const [result] = await db.insert(users).values({
         email: input.email,
         name: input.name,
         phone: input.phone || null,
@@ -45,7 +45,7 @@ export const authRouter = router({
         passwordHash,
       });
 
-      const userId = Number((result as any).insertId);
+      const userId = Number(result.insertId);
 
       return {
         success: true,
@@ -88,7 +88,7 @@ export const authRouter = router({
       const passwordHash = await bcrypt.hash(input.password, 10);
 
       // Create user
-      const userResult = await db.insert(users).values({
+      const [userResult] = await db.insert(users).values({
         email: input.email,
         name: input.name,
         phone: input.phone,
@@ -96,7 +96,7 @@ export const authRouter = router({
         passwordHash,
       });
 
-      const userId = Number((userResult as any).insertId);
+      const userId = Number(userResult.insertId);
 
       // Create driver profile
       await db.insert(drivers).values({
