@@ -1354,3 +1354,24 @@
 - [x] products.tsx: Product image edit now reads base64 and sends data URI for S3 upload
 - [x] products.tsx: Edit modal now uses theme-aware colors via useColors()
 - [x] All admin screens verified: no remaining Alert.alert or window.confirm calls
+
+## Proactive Audit: Customer-Facing Screens
+- [x] cart/[storeId].tsx: Replaced 6x Alert.alert with inline error banners (web-compatible)
+- [x] cart/[storeId].tsx: Fixed hardcoded colors in saved address picker and tip picker — uses theme tokens
+- [x] (tabs)/orders.tsx: Replaced 3x Alert.alert with web-compatible cancel confirm overlay + inline messages
+- [x] (tabs)/orders.tsx: Fixed hardcoded colors throughout — uses theme tokens for dark mode support
+
+## Proactive Audit: Driver App Screens
+- [x] active-delivery.tsx: Replaced Alert.alert with inline error state + banner
+- [x] active-delivery.tsx: Fixed hardcoded colors in timer badge and delivery summary
+- [x] job-offer.tsx: Replaced Alert.alert with inline state-based UI
+- [x] earnings.tsx: Rewrote with full theme-aware colors via useColors()
+- [x] driver/index.tsx: Already clean, no issues found
+
+## Feature: Delete Driver (Admin)
+- [x] Added deleteDriver server endpoint — checks for active deliveries before allowing deletion
+- [x] Added red "Delete Driver Account" button in expanded driver details
+- [x] Added confirmation overlay with warning text before deletion
+- [x] Deletes driver record and associated user account
+- [x] Returns freed display number in success message
+- [x] Display number auto-recycled: registerDriver always picks lowest available number

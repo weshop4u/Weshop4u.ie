@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
+import { useColors } from "@/hooks/use-colors";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -49,6 +50,8 @@ export default function ActiveDeliveryScreen() {
   const [returnError, setReturnError] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [statusError, setStatusError] = useState("");
+  const colors = useColors();
 
   // Sync local deliveryStatus with order status from server
   useEffect(() => {
@@ -213,7 +216,7 @@ export default function ActiveDeliveryScreen() {
     
     if (!orderId) {
       console.error("[Driver] Missing orderId");
-      Alert.alert("Error", "Order information not found.");
+      setStatusError("Order information not found.");
       return;
     }
     
@@ -222,7 +225,7 @@ export default function ActiveDeliveryScreen() {
     
     if (!driverId) {
       console.error("[Driver] Missing driverId", { orderId, driverId: order?.driverId, userId: user?.id });
-      Alert.alert("Error", "Driver information not found. Please try again.");
+      setStatusError("Driver information not found. Please try again.");
       return;
     }
     
@@ -238,7 +241,7 @@ export default function ActiveDeliveryScreen() {
       console.error("[Driver] Failed to notify arrived at store:", error);
       // Revert state on error
       setDeliveryStatus("going_to_store");
-      Alert.alert("Error", "Failed to update status. Please try again.");
+      setStatusError("Failed to update status. Please try again.");
     }
   };
 
@@ -334,9 +337,19 @@ export default function ActiveDeliveryScreen() {
             onPress={() => router.back()}
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 4 }}
           >
-            <Text style={{ fontSize: 16, color: '#0a7ea4', fontWeight: '600' }}>← Back to Dashboard</Text>
+            <Text style={{ fontSize: 16, color: colors.primary, fontWeight: '600' }}>← Back to Dashboard</Text>
           </TouchableOpacity>
         )}
+
+        {/* Error Banner */}
+        {statusError ? (
+          <View style={{ backgroundColor: colors.error + '15', borderWidth: 1, borderColor: colors.error, padding: 12, borderRadius: 8, marginBottom: 12 }}>
+            <Text style={{ color: colors.error, fontWeight: '600', fontSize: 14 }}>{statusError}</Text>
+            <TouchableOpacity onPress={() => setStatusError('')} style={{ marginTop: 4 }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Return Job Confirmation Modal */}
         {showReturnConfirm && (
@@ -434,9 +447,9 @@ export default function ActiveDeliveryScreen() {
           <View className="mt-3 bg-background p-3 rounded-lg">
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text className={`${status.color} font-bold`}>{status.text}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                <Text style={{ fontSize: 12, color: '#687076', marginRight: 4 }}>⏱</Text>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: elapsedSeconds >= 1800 ? '#EF4444' : '#0a7ea4', fontVariant: ['tabular-nums'] }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ fontSize: 12, color: colors.muted, marginRight: 4 }}>⏱</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: elapsedSeconds >= 1800 ? colors.error : colors.primary, fontVariant: ['tabular-nums'] }}>
                   {formatElapsed(elapsedSeconds)}
                 </Text>
               </View>
@@ -454,8 +467,8 @@ export default function ActiveDeliveryScreen() {
 
         {/* Substitution Notice */}
         {order.allowSubstitution && (
-          <View style={{ backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#3B82F6", padding: 12, borderRadius: 8, marginBottom: 16, flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ fontSize: 14, color: "#1D4ED8", fontWeight: "600" }}>
+          <View style={{ backgroundColor: colors.primary + '15', borderWidth: 1, borderColor: colors.primary, padding: 12, borderRadius: 8, marginBottom: 16, flexDirection: "row", alignItems: "center" }}>
+            <Text style={{ fontSize: 14, color: colors.primary, fontWeight: "600" }}>
               🔄 Substitutions allowed if items out of stock
             </Text>
           </View>
@@ -509,8 +522,8 @@ export default function ActiveDeliveryScreen() {
 
             {deliveryStatus === "at_store" && (
               <View style={{ marginTop: 12, gap: 8 }}>
-                <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#F59E0B' }}>
-                  <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
+                <View style={{ backgroundColor: colors.warning + '15', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.warning }}>
+                  <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
                     ✅ Customer has been notified you're at the store
                   </Text>
                 </View>
@@ -579,52 +592,52 @@ export default function ActiveDeliveryScreen() {
         {deliveryStatus === "delivered" && (
           <View className="mb-6">
             {/* Congratulations */}
-            <View style={{ backgroundColor: '#F0FDF4', borderWidth: 2, borderColor: '#22C55E', borderRadius: 12, padding: 24, alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ backgroundColor: colors.success + '15', borderWidth: 2, borderColor: colors.success, borderRadius: 12, padding: 24, alignItems: 'center', marginBottom: 16 }}>
               <Text style={{ fontSize: 48, marginBottom: 8 }}>🎉</Text>
-              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#16A34A', marginBottom: 4 }}>Great Job!</Text>
-              <Text style={{ fontSize: 14, color: '#687076', textAlign: 'center' }}>Delivery completed successfully</Text>
+              <Text style={{ fontSize: 22, fontWeight: 'bold', color: colors.success, marginBottom: 4 }}>Great Job!</Text>
+              <Text style={{ fontSize: 14, color: colors.muted, textAlign: 'center' }}>Delivery completed successfully</Text>
             </View>
 
             {/* Summary Card */}
-            <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#11181C', marginBottom: 12 }}>Delivery Summary</Text>
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.foreground, marginBottom: 12 }}>Delivery Summary</Text>
               
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
-                <Text style={{ color: '#687076', fontSize: 14 }}>Order</Text>
-                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{orderNumber}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Order</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{orderNumber}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
-                <Text style={{ color: '#687076', fontSize: 14 }}>Store</Text>
-                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{storeName}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Store</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{storeName}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
-                <Text style={{ color: '#687076', fontSize: 14 }}>Time Taken</Text>
-                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{formatElapsed(elapsedSeconds)}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Time Taken</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{formatElapsed(elapsedSeconds)}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
-                <Text style={{ color: '#687076', fontSize: 14 }}>Payment</Text>
-                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>{paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Payment</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}</Text>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: tipAmount > 0 ? 1 : 0, borderBottomColor: '#E5E7EB' }}>
-                <Text style={{ color: '#687076', fontSize: 14 }}>Delivery Fee</Text>
-                <Text style={{ color: '#11181C', fontWeight: '600', fontSize: 14 }}>€{deliveryFee.toFixed(2)}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: tipAmount > 0 ? 1 : 0, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Delivery Fee</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>€{deliveryFee.toFixed(2)}</Text>
               </View>
               {tipAmount > 0 && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
-                  <Text style={{ color: '#0a7ea4', fontSize: 14, fontWeight: '600' }}>Driver Tip</Text>
-                  <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 14 }}>+€{tipAmount.toFixed(2)}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Driver Tip</Text>
+                  <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14 }}>+€{tipAmount.toFixed(2)}</Text>
                 </View>
               )}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
-                <Text style={{ color: '#11181C', fontWeight: 'bold', fontSize: 16 }}>Your Earnings</Text>
-                <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 20 }}>€{totalDriverEarnings.toFixed(2)}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>Your Earnings</Text>
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 20 }}>€{totalDriverEarnings.toFixed(2)}</Text>
               </View>
             </View>
 
             {/* Back to Dashboard Button */}
             <TouchableOpacity
               onPress={() => router.replace("/driver")}
-              style={{ backgroundColor: '#0a7ea4', padding: 16, borderRadius: 12, alignItems: 'center' }}
+              style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Back to Dashboard</Text>
             </TouchableOpacity>
@@ -687,14 +700,14 @@ export default function ActiveDeliveryScreen() {
           </View>
           {tipAmount > 0 && (
             <View className="flex-row justify-between mt-2">
-              <Text style={{ color: '#0a7ea4', fontWeight: '600' }}>Driver Tip</Text>
-              <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 16 }}>+€{tipAmount.toFixed(2)}</Text>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Driver Tip</Text>
+              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>+€{tipAmount.toFixed(2)}</Text>
             </View>
           )}
           {tipAmount > 0 && (
             <View className="flex-row justify-between mt-2 pt-2 border-t border-border">
               <Text className="text-foreground font-bold">Your Total Earnings</Text>
-              <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>€{totalDriverEarnings.toFixed(2)}</Text>
+              <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 18 }}>€{totalDriverEarnings.toFixed(2)}</Text>
             </View>
           )}
         </View>

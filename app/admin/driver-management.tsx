@@ -13,9 +13,27 @@ export default function AdminDriverManagement() {
   const [editingDisplayNumber, setEditingDisplayNumber] = useState<{ userId: number; value: string } | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   const { data: drivers, isLoading, refetch } = trpc.admin.getAllDrivers.useQuery(undefined, {
     refetchInterval: 15000,
+  });
+
+  const deleteDriverMutation = trpc.admin.deleteDriver.useMutation({
+    onSuccess: (result) => {
+      refetch();
+      setDeleteConfirm(null);
+      setExpandedId(null);
+      setSuccessMsg(result.message);
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setDeleteConfirm(null);
+      setErrorMsg(err.message);
+      setSuccessMsg("");
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
   });
 
   const setDisplayNumberMutation = trpc.admin.setDriverDisplayNumber.useMutation({
@@ -200,6 +218,24 @@ export default function AdminDriverManagement() {
                           </Text>
                         </View>
 
+                        {/* Delete Driver */}
+                        <View className="mt-3 pt-3 border-t border-border">
+                          <TouchableOpacity
+                            onPress={() => setDeleteConfirm({ id: driver.id, name: driver.name })}
+                            style={{
+                              backgroundColor: colors.error + '15',
+                              borderWidth: 1,
+                              borderColor: colors.error,
+                              paddingVertical: 10,
+                              paddingHorizontal: 16,
+                              borderRadius: 10,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text style={{ color: colors.error, fontWeight: '700', fontSize: 14 }}>Delete Driver Account</Text>
+                          </TouchableOpacity>
+                        </View>
+
                         {/* Display Number Assignment */}
                         <View className="mt-3 pt-3 border-t border-border">
                           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 8, letterSpacing: 0.5 }}>DISPLAY NUMBER</Text>
@@ -251,6 +287,51 @@ export default function AdminDriverManagement() {
           </View>
         )}
       </ScrollView>
+      {/* Delete Confirmation Overlay */}
+      {deleteConfirm && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
+          paddingHorizontal: 24, zIndex: 100,
+        }}>
+          <View style={{
+            backgroundColor: colors.background, borderRadius: 16, padding: 24,
+            width: '100%', maxWidth: 360, borderWidth: 1, borderColor: colors.border,
+          }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.foreground, marginBottom: 8 }}>Delete Driver?</Text>
+            <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 4 }}>
+              Are you sure you want to delete <Text style={{ fontWeight: '700', color: colors.foreground }}>{deleteConfirm.name}</Text>?
+            </Text>
+            <Text style={{ fontSize: 13, color: colors.error, marginBottom: 20 }}>
+              This will permanently remove their account and free their display number. This cannot be undone.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setDeleteConfirm(null)}
+                style={{
+                  flex: 1, backgroundColor: colors.surface, paddingVertical: 12,
+                  borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => deleteDriverMutation.mutate({ driverId: deleteConfirm.id })}
+                disabled={deleteDriverMutation.isPending}
+                style={{
+                  flex: 1, backgroundColor: colors.error, paddingVertical: 12,
+                  borderRadius: 10, alignItems: 'center',
+                  opacity: deleteDriverMutation.isPending ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                  {deleteDriverMutation.isPending ? 'Deleting...' : 'Delete'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </ScreenContainer>
   );
 }

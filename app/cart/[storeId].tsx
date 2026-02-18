@@ -1,18 +1,23 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart-provider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/use-colors";
 
 export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
   const { data: user } = trpc.auth.me.useQuery();
   const isGuest = !user;
+  
+  // Error banner state
+  const [errorMessage, setErrorMessage] = useState("");
   
   // Guest user fields
   const [guestName, setGuestName] = useState("");
@@ -37,9 +42,8 @@ export default function CartScreen() {
   
   // Auto-fill from default saved address, then fall back to most recent order
   useEffect(() => {
-    if (streetAddress) return; // Don't overwrite if user already entered something
+    if (streetAddress) return;
     
-    // Priority 1: Default saved address
     if (savedAddresses && savedAddresses.length > 0) {
       const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
       setStreetAddress(defaultAddr.streetAddress);
@@ -48,7 +52,6 @@ export default function CartScreen() {
       return;
     }
     
-    // Priority 2: Most recent order address
     if (recentOrders && recentOrders.length > 0) {
       const lastOrder = recentOrders[0];
       if (lastOrder.deliveryAddress) {
@@ -73,7 +76,6 @@ export default function CartScreen() {
   };
   const [customerNotes, setCustomerNotes] = useState("");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
-  // Guests must use card, logged-in users can choose
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [deliveryFeeCalculated, setDeliveryFeeCalculated] = useState(false);
   const [tipAmount, setTipAmount] = useState(0);
@@ -87,45 +89,49 @@ export default function CartScreen() {
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
 
-  // Check if cart is for this store
   useEffect(() => {
     if (cartContext.storeId !== null && cartContext.storeId !== storeIdNum) {
-      // Wrong store, go back
       router.back();
     }
   }, [cartContext.storeId, storeIdNum]);
   
-  // Force guests to use card payment
   useEffect(() => {
     if (isGuest) {
       setPaymentMethod("card");
     }
   }, [isGuest]);
 
+  // Auto-dismiss error after 5 seconds
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
+
   const updateQuantity = (productId: number, delta: number) => {
     const currentItem = cartContext.items.find(i => i.productId === productId);
     if (!currentItem) return;
-    
     const newQty = currentItem.quantity + delta;
     updateCartQuantity(productId, newQty);
   };
 
   const handleCalculateDeliveryFee = async () => {
     if (!streetAddress.trim() || !eircode.trim()) {
-      Alert.alert("Error", "Please enter both your street address and Eircode");
+      setErrorMessage("Please enter both your street address and Eircode");
       return;
     }
 
     try {
-      // Combine street address and Eircode for geocoding
       const fullAddress = `${streetAddress}, ${eircode}, Ireland`;
       await calculateDeliveryFeeMutation.mutateAsync({
         storeId: storeIdNum,
         customerAddress: fullAddress,
       });
       setDeliveryFeeCalculated(true);
+      setErrorMessage("");
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not calculate delivery fee. Please check your address and Eircode.");
+      setErrorMessage(error.message || "Could not calculate delivery fee. Please check your address and Eircode.");
     }
   };
 
@@ -144,52 +150,39 @@ export default function CartScreen() {
 
   const handleCheckout = async () => {
     console.log("[Checkout] Starting checkout process...");
-    // Validate guest fields
     if (isGuest) {
       if (!guestName.trim()) {
-        Alert.alert("Error", "Please enter your name");
+        setErrorMessage("Please enter your name");
         return;
       }
       if (!guestPhone.trim()) {
-        Alert.alert("Error", "Please enter your phone number");
+        setErrorMessage("Please enter your phone number");
         return;
       }
       if (!guestEmail.trim() || !guestEmail.includes("@")) {
-        Alert.alert("Error", "Please enter a valid email address");
+        setErrorMessage("Please enter a valid email address");
         return;
       }
     }
     
     if (!streetAddress.trim() || !eircode.trim()) {
-      Alert.alert("Error", "Please enter both your street address and Eircode");
+      setErrorMessage("Please enter both your street address and Eircode");
       return;
     }
 
     if (!deliveryFeeCalculated) {
-      Alert.alert("Error", "Please calculate delivery fee first");
+      setErrorMessage("Please calculate delivery fee first");
       return;
     }
 
     try {
-      // Prepare order items
       const orderItems = cartItems.map(product => ({
         productId: product!.id,
         quantity: product!.cartQuantity,
       }));
 
-      console.log("[Checkout] Order items prepared:", orderItems);
-      console.log("[Checkout] Calling createOrderMutation with:", {
-        customerId: user?.id || null,
-        storeId: storeIdNum,
-        itemCount: orderItems.length,
-        deliveryAddress: `${streetAddress}, ${eircode}, Ireland`,
-        paymentMethod,
-        isGuest
-      });
-
-      // Create order with guest info if not logged in
       const result = await createOrderMutation.mutateAsync({
-        customerId: user?.id || null, // null for guest orders
+        customerId: user?.id || null,
         storeId: storeIdNum,
         items: orderItems,
         deliveryAddress: `${streetAddress}, ${eircode}, Ireland`,
@@ -199,22 +192,19 @@ export default function CartScreen() {
         tipAmount: paymentMethod === "card" ? tipValue : 0,
         customerNotes: customerNotes.trim() || undefined,
         allowSubstitution,
-        // Guest order fields
         guestName: isGuest ? guestName.trim() : undefined,
         guestPhone: isGuest ? guestPhone.trim() : undefined,
         guestEmail: isGuest ? guestEmail.trim() : undefined,
       });
 
-      // Clear cart
       clearCart();
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
-
-      // Navigate to order confirmation screen
+      setErrorMessage("");
       router.push(`/order-confirmation/${result.orderId}`);
     } catch (error: any) {
       console.error("[Checkout] Error placing order:", error);
-      Alert.alert("Error", error.message || "Failed to place order. Please try again.");
+      setErrorMessage(error.message || "Failed to place order. Please try again.");
     }
   };
 
@@ -248,6 +238,16 @@ export default function CartScreen() {
           <Text className="text-muted text-sm">{store?.name}</Text>
         </View>
       </View>
+
+      {/* Error Banner */}
+      {errorMessage ? (
+        <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
+          <TouchableOpacity onPress={() => setErrorMessage("")} className="active:opacity-70">
+            <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <ScrollView className="flex-1 p-4">
 
@@ -288,7 +288,7 @@ export default function CartScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Guest Information (only shown for non-logged-in users) */}
+        {/* Guest Information */}
         {isGuest && (
           <View className="mb-6">
             <Text className="text-foreground font-semibold mb-3">Your Information</Text>
@@ -297,7 +297,7 @@ export default function CartScreen() {
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
               placeholder="Full Name"
-              placeholderTextColor="#9BA1A6"
+              placeholderTextColor={colors.muted}
               value={guestName}
               onChangeText={setGuestName}
             />
@@ -305,7 +305,7 @@ export default function CartScreen() {
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
               placeholder="Phone Number"
-              placeholderTextColor="#9BA1A6"
+              placeholderTextColor={colors.muted}
               value={guestPhone}
               onChangeText={setGuestPhone}
               keyboardType="phone-pad"
@@ -314,7 +314,7 @@ export default function CartScreen() {
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border"
               placeholder="Email Address"
-              placeholderTextColor="#9BA1A6"
+              placeholderTextColor={colors.muted}
               value={guestEmail}
               onChangeText={setGuestEmail}
               keyboardType="email-address"
@@ -336,23 +336,23 @@ export default function CartScreen() {
                     key={addr.id}
                     onPress={() => handleSelectSavedAddress(addr.id)}
                     className="active:opacity-70"
-                    style={[{
+                    style={{
                       paddingHorizontal: 14,
                       paddingVertical: 10,
                       borderRadius: 12,
                       borderWidth: 2,
-                      borderColor: selectedAddressId === addr.id ? '#0a7ea4' : '#E5E7EB',
-                      backgroundColor: selectedAddressId === addr.id ? '#E6F7FC' : 'transparent',
+                      borderColor: selectedAddressId === addr.id ? colors.primary : colors.border,
+                      backgroundColor: selectedAddressId === addr.id ? colors.primary + '15' : 'transparent',
                       minWidth: 120,
-                    }]}
+                    }}
                   >
-                    <Text style={{ fontWeight: '700', fontSize: 13, color: selectedAddressId === addr.id ? '#0a7ea4' : '#11181C', marginBottom: 2 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 13, color: selectedAddressId === addr.id ? colors.primary : colors.foreground, marginBottom: 2 }}>
                       {addr.label}{addr.isDefault ? ' ★' : ''}
                     </Text>
-                    <Text style={{ fontSize: 11, color: '#687076' }} numberOfLines={1}>
+                    <Text style={{ fontSize: 11, color: colors.muted }} numberOfLines={1}>
                       {addr.streetAddress}
                     </Text>
-                    <Text style={{ fontSize: 11, color: '#687076' }}>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>
                       {addr.eircode}
                     </Text>
                   </TouchableOpacity>
@@ -366,20 +366,20 @@ export default function CartScreen() {
                     calculateDeliveryFeeMutation.reset();
                   }}
                   className="active:opacity-70"
-                  style={[{
+                  style={{
                     paddingHorizontal: 14,
                     paddingVertical: 10,
                     borderRadius: 12,
                     borderWidth: 2,
-                    borderColor: selectedAddressId === null && !streetAddress ? '#0a7ea4' : '#E5E7EB',
+                    borderColor: selectedAddressId === null && !streetAddress ? colors.primary : colors.border,
                     backgroundColor: 'transparent',
                     minWidth: 100,
                     justifyContent: 'center',
                     alignItems: 'center',
-                  }]}
+                  }}
                 >
-                  <Text style={{ fontWeight: '600', fontSize: 13, color: '#0a7ea4' }}>+ New</Text>
-                  <Text style={{ fontSize: 11, color: '#687076' }}>Address</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 13, color: colors.primary }}>+ New</Text>
+                  <Text style={{ fontSize: 11, color: colors.muted }}>Address</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -389,7 +389,7 @@ export default function CartScreen() {
           <TextInput
             className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
             placeholder="Street address (e.g., 123 Main Street, Balbriggan)"
-            placeholderTextColor="#9BA1A6"
+            placeholderTextColor={colors.muted}
             value={streetAddress}
             onChangeText={(text) => {
               setStreetAddress(text);
@@ -404,7 +404,7 @@ export default function CartScreen() {
           <TextInput
             className="bg-surface text-foreground p-4 rounded-lg border border-border"
             placeholder="Eircode (e.g., K32 Y621)"
-            placeholderTextColor="#9BA1A6"
+            placeholderTextColor={colors.muted}
             value={eircode}
             onChangeText={(text) => {
               setEircode(text.toUpperCase());
@@ -426,7 +426,7 @@ export default function CartScreen() {
             }`}
           >
             {calculateDeliveryFeeMutation.isPending ? (
-              <ActivityIndicator color="#00E5FF" />
+              <ActivityIndicator color={colors.primary} />
             ) : (
               <Text className={`font-semibold ${
                 calculateDeliveryFeeMutation.isPending || !streetAddress.trim() || !eircode.trim()
@@ -452,7 +452,7 @@ export default function CartScreen() {
           <TextInput
             className="bg-surface text-foreground p-4 rounded-lg border border-border"
             placeholder="Special instructions for your order..."
-            placeholderTextColor="#9BA1A6"
+            placeholderTextColor={colors.muted}
             value={customerNotes}
             onChangeText={setCustomerNotes}
             multiline
@@ -479,7 +479,6 @@ export default function CartScreen() {
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-3">Payment Method</Text>
           
-          {/* Show cash option only for logged-in users */}
           {!isGuest && (
             <TouchableOpacity
               onPress={() => setPaymentMethod("cash_on_delivery")}
@@ -510,7 +509,6 @@ export default function CartScreen() {
             <Text className="text-foreground">Card Payment (Elavon)</Text>
           </TouchableOpacity>
           
-          {/* Guest checkout notice */}
           {isGuest && (
             <View className="mt-3 p-3 bg-surface rounded-lg">
               <Text className="text-muted text-sm">
@@ -531,14 +529,14 @@ export default function CartScreen() {
                   key={amount}
                   onPress={() => { setTipAmount(amount); setShowCustomTip(false); setCustomTip(""); }}
                   className="active:opacity-70"
-                  style={[{
+                  style={{
                     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
                     borderWidth: 2,
-                    borderColor: !showCustomTip && tipAmount === amount ? '#0a7ea4' : '#E5E7EB',
-                    backgroundColor: !showCustomTip && tipAmount === amount ? '#E6F7FC' : 'transparent',
-                  }]}
+                    borderColor: !showCustomTip && tipAmount === amount ? colors.primary : colors.border,
+                    backgroundColor: !showCustomTip && tipAmount === amount ? colors.primary + '15' : 'transparent',
+                  }}
                 >
-                  <Text style={{ color: !showCustomTip && tipAmount === amount ? '#0a7ea4' : '#687076', fontWeight: '600' }}>
+                  <Text style={{ color: !showCustomTip && tipAmount === amount ? colors.primary : colors.muted, fontWeight: '600' }}>
                     {amount === 0 ? 'No Tip' : `€${amount}`}
                   </Text>
                 </TouchableOpacity>
@@ -546,21 +544,21 @@ export default function CartScreen() {
               <TouchableOpacity
                 onPress={() => { setShowCustomTip(true); setTipAmount(0); }}
                 className="active:opacity-70"
-                style={[{
+                style={{
                   paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
                   borderWidth: 2,
-                  borderColor: showCustomTip ? '#0a7ea4' : '#E5E7EB',
-                  backgroundColor: showCustomTip ? '#E6F7FC' : 'transparent',
-                }]}
+                  borderColor: showCustomTip ? colors.primary : colors.border,
+                  backgroundColor: showCustomTip ? colors.primary + '15' : 'transparent',
+                }}
               >
-                <Text style={{ color: showCustomTip ? '#0a7ea4' : '#687076', fontWeight: '600' }}>Custom</Text>
+                <Text style={{ color: showCustomTip ? colors.primary : colors.muted, fontWeight: '600' }}>Custom</Text>
               </TouchableOpacity>
             </View>
             {showCustomTip && (
               <TextInput
                 className="bg-surface text-foreground p-4 rounded-lg border border-border mt-2"
                 placeholder="Enter tip amount (€)"
-                placeholderTextColor="#9BA1A6"
+                placeholderTextColor={colors.muted}
                 value={customTip}
                 onChangeText={setCustomTip}
                 keyboardType="decimal-pad"
@@ -594,7 +592,7 @@ export default function CartScreen() {
           {paymentMethod === "card" && tipValue > 0 && (
             <View className="flex-row justify-between mb-2">
               <Text className="text-muted">Driver Tip</Text>
-              <Text style={{ color: '#0a7ea4', fontWeight: '600' }}>€{tipValue.toFixed(2)}</Text>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>€{tipValue.toFixed(2)}</Text>
             </View>
           )}
           
@@ -616,7 +614,7 @@ export default function CartScreen() {
           }`}
         >
           {createOrderMutation.isPending ? (
-            <ActivityIndicator color="#00E5FF" />
+            <ActivityIndicator color={colors.primary} />
           ) : (
             <Text className={`font-bold text-lg ${
               deliveryFeeCalculated ? "text-background" : "text-muted"

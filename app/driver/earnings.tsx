@@ -3,11 +3,13 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
+import { useColors } from "@/hooks/use-colors";
 
 type TabType = "today" | "week" | "all";
 
 export default function DriverEarningsScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { data: user } = trpc.auth.me.useQuery();
   const [activeTab, setActiveTab] = useState<TabType>("today");
   const { data: earnings, isLoading } = trpc.drivers.getEarnings.useQuery(
@@ -68,14 +70,14 @@ export default function DriverEarningsScreen() {
             onPress={() => router.back()}
             style={{ marginBottom: 16 }}
           >
-            <Text style={{ color: '#0a7ea4', fontSize: 18 }}>← Back to Dashboard</Text>
+            <Text style={{ color: colors.primary, fontSize: 18 }}>← Back to Dashboard</Text>
           </TouchableOpacity>
           <Text className="text-3xl font-bold text-foreground mb-2">Earnings</Text>
           <Text className="text-muted">Track your delivery income</Text>
         </View>
 
         {/* Earnings Hero Card */}
-        <View style={{ backgroundColor: '#0a7ea4', borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center' }}>
+        <View style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center' }}>
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600', letterSpacing: 1 }}>
             {activeTab === 'today' ? "TODAY'S EARNINGS" : activeTab === 'week' ? 'THIS WEEK' : 'ALL TIME'}
           </Text>
@@ -101,7 +103,7 @@ export default function DriverEarningsScreen() {
         </View>
 
         {/* Period Tabs */}
-        <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: '#f5f5f5', borderRadius: 10, padding: 3 }}>
+        <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: colors.surface, borderRadius: 10, padding: 3 }}>
           {(['today', 'week', 'all'] as TabType[]).map((tab) => (
             <TouchableOpacity
               key={tab}
@@ -111,13 +113,13 @@ export default function DriverEarningsScreen() {
                 paddingVertical: 8,
                 borderRadius: 8,
                 alignItems: 'center',
-                backgroundColor: activeTab === tab ? '#fff' : 'transparent',
+                backgroundColor: activeTab === tab ? colors.background : 'transparent',
               }}
             >
               <Text style={{
                 fontSize: 13,
                 fontWeight: activeTab === tab ? '700' : '500',
-                color: activeTab === tab ? '#11181C' : '#687076',
+                color: activeTab === tab ? colors.foreground : colors.muted,
               }}>
                 {tab === 'today' ? 'Today' : tab === 'week' ? 'This Week' : 'All Time'}
               </Text>
@@ -135,7 +137,7 @@ export default function DriverEarningsScreen() {
               return (
                 <View key={day.date} style={{ alignItems: 'center', flex: 1 }}>
                   {day.earnings > 0 && (
-                    <Text style={{ fontSize: 9, color: '#687076', marginBottom: 2, fontWeight: '600' }}>
+                    <Text style={{ fontSize: 9, color: colors.muted, marginBottom: 2, fontWeight: '600' }}>
                       €{day.earnings.toFixed(0)}
                     </Text>
                   )}
@@ -143,15 +145,15 @@ export default function DriverEarningsScreen() {
                     style={{
                       width: 28,
                       height: barHeight,
-                      backgroundColor: isToday ? '#0a7ea4' : day.earnings > 0 ? '#B2EBF2' : '#E5E7EB',
+                      backgroundColor: isToday ? colors.primary : day.earnings > 0 ? colors.primary + '40' : colors.border,
                       borderRadius: 4,
                     }}
                   />
-                  <Text style={{ fontSize: 10, color: isToday ? '#0a7ea4' : '#687076', marginTop: 4, fontWeight: isToday ? '700' : '500' }}>
+                  <Text style={{ fontSize: 10, color: isToday ? colors.primary : colors.muted, marginTop: 4, fontWeight: isToday ? '700' : '500' }}>
                     {day.dayLabel}
                   </Text>
                   {day.deliveries > 0 && (
-                    <Text style={{ fontSize: 9, color: '#9BA1A6' }}>
+                    <Text style={{ fontSize: 9, color: colors.muted }}>
                       {day.deliveries}
                     </Text>
                   )}
@@ -167,7 +169,7 @@ export default function DriverEarningsScreen() {
           
           <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
             <Text className="text-muted">Total Earnings</Text>
-            <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>
+            <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 18 }}>
               €{earnings.totalEarnings.toFixed(2)}
             </Text>
           </View>
@@ -175,7 +177,7 @@ export default function DriverEarningsScreen() {
           {(earnings.totalTips || 0) > 0 && (
             <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
               <Text className="text-muted">Total Tips Received</Text>
-              <Text style={{ color: '#0a7ea4', fontWeight: 'bold', fontSize: 16 }}>
+              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>
                 €{(earnings.totalTips || 0).toFixed(2)}
               </Text>
             </View>
@@ -217,7 +219,7 @@ export default function DriverEarningsScreen() {
                   alignItems: 'center',
                   paddingVertical: 12,
                   borderBottomWidth: idx < filteredDeliveries.length - 1 ? 1 : 0,
-                  borderBottomColor: '#E5E7EB',
+                  borderBottomColor: colors.border,
                 }}
               >
                 <View style={{ flex: 1 }}>
@@ -236,13 +238,13 @@ export default function DriverEarningsScreen() {
                   )}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#22C55E', fontWeight: 'bold', fontSize: 18 }}>
+                  <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 18 }}>
                     €{delivery.amount.toFixed(2)}
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
-                    <Text style={{ fontSize: 11, color: '#687076' }}>Fee: €{delivery.baseFee.toFixed(2)}</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>Fee: €{delivery.baseFee.toFixed(2)}</Text>
                     {(delivery.tip || 0) > 0 && (
-                      <Text style={{ color: '#0a7ea4', fontSize: 11, fontWeight: '600' }}>Tip: €{delivery.tip.toFixed(2)}</Text>
+                      <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>Tip: €{delivery.tip.toFixed(2)}</Text>
                     )}
                   </View>
                 </View>
@@ -252,9 +254,9 @@ export default function DriverEarningsScreen() {
         </View>
 
         {/* Payment Info */}
-        <View style={{ backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B', padding: 16, borderRadius: 12, marginBottom: 32 }}>
-          <Text style={{ color: '#92400E', fontWeight: 'bold', marginBottom: 8 }}>💰 Payment Schedule</Text>
-          <Text style={{ color: '#11181C', fontSize: 14 }}>
+        <View style={{ backgroundColor: colors.warning + '15', borderWidth: 1, borderColor: colors.warning, padding: 16, borderRadius: 12, marginBottom: 32 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', marginBottom: 8 }}>💰 Payment Schedule</Text>
+          <Text style={{ color: colors.foreground, fontSize: 14 }}>
             Earnings are paid weekly every Monday via bank transfer. Tips are included in your weekly payout.
           </Text>
         </View>

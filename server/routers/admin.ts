@@ -959,4 +959,54 @@ export const adminRouter = router({
 
       return { success: true };
     }),
+
+  // Delete a driver account and recycle their display number
+  deleteDriver: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      
+      // Check if driver has any active deliveries (assigned/picked_up/in_transit)
+      const activeOrders = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            sql`${orders.status} IN ('assigned', 'picked_up', 'in_transit')`
+          )
+        )
+        .limit(1);
+      const activeOrder = activeOrders[0];
+      
+      if (activeOrder) {
+        throw new Error("Cannot delete driver with active deliveries. Please reassign or complete their current orders first.");
+      }
+      
+      // Get the driver record to find the user_id
+      const [driver] = await db
+        .select({ id: drivers.id, userId: drivers.userId, displayNumber: drivers.displayNumber })
+        .from(drivers)
+        .where(eq(drivers.id, input.driverId))
+        .limit(1);
+      
+      if (!driver) {
+        throw new Error("Driver not found.");
+      }
+      
+      // Delete driver record first (foreign key)
+      await db.delete(drivers).where(eq(drivers.id, input.driverId));
+      
+      // Delete the user account
+      if (driver.userId) {
+        await db.delete(users).where(eq(users.id, driver.userId));
+      }
+      
+      return { 
+        success: true, 
+        freedDisplayNumber: driver.displayNumber || null,
+        message: `Driver deleted successfully.${driver.displayNumber ? ` Display number #${String(driver.displayNumber).padStart(2, '0')} is now available.` : ''}` 
+      };
+    }),
 });

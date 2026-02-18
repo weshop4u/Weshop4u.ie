@@ -5,38 +5,33 @@ import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
-import { Alert, AppState } from "react-native";
+import { AppState } from "react-native";
 import Constants from "expo-constants";
 import { useAuth } from "@/hooks/use-auth";
+import { useColors } from "@/hooks/use-colors";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
-// Estimate delivery time based on status and distance
 function getEstimatedTime(order: any): string | null {
   const status = order.status;
-  // Only show estimate for active in-transit statuses
   if (["delivered", "cancelled", "pending"].includes(status)) return null;
-  
-  // Base estimate: ~3 min per km for driving + prep time
   const distanceKm = order.estimatedDistance ? parseFloat(order.estimatedDistance) : 3;
-  const drivingMinutes = Math.ceil(distanceKm * 3); // ~3 min/km in town
-  
+  const drivingMinutes = Math.ceil(distanceKm * 3);
   switch (status) {
     case "accepted":
-      return `~${drivingMinutes + 15}-${drivingMinutes + 25} min`; // prep + drive
+      return `~${drivingMinutes + 15}-${drivingMinutes + 25} min`;
     case "preparing":
-      return `~${drivingMinutes + 10}-${drivingMinutes + 20} min`; // finishing prep + drive
+      return `~${drivingMinutes + 10}-${drivingMinutes + 20} min`;
     case "ready_for_pickup":
-      return `~${drivingMinutes + 5}-${drivingMinutes + 15} min`; // waiting for driver + drive
+      return `~${drivingMinutes + 5}-${drivingMinutes + 15} min`;
     case "picked_up":
     case "on_the_way":
-      return `~${drivingMinutes}-${drivingMinutes + 10} min`; // driving only
+      return `~${drivingMinutes}-${drivingMinutes + 10} min`;
     default:
       return null;
   }
 }
 
-// Status change notification messages
 const STATUS_MESSAGES: Record<string, { title: string; body: string }> = {
   accepted: { title: "Order Accepted! ✅", body: "The store has accepted your order and will start preparing it soon." },
   preparing: { title: "Being Prepared 👨‍🍳", body: "Your order is now being prepared at the store." },
@@ -82,7 +77,6 @@ function formatDate(dateStr: string | Date): string {
   });
 }
 
-// Star rating component
 function StarRating({
   rating,
   onRate,
@@ -110,8 +104,7 @@ function StarRating({
   );
 }
 
-// Status timeline component
-function StatusTimeline({ order }: { order: any }) {
+function StatusTimeline({ order, colors }: { order: any; colors: ReturnType<typeof useColors> }) {
   const currentIdx = getStepIndex(order.status);
 
   const getTimestamp = (stepKey: string): string => {
@@ -138,17 +131,16 @@ function StatusTimeline({ order }: { order: any }) {
         const timestamp = getTimestamp(step.key);
 
         return (
-          <View key={step.key} style={{ flexDirection: "row", marginBottom: idx < STATUS_STEPS.length - 1 ? 0 : 0 }}>
-            {/* Timeline line + dot */}
+          <View key={step.key} style={{ flexDirection: "row" }}>
             <View style={{ alignItems: "center", width: 32 }}>
               <View
                 style={{
                   width: 20,
                   height: 20,
                   borderRadius: 10,
-                  backgroundColor: isCompleted ? "#0a7ea4" : "#E5E7EB",
+                  backgroundColor: isCompleted ? colors.primary : colors.border,
                   borderWidth: isCurrent ? 3 : 0,
-                  borderColor: isCurrent ? "#0a7ea4" : "transparent",
+                  borderColor: isCurrent ? colors.primary : "transparent",
                   justifyContent: "center",
                   alignItems: "center",
                 }}
@@ -162,13 +154,12 @@ function StatusTimeline({ order }: { order: any }) {
                   style={{
                     width: 2,
                     height: 28,
-                    backgroundColor: idx < currentIdx ? "#0a7ea4" : "#E5E7EB",
+                    backgroundColor: idx < currentIdx ? colors.primary : colors.border,
                   }}
                 />
               )}
             </View>
 
-            {/* Label */}
             <View style={{ flex: 1, paddingLeft: 8, paddingBottom: idx < STATUS_STEPS.length - 1 ? 8 : 0 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={{ fontSize: 13 }}>{step.icon}</Text>
@@ -176,13 +167,13 @@ function StatusTimeline({ order }: { order: any }) {
                   style={{
                     fontSize: 14,
                     fontWeight: isCurrent ? "bold" : "normal",
-                    color: isCompleted ? "#11181C" : "#9BA1A6",
+                    color: isCompleted ? colors.foreground : colors.muted,
                   }}
                 >
                   {step.label}
                 </Text>
                 {timestamp ? (
-                  <Text style={{ fontSize: 11, color: "#9BA1A6", marginLeft: "auto" }}>
+                  <Text style={{ fontSize: 11, color: colors.muted, marginLeft: "auto" }}>
                     {timestamp}
                   </Text>
                 ) : null}
@@ -198,6 +189,7 @@ function StatusTimeline({ order }: { order: any }) {
 export default function OrderHistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const colors = useColors();
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [ratingOrderId, setRatingOrderId] = useState<number | null>(null);
   const [selectedRating, setSelectedRating] = useState(0);
@@ -205,22 +197,32 @@ export default function OrderHistoryScreen() {
   const [ratingSubmitted, setRatingSubmitted] = useState<Set<number>>(new Set());
   const { clearCart, addToCart } = useCart();
 
-  // Track last known statuses for notification triggers
+  // Cancel confirmation overlay state
+  const [cancelConfirmOrder, setCancelConfirmOrder] = useState<{ id: number; number: string } | null>(null);
+  // Inline message state
+  const [inlineMessage, setInlineMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const lastStatusesRef = useRef<Record<number, string>>({});
 
-  // Fetch user's orders with auto-refresh for active orders (only when authenticated)
   const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
-    refetchInterval: 5000, // Poll every 5 seconds for real-time tracking
-    enabled: !!user, // Only fetch when user is authenticated
+    refetchInterval: 5000,
+    enabled: !!user,
   });
 
-  // Show login prompt if user is not authenticated
+  // Auto-dismiss inline message
+  useEffect(() => {
+    if (inlineMessage) {
+      const timer = setTimeout(() => setInlineMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [inlineMessage]);
+
   if (!user) {
     return (
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
-          <View className="w-32 h-32 bg-primary rounded-full items-center justify-center mb-4">
-            <Text className="text-6xl">📦</Text>
+          <View style={{ width: 128, height: 128, backgroundColor: colors.primary, borderRadius: 64, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Text style={{ fontSize: 56 }}>📦</Text>
           </View>
           <Text className="text-3xl font-bold text-foreground text-center">
             Log In to Continue
@@ -231,7 +233,7 @@ export default function OrderHistoryScreen() {
           <TouchableOpacity
             onPress={() => router.push("/auth/login" as any)}
             style={{
-              backgroundColor: "#0a7ea4",
+              backgroundColor: colors.primary,
               paddingHorizontal: 32,
               paddingVertical: 14,
               borderRadius: 25,
@@ -247,7 +249,7 @@ export default function OrderHistoryScreen() {
               paddingVertical: 14,
             }}
           >
-            <Text style={{ color: "#0a7ea4", fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -257,8 +259,7 @@ export default function OrderHistoryScreen() {
   // Listen for push notifications to trigger immediate refetch
   useEffect(() => {
     if (Platform.OS === "web") return;
-
-    if (isExpoGo) return; // Skip in Expo Go
+    if (isExpoGo) return;
     let subscription: Notifications.Subscription | null = null;
     try {
       subscription = Notifications.addNotificationReceivedListener((notification) => {
@@ -270,11 +271,9 @@ export default function OrderHistoryScreen() {
     } catch (e) {
       console.log("[Push] Could not add notification listener");
     }
-
     return () => subscription?.remove();
   }, [refetch]);
 
-  // Refetch when app comes to foreground
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active") {
@@ -284,7 +283,6 @@ export default function OrderHistoryScreen() {
     return () => subscription.remove();
   }, [refetch]);
 
-  // Send local notification when order status changes
   useEffect(() => {
     if (!orders || Platform.OS === "web") return;
     const prevStatuses = lastStatusesRef.current;
@@ -300,7 +298,7 @@ export default function OrderHistoryScreen() {
                 body: `${order.store?.name || "Store"} - ${msg.body}`,
                 sound: true,
               },
-              trigger: null, // Immediate
+              trigger: null,
             });
           } catch (e) {
             console.log("[Push] Could not schedule notification");
@@ -324,27 +322,24 @@ export default function OrderHistoryScreen() {
 
   const cancelOrderMutation = trpc.orders.cancelOrder.useMutation({
     onSuccess: () => {
-      Alert.alert("Order Cancelled", "Your order has been cancelled successfully.");
+      setInlineMessage({ type: "success", text: "Your order has been cancelled successfully." });
+      setCancelConfirmOrder(null);
       refetch();
     },
     onError: (error) => {
-      Alert.alert("Cannot Cancel", error.message || "Failed to cancel order.");
+      setInlineMessage({ type: "error", text: error.message || "Failed to cancel order." });
+      setCancelConfirmOrder(null);
     },
   });
 
   const handleCancelOrder = (orderId: number, orderNumber: string) => {
-    Alert.alert(
-      "Cancel Order?",
-      `Are you sure you want to cancel order ${orderNumber}? This cannot be undone.`,
-      [
-        { text: "Keep Order", style: "cancel" },
-        {
-          text: "Cancel Order",
-          style: "destructive",
-          onPress: () => cancelOrderMutation.mutate({ orderId }),
-        },
-      ]
-    );
+    setCancelConfirmOrder({ id: orderId, number: orderNumber });
+  };
+
+  const confirmCancel = () => {
+    if (cancelConfirmOrder) {
+      cancelOrderMutation.mutate({ orderId: cancelConfirmOrder.id });
+    }
   };
 
   const handleReorder = async (order: any) => {
@@ -373,14 +368,13 @@ export default function OrderHistoryScreen() {
     });
   };
 
-  // Separate active and past orders
   const activeOrders = orders?.filter((o) => isActiveOrder(o.status)) || [];
   const pastOrders = orders?.filter((o) => !isActiveOrder(o.status)) || [];
 
   if (isLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
-        <ActivityIndicator size="large" color="#0a7ea4" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </ScreenContainer>
     );
   }
@@ -388,48 +382,113 @@ export default function OrderHistoryScreen() {
   return (
     <ScreenContainer>
       {/* Header */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: "#E5E7EB" }}>
-        <Text style={{ fontSize: 24, fontWeight: "bold", color: "#11181C" }}>My Orders</Text>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+        <Text style={{ fontSize: 24, fontWeight: "bold", color: colors.foreground }}>My Orders</Text>
       </View>
+
+      {/* Inline Message Banner */}
+      {inlineMessage && (
+        <View style={{
+          margin: 16, marginBottom: 0, padding: 12, borderRadius: 8,
+          backgroundColor: inlineMessage.type === "success" ? colors.success + '15' : colors.error + '15',
+          borderWidth: 1,
+          borderColor: inlineMessage.type === "success" ? colors.success : colors.error,
+          flexDirection: 'row', alignItems: 'center',
+        }}>
+          <Text style={{ color: inlineMessage.type === "success" ? colors.success : colors.error, flex: 1, fontSize: 14 }}>
+            {inlineMessage.text}
+          </Text>
+          <TouchableOpacity onPress={() => setInlineMessage(null)}>
+            <Text style={{ color: inlineMessage.type === "success" ? colors.success : colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Cancel Confirmation Overlay */}
+      {cancelConfirmOrder && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100,
+          justifyContent: 'center', alignItems: 'center', padding: 24,
+        }}>
+          <View style={{
+            backgroundColor: colors.background, borderRadius: 16, padding: 24,
+            width: '100%', maxWidth: 340,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+            elevation: 8,
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.foreground, marginBottom: 8, textAlign: 'center' }}>
+              Cancel Order?
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.muted, textAlign: 'center', marginBottom: 20 }}>
+              Are you sure you want to cancel order {cancelConfirmOrder.number}? This cannot be undone.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setCancelConfirmOrder(null)}
+                style={{
+                  flex: 1, padding: 14, borderRadius: 10,
+                  borderWidth: 1, borderColor: colors.border,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: '600' }}>Keep Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmCancel}
+                disabled={cancelOrderMutation.isPending}
+                style={{
+                  flex: 1, padding: 14, borderRadius: 10,
+                  backgroundColor: colors.error,
+                  alignItems: 'center',
+                  opacity: cancelOrderMutation.isPending ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                  {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
         {/* Active Orders Section */}
         {activeOrders.length > 0 && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#0a7ea4", marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.primary, marginBottom: 12 }}>
               📍 Active Orders
             </Text>
             {activeOrders.map((order) => (
               <View
                 key={order.id}
                 style={{
-                  backgroundColor: "#F0FDFA",
+                  backgroundColor: colors.primary + '08',
                   borderWidth: 2,
-                  borderColor: "#0a7ea4",
+                  borderColor: colors.primary,
                   borderRadius: 12,
                   overflow: "hidden",
                   marginBottom: 12,
                 }}
               >
-                {/* Order Header */}
                 <View style={{ padding: 16 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: "bold", color: "#11181C" }}>
+                      <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground }}>
                         {order.orderNumber || `Order #${order.id}`}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#687076", marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
                         {order.store?.name || "Store"} · €{parseFloat(order.total).toFixed(2)}
                       </Text>
                     </View>
-                    <View style={{ backgroundColor: "#0a7ea4", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
                       <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
                         {order.status.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Estimated delivery time */}
                   {getEstimatedTime(order) && (
                     <View style={{ backgroundColor: "#FFF7ED", padding: 12, borderRadius: 8, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <Text style={{ fontSize: 20 }}>⏱️</Text>
@@ -444,24 +503,21 @@ export default function OrderHistoryScreen() {
                     </View>
                   )}
 
-                  {/* Driver assigned indicator (no personal info) */}
                   {order.driverId && !getEstimatedTime(order) && (
-                    <View style={{ backgroundColor: "#E0F2FE", padding: 10, borderRadius: 8, marginBottom: 12 }}>
-                      <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600" }}>
+                    <View style={{ backgroundColor: colors.primary + '15', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                      <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>
                         🚗 {order.driver?.name ? `${order.driver.name} has been assigned` : "A driver has been assigned to your order"}
                       </Text>
                     </View>
                   )}
 
-                  {/* Status Timeline */}
-                  <StatusTimeline order={order} />
+                  <StatusTimeline order={order} colors={colors} />
 
-                  {/* Chat with Driver button - only show when driver is assigned and order is active */}
                   {order.driverId && ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) && (
                     <TouchableOpacity
                       onPress={() => router.push(`/order-tracking/${order.id}` as any)}
                       style={{
-                        backgroundColor: "#0a7ea4",
+                        backgroundColor: colors.primary,
                         padding: 12,
                         borderRadius: 10,
                         marginTop: 12,
@@ -479,61 +535,59 @@ export default function OrderHistoryScreen() {
                   )}
                 </View>
 
-                {/* Expand for items */}
                 <TouchableOpacity
                   onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                  style={{ borderTopWidth: 1, borderTopColor: "#D1E9E4", padding: 12, alignItems: "center" }}
+                  style={{ borderTopWidth: 1, borderTopColor: colors.primary + '30', padding: 12, alignItems: "center" }}
                 >
-                  <Text style={{ color: "#0a7ea4", fontSize: 13, fontWeight: "600" }}>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
                     {expandedOrderId === order.id ? "Hide Details ▲" : "View Details ▼"}
                   </Text>
                 </TouchableOpacity>
 
                 {expandedOrderId === order.id && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: "#D1E9E4" }}>
-                    <Text style={{ fontWeight: "600", color: "#11181C", marginTop: 12, marginBottom: 8 }}>Items:</Text>
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
+                    <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
                     {order.items?.map((item: any, index: number) => (
                       <View key={index} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-                        <Text style={{ color: "#687076", flex: 1 }}>
+                        <Text style={{ color: colors.muted, flex: 1 }}>
                           {item.quantity}x {item.product?.name || "Product"}
                         </Text>
-                        <Text style={{ color: "#11181C", fontWeight: "600" }}>
+                        <Text style={{ color: colors.foreground, fontWeight: "600" }}>
                           €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
                         </Text>
                       </View>
                     ))}
                     {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
-                      <View style={{ marginTop: 8, backgroundColor: '#E6F7FC', padding: 8, borderRadius: 8 }}>
-                        <Text style={{ color: '#0a7ea4', fontSize: 13, fontWeight: '600' }}>Driver Tip: €{parseFloat(order.tipAmount).toFixed(2)}</Text>
+                      <View style={{ marginTop: 8, backgroundColor: colors.primary + '15', padding: 8, borderRadius: 8 }}>
+                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Driver Tip: €{parseFloat(order.tipAmount).toFixed(2)}</Text>
                       </View>
                     )}
                     {order.deliveryAddress && (
                       <View style={{ marginTop: 12 }}>
-                        <Text style={{ fontWeight: "600", color: "#11181C", marginBottom: 4 }}>Delivery Address:</Text>
-                        <Text style={{ color: "#687076", fontSize: 13 }}>{order.deliveryAddress}</Text>
+                        <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
+                        <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
                       </View>
                     )}
 
-                    {/* Cancel button - only for pending orders */}
                     {order.status === "pending" && (
                       <TouchableOpacity
                         onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
                         disabled={cancelOrderMutation.isPending}
                         style={{
                           marginTop: 16,
-                          backgroundColor: "#FEF2F2",
+                          backgroundColor: colors.error + '10',
                           borderWidth: 1,
-                          borderColor: "#EF4444",
+                          borderColor: colors.error,
                           borderRadius: 10,
                           padding: 12,
                           alignItems: "center",
                           opacity: cancelOrderMutation.isPending ? 0.5 : 1,
                         }}
                       >
-                        <Text style={{ color: "#EF4444", fontWeight: "bold", fontSize: 14 }}>
+                        <Text style={{ color: colors.error, fontWeight: "bold", fontSize: 14 }}>
                           {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
                         </Text>
-                        <Text style={{ color: "#9B1C1C", fontSize: 11, marginTop: 2 }}>
+                        <Text style={{ color: colors.error, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
                           Only available while order is pending
                         </Text>
                       </TouchableOpacity>
@@ -548,76 +602,77 @@ export default function OrderHistoryScreen() {
         {/* Past Orders Section */}
         {pastOrders.length > 0 && (
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#687076", marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.muted, marginBottom: 12 }}>
               Past Orders
             </Text>
             {pastOrders.map((order) => (
               <View
                 key={order.id}
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: colors.surface,
                   borderWidth: 1,
-                  borderColor: "#E5E7EB",
+                  borderColor: colors.border,
                   borderRadius: 12,
                   overflow: "hidden",
                   marginBottom: 12,
                 }}
               >
-                {/* Order Header */}
                 <TouchableOpacity
                   onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                   style={{ padding: 16 }}
                 >
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: "bold", color: "#11181C" }}>
+                      <Text style={{ fontSize: 15, fontWeight: "bold", color: colors.foreground }}>
                         {order.orderNumber || `Order #${order.id}`}
                       </Text>
-                      <Text style={{ fontSize: 13, color: "#687076", marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
                         {formatDate(order.createdAt)}
                       </Text>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ color: order.status === "delivered" ? "#22C55E" : "#EF4444", fontWeight: "600", fontSize: 13 }}>
+                      <Text style={{ color: order.status === "delivered" ? colors.success : colors.error, fontWeight: "600", fontSize: 13 }}>
                         {order.status === "delivered" ? "Delivered" : "Cancelled"}
                       </Text>
-                      <Text style={{ color: "#11181C", fontWeight: "bold", fontSize: 16, marginTop: 2 }}>
+                      <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 2 }}>
                         €{parseFloat(order.total).toFixed(2)}
                       </Text>
                     </View>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: "#687076", fontSize: 13 }}>{order.store?.name || "Store"}</Text>
-                    <Text style={{ color: "#0a7ea4", fontSize: 13 }}>
+                    <Text style={{ color: colors.muted, fontSize: 13 }}>{order.store?.name || "Store"}</Text>
+                    <Text style={{ color: colors.primary, fontSize: 13 }}>
                       {expandedOrderId === order.id ? "Hide ▲" : "Details ▼"}
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                {/* Rating Prompt for delivered orders without rating */}
+                {/* Rating Prompt */}
                 {order.status === "delivered" &&
                   order.driverId &&
                   !order.hasRating &&
                   !ratingSubmitted.has(order.id) && (
-                    <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", padding: 16 }}>
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16 }}>
                       {ratingOrderId === order.id ? (
                         <View>
-                          <Text style={{ fontSize: 14, fontWeight: "bold", color: "#11181C", marginBottom: 8, textAlign: "center" }}>
+                          <Text style={{ fontSize: 14, fontWeight: "bold", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>
                             How was your delivery experience?
                           </Text>
                           <StarRating rating={selectedRating} onRate={setSelectedRating} />
                           <TextInput
                             placeholder="Leave a comment (optional)"
+                            placeholderTextColor={colors.muted}
                             value={ratingComment}
                             onChangeText={setRatingComment}
                             style={{
                               borderWidth: 1,
-                              borderColor: "#E5E7EB",
+                              borderColor: colors.border,
                               borderRadius: 8,
                               padding: 10,
                               marginTop: 12,
                               fontSize: 14,
-                              color: "#11181C",
+                              color: colors.foreground,
+                              backgroundColor: colors.background,
                             }}
                             multiline
                             returnKeyType="done"
@@ -629,9 +684,9 @@ export default function OrderHistoryScreen() {
                                 setSelectedRating(0);
                                 setRatingComment("");
                               }}
-                              style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", alignItems: "center" }}
+                              style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}
                             >
-                              <Text style={{ color: "#687076", fontWeight: "600" }}>Cancel</Text>
+                              <Text style={{ color: colors.muted, fontWeight: "600" }}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                               onPress={() => handleSubmitRating(order.id)}
@@ -639,12 +694,12 @@ export default function OrderHistoryScreen() {
                                 flex: 1,
                                 padding: 12,
                                 borderRadius: 8,
-                                backgroundColor: selectedRating > 0 ? "#0a7ea4" : "#E5E7EB",
+                                backgroundColor: selectedRating > 0 ? colors.primary : colors.surface,
                                 alignItems: "center",
                               }}
                               disabled={selectedRating < 1 || rateDriverMutation.isPending}
                             >
-                              <Text style={{ color: selectedRating > 0 ? "#fff" : "#9BA1A6", fontWeight: "bold" }}>
+                              <Text style={{ color: selectedRating > 0 ? "#fff" : colors.muted, fontWeight: "bold" }}>
                                 {rateDriverMutation.isPending ? "Submitting..." : "Submit"}
                               </Text>
                             </TouchableOpacity>
@@ -656,7 +711,7 @@ export default function OrderHistoryScreen() {
                           style={{
                             backgroundColor: "#FFF7ED",
                             borderWidth: 1,
-                            borderColor: "#FBBF24",
+                            borderColor: colors.warning,
                             padding: 12,
                             borderRadius: 8,
                             alignItems: "center",
@@ -673,64 +728,59 @@ export default function OrderHistoryScreen() {
                     </View>
                   )}
 
-                {/* Rating submitted confirmation */}
                 {(order.hasRating || ratingSubmitted.has(order.id)) && order.status === "delivered" && (
-                  <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", padding: 12, alignItems: "center" }}>
-                    <Text style={{ color: "#22C55E", fontSize: 13, fontWeight: "600" }}>✅ Thanks for rating!</Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 12, alignItems: "center" }}>
+                    <Text style={{ color: colors.success, fontSize: 13, fontWeight: "600" }}>✅ Thanks for rating!</Text>
                   </View>
                 )}
 
-                {/* Expanded Details */}
                 {expandedOrderId === order.id && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
-                    <Text style={{ fontWeight: "600", color: "#11181C", marginTop: 12, marginBottom: 8 }}>Items:</Text>
+                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
                     {order.items?.map((item: any, index: number) => (
                       <View key={index} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-                        <Text style={{ color: "#687076", flex: 1 }}>
+                        <Text style={{ color: colors.muted, flex: 1 }}>
                           {item.quantity}x {item.product?.name || "Product"}
                         </Text>
-                        <Text style={{ color: "#11181C", fontWeight: "600" }}>
+                        <Text style={{ color: colors.foreground, fontWeight: "600" }}>
                           €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
                         </Text>
                       </View>
                     ))}
-                    <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", marginTop: 8, paddingTop: 8 }}>
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8, paddingTop: 8 }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                        <Text style={{ color: "#687076" }}>Subtotal</Text>
-                        <Text style={{ color: "#11181C" }}>
+                        <Text style={{ color: colors.muted }}>Subtotal</Text>
+                        <Text style={{ color: colors.foreground }}>
                           €{(parseFloat(order.total) - parseFloat(order.deliveryFee || "0")).toFixed(2)}
                         </Text>
                       </View>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                        <Text style={{ color: "#687076" }}>Delivery</Text>
-                        <Text style={{ color: "#11181C" }}>€{parseFloat(order.deliveryFee || "0").toFixed(2)}</Text>
+                        <Text style={{ color: colors.muted }}>Delivery</Text>
+                        <Text style={{ color: colors.foreground }}>€{parseFloat(order.deliveryFee || "0").toFixed(2)}</Text>
                       </View>
                       {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
                         <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                          <Text style={{ color: "#0a7ea4", fontWeight: "600" }}>Driver Tip</Text>
-                          <Text style={{ color: "#0a7ea4", fontWeight: "600" }}>€{parseFloat(order.tipAmount).toFixed(2)}</Text>
+                          <Text style={{ color: colors.primary, fontWeight: "600" }}>Driver Tip</Text>
+                          <Text style={{ color: colors.primary, fontWeight: "600" }}>€{parseFloat(order.tipAmount).toFixed(2)}</Text>
                         </View>
                       )}
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: 1, borderTopColor: "#E5E7EB", marginTop: 4, paddingTop: 8 }}>
-                        <Text style={{ color: "#11181C", fontWeight: "bold" }}>Total</Text>
-                        <Text style={{ color: "#11181C", fontWeight: "bold" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 8 }}>
+                        <Text style={{ color: colors.foreground, fontWeight: "bold" }}>Total</Text>
+                        <Text style={{ color: colors.foreground, fontWeight: "bold" }}>€{parseFloat(order.total).toFixed(2)}</Text>
                       </View>
                     </View>
 
                     {order.deliveryAddress && (
                       <View style={{ marginTop: 12 }}>
-                        <Text style={{ fontWeight: "600", color: "#11181C", marginBottom: 4 }}>Delivery Address:</Text>
-                        <Text style={{ color: "#687076", fontSize: 13 }}>{order.deliveryAddress}</Text>
+                        <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
+                        <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
                       </View>
                     )}
 
-
-
-                    {/* Reorder Button */}
                     {order.status === "delivered" && (
                       <TouchableOpacity
                         onPress={() => handleReorder(order)}
-                        style={{ marginTop: 16, backgroundColor: "#0a7ea4", padding: 14, borderRadius: 10, alignItems: "center" }}
+                        style={{ marginTop: 16, backgroundColor: colors.primary, padding: 14, borderRadius: 10, alignItems: "center" }}
                       >
                         <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Reorder</Text>
                       </TouchableOpacity>
@@ -746,20 +796,19 @@ export default function OrderHistoryScreen() {
         {(!orders || orders.length === 0) && (
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
             <Text style={{ fontSize: 48, marginBottom: 16 }}>📦</Text>
-            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#11181C", marginBottom: 8 }}>No Orders Yet</Text>
-            <Text style={{ color: "#687076", textAlign: "center", marginBottom: 24 }}>
+            <Text style={{ fontSize: 20, fontWeight: "bold", color: colors.foreground, marginBottom: 8 }}>No Orders Yet</Text>
+            <Text style={{ color: colors.muted, textAlign: "center", marginBottom: 24 }}>
               Your order history will appear here{"\n"}once you place your first order
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/")}
-              style={{ backgroundColor: "#0a7ea4", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
             >
               <Text style={{ color: "#fff", fontWeight: "bold" }}>Start Shopping</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Bottom spacing */}
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
