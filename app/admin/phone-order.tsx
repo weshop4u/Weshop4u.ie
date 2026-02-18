@@ -87,8 +87,8 @@ export default function PhoneOrderScreen() {
   };
 
   const handleSubmit = () => {
-    if (!selectedStoreId || cart.length === 0 || !customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
-      Alert.alert("Missing Info", "Please fill in all required fields.");
+    if (!selectedStoreId || cart.length === 0 || !customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
+      Alert.alert("Missing Info", "Please fill in all required fields including Eircode (needed for delivery fee calculation).");
       return;
     }
 
@@ -344,7 +344,7 @@ export default function PhoneOrderScreen() {
           </View>
 
           {/* Eircode */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE (Optional)</Text>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE *</Text>
           <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
             <TextInput
               value={deliveryEircode}

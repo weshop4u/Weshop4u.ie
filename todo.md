@@ -1287,3 +1287,7 @@
 - [x] Enhance admin dashboard home with phone order quick-action button
 - [x] Add cash/substitution badges to admin order views
 - [x] Server: add admin endpoints for updateOrderStatus, assignDriver, createPhoneOrder, setDriverDisplayNumber, getAvailableDrivers, getStores, getStoreProducts
+
+## Fix: Eircode required in phone order
+- [x] Make Eircode field required (not optional) in phone order form
+- [x] Update validation to prevent submission without Eircode
