@@ -508,28 +508,32 @@ export default function StoreDashboardScreen() {
               ))}
             </View>
 
-            {/* Print Button */}
-            <TouchableOpacity
-              onPress={() => handlePrintOrder(order.id)}
-              disabled={isPrinting}
-              style={{
-                backgroundColor: justPrinted ? "#22C55E" : "#1a1a2e",
-                padding: 14,
-                borderRadius: 12,
-                alignItems: "center",
-                flexDirection: "row",
-                justifyContent: "center",
-                gap: 8,
-                marginBottom: 8,
-                opacity: isPrinting ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ fontSize: 18 }}>{justPrinted ? "✅" : "🖨"}</Text>
-              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-                {isPrinting ? "Sending to Printer..." : justPrinted ? "Sent to Printer!" : "Print Pick List"}
-              </Text>
-            </TouchableOpacity>
           </View>
+        )}
+
+        {/* Print Button - always visible for accepted/preparing/ready orders */}
+        {!isPending && (
+          <TouchableOpacity
+            onPress={() => handlePrintOrder(order.id)}
+            disabled={isPrinting}
+            style={{
+              backgroundColor: justPrinted ? "#22C55E" : "#1a1a2e",
+              padding: 14,
+              borderRadius: 12,
+              alignItems: "center",
+              flexDirection: "row",
+              justifyContent: "center",
+              gap: 8,
+              marginTop: 10,
+              marginBottom: 4,
+              opacity: isPrinting ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>{justPrinted ? "✅" : "🖨"}</Text>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+              {isPrinting ? "Sending to Printer..." : justPrinted ? "Sent to Printer!" : "Print Pick List"}
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Action Buttons */}

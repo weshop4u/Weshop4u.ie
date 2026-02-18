@@ -1496,3 +1496,4 @@
 - [x] Add local print detection for POS standalone mode
 - [x] Receipt format: order number, timestamp, customer name, address, items with quantities
 - [x] Write tests for print job system (27 tests passing)
+- [x] Fix Print button not visible on store dashboard - move outside expanded section so it's always visible on accepted/preparing orders
