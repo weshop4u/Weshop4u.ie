@@ -104,6 +104,28 @@ export default function StoreDetailScreen() {
     );
   }, [categories, categorySearch]);
 
+  // These hooks MUST be before any conditional returns to avoid hooks ordering errors
+  const selectedCategory = selectedCategoryId !== null ? categoriesWithProducts[selectedCategoryId] : null;
+  const categoryProducts = selectedCategory?.products || [];
+  const catAvailable = isCategoryAvailable(selectedCategory?.availabilitySchedule);
+  const catAvailMsg = getAvailabilityMessage(selectedCategory?.availabilitySchedule);
+
+  // Filter products by search query
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return categoryProducts;
+    const query = productSearch.toLowerCase().trim();
+    return categoryProducts.filter((product) =>
+      product.name.toLowerCase().includes(query) ||
+      (product.description?.toLowerCase().includes(query) || false)
+    );
+  }, [categoryProducts, productSearch]);
+
+  // Get quantity for a product from cart
+  const getProductQuantity = (productId: number) => {
+    const item = cart.items.find(i => i.productId === productId);
+    return item?.quantity || 0;
+  };
+
   if (storeLoading || productsLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
@@ -334,28 +356,6 @@ export default function StoreDetailScreen() {
       </ScreenContainer>
     );
   }
-
-  // Show products for selected category
-  const selectedCategory = categoriesWithProducts[selectedCategoryId];
-  const categoryProducts = selectedCategory?.products || [];
-  const catAvailable = isCategoryAvailable(selectedCategory?.availabilitySchedule);
-  const catAvailMsg = getAvailabilityMessage(selectedCategory?.availabilitySchedule);
-
-  // Filter products by search query
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return categoryProducts;
-    const query = productSearch.toLowerCase().trim();
-    return categoryProducts.filter((product) =>
-      product.name.toLowerCase().includes(query) ||
-      (product.description?.toLowerCase().includes(query) || false)
-    );
-  }, [categoryProducts, productSearch]);
-
-  // Get quantity for a product from cart
-  const getProductQuantity = (productId: number) => {
-    const item = cart.items.find(i => i.productId === productId);
-    return item?.quantity || 0;
-  };
 
   return (
     <ScreenContainer className="bg-background">

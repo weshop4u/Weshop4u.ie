@@ -1410,3 +1410,8 @@
 - [x] Import all 154 products (both published and pending, per user request)
 - [x] Execute bulk import of Open All Ours products — 154 inserted, 0 skipped
 - [x] Verify imported products appear in customer app (157 total including 3 pre-existing)
+
+## Bug: Store detail screen crashes when opening category (FIXED)
+- [x] "Rendered more hooks than during the previous render" error at app/store/[id].tsx line 345
+- [x] Root cause: useMemo for filteredProducts and getProductQuantity were after conditional return (selectedCategoryId === null)
+- [x] Fix: Moved selectedCategory, categoryProducts, catAvailable, catAvailMsg, filteredProducts useMemo, and getProductQuantity before all conditional returns
