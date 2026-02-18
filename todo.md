@@ -1437,3 +1437,11 @@
 - [x] Shows "already in cart" indicator
 - [x] Close button and tap-outside-to-dismiss
 - [x] Haptic feedback on interactions
+
+## Feature: AI-Generated Product Descriptions
+- [x] Read server LLM capabilities from server/README.md
+- [x] Build server endpoint to generate product descriptions via built-in LLM
+- [x] Create bulk script to find all products missing descriptions
+- [x] Run AI description generation on all 1,976 products without descriptions (0 errors, 139 batches)
+- [ ] Ensure admin dashboard has product description edit capability
+- [ ] Add indicator in admin for products missing descriptions
