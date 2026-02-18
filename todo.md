@@ -1467,3 +1467,7 @@
 - [x] White text on cyan card had poor contrast — labels used rgba(255,255,255,0.7) which was too faint
 - [x] Changed all labels to solid #ffffff, increased font size from 11 to 12, added fontWeight 600
 - [x] Tips value changed from cyan (#00E5FF) to white for consistency
+
+## Bug: Admin products screen - category bar clipped and edit modal empty (FIXED)
+- [x] Category filter bar was clipped — removed maxHeight: 36, added paddingVertical: 4
+- [x] Edit modal was empty — ScrollView had flex: 1 which collapsed to 0 inside the modal; changed to flexGrow: 0, flexShrink: 1 and added nestedScrollEnabled

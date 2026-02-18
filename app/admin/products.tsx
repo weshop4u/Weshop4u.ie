@@ -301,7 +301,7 @@ export default function ProductsManagementScreen() {
           </View>
 
           {/* Filters row */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, maxHeight: 36 }} contentContainerStyle={{ gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
             {/* Missing desc filter */}
             <TouchableOpacity
               onPress={() => setFilterMissingDesc(!filterMissingDesc)}
@@ -370,7 +370,7 @@ export default function ProductsManagementScreen() {
       {/* Edit Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "92%" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, maxHeight: "92%" }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Edit Product</Text>
               <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); }}>
@@ -378,7 +378,7 @@ export default function ProductsManagementScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
               {/* Image */}
               {editingProduct?.images && editingProduct.images.length > 0 && (
                 <View style={{ alignItems: "center" }}>
