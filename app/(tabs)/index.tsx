@@ -1,4 +1,5 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
@@ -119,9 +120,18 @@ export default function HomeScreen() {
                     ]}
                   >
                     <View className="flex-row items-center gap-4">
-                      {/* Store Icon Placeholder */}
-                      <View className="w-16 h-16 bg-primary/20 rounded-xl items-center justify-center">
-                        <Text className="text-3xl">🏪</Text>
+                      {/* Store Logo */}
+                      <View className="w-16 h-16 rounded-xl items-center justify-center overflow-hidden bg-primary/10">
+                        {store.logo ? (
+                          <Image
+                            source={{ uri: store.logo }}
+                            style={{ width: 64, height: 64, borderRadius: 12 }}
+                            contentFit="cover"
+                            transition={200}
+                          />
+                        ) : (
+                          <Text className="text-3xl">🏪</Text>
+                        )}
                       </View>
 
                       {/* Store Info */}

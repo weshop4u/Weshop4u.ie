@@ -1482,3 +1482,6 @@
 - [x] Server fix: added guard to only update images when value is a valid URL (http) or base64 (data:) and length > 10
 - [x] Restored Mushrooms 250g image in database
 - [x] No other corrupted images found in database
+
+## Store Logo Display Bug
+- [x] Fix store logos not visible on home page (showing generic emoji instead of actual logos)
