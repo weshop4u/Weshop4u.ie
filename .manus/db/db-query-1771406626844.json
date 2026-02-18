@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, name, LENGTH(images) as img_len, HEX(LEFT(images,20)) as img_hex FROM products WHERE name = 'Mushrooms 250g' LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, LENGTH(images) as img_len, HEX(LEFT(images,20)) as img_hex FROM products WHERE name = 'Mushrooms 250g' LIMIT 1;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g",
+      "img_len": "1",
+      "img_hex": "5B"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\timg_len\timg_hex\n60001\tMushrooms 250g\t1\t5B\n",
+  "stderr": "",
+  "execution_time_ms": 366
+}

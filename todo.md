@@ -1475,3 +1475,10 @@
 ## Bug: Category bar still clipped + JSON parse error on save (FIXED)
 - [x] Category filter pills — added minHeight: 40 and alignItems: center to ensure full visibility
 - [x] JSON Parse error — root cause: images stored as JSON string in DB, server was returning raw string. Fixed server to parse images JSON and return arrays. Removed all client-side JSON.parse of images. Also fixed handleSave to only send image when actually changed (not sending huge existing URLs unnecessarily)
+
+## Bug: Product image disappears after editing (FIXED)
+- [x] Root cause: previous code version was sending image field even when unchanged, corrupting the DB
+- [x] Client fix: only send image in payload when a new image is actually picked (pendingImageBase64)
+- [x] Server fix: added guard to only update images when value is a valid URL (http) or base64 (data:) and length > 10
+- [x] Restored Mushrooms 250g image in database
+- [x] No other corrupted images found in database

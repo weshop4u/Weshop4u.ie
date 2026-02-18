@@ -213,7 +213,9 @@ export const storesRouter = router({
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
       if (input.price !== undefined) updateData.price = input.price;
-      if (input.image !== undefined) updateData.images = JSON.stringify([input.image]);
+      if (input.image !== undefined && input.image.length > 10 && (input.image.startsWith('http') || input.image.startsWith('data:'))) {
+        updateData.images = JSON.stringify([input.image]);
+      }
       if (input.quantity !== undefined) updateData.quantity = input.quantity;
       if (input.sku !== undefined) updateData.sku = input.sku;
       if (input.stockStatus !== undefined) updateData.stockStatus = input.stockStatus;
