@@ -1346,3 +1346,11 @@
 - [x] Fixed same issue in store-logos.tsx (uploadLogo was returning URI as-is)
 - [x] Both categories and store logos now properly upload to S3 and display correctly
 - [x] Also fixed useMutation hook-in-handler bug in both screens (moved to component level)
+
+## Proactive Audit: Admin Dashboard Fixes
+- [x] orders.tsx: Replaced Alert.alert with web-compatible cancel confirmation overlay + inline error banner
+- [x] orders.tsx: Replaced all hardcoded dark theme colors with useColors() theme-aware colors in Assign Driver and Update Status modals
+- [x] products.tsx: Replaced window.confirm with web-compatible delete confirmation overlay
+- [x] products.tsx: Product image edit now reads base64 and sends data URI for S3 upload
+- [x] products.tsx: Edit modal now uses theme-aware colors via useColors()
+- [x] All admin screens verified: no remaining Alert.alert or window.confirm calls

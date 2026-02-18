@@ -1,8 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Alert, Modal, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColors } from "@/hooks/use-colors";
+import { StyleSheet } from "react-native";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: "#FEF3C7", text: "#D97706" },
@@ -41,11 +43,14 @@ function getTimeSince(date: Date | string | null): string {
 
 export default function AdminOrdersScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [assignModalOrderId, setAssignModalOrderId] = useState<number | null>(null);
   const [statusModalOrderId, setStatusModalOrderId] = useState<number | null>(null);
+  const [cancelConfirmOrderId, setCancelConfirmOrderId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const { data: orders, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
     { status: statusFilter, limit: 100 },
@@ -57,13 +62,13 @@ export default function AdminOrdersScreen() {
   });
 
   const updateStatusMutation = trpc.admin.updateOrderStatus.useMutation({
-    onSuccess: () => { refetch(); },
-    onError: (err) => { Alert.alert("Error", err.message); },
+    onSuccess: () => { refetch(); setErrorMessage(""); },
+    onError: (err) => { setErrorMessage(err.message); },
   });
 
   const assignDriverMutation = trpc.admin.assignDriver.useMutation({
-    onSuccess: () => { refetch(); setAssignModalOrderId(null); },
-    onError: (err) => { Alert.alert("Error", err.message); },
+    onSuccess: () => { refetch(); setAssignModalOrderId(null); setErrorMessage(""); },
+    onError: (err) => { setErrorMessage(err.message); },
   });
 
   const onRefresh = useCallback(async () => {
@@ -74,15 +79,17 @@ export default function AdminOrdersScreen() {
 
   const handleUpdateStatus = (orderId: number, status: string) => {
     if (status === "cancelled") {
-      Alert.alert("Cancel Order", "Are you sure you want to cancel this order?", [
-        { text: "No", style: "cancel" },
-        { text: "Yes, Cancel", style: "destructive", onPress: () => {
-          updateStatusMutation.mutate({ orderId, status: status as any, reason: "Cancelled by admin" });
-          setStatusModalOrderId(null);
-        }},
-      ]);
+      setCancelConfirmOrderId(orderId);
     } else {
       updateStatusMutation.mutate({ orderId, status: status as any });
+      setStatusModalOrderId(null);
+    }
+  };
+
+  const confirmCancelOrder = () => {
+    if (cancelConfirmOrderId) {
+      updateStatusMutation.mutate({ orderId: cancelConfirmOrderId, status: "cancelled" as any, reason: "Cancelled by admin" });
+      setCancelConfirmOrderId(null);
       setStatusModalOrderId(null);
     }
   };
@@ -94,7 +101,7 @@ export default function AdminOrdersScreen() {
   if (isLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
-        <ActivityIndicator size="large" color="#00E5FF" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </ScreenContainer>
     );
   }
@@ -108,6 +115,18 @@ export default function AdminOrdersScreen() {
 
   return (
     <ScreenContainer className="bg-background">
+      {/* Error Banner */}
+      {errorMessage ? (
+        <TouchableOpacity
+          onPress={() => setErrorMessage("")}
+          style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#EF4444" }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#DC2626" }}>
+            Error: {errorMessage} (tap to dismiss)
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       {/* Alert Banner */}
       {alertOrders.length > 0 && (
         <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F59E0B" }}>
@@ -128,24 +147,24 @@ export default function AdminOrdersScreen() {
               key={status}
               onPress={() => setStatusFilter(status)}
               style={{
-                backgroundColor: active ? "#00E5FF" : "transparent",
+                backgroundColor: active ? colors.primary : "transparent",
                 paddingHorizontal: 14,
                 paddingVertical: 6,
                 borderRadius: 16,
                 marginRight: 8,
                 borderWidth: active ? 0 : 1,
-                borderColor: "#E5E7EB",
+                borderColor: colors.border,
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 4,
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: active ? "#151718" : "#687076" }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: active ? "#fff" : colors.muted }}>
                 {label}
               </Text>
               {count > 0 && (
-                <View style={{ backgroundColor: active ? "rgba(0,0,0,0.15)" : "#E5E7EB", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: "700", color: active ? "#151718" : "#687076" }}>{count}</Text>
+                <View style={{ backgroundColor: active ? "rgba(255,255,255,0.3)" : colors.border, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: active ? "#fff" : colors.muted }}>{count}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -158,7 +177,7 @@ export default function AdminOrdersScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 20 + insets.bottom, paddingHorizontal: 12, paddingTop: 8 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {orders && orders.length > 0 ? (
@@ -188,7 +207,7 @@ export default function AdminOrdersScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text className="text-lg font-bold text-primary">€{parseFloat(order.total).toFixed(2)}</Text>
+                      <Text style={{ fontSize: 18, fontWeight: "800", color: colors.primary }}>€{parseFloat(order.total).toFixed(2)}</Text>
                     </View>
 
                     <View className="flex-row items-center justify-between">
@@ -197,7 +216,7 @@ export default function AdminOrdersScreen() {
                           {order.storeName} → {order.customerName}
                         </Text>
                       </View>
-                      <Text style={{ fontSize: 12, color: isWaiting ? "#D97706" : "#687076", fontWeight: isWaiting ? "700" : "400" }}>
+                      <Text style={{ fontSize: 12, color: isWaiting ? "#D97706" : colors.muted, fontWeight: isWaiting ? "700" : "400" }}>
                         {waitTime}
                       </Text>
                     </View>
@@ -296,12 +315,12 @@ export default function AdminOrdersScreen() {
                         {/* Action Buttons */}
                         {isActive && (
                           <View className="mt-3 pt-3 border-t border-border gap-2">
-                            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 4 }}>ACTIONS</Text>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 4 }}>ACTIONS</Text>
 
                             {/* Assign / Reassign Driver */}
                             <TouchableOpacity
                               onPress={() => setAssignModalOrderId(order.id)}
-                              style={{ backgroundColor: "#DBEAFE", padding: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              style={styles.actionButton}
                             >
                               <Text style={{ fontSize: 14, fontWeight: "700", color: "#2563EB" }}>
                                 {order.driverName === "Unassigned" ? "Assign Driver" : "Reassign Driver"}
@@ -311,7 +330,7 @@ export default function AdminOrdersScreen() {
                             {/* Update Status */}
                             <TouchableOpacity
                               onPress={() => setStatusModalOrderId(order.id)}
-                              style={{ backgroundColor: "#E0E7FF", padding: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              style={[styles.actionButton, { backgroundColor: "#E0E7FF" }]}
                             >
                               <Text style={{ fontSize: 14, fontWeight: "700", color: "#4F46E5" }}>Update Status</Text>
                             </TouchableOpacity>
@@ -319,7 +338,7 @@ export default function AdminOrdersScreen() {
                             {/* Cancel Order */}
                             <TouchableOpacity
                               onPress={() => handleUpdateStatus(order.id, "cancelled")}
-                              style={{ backgroundColor: "#FEE2E2", padding: 12, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              style={[styles.actionButton, { backgroundColor: "#FEE2E2" }]}
                             >
                               <Text style={{ fontSize: 14, fontWeight: "700", color: "#DC2626" }}>Cancel Order</Text>
                             </TouchableOpacity>
@@ -341,14 +360,40 @@ export default function AdminOrdersScreen() {
         )}
       </ScrollView>
 
+      {/* Cancel Confirmation Overlay */}
+      {cancelConfirmOrderId !== null && (
+        <View style={styles.overlay}>
+          <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>Cancel Order?</Text>
+            <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 20 }}>
+              Are you sure you want to cancel this order? This action cannot be undone.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setCancelConfirmOrderId(null)}
+                style={[styles.confirmButton, { backgroundColor: colors.border }]}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>No, Keep It</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmCancelOrder}
+                style={[styles.confirmButton, { backgroundColor: "#DC2626" }]}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>Yes, Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Assign Driver Modal */}
       <Modal visible={assignModalOrderId !== null} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#1e2022", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "70%", paddingBottom: insets.bottom + 16 }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#334155", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#ECEDEE" }}>Assign Driver</Text>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "70%", paddingBottom: insets.bottom + 16 }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Assign Driver</Text>
               <TouchableOpacity onPress={() => setAssignModalOrderId(null)}>
-                <Text style={{ fontSize: 16, color: "#00E5FF", fontWeight: "600" }}>Close</Text>
+                <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
               </TouchableOpacity>
             </View>
             <FlatList
@@ -356,28 +401,28 @@ export default function AdminOrdersScreen() {
               keyExtractor={(item) => String(item.userId)}
               contentContainerStyle={{ padding: 12 }}
               renderItem={({ item }) => {
-                const statusColor = item.isOnline ? (item.isAvailable ? "#22C55E" : "#F59E0B") : "#9BA1A6";
+                const statusColor = item.isOnline ? (item.isAvailable ? "#22C55E" : "#F59E0B") : colors.muted;
                 const statusLabel = item.isOnline ? (item.isAvailable ? "Available" : "Busy") : "Offline";
                 return (
                   <TouchableOpacity
                     onPress={() => {
                       if (assignModalOrderId) handleAssignDriver(assignModalOrderId, item.userId);
                     }}
-                    style={{ backgroundColor: "#151718", padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: "#334155" }}
+                    style={{ backgroundColor: colors.background, padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: statusColor }} />
                         <View>
-                          <Text style={{ fontSize: 15, fontWeight: "700", color: "#ECEDEE" }}>
+                          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
                             {item.displayNumber ? `Driver ${item.displayNumber}` : item.name}
                           </Text>
                           <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusLabel}</Text>
                         </View>
                       </View>
                       <View style={{ alignItems: "flex-end" }}>
-                        <Text style={{ fontSize: 12, color: "#9BA1A6" }}>{item.totalDeliveries || 0} deliveries</Text>
-                        <Text style={{ fontSize: 12, color: "#9BA1A6" }}>{item.vehicleType || "—"}</Text>
+                        <Text style={{ fontSize: 12, color: colors.muted }}>{item.totalDeliveries || 0} deliveries</Text>
+                        <Text style={{ fontSize: 12, color: colors.muted }}>{item.vehicleType || "—"}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -385,7 +430,7 @@ export default function AdminOrdersScreen() {
               }}
               ListEmptyComponent={
                 <View style={{ alignItems: "center", paddingVertical: 24 }}>
-                  <Text style={{ color: "#9BA1A6" }}>No drivers registered</Text>
+                  <Text style={{ color: colors.muted }}>No drivers registered</Text>
                 </View>
               }
             />
@@ -396,11 +441,11 @@ export default function AdminOrdersScreen() {
       {/* Update Status Modal */}
       <Modal visible={statusModalOrderId !== null} transparent animationType="slide">
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#1e2022", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: insets.bottom + 16 }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: "#334155", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: "#ECEDEE" }}>Update Status</Text>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: insets.bottom + 16 }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Update Status</Text>
               <TouchableOpacity onPress={() => setStatusModalOrderId(null)}>
-                <Text style={{ fontSize: 16, color: "#00E5FF", fontWeight: "600" }}>Close</Text>
+                <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{ padding: 12 }}>
@@ -416,19 +461,19 @@ export default function AdminOrdersScreen() {
                       if (statusModalOrderId && !isCurrent) handleUpdateStatus(statusModalOrderId, status);
                     }}
                     style={{
-                      backgroundColor: isCurrent ? sc.bg : "#151718",
+                      backgroundColor: isCurrent ? sc.bg : colors.background,
                       padding: 14,
                       borderRadius: 12,
                       marginBottom: 8,
                       borderWidth: 1,
-                      borderColor: isCurrent ? sc.text : "#334155",
+                      borderColor: isCurrent ? sc.text : colors.border,
                       flexDirection: "row",
                       alignItems: "center",
                       gap: 10,
                     }}
                   >
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sc.text }} />
-                    <Text style={{ fontSize: 15, fontWeight: isCurrent ? "800" : "600", color: isCurrent ? sc.text : "#ECEDEE" }}>
+                    <Text style={{ fontSize: 15, fontWeight: isCurrent ? "800" : "600", color: isCurrent ? sc.text : colors.foreground }}>
                       {label} {isCurrent ? "(Current)" : ""}
                     </Text>
                   </TouchableOpacity>
@@ -441,3 +486,39 @@ export default function AdminOrdersScreen() {
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  actionButton: {
+    backgroundColor: "#DBEAFE",
+    padding: 12,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  confirmBox: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 32,
+    width: "85%",
+    maxWidth: 360,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+});

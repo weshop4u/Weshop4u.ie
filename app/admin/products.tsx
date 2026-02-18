@@ -1,19 +1,24 @@
-import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Modal } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Modal, StyleSheet, Platform } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
+import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function ProductsManagementScreen() {
   const router = useRouter();
+  const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+  const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: products, refetch } = trpc.stores.getProducts.useQuery(
@@ -27,6 +32,7 @@ export default function ProductsManagementScreen() {
   const handleEdit = (product: any) => {
     setEditingProduct({ ...product });
     setShowEditModal(true);
+    setPendingImageBase64(null);
     setMessage("");
   };
 
@@ -37,10 +43,26 @@ export default function ProductsManagementScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setEditingProduct({ ...editingProduct, images: [result.assets[0].uri] });
+        const asset = result.assets[0];
+        let base64Data = asset.base64;
+
+        // If base64 not returned by picker, read from file
+        if (!base64Data && asset.uri && Platform.OS !== "web") {
+          const fileData = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+          base64Data = fileData;
+        }
+
+        if (base64Data) {
+          setPendingImageBase64(base64Data);
+          // Show preview using local URI
+          setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
+        } else {
+          setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
+        }
       }
     } catch (error: any) {
       setMessage(error.message || "Failed to pick image");
@@ -52,12 +74,17 @@ export default function ProductsManagementScreen() {
     if (!editingProduct) return;
 
     try {
+      // If we have a new image as base64, pass it; otherwise pass the existing URL
+      const imageValue = pendingImageBase64
+        ? `data:image/jpeg;base64,${pendingImageBase64}`
+        : editingProduct.images?.[0];
+
       await updateMutation.mutateAsync({
         id: editingProduct.id,
         name: editingProduct.name,
         description: editingProduct.description,
         price: editingProduct.price,
-        image: editingProduct.images?.[0],
+        image: imageValue,
         quantity: editingProduct.quantity,
       });
 
@@ -65,6 +92,7 @@ export default function ProductsManagementScreen() {
       setMessageType("success");
       setShowEditModal(false);
       setEditingProduct(null);
+      setPendingImageBase64(null);
       refetch();
     } catch (error: any) {
       setMessage(error.message || "Failed to update product");
@@ -72,17 +100,18 @@ export default function ProductsManagementScreen() {
     }
   };
 
-  const handleDelete = async (productId: number) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
-
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
     try {
-      await deleteMutation.mutateAsync({ id: productId });
+      await deleteMutation.mutateAsync({ id: deleteConfirmId });
       setMessage("Product deleted successfully!");
       setMessageType("success");
+      setDeleteConfirmId(null);
       refetch();
     } catch (error: any) {
       setMessage(error.message || "Failed to delete product");
       setMessageType("error");
+      setDeleteConfirmId(null);
     }
   };
 
@@ -108,11 +137,13 @@ export default function ProductsManagementScreen() {
         <View className="p-4 gap-4">
           {/* Message */}
           {message && (
-            <View className={`rounded-xl p-4 ${messageType === "error" ? "bg-error/10 border border-error" : "bg-success/10 border border-success"}`}>
-              <Text className={messageType === "error" ? "text-error" : "text-success"}>
-                {message}
-              </Text>
-            </View>
+            <TouchableOpacity onPress={() => setMessage("")}>
+              <View className={`rounded-xl p-4 ${messageType === "error" ? "bg-error/10 border border-error" : "bg-success/10 border border-success"}`}>
+                <Text className={messageType === "error" ? "text-error" : "text-success"}>
+                  {message}
+                </Text>
+              </View>
+            </TouchableOpacity>
           )}
 
           {/* Store Selection */}
@@ -134,6 +165,7 @@ export default function ProductsManagementScreen() {
                   }`}>
                     {store.name}
                   </Text>
+                  <Text className="text-sm text-muted">{(store as any).category || ""}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -146,7 +178,7 @@ export default function ProductsManagementScreen() {
               <TextInput
                 className="bg-surface border border-border rounded-xl p-4 text-foreground"
                 placeholder="Search by name..."
-                placeholderTextColor="#9BA1A6"
+                placeholderTextColor={colors.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
@@ -172,7 +204,7 @@ export default function ProductsManagementScreen() {
                       )}
                       <View className="flex-1">
                         <Text className="text-foreground font-semibold">{product.name}</Text>
-                        <Text className="text-sm text-muted">{product.description}</Text>
+                        <Text className="text-sm text-muted" numberOfLines={2}>{product.description}</Text>
                         <Text className="text-primary font-bold mt-1">€{product.price}</Text>
                         <Text className="text-xs text-muted">Stock: {product.quantity}</Text>
                       </View>
@@ -185,7 +217,7 @@ export default function ProductsManagementScreen() {
                         <Text className="text-primary text-center font-semibold">Edit</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        onPress={() => handleDelete(product.id)}
+                        onPress={() => setDeleteConfirmId(product.id)}
                         className="flex-1 py-2 bg-error/10 rounded-lg active:opacity-70"
                       >
                         <Text className="text-error text-center font-semibold">Delete</Text>
@@ -199,13 +231,39 @@ export default function ProductsManagementScreen() {
         </View>
       </ScrollView>
 
+      {/* Delete Confirmation Overlay */}
+      {deleteConfirmId !== null && (
+        <View style={styles.overlay}>
+          <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>Delete Product?</Text>
+            <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 20 }}>
+              Are you sure you want to delete this product? This action cannot be undone.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setDeleteConfirmId(null)}
+                style={[styles.confirmButton, { backgroundColor: colors.border }]}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDelete}
+                style={[styles.confirmButton, { backgroundColor: "#DC2626" }]}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Edit Modal */}
       <Modal visible={showEditModal} animationType="slide" transparent>
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-background rounded-t-3xl p-6" style={{ maxHeight: "90%" }}>
-            <Text className="text-xl font-bold text-foreground mb-4">Edit Product</Text>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "90%" }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground, marginBottom: 16 }}>Edit Product</Text>
             
-            <ScrollView className="flex-1" contentContainerStyle={{ gap: 16 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16 }}>
               {/* Image */}
               {editingProduct?.images && editingProduct.images.length > 0 && (
                 <View className="items-center">
@@ -216,18 +274,18 @@ export default function ProductsManagementScreen() {
                   />
                   <TouchableOpacity
                     onPress={handlePickImage}
-                    className="mt-2 px-4 py-2 bg-primary/10 rounded-lg active:opacity-70"
+                    style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary + "20", borderRadius: 8 }}
                   >
-                    <Text className="text-primary font-semibold">Change Image</Text>
+                    <Text style={{ color: colors.primary, fontWeight: "600" }}>Change Image</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {/* Name */}
               <View>
-                <Text className="text-sm font-semibold text-foreground mb-2">Name</Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Name</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-xl p-4 text-foreground"
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
                   value={editingProduct?.name}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, name: text })}
                 />
@@ -235,9 +293,9 @@ export default function ProductsManagementScreen() {
 
               {/* Description */}
               <View>
-                <Text className="text-sm font-semibold text-foreground mb-2">Description</Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Description</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-xl p-4 text-foreground"
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
                   value={editingProduct?.description}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, description: text })}
                   multiline
@@ -247,9 +305,9 @@ export default function ProductsManagementScreen() {
 
               {/* Price */}
               <View>
-                <Text className="text-sm font-semibold text-foreground mb-2">Price (€)</Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Price (€)</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-xl p-4 text-foreground"
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
                   value={editingProduct?.price}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, price: text })}
                   keyboardType="decimal-pad"
@@ -258,9 +316,9 @@ export default function ProductsManagementScreen() {
 
               {/* Quantity */}
               <View>
-                <Text className="text-sm font-semibold text-foreground mb-2">Stock Quantity</Text>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Stock Quantity</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-xl p-4 text-foreground"
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, color: colors.foreground, fontSize: 15 }}
                   value={editingProduct?.quantity?.toString()}
                   onChangeText={(text) => setEditingProduct({ ...editingProduct, quantity: parseInt(text) || 0 })}
                   keyboardType="number-pad"
@@ -269,21 +327,22 @@ export default function ProductsManagementScreen() {
             </ScrollView>
 
             {/* Buttons */}
-            <View className="flex-row gap-3 mt-4">
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
               <TouchableOpacity
                 onPress={() => {
                   setShowEditModal(false);
                   setEditingProduct(null);
+                  setPendingImageBase64(null);
                 }}
-                className="flex-1 py-4 bg-surface border border-border rounded-xl active:opacity-70"
+                style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, alignItems: "center" }}
               >
-                <Text className="text-foreground text-center font-semibold">Cancel</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSave}
-                className="flex-1 py-4 bg-primary rounded-xl active:opacity-70"
+                style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.primary, borderRadius: 12, alignItems: "center" }}
               >
-                <Text className="text-background text-center font-bold">Save Changes</Text>
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Save Changes</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -292,3 +351,30 @@ export default function ProductsManagementScreen() {
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  confirmBox: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 32,
+    width: "85%",
+    maxWidth: 360,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+});
