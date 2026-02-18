@@ -68,6 +68,9 @@ export const stores = mysqlTable(
     isOpen247: boolean("is_open_247").default(false),
     openingHours: text("opening_hours"), // JSON string
     isActive: boolean("is_active").default(true),
+    // POS printing settings
+    autoPrintEnabled: boolean("auto_print_enabled").default(false),
+    autoPrintThreshold: int("auto_print_threshold").default(5), // Auto-print orders with this many items or more
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },
@@ -548,5 +551,36 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   sender: one(users, {
     fields: [chatMessages.senderId],
     references: [users.id],
+  }),
+}));
+
+// ===== PRINT JOBS =====
+export const printJobs = mysqlTable(
+  "print_jobs",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    storeId: int("store_id").notNull(),
+    orderId: int("order_id").notNull(),
+    status: mysqlEnum("status", ["pending", "printing", "printed", "failed"]).notNull().default("pending"),
+    receiptContent: text("receipt_content").notNull(), // Pre-formatted receipt text
+    printedAt: timestamp("printed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    storeIdIdx: index("pj_store_id_idx").on(table.storeId),
+    orderIdIdx: index("pj_order_id_idx").on(table.orderId),
+    statusIdx: index("pj_status_idx").on(table.status),
+    createdAtIdx: index("pj_created_at_idx").on(table.createdAt),
+  })
+);
+
+export const printJobsRelations = relations(printJobs, ({ one }) => ({
+  store: one(stores, {
+    fields: [printJobs.storeId],
+    references: [stores.id],
+  }),
+  order: one(orders, {
+    fields: [printJobs.orderId],
+    references: [orders.id],
   }),
 }));

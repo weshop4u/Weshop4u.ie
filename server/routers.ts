@@ -16,6 +16,7 @@ import { adminRouter } from "./routers/admin";
 import { chatRouter } from "./routers/chat";
 import { importRouter } from "./routers/import";
 import { generateDescriptionsRouter } from "./routers/generate-descriptions";
+import { printRouter } from "./routers/print";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -36,6 +37,7 @@ export const appRouter = router({
   chat: chatRouter,
   import: importRouter,
   generateDescriptions: generateDescriptionsRouter,
+  print: printRouter,
 });
 
 export type AppRouter = typeof appRouter;

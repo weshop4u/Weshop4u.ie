@@ -1485,3 +1485,14 @@
 
 ## Store Logo Display Bug
 - [x] Fix store logos not visible on home page (showing generic emoji instead of actual logos)
+
+## POS Printing System
+- [x] Create print_jobs database table (store_id, order_id, status, content, created_at)
+- [x] Build server endpoints for print job CRUD (create, poll, mark printed)
+- [x] Build receipt formatting engine for 58mm thermal printer (58mm/32-char width)
+- [x] Add "Print Pick List" button to store dashboard order view
+- [x] Add auto-print toggle with item threshold in store settings
+- [x] Build POS printer mode page (cloud print listener)
+- [x] Add local print detection for POS standalone mode
+- [x] Receipt format: order number, timestamp, customer name, address, items with quantities
+- [x] Write tests for print job system (27 tests passing)
