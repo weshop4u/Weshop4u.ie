@@ -1497,3 +1497,8 @@
 - [x] Receipt format: order number, timestamp, customer name, address, items with quantities
 - [x] Write tests for print job system (27 tests passing)
 - [x] Fix Print button not visible on store dashboard - move outside expanded section so it's always visible on accepted/preparing orders
+
+## Planning Documents
+- [x] Website development plan for weshop4u.ie with key features and timeline
+- [x] Elavon/Converge payment integration steps outline
+- [x] Guest checkout user flow diagram with tiered system (guest limits, verified accounts)
