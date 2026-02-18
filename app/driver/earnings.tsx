@@ -78,7 +78,7 @@ export default function DriverEarningsScreen() {
 
         {/* Earnings Hero Card */}
         <View style={{ backgroundColor: colors.primary, borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600', letterSpacing: 1 }}>
+          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700', letterSpacing: 1 }}>
             {activeTab === 'today' ? "TODAY'S EARNINGS" : activeTab === 'week' ? 'THIS WEEK' : 'ALL TIME'}
           </Text>
           <Text style={{ color: '#fff', fontSize: 42, fontWeight: '800', marginTop: 4 }}>
@@ -86,15 +86,15 @@ export default function DriverEarningsScreen() {
           </Text>
           <View style={{ flexDirection: 'row', gap: 24, marginTop: 12 }}>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Deliveries</Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>Deliveries</Text>
               <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{tabSummary.deliveries}</Text>
             </View>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Tips</Text>
-              <Text style={{ color: '#00E5FF', fontSize: 18, fontWeight: '700' }}>€{tabSummary.tips.toFixed(2)}</Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>Tips</Text>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>€{tabSummary.tips.toFixed(2)}</Text>
             </View>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Avg/Delivery</Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '600' }}>Avg/Delivery</Text>
               <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
                 €{tabSummary.deliveries > 0 ? (tabSummary.earnings / tabSummary.deliveries).toFixed(2) : '0.00'}
               </Text>

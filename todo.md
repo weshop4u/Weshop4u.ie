@@ -1462,3 +1462,8 @@
 - [x] Category filter pills in product list
 - [x] Search by name or SKU
 - [x] FlatList for performance with large product lists
+
+## Bug: Driver earnings card text visibility (FIXED)
+- [x] White text on cyan card had poor contrast — labels used rgba(255,255,255,0.7) which was too faint
+- [x] Changed all labels to solid #ffffff, increased font size from 11 to 12, added fontWeight 600
+- [x] Tips value changed from cyan (#00E5FF) to white for consistency
