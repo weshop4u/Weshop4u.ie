@@ -1399,3 +1399,14 @@
 - [x] Block add-to-cart for restricted products outside hours with alert
 - [x] Category availability utility with unit tests (21 tests passing)
 - [x] Product images displayed in store product list
+
+## Product Import from CSV (Open All Ours)
+- [x] Filter CSV for Open All Ours products only (154 found)
+- [x] Check Open All Ours store ID in database (store_id=2)
+- [x] Create new categories from CSV data for Open All Ours (11 new categories)
+- [x] Strip HTML from product descriptions
+- [x] Use existing weshop4u.ie image URLs directly
+- [x] Clean category names (removed 'Open All Ours' suffix from all categories)
+- [x] Import all 154 products (both published and pending, per user request)
+- [x] Execute bulk import of Open All Ours products — 154 inserted, 0 skipped
+- [x] Verify imported products appear in customer app (157 total including 3 pre-existing)
