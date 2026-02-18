@@ -16,6 +16,7 @@ export default function StoreLogosScreen() {
 
   const { data: stores, refetch } = trpc.stores.getAll.useQuery();
   const updateMutation = trpc.stores.updateLogo.useMutation();
+  const uploadMutation = trpc.stores.uploadLogo.useMutation();
 
   const handlePickImage = async () => {
     if (!selectedStore) {
@@ -54,7 +55,6 @@ export default function StoreLogosScreen() {
 
     try {
       // Upload image via backend
-      const uploadMutation = trpc.stores.uploadLogo.useMutation();
       const response = await uploadMutation.mutateAsync({ uri: previewUri });
 
       // Update store with new logo URL

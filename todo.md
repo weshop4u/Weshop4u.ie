@@ -1335,3 +1335,7 @@
 - [x] Added "Manage Stores" button to admin dashboard (teal, prominent placement)
 - [x] Server endpoints: getAllStoresAdmin, getStoreDetail, updateStore, updateStoreHours, toggleStoreActive, updateStoreLogo
 - [x] Eircode change auto-triggers GPS re-geocoding
+
+## Bug Fix: Store Logos "Invalid hook call" error
+- [x] Fixed useMutation called inside handleUpload function — moved to component top level
+- [x] uploadMutation now declared alongside updateMutation at component level, used in handler via mutateAsync
