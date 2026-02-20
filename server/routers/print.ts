@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { printJobs, orders, orderItems, stores, users, products, storeStaff } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
+import { formatIrishTime, formatIrishDateShort } from "../lib/timezone";
 
 // Display the order number from the database (WS4U/SPR/069 format)
 function getDisplayOrderNumber(order: any): string {
@@ -48,9 +49,8 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   // Order info - use daily sequential number
   const displayOrderNum = getDisplayOrderNumber(order);
   lines.push(leftRight("Order:", displayOrderNum));
-  const orderDate = new Date(order.createdAt);
-  const dateStr = orderDate.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const timeStr = orderDate.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = formatIrishDateShort(order.createdAt);
+  const timeStr = formatIrishTime(order.createdAt);
   lines.push(leftRight("Date:", dateStr));
   lines.push(leftRight("Time:", timeStr));
   lines.push(leftRight("Payment:", order.paymentMethod === "card" ? "Card" : "Cash"));

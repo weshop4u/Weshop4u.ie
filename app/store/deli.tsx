@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
+import { formatIrishDateTime } from "@/lib/timezone";
 
 // Web-compatible alert/confirm helpers
 const showAlert = (title: string, message: string) => {
@@ -168,7 +169,7 @@ export default function DeliViewScreen() {
                     <View>
                       <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
                       <Text className="text-muted text-xs">
-                        {new Date(order.createdAt).toLocaleString()}
+                        {formatIrishDateTime(order.createdAt)}
                       </Text>
                     </View>
                     <View className="bg-warning px-3 py-1 rounded-full">
@@ -253,7 +254,7 @@ export default function DeliViewScreen() {
                     <View>
                       <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
                       <Text className="text-muted text-xs">
-                        {new Date(order.createdAt).toLocaleString()}
+                        {formatIrishDateTime(order.createdAt)}
                       </Text>
                     </View>
                     <View className="bg-success px-3 py-1 rounded-full">

@@ -5,6 +5,7 @@ import { useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import * as Haptics from "expo-haptics";
+import { formatIrishTime } from "@/lib/timezone";
 
 /**
  * POS Printer Mode
@@ -251,7 +252,7 @@ export default function POSPrinterScreen() {
           </Text>
           {lastPollTime && (
             <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
-              Last check: {lastPollTime.toLocaleTimeString()}
+              Last check: {formatIrishTime(lastPollTime)}
             </Text>
           )}
         </View>
@@ -414,7 +415,7 @@ export default function POSPrinterScreen() {
                       Order #{job.orderNumber || job.orderId}
                     </Text>
                     <Text style={{ fontSize: 12, color: colors.muted }}>
-                      {new Date(job.createdAt).toLocaleTimeString()}
+                      {formatIrishTime(job.createdAt)}
                     </Text>
                   </View>
                   <View style={{

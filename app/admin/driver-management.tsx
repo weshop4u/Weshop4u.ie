@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
+import { formatIrishDate } from "@/lib/timezone";
 
 export default function AdminDriverManagement() {
   const insets = useSafeAreaInsets();
@@ -214,7 +215,7 @@ export default function AdminDriverManagement() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Joined</Text>
                           <Text className="text-sm text-foreground">
-                            {driver.createdAt ? new Date(driver.createdAt).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                            {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
                           </Text>
                         </View>
 

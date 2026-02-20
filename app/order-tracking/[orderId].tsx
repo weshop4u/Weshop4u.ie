@@ -7,6 +7,7 @@ import { ChatPanel } from "@/components/chat-panel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/hooks/use-auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatIrishTime, formatIrishDateTime, formatIrishTimeAgo } from "@/lib/timezone";
 
 /** Compute estimated delivery time based on status and timestamps. */
 function getEstimatedDelivery(order: any): { label: string; minutes: number | null } | null {
@@ -43,35 +44,18 @@ function getEstimatedDelivery(order: any): { label: string; minutes: number | nu
 
 type DateLike = string | Date | null | undefined;
 
-/** Format a timestamp to a readable time string. */
+/** Format a timestamp to a readable time string (Irish timezone). */
 function formatTime(dateStr: DateLike): string {
-  if (!dateStr) return "";
-  const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return formatIrishTime(dateStr);
 }
 
 function formatDateTime(dateStr: DateLike): string {
-  if (!dateStr) return "";
-  const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
-  return d.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatIrishDateTime(dateStr);
 }
 
 /** Get time elapsed since a timestamp. */
 function getElapsed(dateStr: DateLike): string {
-  if (!dateStr) return "";
-  const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
-  return formatDateTime(dateStr);
+  return formatIrishTimeAgo(dateStr);
 }
 
 /** Leaflet-based live map for web - shows driver, store, and delivery markers */

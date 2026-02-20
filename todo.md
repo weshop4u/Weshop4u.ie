@@ -1590,3 +1590,10 @@
 
 ## Bug Fixes
 - [x] Fix "Rendered more hooks" error in store dashboard (useState for showAllHistory called conditionally)
+
+## Irish Timezone (Europe/Dublin) for All Timestamps
+- [x] Update receipt formatter to display Irish time on printed receipts
+- [x] Update store dashboard to display order times in Irish timezone
+- [x] Update driver app to display times in Irish timezone
+- [x] Update customer app (order tracking, order history) to display Irish timezone
+- [x] Update admin panel to display times in Irish timezone

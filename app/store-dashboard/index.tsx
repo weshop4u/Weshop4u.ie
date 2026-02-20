@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useColors } from "@/hooks/use-colors";
+import { formatIrishTime } from "@/lib/timezone";
 
 const isExpoGo = Constants.appOwnership === "expo";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
@@ -422,7 +423,7 @@ export default function StoreDashboardScreen() {
                 Order #{order.orderNumber}
               </Text>
               <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-                {new Date(order.createdAt).toLocaleTimeString()} · {totalQuantity} item{totalQuantity !== 1 ? "s" : ""}
+                {formatIrishTime(order.createdAt)} · {totalQuantity} item{totalQuantity !== 1 ? "s" : ""}
               </Text>
             </View>
             {!isPending && (

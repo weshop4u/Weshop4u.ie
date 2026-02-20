@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
+import { formatIrishDateTime } from "@/lib/timezone";
 
 const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound, startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
@@ -693,7 +694,7 @@ export default function StoreDashboardScreen() {
                   <View className="flex-1">
                     <Text className="text-foreground font-bold text-lg">{order.orderNumber}</Text>
                     <Text className="text-muted text-xs">
-                      {new Date(order.createdAt).toLocaleString()}
+                      {formatIrishDateTime(order.createdAt)}
                     </Text>
                   </View>
                   <View className={`px-3 py-1 rounded-full border ${getStatusColor(order.status)}`}>
@@ -800,7 +801,7 @@ export default function StoreDashboardScreen() {
                     <Text style={{ color: "#22C55E", fontWeight: "700" }}>✅ Delivered</Text>
                     {order.updatedAt && (
                       <Text style={{ color: "#687076", fontSize: 12, marginTop: 4 }}>
-                        {new Date(order.updatedAt).toLocaleString()}
+                        {formatIrishDateTime(order.updatedAt)}
                       </Text>
                     )}
                   </View>
@@ -811,7 +812,7 @@ export default function StoreDashboardScreen() {
                     <Text style={{ color: "#EF4444", fontWeight: "700" }}>✕ Cancelled</Text>
                     {order.updatedAt && (
                       <Text style={{ color: "#687076", fontSize: 12, marginTop: 4 }}>
-                        {new Date(order.updatedAt).toLocaleString()}
+                        {formatIrishDateTime(order.updatedAt)}
                       </Text>
                     )}
                   </View>

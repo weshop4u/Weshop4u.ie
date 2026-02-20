@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { useColors } from "@/hooks/use-colors";
+import { formatIrishSmartDateTime } from "@/lib/timezone";
 
 type TabType = "today" | "week" | "all";
 
@@ -231,9 +232,7 @@ export default function DriverEarningsScreen() {
                   </Text>
                   {delivery.completedAt && (
                     <Text className="text-muted text-xs">
-                      {new Date(delivery.completedAt).toLocaleDateString('en-IE', { 
-                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                      })}
+                      {formatIrishSmartDateTime(delivery.completedAt)}
                     </Text>
                   )}
                 </View>

@@ -9,6 +9,7 @@ import { AppState } from "react-native";
 import Constants from "expo-constants";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
+import { formatIrishTime, formatIrishDateTime } from "@/lib/timezone";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
@@ -61,20 +62,11 @@ function isActiveOrder(status: string): boolean {
 }
 
 function formatTime(dateStr: string | Date | null | undefined): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
+  return formatIrishTime(dateStr);
 }
 
 function formatDate(dateStr: string | Date): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-IE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatIrishDateTime(dateStr);
 }
 
 function StarRating({

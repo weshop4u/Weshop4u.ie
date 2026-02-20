@@ -2,18 +2,10 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform }
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { formatIrishDateFull, formatIrishDate } from "@/lib/timezone";
 
 function formatDate(dateStr: string | Date | null | undefined): string {
-  if (!dateStr) return "";
-  const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
-  return d.toLocaleDateString("en-IE", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatIrishDateFull(dateStr);
 }
 
 export default function ReceiptScreen() {
@@ -192,7 +184,7 @@ export default function ReceiptScreen() {
               Thank you for ordering with WESHOP4U!
             </Text>
             <Text style={{ color: "#9BA1A6", fontSize: 11, marginTop: 8 }}>
-              Receipt generated on {new Date().toLocaleDateString("en-IE")}
+              Receipt generated on {formatIrishDate(new Date())}
             </Text>
           </View>
         </View>

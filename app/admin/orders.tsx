@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
+import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: "#FEF3C7", text: "#D97706" },
@@ -21,24 +22,11 @@ const ALL_STATUSES = ["pending", "accepted", "preparing", "ready_for_pickup", "p
 const STATUS_FILTERS = ["all", ...ALL_STATUSES];
 
 function formatDate(date: Date | string | null): string {
-  if (!date) return "—";
-  const d = new Date(date);
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const time = d.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
-  if (isToday) return `Today ${time}`;
-  return `${d.toLocaleDateString("en-IE", { day: "numeric", month: "short" })} ${time}`;
+  return formatIrishSmartDateTime(date);
 }
 
 function getTimeSince(date: Date | string | null): string {
-  if (!date) return "";
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  return formatIrishTimeAgo(date) || "";
 }
 
 export default function AdminOrdersScreen() {
