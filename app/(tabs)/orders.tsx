@@ -1,11 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, FlatList, RefreshControl, Platform, Alert, AppState, Image, ActivityIndicator, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
-import { AppState } from "react-native";
 import Constants from "expo-constants";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
@@ -213,8 +212,12 @@ export default function OrderHistoryScreen() {
     return (
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
-          <View style={{ width: 128, height: 128, backgroundColor: colors.primary, borderRadius: 64, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            <Text style={{ fontSize: 56 }}>📦</Text>
+          <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 144, height: 144, borderRadius: 72 }}
+              resizeMode="cover"
+            />
           </View>
           <Text className="text-3xl font-bold text-foreground text-center">
             Log In to Continue
@@ -787,7 +790,11 @@ export default function OrderHistoryScreen() {
         {/* Empty State */}
         {(!orders || orders.length === 0) && (
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Text style={{ fontSize: 48, marginBottom: 16 }}>📦</Text>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 96, height: 96, borderRadius: 48, marginBottom: 16 }}
+              resizeMode="cover"
+            />
             <Text style={{ fontSize: 20, fontWeight: "bold", color: colors.foreground, marginBottom: 8 }}>No Orders Yet</Text>
             <Text style={{ color: colors.muted, textAlign: "center", marginBottom: 24 }}>
               Your order history will appear here{"\n"}once you place your first order

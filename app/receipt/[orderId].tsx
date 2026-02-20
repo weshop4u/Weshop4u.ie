@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -69,7 +69,11 @@ export default function ReceiptScreen() {
         <View style={{ margin: 16, backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}>
           {/* Store Logo & Name */}
           <View style={{ backgroundColor: "#0a7ea4", paddingVertical: 24, alignItems: "center" }}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>🛒</Text>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 72, height: 72, borderRadius: 36, marginBottom: 8 }}
+              resizeMode="cover"
+            />
             <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: 1 }}>WESHOP4U</Text>
             <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, marginTop: 4 }}>24/7 Delivery Platform</Text>
           </View>

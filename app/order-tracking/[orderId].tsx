@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -272,7 +272,11 @@ export default function OrderTrackingScreen() {
   if (!order) {
     return (
       <ScreenContainer className="items-center justify-center p-4">
-        <Text style={{ fontSize: 48, marginBottom: 12 }}>📦</Text>
+        <Image
+          source={require("@/assets/images/Weshop4ulogo.jpg")}
+          style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 12 }}
+          resizeMode="cover"
+        />
         <Text className="text-foreground text-lg mb-2">Order not found</Text>
         <TouchableOpacity
           onPress={() => router.push("/")}

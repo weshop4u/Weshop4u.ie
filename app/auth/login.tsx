@@ -1,4 +1,4 @@
-import { Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
@@ -126,6 +126,11 @@ export default function LoginScreen() {
         <View className="flex-1 p-6 justify-center">
           {/* Header */}
           <View className="items-center mb-8">
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 12 }}
+              resizeMode="cover"
+            />
             <Text className="text-primary text-5xl font-bold mb-2">WESHOP4U</Text>
             <Text className="text-muted text-lg">Welcome Back!</Text>
           </View>

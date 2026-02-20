@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -241,7 +241,11 @@ export default function CartScreen() {
   if (cartItems.length === 0) {
     return (
       <ScreenContainer className="items-center justify-center">
-        <Text className="text-2xl mb-4">🛒</Text>
+        <Image
+          source={require("@/assets/images/Weshop4ulogo.jpg")}
+          style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 16 }}
+          resizeMode="cover"
+        />
         <Text className="text-foreground text-lg mb-2">Your cart is empty</Text>
         <TouchableOpacity
           onPress={() => router.back()}

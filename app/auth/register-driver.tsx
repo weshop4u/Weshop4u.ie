@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
@@ -74,6 +74,11 @@ export default function RegisterDriverScreen() {
         <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
           {/* Header */}
           <View className="items-center mb-6 mt-8">
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 100, height: 100, borderRadius: 50, marginBottom: 12 }}
+              resizeMode="cover"
+            />
             <Text className="text-primary text-5xl font-bold mb-2">🚗 DRIVER</Text>
             <Text className="text-muted text-lg">Join Our Delivery Team</Text>
           </View>

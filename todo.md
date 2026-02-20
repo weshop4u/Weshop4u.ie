@@ -1600,3 +1600,5 @@
 
 ## Logo Placement
 - [x] Replace shopping cart icon on Profile/Login screen with WeShop4U logo
+- [x] Replace package emoji on Orders tab login screen with WeShop4U logo
+- [x] Add WeShop4U logo to other key screens (auth login, register, forgot-password, store-login, register-driver, receipt header, cart empty state, store dashboard empty state, order tracking not found, store products empty state)

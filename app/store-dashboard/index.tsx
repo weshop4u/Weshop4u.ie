@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, Alert, Linking, Image, AppState } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
@@ -803,7 +803,11 @@ export default function StoreDashboardScreen() {
         {/* Empty State */}
         {!isLoading && (!orders || orders.length === 0) && (
           <View style={{ backgroundColor: colors.surface, padding: 32, borderRadius: 16, alignItems: "center" }}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>📦</Text>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 96, height: 96, borderRadius: 48, marginBottom: 12 }}
+              resizeMode="cover"
+            />
             <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>No Orders Yet</Text>
             <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center" }}>
               New orders will appear here. You'll get an alert when one comes in.

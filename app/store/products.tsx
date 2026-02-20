@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Platform, Image as RNImage } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
@@ -360,7 +360,11 @@ export default function ProductManagementScreen() {
           </View>
         ) : filteredProducts.length === 0 ? (
           <View style={{ padding: 40, alignItems: "center" }}>
-            <Text style={{ fontSize: 40, marginBottom: 8 }}>📦</Text>
+            <RNImage
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 72, height: 72, borderRadius: 36, marginBottom: 8 }}
+              resizeMode="cover"
+            />
             <Text style={{ color: "#687076", fontSize: 14 }}>
               {searchQuery ? "No products match your search" : "No products yet. Tap + Add to create one."}
             </Text>
