@@ -60,6 +60,66 @@ async function startServer() {
     res.json({ ok: true, timestamp: Date.now() });
   });
 
+  // Quick test print endpoint - no login required
+  // Usage: GET /api/test-print?storeId=1
+  app.get("/api/test-print", async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.storeId as string) || 1;
+      const { getDb } = await import("../db");
+      const { printJobs, stores } = await import("../../drizzle/schema");
+      const { formatReceipt } = await import("../routers/print");
+      const { eq } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) { res.status(500).json({ error: "Database not available" }); return; }
+
+      // Get store info
+      const [store] = await db.select().from(stores).where(eq(stores.id, storeId));
+      if (!store) { res.status(404).json({ error: `Store ${storeId} not found` }); return; }
+
+      // Create a test order object
+      const testOrder = {
+        id: 99999,
+        orderNumber: `WS4U/${store.shortCode || 'TST'}/TEST`,
+        createdAt: new Date(),
+        paymentMethod: 'cash',
+        deliveryAddress: '123 Test Street, Balbriggan, Ireland',
+        deliveryEircode: 'K32XE94',
+        notes: 'This is a TEST PRINT - not a real order',
+        allowSubstitutions: true,
+        subtotal: '12.99',
+        serviceFee: '1.30',
+        deliveryFee: '3.50',
+        total: '17.79',
+      };
+      const testItems = [
+        { productName: 'Test Item 1 (Large)', quantity: 2, price: '4.99' },
+        { productName: 'Test Item 2 (Small)', quantity: 1, price: '3.01' },
+      ];
+      const testCustomer = 'Test Customer';
+      const testPhone = '089-4 626262';
+
+      const content = formatReceipt(testOrder, store, testItems, testCustomer, testPhone);
+
+      // Insert print job
+      await db.insert(printJobs).values({
+        storeId,
+        orderId: 0,
+        receiptContent: content,
+        status: 'pending',
+      });
+
+      res.json({
+        success: true,
+        message: `Test print job created for ${store.name}. The POS should print it within 5 seconds.`,
+        store: store.name,
+        storeId,
+      });
+    } catch (error: any) {
+      console.error('[TestPrint] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.use(
     "/api/trpc",
     createExpressMiddleware({

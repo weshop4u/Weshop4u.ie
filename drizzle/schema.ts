@@ -68,6 +68,8 @@ export const stores = mysqlTable(
     isOpen247: boolean("is_open_247").default(false),
     openingHours: text("opening_hours"), // JSON string
     isActive: boolean("is_active").default(true),
+    shortCode: varchar("short_code", { length: 10 }), // e.g. SPR, OAO - used in order numbers
+    orderCounter: int("order_counter").default(0), // Sequential order counter per store
     // POS printing settings
     autoPrintEnabled: boolean("auto_print_enabled").default(false),
     autoPrintThreshold: int("auto_print_threshold").default(5), // Auto-print orders with this many items or more
@@ -78,6 +80,7 @@ export const stores = mysqlTable(
     slugIdx: index("slug_idx").on(table.slug),
     categoryIdx: index("category_idx").on(table.category),
     isActiveIdx: index("is_active_idx").on(table.isActive),
+    shortCodeIdx: index("short_code_idx").on(table.shortCode),
   })
 );
 

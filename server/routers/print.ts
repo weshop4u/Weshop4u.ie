@@ -4,16 +4,15 @@ import { getDb } from "../db";
 import { printJobs, orders, orderItems, stores, users, products, storeStaff } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
-// Generate a daily sequential order number (001, 002, etc.)
-function getDailyOrderNumber(order: any): string {
-  // Use the order's sequential ID within the day
-  // Extract a short number from the order ID or use dailyOrderNumber if available
-  if (order.dailyOrderNumber) {
-    return String(order.dailyOrderNumber).padStart(3, "0");
+// Display the order number from the database (WS4U/SPR/069 format)
+function getDisplayOrderNumber(order: any): string {
+  // Use the stored orderNumber which is now in WS4U/SPR/069 format
+  if (order.orderNumber && order.orderNumber.includes('/')) {
+    return order.orderNumber;
   }
-  // Fallback: use last 3 digits of order ID
+  // Fallback for old orders: use last 3 digits of order ID
   const num = order.id % 1000;
-  return String(num).padStart(3, "0");
+  return String(num).padStart(3, '0');
 }
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
@@ -47,7 +46,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   lines.push(divider("-"));
 
   // Order info - use daily sequential number
-  const displayOrderNum = getDailyOrderNumber(order);
+  const displayOrderNum = getDisplayOrderNumber(order);
   lines.push(leftRight("Order:", displayOrderNum));
   const orderDate = new Date(order.createdAt);
   const dateStr = orderDate.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" });

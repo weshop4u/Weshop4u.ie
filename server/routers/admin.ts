@@ -7,6 +7,22 @@ import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
 import { geocodeAddress } from "../services/geocoding";
 
+// Helper function to generate sequential order number per store
+async function generateOrderNumber(storeId: number): Promise<string> {
+  const db = await getDb();
+  await db!.update(stores)
+    .set({ orderCounter: sql`order_counter + 1` })
+    .where(eq(stores.id, storeId));
+  const [store] = await db!.select({
+    shortCode: stores.shortCode,
+    orderCounter: stores.orderCounter,
+  }).from(stores).where(eq(stores.id, storeId));
+  const code = store?.shortCode || 'GEN';
+  const num = store?.orderCounter || 1;
+  const padded = String(num).padStart(3, '0');
+  return `WS4U/${code}/${padded}`;
+}
+
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -617,7 +633,7 @@ export const adminRouter = router({
 
       const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
       const total = Math.round((subtotal + serviceFee + deliveryFee) * 100) / 100;
-      const orderNumber = `WS4U-PH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const orderNumber = await generateOrderNumber(input.storeId);
 
       // Check if customer phone matches an existing user
       let customerId: number | null = null;

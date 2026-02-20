@@ -1575,3 +1575,10 @@
 ## Driver Alarm Sound Fix
 - [x] Make alarm sound loop continuously every 3-4 seconds until driver accepts/declines or countdown expires
 - [x] Only stop alarm on explicit user action (accept/decline), not on data refetch
+
+## Store Order Numbers & Features
+- [x] Implement store-specific sequential order numbers (WS4U/SPR/001, WS4U/OAO/001)
+- [x] Add store short code field to stores table (SPR for Spar, OAO for Open All Ours)
+- [x] Add looping alarm sound to store dashboard when new order arrives
+- [x] Build quick test print endpoint (no login required)
+- [x] Completed orders: show last 24 hours only, add order history for older orders

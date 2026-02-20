@@ -9,6 +9,26 @@ import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
 
+// Helper function to generate sequential order number per store
+// Format: WS4U/SPR/001, WS4U/OAO/002, etc.
+async function generateOrderNumber(storeId: number): Promise<string> {
+  const db = await getDb();
+  // Atomically increment the store's order counter and get the new value
+  await db!.update(stores)
+    .set({ orderCounter: sql`order_counter + 1` })
+    .where(eq(stores.id, storeId));
+  
+  const [store] = await db!.select({
+    shortCode: stores.shortCode,
+    orderCounter: stores.orderCounter,
+  }).from(stores).where(eq(stores.id, storeId));
+  
+  const code = store?.shortCode || 'GEN';
+  const num = store?.orderCounter || 1;
+  const padded = String(num).padStart(3, '0');
+  return `WS4U/${code}/${padded}`;
+}
+
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
   lat1: number,
@@ -183,8 +203,8 @@ export const ordersRouter = router({
       const tipAmount = input.paymentMethod === "card" ? (input.tipAmount || 0) : 0;
       const total = Math.round((subtotal + serviceFee + deliveryFee + tipAmount) * 100) / 100;
 
-      // Generate order number
-      const orderNumber = `WS4U-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      // Generate sequential order number per store
+      const orderNumber = await generateOrderNumber(input.storeId);
 
       // Create order
       const [order] = await db.insert(orders).values({

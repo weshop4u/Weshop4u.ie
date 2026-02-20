@@ -76,6 +76,48 @@ export default function StoreDashboardScreen() {
     }
   }, []);
 
+  // Start persistent looping alarm (matches driver alarm pattern)
+  const startAlarm = () => {
+    if (Platform.OS === "web") {
+      startWebAlarm(4000); // Repeat every 4 seconds on web
+    } else {
+      try {
+        alarmPlayer.seekTo(0);
+        alarmPlayer.play();
+      } catch (e) { /* ignore */ }
+
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = setInterval(() => {
+        try {
+          alarmPlayer.seekTo(0);
+          alarmPlayer.play();
+        } catch (e) { /* ignore */ }
+      }, 4000);
+
+      // Persistent vibration - triple burst like driver alarm
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 400);
+      if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+      vibrationIntervalRef.current = setInterval(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 200);
+        setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 400);
+      }, 3000);
+    }
+  };
+
+  // Stop alarm completely
+  const stopAlarm = () => {
+    if (Platform.OS === "web") {
+      stopWebAlarm();
+    } else {
+      if (alarmIntervalRef.current) { clearInterval(alarmIntervalRef.current); alarmIntervalRef.current = null; }
+      if (vibrationIntervalRef.current) { clearInterval(vibrationIntervalRef.current); vibrationIntervalRef.current = null; }
+      try { alarmPlayer.pause(); } catch (e) { /* ignore */ }
+    }
+  };
+
   // Get the store linked to this staff user from store_staff table
   const { data: myStore } = trpc.store.getMyStore.useQuery(
     { userId: user?.id! },
@@ -138,6 +180,10 @@ export default function StoreDashboardScreen() {
     if (isFirstLoadRef.current) {
       prevPendingIdsRef.current = currentPendingIds;
       isFirstLoadRef.current = false;
+      // Also start alarm if there are already pending orders on first load
+      if (currentPendingIds.size > 0) {
+        startAlarm();
+      }
       return;
     }
 
@@ -153,41 +199,13 @@ export default function StoreDashboardScreen() {
       setTimeout(() => setNewOrderFlash(false), 3000);
 
       // Start persistent looping alarm
-      if (Platform.OS === "web") {
-        startWebAlarm(8000); // Repeat every 8 seconds on web
-      } else {
-        try {
-          alarmPlayer.seekTo(0);
-          alarmPlayer.play();
-        } catch (e) { /* ignore */ }
-
-        if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
-        alarmIntervalRef.current = setInterval(() => {
-          try {
-            alarmPlayer.seekTo(0);
-            alarmPlayer.play();
-          } catch (e) { /* ignore */ }
-        }, 8000);
-
-        // Persistent vibration
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
-        vibrationIntervalRef.current = setInterval(() => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        }, 4000);
-      }
+      startAlarm();
     }
 
     // Stop alarm when no more pending orders
     const pendingCount = storeOrders.filter((o: any) => o.status === "pending").length;
     if (pendingCount === 0) {
-      if (Platform.OS === "web") {
-        stopWebAlarm();
-      } else {
-        if (alarmIntervalRef.current) { clearInterval(alarmIntervalRef.current); alarmIntervalRef.current = null; }
-        if (vibrationIntervalRef.current) { clearInterval(vibrationIntervalRef.current); vibrationIntervalRef.current = null; }
-        try { alarmPlayer.pause(); } catch (e) { /* ignore */ }
-      }
+      stopAlarm();
     }
 
     prevPendingIdsRef.current = currentPendingIds;
@@ -468,10 +486,20 @@ export default function StoreDashboardScreen() {
     return order.status === filter;
   });
 
-  // Sort: for completed tab, show newest first
+  // For completed tab: show last 24 hours by default, with option to view older
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
   const sortedOrders = filter === "completed"
-    ? [...filteredOrders].sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+    ? [...filteredOrders]
+        .filter((o: any) => showAllHistory || new Date(o.updatedAt || o.createdAt) >= twentyFourHoursAgo)
+        .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
     : filteredOrders;
+
+  // Count orders older than 24 hours for the "View History" button
+  const olderCompletedCount = filter === "completed"
+    ? filteredOrders.filter((o: any) => new Date(o.updatedAt || o.createdAt) < twentyFourHoursAgo).length
+    : 0;
 
   const pendingCount = allOrders.filter((o: any) => o.status === "pending").length;
   const preparingCount = allOrders.filter((o: any) => o.status === "preparing").length;
@@ -608,13 +636,25 @@ export default function StoreDashboardScreen() {
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
               <Text className="text-4xl mb-4">{filter === "completed" ? "✅" : "📦"}</Text>
               <Text className="text-muted text-lg">
-                {filter === "completed" ? "No completed orders yet" : "No orders"}
+                {filter === "completed"
+                  ? (showAllHistory ? "No completed orders" : "No orders in the last 24 hours")
+                  : "No orders"}
               </Text>
               <Text className="text-muted text-sm mt-2">
                 {filter === "all" ? "New orders will appear here" :
-                 filter === "completed" ? "Delivered and cancelled orders will appear here" :
-                 `No ${filter.replace(/_/g, " ")} orders`}
+                 filter === "completed" && !showAllHistory && olderCompletedCount > 0
+                   ? `${olderCompletedCount} older order${olderCompletedCount > 1 ? 's' : ''} in history`
+                   : filter === "completed" ? "Delivered and cancelled orders will appear here"
+                   : `No ${filter.replace(/_/g, " ")} orders`}
               </Text>
+              {filter === "completed" && !showAllHistory && olderCompletedCount > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowAllHistory(true)}
+                  style={{ marginTop: 16, backgroundColor: "#0a7ea4", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>View Order History</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             sortedOrders.map((order: any) => (
@@ -851,6 +891,28 @@ export default function StoreDashboardScreen() {
                 )}
               </View>
             ))
+          )}
+          {/* History toggle for completed tab */}
+          {filter === "completed" && sortedOrders.length > 0 && !showAllHistory && olderCompletedCount > 0 && (
+            <TouchableOpacity
+              onPress={() => setShowAllHistory(true)}
+              style={{ alignSelf: "center", marginVertical: 16, backgroundColor: "#0a7ea4", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600" }}>View {olderCompletedCount} Older Order{olderCompletedCount > 1 ? 's' : ''}</Text>
+            </TouchableOpacity>
+          )}
+          {filter === "completed" && showAllHistory && (
+            <TouchableOpacity
+              onPress={() => setShowAllHistory(false)}
+              style={{ alignSelf: "center", marginVertical: 16, backgroundColor: "#687076", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600" }}>Show Last 24 Hours Only</Text>
+            </TouchableOpacity>
+          )}
+          {filter === "completed" && sortedOrders.length > 0 && (
+            <Text style={{ textAlign: "center", color: "#687076", fontSize: 12, marginBottom: 8 }}>
+              {showAllHistory ? "Showing all order history" : "Showing last 24 hours"}
+            </Text>
           )}
           {/* Bottom safe area spacer */}
           <View style={{ height: Math.max(insets.bottom, 16) }} />
