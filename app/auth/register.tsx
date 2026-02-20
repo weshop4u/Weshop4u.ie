@@ -23,7 +23,7 @@ export default function RegisterScreen() {
     setSuccess(false);
     
     // Validation
-    if (!name || !email || !password) {
+    if (!name || !email || !phone || !password) {
       setError("Please fill in all required fields");
       return;
     }
@@ -44,7 +44,7 @@ export default function RegisterScreen() {
       const result = await registerMutation.mutateAsync({
         name: name.trim(),
         email: email.toLowerCase().trim(),
-        phone: phone.trim() || undefined,
+        phone: phone.trim(),
         password,
       });
 
@@ -121,7 +121,7 @@ export default function RegisterScreen() {
             </View>
 
             <View>
-              <Text className="text-foreground font-semibold mb-2">Phone (Optional)</Text>
+              <Text className="text-foreground font-semibold mb-2">Phone Number *</Text>
               <TextInput
                 className="bg-surface border border-border rounded-lg p-4 text-foreground"
                 placeholder="087 123 4567"

@@ -13,7 +13,7 @@ export const authRouter = router({
         email: z.string().email(),
         password: z.string().min(6),
         name: z.string().min(2),
-        phone: z.string().optional(),
+        phone: z.string().min(1, "Phone number is required"),
       })
     )
     .mutation(async ({ input }) => {
