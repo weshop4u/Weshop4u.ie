@@ -3,12 +3,17 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/hooks/use-auth";
+import { useColors } from "@/hooks/use-colors";
 
 export default function OrderConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const { user } = useAuth();
   const orderIdNum = parseInt(orderId);
+  const isGuest = !user;
 
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ orderId: orderIdNum });
 
@@ -69,6 +74,66 @@ export default function OrderConfirmationScreen() {
           <Text className="text-muted text-sm mb-1">Order Number</Text>
           <Text className="text-foreground font-bold text-xl">{order.orderNumber}</Text>
         </View>
+
+        {/* Guest Account Creation Prompt */}
+        {isGuest && (
+          <View style={{
+            backgroundColor: colors.primary + '10',
+            borderColor: colors.primary,
+            borderWidth: 1.5,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 24,
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: colors.foreground, marginBottom: 8 }}>
+              Create a Free Account
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.muted, lineHeight: 20, marginBottom: 16 }}>
+              Save your details for faster checkout next time, track your order history, and unlock higher spending limits.
+            </Text>
+            
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 14 }}>✓</Text>
+                <Text style={{ fontSize: 13, color: colors.foreground }}>Track all your orders in one place</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 14 }}>✓</Text>
+                <Text style={{ fontSize: 13, color: colors.foreground }}>Save your delivery address</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 14 }}>✓</Text>
+                <Text style={{ fontSize: 13, color: colors.foreground }}>Higher cash order limits (€50+)</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity
+              onPress={() => router.push("/auth/register")}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 12,
+                padding: 14,
+                alignItems: 'center',
+                marginTop: 16,
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 16 }}>
+                Create Account
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => {}} 
+              style={{ padding: 8, alignItems: 'center', marginTop: 4 }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: colors.muted, fontSize: 13 }}>
+                No thanks, continue as guest
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Current Status */}
         <View className="bg-surface p-4 rounded-lg mb-6">

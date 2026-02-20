@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -6,6 +6,9 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart-provider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
+
+const GUEST_CASH_LIMIT = 30; // €30 cash limit for guest orders
 
 export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
@@ -13,8 +16,18 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
-  const { data: user } = trpc.auth.me.useQuery();
+  const { user: authUser, loading: authLoading } = useAuth();
+  const { data: meData } = trpc.auth.me.useQuery();
+  const user = authUser || meData;
   const isGuest = !user;
+  
+  // Guest checkout choice state
+  const [showGuestChoice, setShowGuestChoice] = useState(false);
+  const [guestChoiceMade, setGuestChoiceMade] = useState(false);
+  
+  // Delivery fee warning modal
+  const [showDeliveryFeeWarning, setShowDeliveryFeeWarning] = useState(false);
+  const [deliveryFeeWarningAcknowledged, setDeliveryFeeWarningAcknowledged] = useState(false);
   
   // Error banner state
   const [errorMessage, setErrorMessage] = useState("");
@@ -45,7 +58,7 @@ export default function CartScreen() {
     if (streetAddress) return;
     
     if (savedAddresses && savedAddresses.length > 0) {
-      const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+      const defaultAddr = savedAddresses.find((a: any) => a.isDefault) || savedAddresses[0];
       setStreetAddress(defaultAddr.streetAddress);
       setEircode(defaultAddr.eircode);
       setSelectedAddressId(defaultAddr.id);
@@ -63,14 +76,22 @@ export default function CartScreen() {
     }
   }, [savedAddresses, recentOrders, streetAddress]);
   
+  // Show guest choice modal when guest user arrives at checkout
+  useEffect(() => {
+    if (!authLoading && isGuest && !guestChoiceMade) {
+      setShowGuestChoice(true);
+    }
+  }, [authLoading, isGuest, guestChoiceMade]);
+  
   // Handle saved address selection
   const handleSelectSavedAddress = (addressId: number) => {
-    const addr = savedAddresses?.find(a => a.id === addressId);
+    const addr = savedAddresses?.find((a: any) => a.id === addressId);
     if (addr) {
       setStreetAddress(addr.streetAddress);
       setEircode(addr.eircode);
       setSelectedAddressId(addr.id);
       setDeliveryFeeCalculated(false);
+      setDeliveryFeeWarningAcknowledged(false);
       calculateDeliveryFeeMutation.reset();
     }
   };
@@ -94,12 +115,6 @@ export default function CartScreen() {
       router.back();
     }
   }, [cartContext.storeId, storeIdNum]);
-  
-  useEffect(() => {
-    if (isGuest) {
-      setPaymentMethod("card");
-    }
-  }, [isGuest]);
 
   // Auto-dismiss error after 5 seconds
   useEffect(() => {
@@ -124,12 +139,17 @@ export default function CartScreen() {
 
     try {
       const fullAddress = `${streetAddress}, ${eircode}, Ireland`;
-      await calculateDeliveryFeeMutation.mutateAsync({
+      const result = await calculateDeliveryFeeMutation.mutateAsync({
         storeId: storeIdNum,
         customerAddress: fullAddress,
       });
       setDeliveryFeeCalculated(true);
       setErrorMessage("");
+      
+      // Show delivery fee warning if fee is €10 or more
+      if (result.deliveryFee >= 10 && !deliveryFeeWarningAcknowledged) {
+        setShowDeliveryFeeWarning(true);
+      }
     } catch (error: any) {
       setErrorMessage(error.message || "Could not calculate delivery fee. Please check your address and Eircode.");
     }
@@ -147,6 +167,9 @@ export default function CartScreen() {
   const deliveryLongitude = calculateDeliveryFeeMutation.data?.deliveryLongitude || 0;
   const tipValue = showCustomTip ? (parseFloat(customTip) || 0) : tipAmount;
   const total = subtotal + serviceFee + deliveryFee + (paymentMethod === "card" ? tipValue : 0);
+  
+  // Check if guest cash limit is exceeded
+  const guestCashLimitExceeded = isGuest && paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT;
 
   const handleCheckout = async () => {
     console.log("[Checkout] Starting checkout process...");
@@ -159,8 +182,9 @@ export default function CartScreen() {
         setErrorMessage("Please enter your phone number");
         return;
       }
-      if (!guestEmail.trim() || !guestEmail.includes("@")) {
-        setErrorMessage("Please enter a valid email address");
+      // Check guest cash limit
+      if (paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT) {
+        setErrorMessage(`Guest cash orders are limited to €${GUEST_CASH_LIMIT}. Please reduce your cart or switch to card payment.`);
         return;
       }
     }
@@ -172,6 +196,12 @@ export default function CartScreen() {
 
     if (!deliveryFeeCalculated) {
       setErrorMessage("Please calculate delivery fee first");
+      return;
+    }
+    
+    // Check delivery fee warning
+    if (deliveryFee >= 10 && !deliveryFeeWarningAcknowledged) {
+      setShowDeliveryFeeWarning(true);
       return;
     }
 
@@ -194,7 +224,7 @@ export default function CartScreen() {
         allowSubstitution,
         guestName: isGuest ? guestName.trim() : undefined,
         guestPhone: isGuest ? guestPhone.trim() : undefined,
-        guestEmail: isGuest ? guestEmail.trim() : undefined,
+        guestEmail: isGuest ? guestEmail.trim() || undefined : undefined,
       });
 
       clearCart();
@@ -225,6 +255,182 @@ export default function CartScreen() {
 
   return (
     <ScreenContainer>
+      {/* Guest Checkout Choice Modal */}
+      <Modal
+        visible={showGuestChoice}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setGuestChoiceMade(true);
+          setShowGuestChoice(false);
+        }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: colors.background, borderRadius: 20, padding: 28, width: '100%', maxWidth: 380, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 }}>
+            {/* Header */}
+            <Text style={{ fontSize: 24, fontWeight: '800', color: colors.foreground, textAlign: 'center', marginBottom: 8 }}>
+              Ready to Order?
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.muted, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+              Choose how you'd like to continue
+            </Text>
+
+            {/* Continue as Guest */}
+            <TouchableOpacity
+              onPress={() => {
+                setGuestChoiceMade(true);
+                setShowGuestChoice(false);
+              }}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 14,
+                padding: 18,
+                marginBottom: 12,
+                alignItems: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 }}>
+                Continue as Guest
+              </Text>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
+                Quick order — no account needed
+              </Text>
+            </TouchableOpacity>
+
+            {/* Guest info */}
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 18 }}>
+                As a guest you can pay by cash (up to €{GUEST_CASH_LIMIT}) or card. Just provide your name, phone number, and delivery address.
+              </Text>
+            </View>
+
+            {/* Divider */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+              <Text style={{ marginHorizontal: 12, color: colors.muted, fontSize: 13 }}>or</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            </View>
+
+            {/* Log In */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowGuestChoice(false);
+                router.push("/auth/login");
+              }}
+              style={{
+                borderWidth: 2,
+                borderColor: colors.primary,
+                borderRadius: 14,
+                padding: 18,
+                marginBottom: 12,
+                alignItems: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 17, fontWeight: '700', color: colors.primary, marginBottom: 4 }}>
+                Log In
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.muted }}>
+                Access saved addresses & order history
+              </Text>
+            </TouchableOpacity>
+
+            {/* Create Account */}
+            <TouchableOpacity
+              onPress={() => {
+                setShowGuestChoice(false);
+                router.push("/auth/register");
+              }}
+              style={{
+                borderWidth: 2,
+                borderColor: colors.border,
+                borderRadius: 14,
+                padding: 18,
+                alignItems: 'center',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 17, fontWeight: '700', color: colors.foreground, marginBottom: 4 }}>
+                Create Account
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.muted }}>
+                Higher limits, faster checkout, order tracking
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delivery Fee Warning Modal */}
+      <Modal
+        visible={showDeliveryFeeWarning}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeliveryFeeWarning(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: colors.background, borderRadius: 20, padding: 28, width: '100%', maxWidth: 380, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 }}>
+            {/* Warning Icon */}
+            <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 16 }}>⚠️</Text>
+            
+            {/* Title */}
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colors.foreground, textAlign: 'center', marginBottom: 12 }}>
+              Delivery Fee Notice
+            </Text>
+            
+            {/* Message */}
+            <Text style={{ fontSize: 15, color: colors.foreground, textAlign: 'center', marginBottom: 8, lineHeight: 22 }}>
+              Delivery fee is over €10.
+            </Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#F59E0B', textAlign: 'center', marginBottom: 8 }}>
+              Your delivery fee is €{deliveryFee.toFixed(2)}
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.muted, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+              Delivery may take longer than usual due to the distance.
+            </Text>
+            
+            {/* Distance info */}
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 20, flexDirection: 'row', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 13, color: colors.muted }}>
+                Distance: {distance.toFixed(2)} km from store
+              </Text>
+            </View>
+            
+            {/* OK Button */}
+            <TouchableOpacity
+              onPress={() => {
+                setDeliveryFeeWarningAcknowledged(true);
+                setShowDeliveryFeeWarning(false);
+              }}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 14,
+                padding: 16,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#FFFFFF' }}>
+                I Understand, Continue
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Cancel */}
+            <TouchableOpacity
+              onPress={() => setShowDeliveryFeeWarning(false)}
+              style={{ padding: 12, alignItems: 'center' }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 14, color: colors.muted }}>
+                Go Back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Header with Back Button */}
       <View className="flex-row items-center px-4 py-4 border-b border-border">
         <TouchableOpacity
@@ -248,6 +454,29 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
       ) : null}
+
+      {/* Guest Banner */}
+      {isGuest && guestChoiceMade && (
+        <View style={{ backgroundColor: '#00E5FF15', borderColor: '#00E5FF', borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14, marginBottom: 2 }}>
+                Ordering as Guest
+              </Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>
+                Cash limit: €{GUEST_CASH_LIMIT} per order
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/auth/login")}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 12 }}>Log In</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <ScrollView className="flex-1 p-4">
 
@@ -292,11 +521,11 @@ export default function CartScreen() {
         {isGuest && (
           <View className="mb-6">
             <Text className="text-foreground font-semibold mb-3">Your Information</Text>
-            <Text className="text-muted text-sm mb-3">We need your details to complete the order</Text>
+            <Text className="text-muted text-sm mb-3">We need your details to deliver your order</Text>
             
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
-              placeholder="Full Name"
+              placeholder="Full Name *"
               placeholderTextColor={colors.muted}
               value={guestName}
               onChangeText={setGuestName}
@@ -304,7 +533,7 @@ export default function CartScreen() {
             
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
-              placeholder="Phone Number"
+              placeholder="Phone Number *"
               placeholderTextColor={colors.muted}
               value={guestPhone}
               onChangeText={setGuestPhone}
@@ -313,7 +542,7 @@ export default function CartScreen() {
             
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border"
-              placeholder="Email Address"
+              placeholder="Email Address (optional — for order updates)"
               placeholderTextColor={colors.muted}
               value={guestEmail}
               onChangeText={setGuestEmail}
@@ -331,7 +560,7 @@ export default function CartScreen() {
           {!isGuest && savedAddresses && savedAddresses.length > 0 && (
             <View className="mb-3">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                {savedAddresses.map((addr) => (
+                {savedAddresses.map((addr: any) => (
                   <TouchableOpacity
                     key={addr.id}
                     onPress={() => handleSelectSavedAddress(addr.id)}
@@ -363,6 +592,7 @@ export default function CartScreen() {
                     setStreetAddress("");
                     setEircode("");
                     setDeliveryFeeCalculated(false);
+                    setDeliveryFeeWarningAcknowledged(false);
                     calculateDeliveryFeeMutation.reset();
                   }}
                   className="active:opacity-70"
@@ -394,6 +624,7 @@ export default function CartScreen() {
             onChangeText={(text) => {
               setStreetAddress(text);
               setDeliveryFeeCalculated(false);
+              setDeliveryFeeWarningAcknowledged(false);
               calculateDeliveryFeeMutation.reset();
             }}
             multiline
@@ -409,6 +640,7 @@ export default function CartScreen() {
             onChangeText={(text) => {
               setEircode(text.toUpperCase());
               setDeliveryFeeCalculated(false);
+              setDeliveryFeeWarningAcknowledged(false);
               calculateDeliveryFeeMutation.reset();
             }}
             autoCapitalize="characters"
@@ -442,6 +674,11 @@ export default function CartScreen() {
             <View className="mt-3 p-4 bg-surface rounded-lg">
               <Text className="text-muted text-sm">Distance: {distance.toFixed(2)} km</Text>
               <Text className="text-muted text-sm">Delivery Fee: €{deliveryFee.toFixed(2)}</Text>
+              {deliveryFee >= 10 && (
+                <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginTop: 4 }}>
+                  ⚠️ High delivery fee — long distance from store
+                </Text>
+              )}
             </View>
           )}
         </View>
@@ -479,21 +716,30 @@ export default function CartScreen() {
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-3">Payment Method</Text>
           
-          {!isGuest && (
-            <TouchableOpacity
-              onPress={() => setPaymentMethod("cash_on_delivery")}
-              className="flex-row items-center mb-3 active:opacity-70"
-            >
-              <View className={`w-6 h-6 rounded-full border-2 mr-3 items-center justify-center ${
-                paymentMethod === "cash_on_delivery" ? "border-primary" : "border-border"
-              }`}>
-                {paymentMethod === "cash_on_delivery" && (
-                  <View className="w-3 h-3 rounded-full bg-primary" />
-                )}
-              </View>
+          {/* Cash on Delivery - available for all users */}
+          <TouchableOpacity
+            onPress={() => setPaymentMethod("cash_on_delivery")}
+            className="flex-row items-center mb-3 active:opacity-70"
+          >
+            <View className={`w-6 h-6 rounded-full border-2 mr-3 items-center justify-center ${
+              paymentMethod === "cash_on_delivery" ? "border-primary" : "border-border"
+            }`}>
+              {paymentMethod === "cash_on_delivery" && (
+                <View className="w-3 h-3 rounded-full bg-primary" />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
               <Text className="text-foreground">Cash on Delivery</Text>
-            </TouchableOpacity>
-          )}
+              {isGuest && (
+                <Text style={{ fontSize: 12, color: guestCashLimitExceeded ? colors.error : colors.muted }}>
+                  {guestCashLimitExceeded 
+                    ? `Order exceeds €${GUEST_CASH_LIMIT} guest cash limit`
+                    : `Guest limit: €${GUEST_CASH_LIMIT} per order`
+                  }
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => setPaymentMethod("card")}
@@ -509,11 +755,31 @@ export default function CartScreen() {
             <Text className="text-foreground">Card Payment (Elavon)</Text>
           </TouchableOpacity>
           
-          {isGuest && (
-            <View className="mt-3 p-3 bg-surface rounded-lg">
-              <Text className="text-muted text-sm">
-                💳 Card payment required for guest checkout. Create an account to unlock cash payment option.
+          {/* Guest cash limit warning */}
+          {guestCashLimitExceeded && (
+            <View style={{ marginTop: 12, padding: 14, backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, borderRadius: 12 }}>
+              <Text style={{ color: colors.error, fontWeight: '700', fontSize: 14, marginBottom: 6 }}>
+                Cart total exceeds €{GUEST_CASH_LIMIT} guest cash limit
               </Text>
+              <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 12 }}>
+                Guest cash on delivery orders are limited to €{GUEST_CASH_LIMIT} for security. You can:
+              </Text>
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setPaymentMethod("card")}
+                  style={{ backgroundColor: colors.primary, padding: 12, borderRadius: 10, alignItems: 'center' }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Pay by Card Instead</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push("/auth/register")}
+                  style={{ borderWidth: 2, borderColor: colors.primary, padding: 12, borderRadius: 10, alignItems: 'center' }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 14 }}>Create Account for Higher Limits</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -584,7 +850,7 @@ export default function CartScreen() {
           
           <View className="flex-row justify-between mb-2">
             <Text className="text-muted">Delivery Fee</Text>
-            <Text className="text-foreground">
+            <Text className={deliveryFee >= 10 ? "" : "text-foreground"} style={deliveryFee >= 10 ? { color: '#F59E0B', fontWeight: '600' } : undefined}>
               {deliveryFeeCalculated ? `€${deliveryFee.toFixed(2)}` : "Calculate above"}
             </Text>
           </View>
@@ -607,17 +873,17 @@ export default function CartScreen() {
         {/* Checkout Button */}
         <TouchableOpacity
           onPress={handleCheckout}
-          disabled={!deliveryFeeCalculated || createOrderMutation.isPending}
+          disabled={!deliveryFeeCalculated || createOrderMutation.isPending || guestCashLimitExceeded}
           style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
           className={`p-4 rounded-lg items-center ${
-            deliveryFeeCalculated && !createOrderMutation.isPending ? "bg-primary active:opacity-70" : "bg-surface"
+            deliveryFeeCalculated && !createOrderMutation.isPending && !guestCashLimitExceeded ? "bg-primary active:opacity-70" : "bg-surface"
           }`}
         >
           {createOrderMutation.isPending ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
             <Text className={`font-bold text-lg ${
-              deliveryFeeCalculated ? "text-background" : "text-muted"
+              deliveryFeeCalculated && !guestCashLimitExceeded ? "text-background" : "text-muted"
             }`}>
               Place Order
             </Text>

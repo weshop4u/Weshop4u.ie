@@ -270,7 +270,7 @@
 - [x] Update orders router to accept guest order data
 - [x] Update cart screen to detect logged-in vs guest users
 - [x] Add guest information form fields (name, phone, email)
-- [x] Restrict guests to card payment only (hide cash option)
+- [x] Restrict guests to card payment only (hide cash option) — UPDATED: now guests can use cash with €30 limit
 - [x] Update order creation to include guest data
 - [x] Fix TypeScript errors in notification queries for null customerId
 - [x] Write and run tests for guest checkout validation
@@ -1503,3 +1503,17 @@
 - [x] Elavon/Converge payment integration steps outline
 - [x] Guest checkout user flow diagram with tiered system (guest limits, verified accounts)
 - [x] Fix POS print showing page screenshot instead of formatted receipt — changed from hidden iframe to new window with receipt-only content
+
+## Guest Checkout Flow
+- [x] Add "Continue as Guest" / "Log In or Create Account" choice at checkout
+- [x] Guest users can order with cash (€30 limit) or card
+- [x] Guest checkout collects: name, phone number, address, Eircode
+- [x] No account creation required for guest orders
+- [x] Show guest limitations clearly (cash €30 limit, card available)
+- [x] Verified/logged-in users get full access (card payments, no limit)
+
+## Delivery Fee Warning Popup
+- [x] Show warning popup when delivery fee is €10 or more
+- [x] Message: "Delivery fee is over €10. Your delivery fee is €X.XX. Delivery may take longer than usual."
+- [x] Popup appears after delivery fee is calculated on checkout screen
+- [x] User must acknowledge before proceeding to place order
