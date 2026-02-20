@@ -1552,3 +1552,10 @@
 - [ ] Screen wakes up to show order details (requires native build, not available in Expo Go)
 - [x] Implement repeating alert on store dashboard for new incoming orders
 - [x] Sound plays in iOS silent mode (setAudioModeAsync playsInSilentMode)
+
+## Receipt Formatting Fixes
+- [x] Replace € symbol with EUR in receipt formatting (fixes garbled characters on thermal printer)
+- [x] Simplify order numbers to daily sequential format (001, 002, 003...)
+- [x] Add phone number footer to receipt (Any problems Ring 089-4 626262)
+- [x] Update receipt footer: remove "WESHOP4U -", keep only "weshop4u.ie"
+- [x] Change "Thank you!" to "Thank You!"

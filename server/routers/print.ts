@@ -4,6 +4,18 @@ import { getDb } from "../db";
 import { printJobs, orders, orderItems, stores, users, products, storeStaff } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
+// Generate a daily sequential order number (001, 002, etc.)
+function getDailyOrderNumber(order: any): string {
+  // Use the order's sequential ID within the day
+  // Extract a short number from the order ID or use dailyOrderNumber if available
+  if (order.dailyOrderNumber) {
+    return String(order.dailyOrderNumber).padStart(3, "0");
+  }
+  // Fallback: use last 3 digits of order ID
+  const num = order.id % 1000;
+  return String(num).padStart(3, "0");
+}
+
 // Format receipt content for 58mm thermal printer (32 chars per line)
 export function formatReceipt(order: any, store: any, items: any[], customerName: string): string {
   const LINE_WIDTH = 32;
@@ -34,8 +46,9 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   lines.push(center(store.name.toUpperCase()));
   lines.push(divider("-"));
 
-  // Order info
-  lines.push(leftRight("Order:", order.orderNumber));
+  // Order info - use daily sequential number
+  const displayOrderNum = getDailyOrderNumber(order);
+  lines.push(leftRight("Order:", displayOrderNum));
   const orderDate = new Date(order.createdAt);
   const dateStr = orderDate.toLocaleDateString("en-IE", { day: "2-digit", month: "2-digit", year: "numeric" });
   const timeStr = orderDate.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
@@ -90,7 +103,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     const qty = item.quantity;
     const name = item.productName || item.product?.name || "Item";
     const price = parseFloat(item.subtotal || item.productPrice || "0") * (item.subtotal ? 1 : qty);
-    const priceStr = `€${price.toFixed(2)}`;
+    const priceStr = `EUR${price.toFixed(2)}`;
 
     // Item number and quantity
     lines.push(`${i + 1}. ${qty}x ${name.length > LINE_WIDTH - 8 ? name.substring(0, LINE_WIDTH - 11) + "..." : name}`);
@@ -110,22 +123,26 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   const tipAmount = parseFloat(order.tipAmount || "0");
   const total = parseFloat(order.total || "0");
 
-  lines.push(leftRight("Subtotal:", `€${subtotal.toFixed(2)}`));
-  lines.push(leftRight("Service Fee:", `€${serviceFee.toFixed(2)}`));
-  lines.push(leftRight("Delivery Fee:", `€${deliveryFee.toFixed(2)}`));
+  lines.push(leftRight("Subtotal:", `EUR${subtotal.toFixed(2)}`));
+  lines.push(leftRight("Service Fee:", `EUR${serviceFee.toFixed(2)}`));
+  lines.push(leftRight("Delivery Fee:", `EUR${deliveryFee.toFixed(2)}`));
   if (tipAmount > 0) {
-    lines.push(leftRight("Driver Tip:", `€${tipAmount.toFixed(2)}`));
+    lines.push(leftRight("Driver Tip:", `EUR${tipAmount.toFixed(2)}`));
   }
   lines.push(divider("="));
-  lines.push(leftRight("TOTAL:", `€${total.toFixed(2)}`));
+  lines.push(leftRight("TOTAL:", `EUR${total.toFixed(2)}`));
   lines.push(divider("="));
 
   // Item count summary
   const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
   lines.push(center(`${totalItems} item${totalItems !== 1 ? "s" : ""} in this order`));
   lines.push("");
-  lines.push(center("Thank you!"));
-  lines.push(center("WESHOP4U - weshop4u.ie"));
+  lines.push(center("Thank You!"));
+  lines.push("");
+  lines.push(center("Any problems Ring"));
+  lines.push(center("089-4 626262"));
+  lines.push("");
+  lines.push(center("weshop4u.ie"));
   lines.push("");
   lines.push(""); // Extra blank lines for paper cut
   lines.push("");
