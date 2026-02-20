@@ -7,7 +7,7 @@ import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotifica
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
-import { autoCreatePrintJob } from "./print";
+// autoCreatePrintJob removed - printing is now manual only via Print Pick List button
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -714,10 +714,7 @@ export const ordersRouter = router({
         }
       }
 
-      // Auto-create print job when order is accepted
-      if (input.status === "accepted" || input.status === "preparing") {
-        await autoCreatePrintJob(input.orderId, orderData.storeId);
-      }
+      // Print job is now manual only - staff presses "Print Pick List" button
 
       // Send push notification to customer
       let pushToken: string | null = null;

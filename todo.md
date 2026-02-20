@@ -1559,3 +1559,7 @@
 - [x] Add phone number footer to receipt (Any problems Ring 089-4 626262)
 - [x] Update receipt footer: remove "WESHOP4U -", keep only "weshop4u.ie"
 - [x] Change "Thank you!" to "Thank You!"
+
+## POS Print Changes
+- [x] Remove auto-print on order accept (make printing manual only via Print Pick List button)
+- [x] Ensure Print Pick List button always creates a new print job each time pressed
