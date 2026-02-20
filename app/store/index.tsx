@@ -241,26 +241,42 @@ export default function StoreDashboardScreen() {
       setPrintSuccess(orderId);
       setTimeout(() => setPrintSuccess(null), 3000);
 
-      // If on POS device, also trigger local print via browser
+      // Trigger local print via a new browser window with receipt-only content
       if (typeof window !== "undefined" && result?.receiptContent) {
         try {
-          const printFrame = document.createElement("iframe");
-          printFrame.style.position = "fixed";
-          printFrame.style.right = "0";
-          printFrame.style.bottom = "0";
-          printFrame.style.width = "0";
-          printFrame.style.height = "0";
-          printFrame.style.border = "none";
-          document.body.appendChild(printFrame);
-          const doc = printFrame.contentDocument || printFrame.contentWindow?.document;
-          if (doc) {
-            doc.open();
-            doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:58mm auto;margin:0}body{font-family:'Courier New',monospace;font-size:12px;line-height:1.3;margin:0;padding:4mm;width:50mm;white-space:pre-wrap;word-wrap:break-word}</style></head><body>${result.receiptContent.replace(/\n/g, "<br>")}</body></html>`);
-            doc.close();
-            setTimeout(() => {
-              try { printFrame.contentWindow?.print(); } catch(e) {}
-              setTimeout(() => document.body.removeChild(printFrame), 1000);
-            }, 300);
+          const receiptHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Receipt - Order #${orderId}</title>
+<style>
+  @page { size: 58mm auto; margin: 0; }
+  @media print { body { margin: 0; padding: 2mm; } }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 8px;
+    max-width: 58mm;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: #fff;
+    color: #000;
+  }
+</style>
+</head><body>${result.receiptContent.replace(/\n/g, "<br>")}</body></html>`;
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(receiptHtml);
+            printWindow.document.close();
+            printWindow.onload = () => {
+              setTimeout(() => {
+                printWindow.print();
+                // Close the window after printing (or after cancel)
+                printWindow.onafterprint = () => printWindow.close();
+                // Fallback close after 30 seconds in case onafterprint doesn't fire
+                setTimeout(() => { try { printWindow.close(); } catch(e) {} }, 30000);
+              }, 500);
+            };
           }
         } catch (e) {
           console.log("[Print] Local print attempt:", e);

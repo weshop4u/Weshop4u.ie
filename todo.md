@@ -1502,3 +1502,4 @@
 - [x] Website development plan for weshop4u.ie with key features and timeline
 - [x] Elavon/Converge payment integration steps outline
 - [x] Guest checkout user flow diagram with tiered system (guest limits, verified accounts)
+- [x] Fix POS print showing page screenshot instead of formatted receipt — changed from hidden iframe to new window with receipt-only content
