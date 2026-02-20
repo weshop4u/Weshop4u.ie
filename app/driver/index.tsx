@@ -55,14 +55,22 @@ export default function DriverHomeScreen() {
     { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
 
-  // Sync local isOnline state with DB state ONLY on initial mount
+  // Force driver offline on login - they must manually toggle online when ready
   useEffect(() => {
-    if (hasSyncedProfile.current) return; // Only sync once
-    if (driverProfile && driverProfile.isOnline !== undefined && driverProfile.isOnline !== null) {
+    if (hasSyncedProfile.current) return; // Only run once
+    if (driverProfile && user?.id) {
       hasSyncedProfile.current = true;
-      setIsOnline(driverProfile.isOnline);
+      // Always start offline regardless of DB state
+      setIsOnline(false);
+      // Ensure server also knows we're offline
+      if (driverProfile.isOnline) {
+        toggleOnlineMutation.mutate(
+          { driverId: user.id, isOnline: false },
+          { onSuccess: () => console.log('[Driver] Forced offline on login') }
+        );
+      }
     }
-  }, [driverProfile?.isOnline]);
+  }, [driverProfile, user?.id]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
   useEffect(() => {
@@ -155,54 +163,69 @@ export default function DriverHomeScreen() {
       const offerId = offerData.offer.offerId;
       if (lastNotifiedOfferId.current !== offerId) {
         lastNotifiedOfferId.current = offerId;
+        console.log('[Driver] NEW OFFER detected, offerId:', offerId, '- triggering alarm');
 
         // --- Start persistent alarm sound ---
         if (Platform.OS === "web") {
           startWebAlarm(6000); // Repeat every 6 seconds on web
         } else {
-          // Native: play alarm immediately and loop every 6 seconds
-          try {
-            alarmPlayer.seekTo(0);
-            alarmPlayer.play();
-          } catch (e) { /* ignore */ }
+          // Native: ensure audio mode allows playback, then play alarm
+          (async () => {
+            try {
+              await setAudioModeAsync({ playsInSilentMode: true });
+            } catch (e) { console.log('[Driver] Audio mode error:', e); }
+            
+            try {
+              alarmPlayer.seekTo(0);
+              alarmPlayer.play();
+              console.log('[Driver] Alarm sound started playing');
+            } catch (e) {
+              console.log('[Driver] Alarm play error:', e);
+            }
+          })();
 
           if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
           alarmIntervalRef.current = setInterval(() => {
             try {
               alarmPlayer.seekTo(0);
               alarmPlayer.play();
-            } catch (e) { /* ignore */ }
+            } catch (e) { console.log('[Driver] Alarm repeat error:', e); }
           }, 6000);
 
           // --- Start persistent vibration pattern ---
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          setTimeout(() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          }, 300);
-
-          if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
-          vibrationIntervalRef.current = setInterval(() => {
+          try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             setTimeout(() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             }, 300);
+            setTimeout(() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }, 600);
+          } catch (e) { console.log('[Driver] Haptics error:', e); }
+
+          if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+          vibrationIntervalRef.current = setInterval(() => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              setTimeout(() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              }, 300);
+            } catch (e) { /* ignore */ }
           }, 3000); // Vibrate every 3 seconds
 
-          // Fire local push notification (shows even when app is backgrounded)
-          if (!isExpoGo) {
-            try {
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: "🚗 New Delivery Offer!",
-                  body: `${offerData.offer.storeName} — €${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
-                  sound: true,
-                  priority: Notifications.AndroidNotificationPriority.MAX,
-                },
-                trigger: null,
-              });
-            } catch (e) {
-              console.log("[Push] Could not schedule notification");
-            }
+          // Fire local push notification (works in Expo Go too with scheduleNotificationAsync)
+          try {
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: "New Delivery Offer!",
+                body: `${offerData.offer.storeName} - EUR${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
+                sound: true,
+                priority: Notifications.AndroidNotificationPriority.MAX,
+              },
+              trigger: null,
+            });
+          } catch (e) {
+            console.log("[Push] Could not schedule notification:", e);
           }
         }
       }

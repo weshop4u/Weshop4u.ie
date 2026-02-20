@@ -17,7 +17,7 @@ function getDailyOrderNumber(order: any): string {
 }
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
-export function formatReceipt(order: any, store: any, items: any[], customerName: string): string {
+export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string): string {
   const LINE_WIDTH = 32;
   const lines: string[] = [];
 
@@ -60,6 +60,9 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   // Customer info
   lines.push("CUSTOMER:");
   lines.push(customerName);
+  if (customerPhone) {
+    lines.push("Ph: " + customerPhone);
+  }
   lines.push("");
   lines.push("DELIVER TO:");
   // Wrap long addresses
@@ -203,23 +206,26 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
       .from(orderItems)
       .where(eq(orderItems.orderId, orderId));
 
-    // Get customer name
+    // Get customer name and phone
     let customerName = "Guest";
+    let customerPhone = "";
     if (order.customerId) {
       const customer = await db
-        .select({ name: users.name })
+        .select({ name: users.name, phone: users.phone })
         .from(users)
         .where(eq(users.id, order.customerId))
         .limit(1);
       if (customer.length > 0) {
         customerName = customer[0].name;
+        customerPhone = customer[0].phone || "";
       }
-    } else if (order.guestName) {
-      customerName = order.guestName;
+    } else {
+      if (order.guestName) customerName = order.guestName;
+      if (order.guestPhone) customerPhone = order.guestPhone;
     }
 
     // Format and create print job
-    const receiptContent = formatReceipt(order, storeResult[0], items, customerName);
+    const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
     await db.insert(printJobs).values({
       storeId,
       orderId,
@@ -283,23 +289,26 @@ export const printRouter = router({
         .from(orderItems)
         .where(eq(orderItems.orderId, input.orderId));
 
-      // Get customer name
+      // Get customer name and phone
       let customerName = "Guest";
+      let customerPhone = "";
       if (order.customerId) {
         const customer = await db
-          .select({ name: users.name })
+          .select({ name: users.name, phone: users.phone })
           .from(users)
           .where(eq(users.id, order.customerId))
           .limit(1);
         if (customer.length > 0) {
           customerName = customer[0].name;
+          customerPhone = customer[0].phone || "";
         }
-      } else if (order.guestName) {
-        customerName = order.guestName;
+      } else {
+        if (order.guestName) customerName = order.guestName;
+        if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
       // Format receipt
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName);
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
 
       // Create print job
       const [result] = await db.insert(printJobs).values({
@@ -446,22 +455,25 @@ export const printRouter = router({
         .from(orderItems)
         .where(eq(orderItems.orderId, input.orderId));
 
-      // Get customer name
+      // Get customer name and phone
       let customerName = "Guest";
+      let customerPhone = "";
       if (order.customerId) {
         const customer = await db
-          .select({ name: users.name })
+          .select({ name: users.name, phone: users.phone })
           .from(users)
           .where(eq(users.id, order.customerId))
           .limit(1);
         if (customer.length > 0) {
           customerName = customer[0].name;
+          customerPhone = customer[0].phone || "";
         }
-      } else if (order.guestName) {
-        customerName = order.guestName;
+      } else {
+        if (order.guestName) customerName = order.guestName;
+        if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName);
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
 
       return {
         receiptContent,

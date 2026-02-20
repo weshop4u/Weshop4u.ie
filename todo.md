@@ -1566,3 +1566,8 @@
 
 ## Receipt Substitution Note
 - [x] Add substitution preference to printed receipt (SUBSTITUTIONS ALLOWED / NO SUBSTITUTIONS)
+
+## Driver & Receipt Improvements
+- [x] Add customer phone number to printed receipt
+- [x] Driver starts offline by default on login (must toggle online to receive jobs)
+- [x] Fix sound alert when job offer arrives for driver
