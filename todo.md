@@ -1526,6 +1526,14 @@
 - [x] Handle location permission denied gracefully (fall back to default sort)
 
 ## POS Printer APK Research
-- [ ] Research 6000V-Lite PrinterTools SDK/API
-- [ ] Identify printer intent or serial port for thermal printing
-- [ ] Build APK with native printer integration once SDK is confirmed
+- [x] Research 6000V-Lite PrinterTools SDK/API
+- [x] Identified: /dev/ttyMT1 (mtk-uart) at 115200 baud via PrinterTools port settings
+- [x] Built APK with native serial port printer integration
+
+## POS Receipt Printer APK
+- [x] Build standalone Android APK for 6000V-Lite POS
+- [x] Serial port communication: /dev/ttyMT1 at 115200 baud
+- [x] ESC/POS receipt formatting (store name, items, prices, totals)
+- [x] Poll server for new orders and auto-print (5-second polling)
+- [ ] Manual reprint button for past orders (future enhancement)
+- [x] Generated signed APK file (weshop4u-printer.apk, 20KB)
