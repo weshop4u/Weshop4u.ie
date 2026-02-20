@@ -1517,3 +1517,15 @@
 - [x] Message: "Delivery fee is over €10. Your delivery fee is €X.XX. Delivery may take longer than usual."
 - [x] Popup appears after delivery fee is calculated on checkout screen
 - [x] User must acknowledge before proceeding to place order
+
+## Store Sorting by Distance
+- [x] Get user's current location (GPS) or use delivery address
+- [x] Calculate distance from user to each store
+- [x] Sort stores by nearest first on home screen
+- [x] Show distance badge on each store card
+- [x] Handle location permission denied gracefully (fall back to default sort)
+
+## POS Printer APK Research
+- [ ] Research 6000V-Lite PrinterTools SDK/API
+- [ ] Identify printer intent or serial port for thermal printing
+- [ ] Build APK with native printer integration once SDK is confirmed

@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useMemo } from "react";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
+import { useLocation, calculateDistance } from "@/hooks/use-location";
 
 type StoreCategory = "convenience" | "restaurant" | "hardware" | "electrical" | "clothing" | "grocery" | "pharmacy" | "other";
 
@@ -20,11 +21,19 @@ const CATEGORY_LABELS: Record<StoreCategory, string> = {
   other: "Other",
 };
 
+function formatDistance(km: number): string {
+  if (km < 1) {
+    return `${Math.round(km * 1000)}m`;
+  }
+  return `${km.toFixed(1)}km`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const { location, loading: locationLoading, permissionDenied } = useLocation();
 
   // Filter stores based on search query
   const filteredStores = useMemo(() => {
@@ -40,14 +49,36 @@ export default function HomeScreen() {
     });
   }, [stores, searchQuery]);
 
-  // Sort stores: open first, then closed
+  // Calculate distances and sort: open first, then by distance
   const sortedStores = useMemo(() => {
-    return [...filteredStores].sort((a, b) => {
+    const storesWithDistance = filteredStores.map((store) => {
+      let distance: number | null = null;
+      if (location && store.latitude && store.longitude) {
+        distance = calculateDistance(
+          location.latitude,
+          location.longitude,
+          parseFloat(store.latitude),
+          parseFloat(store.longitude)
+        );
+      }
+      return { ...store, distance };
+    });
+
+    return storesWithDistance.sort((a, b) => {
+      // First: open stores before closed
       const aOpen = isStoreOpen(a) ? 0 : 1;
       const bOpen = isStoreOpen(b) ? 0 : 1;
-      return aOpen - bOpen;
+      if (aOpen !== bOpen) return aOpen - bOpen;
+
+      // Second: sort by distance (nearest first), null distances go last
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== null) return -1;
+      if (b.distance !== null) return 1;
+      return 0;
     });
-  }, [filteredStores]);
+  }, [filteredStores, location]);
 
   if (isLoading) {
     return (
@@ -95,7 +126,14 @@ export default function HomeScreen() {
 
         {/* Stores Grid */}
         <View className="px-4">
-          <Text className="text-2xl font-bold text-foreground mb-4">Browse Stores</Text>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-2xl font-bold text-foreground">Browse Stores</Text>
+            {location && !locationLoading && (
+              <Text style={{ fontSize: 12, color: '#687076' }}>
+                Sorted by distance
+              </Text>
+            )}
+          </View>
           
           {sortedStores && sortedStores.length > 0 ? (
             <View className="gap-4">
@@ -108,9 +146,6 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={store.id}
                     onPress={() => {
-                      if (!open) {
-                        // Still allow browsing but they'll see a message on the store page
-                      }
                       router.push(`/store/${store.id}`);
                     }}
                     className="bg-surface rounded-2xl p-4 border border-border active:opacity-70"
@@ -137,7 +172,9 @@ export default function HomeScreen() {
                       {/* Store Info */}
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2 mb-1">
-                          <Text className="text-lg font-bold text-foreground">{store.name}</Text>
+                          <Text className="text-lg font-bold text-foreground" numberOfLines={1} style={{ flexShrink: 1 }}>
+                            {store.name}
+                          </Text>
                           {/* Open/Closed Badge */}
                           <View
                             style={{
@@ -159,9 +196,24 @@ export default function HomeScreen() {
                           </View>
                         </View>
                         
-                        <Text className="text-sm text-muted mb-1">
-                          {CATEGORY_LABELS[store.category as StoreCategory]}
-                        </Text>
+                        <View className="flex-row items-center gap-2 mb-1">
+                          <Text className="text-sm text-muted">
+                            {CATEGORY_LABELS[store.category as StoreCategory]}
+                          </Text>
+                          {/* Distance Badge */}
+                          {store.distance !== null && (
+                            <View style={{
+                              backgroundColor: '#E0F7FA',
+                              paddingHorizontal: 8,
+                              paddingVertical: 2,
+                              borderRadius: 10,
+                            }}>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: '#0097A7' }}>
+                                {formatDistance(store.distance)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         
                         {/* Today's hours or next opening time */}
                         {todayHours && (
