@@ -9,6 +9,8 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
@@ -19,6 +21,18 @@ export default function DriverHomeScreen() {
 
   // Register push token for driver
   usePushNotifications(user?.id);
+
+  // Audio player for alarm sound (native)
+  const alarmPlayer = useAudioPlayer(require("@/assets/sounds/order-alert.mp3"));
+  const alarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const vibrationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Enable audio in silent mode (iOS)
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      setAudioModeAsync({ playsInSilentMode: true });
+    }
+  }, []);
 
   const { data: stats, refetch: refetchStats } = trpc.drivers.getStats.useQuery(
     { driverId: user?.id! },
@@ -135,18 +149,45 @@ export default function DriverHomeScreen() {
     }
   }, []);
 
-  // Notify driver when a NEW offer appears (haptics + local push notification)
+  // Notify driver when a NEW offer appears (haptics + alarm + push notification)
   useEffect(() => {
     if (offerData?.hasOffer && offerData.offer) {
       const offerId = offerData.offer.offerId;
       if (lastNotifiedOfferId.current !== offerId) {
         lastNotifiedOfferId.current = offerId;
-        // Trigger haptic vibration
-        if (Platform.OS !== "web") {
+
+        // --- Start persistent alarm sound ---
+        if (Platform.OS === "web") {
+          startWebAlarm(6000); // Repeat every 6 seconds on web
+        } else {
+          // Native: play alarm immediately and loop every 6 seconds
+          try {
+            alarmPlayer.seekTo(0);
+            alarmPlayer.play();
+          } catch (e) { /* ignore */ }
+
+          if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+          alarmIntervalRef.current = setInterval(() => {
+            try {
+              alarmPlayer.seekTo(0);
+              alarmPlayer.play();
+            } catch (e) { /* ignore */ }
+          }, 6000);
+
+          // --- Start persistent vibration pattern ---
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           setTimeout(() => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           }, 300);
+
+          if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+          vibrationIntervalRef.current = setInterval(() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            setTimeout(() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            }, 300);
+          }, 3000); // Vibrate every 3 seconds
+
           // Fire local push notification (shows even when app is backgrounded)
           if (!isExpoGo) {
             try {
@@ -157,7 +198,7 @@ export default function DriverHomeScreen() {
                   sound: true,
                   priority: Notifications.AndroidNotificationPriority.MAX,
                 },
-                trigger: null, // Fire immediately
+                trigger: null,
               });
             } catch (e) {
               console.log("[Push] Could not schedule notification");
@@ -167,6 +208,29 @@ export default function DriverHomeScreen() {
       }
     }
   }, [offerData?.offer?.offerId]);
+
+  // Stop alarm when offer disappears (accepted, declined, expired)
+  useEffect(() => {
+    const hasActiveOffer = offerData?.hasOffer && offerData.offer && countdown > 0;
+    if (!hasActiveOffer) {
+      // Stop all alarms
+      if (Platform.OS === "web") {
+        stopWebAlarm();
+      } else {
+        if (alarmIntervalRef.current) {
+          clearInterval(alarmIntervalRef.current);
+          alarmIntervalRef.current = null;
+        }
+        if (vibrationIntervalRef.current) {
+          clearInterval(vibrationIntervalRef.current);
+          vibrationIntervalRef.current = null;
+        }
+        try {
+          alarmPlayer.pause();
+        } catch (e) { /* ignore */ }
+      }
+    }
+  }, [offerData?.hasOffer, offerData?.offer, countdown]);
 
   // Auto-toggle offline: use a ref-based approach to avoid stale closures
   // Store user.id in a ref so the callback always has the latest value
@@ -268,6 +332,9 @@ export default function DriverHomeScreen() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+      if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+      stopWebAlarm();
     };
   }, []);
 

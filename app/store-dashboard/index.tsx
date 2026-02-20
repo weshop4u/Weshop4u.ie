@@ -11,6 +11,7 @@ import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useColors } from "@/hooks/use-colors";
 
 const isExpoGo = Constants.appOwnership === "expo";
+import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 
 // Trigger local print via browser print dialog (for POS standalone mode)
 function triggerLocalPrint(content: string) {
@@ -77,7 +78,7 @@ export default function StoreDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const prevPendingIdsRef = useRef<Set<number>>(new Set());
   const isFirstLoadRef = useRef(true);
-  const audioPlayer = useAudioPlayer("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+  const audioPlayer = useAudioPlayer(require("@/assets/sounds/order-alert.mp3"));
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
   const repeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -189,18 +190,27 @@ export default function StoreDashboardScreen() {
   useEffect(() => {
     const pendingOrders = orders?.filter((o: any) => o.status === "pending") || [];
 
-    if (pendingOrders.length > 0 && audioEnabled && Platform.OS !== "web") {
+    if (pendingOrders.length > 0 && audioEnabled) {
       if (repeatTimerRef.current) clearInterval(repeatTimerRef.current);
 
-      repeatTimerRef.current = setInterval(() => {
-        try {
-          audioPlayer.seekTo(0);
-          audioPlayer.play();
-        } catch (e) {
-          // Ignore audio errors
-        }
-      }, 30000);
+      if (Platform.OS === "web") {
+        // Use web alarm for persistent looping
+        startWebAlarm(8000);
+      } else {
+        repeatTimerRef.current = setInterval(() => {
+          try {
+            audioPlayer.seekTo(0);
+            audioPlayer.play();
+          } catch (e) {
+            // Ignore audio errors
+          }
+        }, 8000); // Repeat every 8 seconds (was 30s)
+      }
     } else {
+      // Stop alarms when no pending orders
+      if (Platform.OS === "web") {
+        stopWebAlarm();
+      }
       if (repeatTimerRef.current) {
         clearInterval(repeatTimerRef.current);
         repeatTimerRef.current = null;
@@ -211,6 +221,9 @@ export default function StoreDashboardScreen() {
       if (repeatTimerRef.current) {
         clearInterval(repeatTimerRef.current);
         repeatTimerRef.current = null;
+      }
+      if (Platform.OS === "web") {
+        stopWebAlarm();
       }
     };
   }, [orders, audioEnabled, audioPlayer]);

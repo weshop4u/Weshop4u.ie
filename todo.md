@@ -1542,3 +1542,13 @@
 - [x] Auto-create print job when store staff accepts an order
 - [x] Receipt prints automatically on POS without manual Print button tap
 - [x] Flow: customer orders → staff accepts → print job created → POS APK prints receipt
+
+## Feature: Persistent Alert Sounds for Orders
+- [x] Source free alert sound options for driver/store notifications
+- [x] Present sound samples to user for selection (user chose Option 1: Classic Alarm)
+- [x] Implement repeating alarm sound on driver screen when new order offer arrives
+- [x] Sound loops until driver accepts or declines the order
+- [x] Phone vibrates in pattern alongside sound
+- [ ] Screen wakes up to show order details (requires native build, not available in Expo Go)
+- [x] Implement repeating alert on store dashboard for new incoming orders
+- [x] Sound plays in iOS silent mode (setAudioModeAsync playsInSilentMode)

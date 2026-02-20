@@ -14,7 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 
 const isExpoGo = Constants.appOwnership === "expo";
-import { playNewOrderSound, playDriverArrivedSound } from "@/lib/notification-sound";
+import { playNewOrderSound, playDriverArrivedSound, startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 // Web-compatible confirm dialog
 function confirmAction(title: string, message: string): Promise<boolean> {
@@ -62,6 +63,18 @@ export default function StoreDashboardScreen() {
   const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
   const [printSuccess, setPrintSuccess] = useState<number | null>(null);
   const colors = useColors();
+
+  // Audio player for persistent alarm (native)
+  const alarmPlayer = useAudioPlayer(require("@/assets/sounds/order-alert.mp3"));
+  const alarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const vibrationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Enable audio in silent mode (iOS)
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      setAudioModeAsync({ playsInSilentMode: true });
+    }
+  }, []);
 
   // Get the store linked to this staff user from store_staff table
   const { data: myStore } = trpc.store.getMyStore.useQuery(
@@ -139,11 +152,41 @@ export default function StoreDashboardScreen() {
       setNewOrderFlash(true);
       setTimeout(() => setNewOrderFlash(false), 3000);
 
-      // Play new order sound on web
-      playNewOrderSound();
+      // Start persistent looping alarm
+      if (Platform.OS === "web") {
+        startWebAlarm(8000); // Repeat every 8 seconds on web
+      } else {
+        try {
+          alarmPlayer.seekTo(0);
+          alarmPlayer.play();
+        } catch (e) { /* ignore */ }
 
-      if (Platform.OS !== "web") {
+        if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+        alarmIntervalRef.current = setInterval(() => {
+          try {
+            alarmPlayer.seekTo(0);
+            alarmPlayer.play();
+          } catch (e) { /* ignore */ }
+        }, 8000);
+
+        // Persistent vibration
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = setInterval(() => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }, 4000);
+      }
+    }
+
+    // Stop alarm when no more pending orders
+    const pendingCount = storeOrders.filter((o: any) => o.status === "pending").length;
+    if (pendingCount === 0) {
+      if (Platform.OS === "web") {
+        stopWebAlarm();
+      } else {
+        if (alarmIntervalRef.current) { clearInterval(alarmIntervalRef.current); alarmIntervalRef.current = null; }
+        if (vibrationIntervalRef.current) { clearInterval(vibrationIntervalRef.current); vibrationIntervalRef.current = null; }
+        try { alarmPlayer.pause(); } catch (e) { /* ignore */ }
       }
     }
 
