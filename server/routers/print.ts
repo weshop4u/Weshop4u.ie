@@ -92,6 +92,19 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     if (noteLine) lines.push(noteLine.trim());
   }
 
+  // Substitution preference - important for staff picking items
+  lines.push("");
+  if (order.allowSubstitution) {
+    lines.push(divider("*"));
+    lines.push(center("SUBSTITUTIONS ALLOWED"));
+    lines.push(center("if item out of stock"));
+    lines.push(divider("*"));
+  } else {
+    lines.push(divider("!"));
+    lines.push(center("NO SUBSTITUTIONS"));
+    lines.push(divider("!"));
+  }
+
   lines.push(divider("="));
 
   // Items - PICK LIST format (large, clear)

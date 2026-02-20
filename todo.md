@@ -1563,3 +1563,6 @@
 ## POS Print Changes
 - [x] Remove auto-print on order accept (make printing manual only via Print Pick List button)
 - [x] Ensure Print Pick List button always creates a new print job each time pressed
+
+## Receipt Substitution Note
+- [x] Add substitution preference to printed receipt (SUBSTITUTIONS ALLOWED / NO SUBSTITUTIONS)
