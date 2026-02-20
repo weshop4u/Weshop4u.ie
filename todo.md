@@ -1587,3 +1587,6 @@
 - [x] Add sortPosition field to stores table in database
 - [x] Update customer-facing store list to sort by position first, then distance
 - [x] Add position control to admin panel for each store
+
+## Bug Fixes
+- [x] Fix "Rendered more hooks" error in store dashboard (useState for showAllHistory called conditionally)

@@ -62,6 +62,7 @@ export default function StoreDashboardScreen() {
   const [markingReadyId, setMarkingReadyId] = useState<number | null>(null);
   const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
   const [printSuccess, setPrintSuccess] = useState<number | null>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const colors = useColors();
 
   // Audio player for persistent alarm (native)
@@ -487,7 +488,6 @@ export default function StoreDashboardScreen() {
   });
 
   // For completed tab: show last 24 hours by default, with option to view older
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const sortedOrders = filter === "completed"
