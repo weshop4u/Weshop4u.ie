@@ -440,6 +440,12 @@ export const adminRouter = router({
         }
       }
 
+      // Auto-create print job when admin accepts order
+      if (input.status === "accepted" || input.status === "preparing") {
+        const { autoCreatePrintJob } = await import("./print");
+        await autoCreatePrintJob(input.orderId, orderData.storeId);
+      }
+
       console.log(`[Admin] Order ${input.orderId} status updated to ${input.status}`);
       return { success: true };
     }),

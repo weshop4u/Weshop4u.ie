@@ -5,7 +5,7 @@ import { printJobs, orders, orderItems, stores, users, products, storeStaff } fr
 import { eq, and, desc, inArray } from "drizzle-orm";
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
-function formatReceipt(order: any, store: any, items: any[], customerName: string): string {
+export function formatReceipt(order: any, store: any, items: any[], customerName: string): string {
   const LINE_WIDTH = 32;
   const lines: string[] = [];
 
@@ -131,6 +131,76 @@ function formatReceipt(order: any, store: any, items: any[], customerName: strin
   lines.push("");
 
   return lines.join("\n");
+}
+
+// Helper function to auto-create a print job (called from other routers)
+export async function autoCreatePrintJob(orderId: number, storeId: number): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) return;
+
+    // Get order
+    const orderResult = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.storeId, storeId)))
+      .limit(1);
+
+    if (orderResult.length === 0) return;
+    const order = orderResult[0];
+
+    // Get store
+    const storeResult = await db
+      .select()
+      .from(stores)
+      .where(eq(stores.id, storeId))
+      .limit(1);
+
+    if (storeResult.length === 0) return;
+
+    // Get items
+    const items = await db
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        productId: orderItems.productId,
+        productName: orderItems.productName,
+        productPrice: orderItems.productPrice,
+        quantity: orderItems.quantity,
+        subtotal: orderItems.subtotal,
+        notes: orderItems.notes,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+
+    // Get customer name
+    let customerName = "Guest";
+    if (order.customerId) {
+      const customer = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, order.customerId))
+        .limit(1);
+      if (customer.length > 0) {
+        customerName = customer[0].name;
+      }
+    } else if (order.guestName) {
+      customerName = order.guestName;
+    }
+
+    // Format and create print job
+    const receiptContent = formatReceipt(order, storeResult[0], items, customerName);
+    await db.insert(printJobs).values({
+      storeId,
+      orderId,
+      status: "pending",
+      receiptContent,
+    });
+
+    console.log(`[AutoPrint] Created print job for order ${order.orderNumber} at store ${storeId}`);
+  } catch (error) {
+    console.error(`[AutoPrint] Failed to create print job for order ${orderId}:`, error);
+  }
 }
 
 export const printRouter = router({

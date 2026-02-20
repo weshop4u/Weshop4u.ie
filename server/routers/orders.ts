@@ -7,6 +7,7 @@ import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotifica
 import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
+import { autoCreatePrintJob } from "./print";
 
 // Helper function to calculate distance between two points (Haversine formula)
 function calculateDistance(
@@ -711,6 +712,11 @@ export const ordersRouter = router({
             );
           }
         }
+      }
+
+      // Auto-create print job when order is accepted
+      if (input.status === "accepted" || input.status === "preparing") {
+        await autoCreatePrintJob(input.orderId, orderData.storeId);
       }
 
       // Send push notification to customer

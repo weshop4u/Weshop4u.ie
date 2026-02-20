@@ -1537,3 +1537,8 @@
 - [x] Poll server for new orders and auto-print (5-second polling)
 - [ ] Manual reprint button for past orders (future enhancement)
 - [x] Generated signed APK file (weshop4u-printer.apk, 20KB)
+
+## Feature: Auto-print receipt when staff accepts order
+- [x] Auto-create print job when store staff accepts an order
+- [x] Receipt prints automatically on POS without manual Print button tap
+- [x] Flow: customer orders → staff accepts → print job created → POS APK prints receipt

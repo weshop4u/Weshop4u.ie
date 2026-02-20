@@ -5,6 +5,7 @@ import { orders, orderItems, products, stores, users, productCategories, orderTr
 import { eq, and, or, like, inArray, desc } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
+import { autoCreatePrintJob } from "./print";
 
 export const storeRouter = router({
   // Get the store linked to the current staff user
@@ -267,6 +268,9 @@ export const storeRouter = router({
         );
         }
       }
+
+      // Auto-create print job for the POS thermal printer
+      await autoCreatePrintJob(input.orderId, input.storeId);
 
       return { success: true };
     }),
