@@ -1582,3 +1582,8 @@
 - [x] Add looping alarm sound to store dashboard when new order arrives
 - [x] Build quick test print endpoint (no login required)
 - [x] Completed orders: show last 24 hours only, add order history for older orders
+
+## Store Position/Placement Feature
+- [x] Add sortPosition field to stores table in database
+- [x] Update customer-facing store list to sort by position first, then distance
+- [x] Add position control to admin panel for each store

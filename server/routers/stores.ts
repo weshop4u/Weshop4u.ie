@@ -31,7 +31,8 @@ export const storesRouter = router({
       }
 
       const storesList = await query;
-      return storesList;
+      // Sort by admin-set position (lower = higher in list)
+      return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
     }),
 
   // Get store by ID

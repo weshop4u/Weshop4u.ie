@@ -46,6 +46,7 @@ export default function ManageStoresScreen() {
   const [editEircode, setEditEircode] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editSortPosition, setEditSortPosition] = useState("999");
 
   // Hours state
   const [isOpen247, setIsOpen247] = useState(false);
@@ -72,6 +73,7 @@ export default function ManageStoresScreen() {
     setEditEircode(store.eircode || "");
     setEditPhone(store.phone || "");
     setEditEmail(store.email || "");
+    setEditSortPosition(String(store.sortPosition ?? 999));
     setIsOpen247(store.isOpen247 || false);
     setWeekHours(parseOpeningHours(store.openingHours));
     setActiveTab("details");
@@ -92,6 +94,7 @@ export default function ManageStoresScreen() {
         eircode: editEircode.trim(),
         phone: editPhone.trim(),
         email: editEmail.trim(),
+        sortPosition: parseInt(editSortPosition) || 999,
       });
       setMessage("Store details updated successfully!");
       setMessageType("success");
@@ -368,6 +371,20 @@ export default function ManageStoresScreen() {
                   autoCapitalize="none"
                 />
               </View>
+            </View>
+
+            {/* Sort Position */}
+            <View>
+              <Text style={[styles.label, { color: colors.foreground }]}>Display Position (1 = top of list)</Text>
+              <TextInput
+                value={editSortPosition}
+                onChangeText={setEditSortPosition}
+                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                placeholder="999"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+              />
+              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Lower number = higher in customer store list. Set 1 for featured/top position.</Text>
             </View>
 
             {/* GPS Coordinates (read-only) */}

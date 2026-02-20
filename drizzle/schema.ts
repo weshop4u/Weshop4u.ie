@@ -70,6 +70,7 @@ export const stores = mysqlTable(
     isActive: boolean("is_active").default(true),
     shortCode: varchar("short_code", { length: 10 }), // e.g. SPR, OAO - used in order numbers
     orderCounter: int("order_counter").default(0), // Sequential order counter per store
+    sortPosition: int("sort_position").default(999), // Lower number = higher in customer list (1 = top)
     // POS printing settings
     autoPrintEnabled: boolean("auto_print_enabled").default(false),
     autoPrintThreshold: int("auto_print_threshold").default(5), // Auto-print orders with this many items or more

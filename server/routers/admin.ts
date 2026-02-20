@@ -899,6 +899,7 @@ export const adminRouter = router({
       eircode: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
+      sortPosition: z.number().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -914,6 +915,7 @@ export const adminRouter = router({
       if (updates.eircode !== undefined) updateData.eircode = updates.eircode;
       if (updates.phone !== undefined) updateData.phone = updates.phone;
       if (updates.email !== undefined) updateData.email = updates.email;
+      if (updates.sortPosition !== undefined) updateData.sortPosition = updates.sortPosition;
 
       // If Eircode changed, re-geocode
       if (updates.eircode && updates.eircode.trim()) {

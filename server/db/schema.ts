@@ -69,6 +69,7 @@ export const stores = mysqlTable(
     isActive: boolean("is_active").default(true),
     shortCode: varchar("short_code", { length: 10 }), // e.g. SPR, OAO - used in order numbers
     orderCounter: int("order_counter").default(0), // Sequential order counter per store
+    sortPosition: int("sort_position").default(999), // Lower number = higher in customer list (1 = top)
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },

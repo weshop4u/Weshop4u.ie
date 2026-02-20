@@ -65,12 +65,17 @@ export default function HomeScreen() {
     });
 
     return storesWithDistance.sort((a, b) => {
-      // First: open stores before closed
+      // First: sort by admin-set position (lower number = higher in list)
+      const aPos = (a as any).sortPosition ?? 999;
+      const bPos = (b as any).sortPosition ?? 999;
+      if (aPos !== bPos) return aPos - bPos;
+
+      // Second: open stores before closed
       const aOpen = isStoreOpen(a) ? 0 : 1;
       const bOpen = isStoreOpen(b) ? 0 : 1;
       if (aOpen !== bOpen) return aOpen - bOpen;
 
-      // Second: sort by distance (nearest first), null distances go last
+      // Third: sort by distance (nearest first), null distances go last
       if (a.distance !== null && b.distance !== null) {
         return a.distance - b.distance;
       }
