@@ -57,7 +57,7 @@ async function offerOldestOrderToDriver(driverId: number) {
     .from(orders)
     .where(
       and(
-        inArray(orders.status, ["pending", "accepted", "ready_for_pickup"]),
+        inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
         isNull(orders.driverId)
       )
     )
@@ -791,7 +791,7 @@ export const driversRouter = router({
             .from(orders)
             .where(eq(orders.id, orderId))
             .limit(1);
-          if (orderCheck.length > 0 && !orderCheck[0].driverId && ["pending", "accepted", "ready_for_pickup"].includes(orderCheck[0].status)) {
+          if (orderCheck.length > 0 && !orderCheck[0].driverId && ["pending", "accepted", "preparing", "ready_for_pickup"].includes(orderCheck[0].status)) {
             await offerToNextDriver(orderId);
           }
         }

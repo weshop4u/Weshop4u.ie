@@ -1,0 +1,16 @@
+{
+  "query": "SELECT CONCAT(id, '|', order_number, '|', status, '|', IFNULL(driver_id, 'NULL')) as info FROM orders WHERE driver_id IS NULL AND status NOT IN ('delivered', 'cancelled') ORDER BY created_at DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT(id, '|', order_number, '|', status, '|', IFNULL(driver_id, 'NULL')) as info FROM orders WHERE driver_id IS NULL AND status NOT IN ('delivered', 'cancelled') ORDER BY created_at DESC LIMIT 10;",
+  "rows": [
+    {
+      "info": "780003|WS4U-1771575060293-918|preparing|NULL"
+    },
+    {
+      "info": "780002|WS4U-1771574757611-885|preparing|NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "info\n780003|WS4U-1771575060293-918|preparing|NULL\n780002|WS4U-1771574757611-885|preparing|NULL\n",
+  "stderr": "",
+  "execution_time_ms": 347
+}
