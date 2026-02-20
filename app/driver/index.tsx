@@ -157,6 +157,26 @@ export default function DriverHomeScreen() {
     }
   }, []);
 
+  // Helper to stop all alarms and vibrations
+  const stopAllAlarms = useCallback(() => {
+    console.log('[Driver] Stopping all alarms');
+    if (Platform.OS === "web") {
+      stopWebAlarm();
+    } else {
+      if (alarmIntervalRef.current) {
+        clearInterval(alarmIntervalRef.current);
+        alarmIntervalRef.current = null;
+      }
+      if (vibrationIntervalRef.current) {
+        clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = null;
+      }
+      try {
+        alarmPlayer.pause();
+      } catch (e) { /* ignore */ }
+    }
+  }, []);
+
   // Notify driver when a NEW offer appears (haptics + alarm + push notification)
   useEffect(() => {
     if (offerData?.hasOffer && offerData.offer) {
@@ -189,8 +209,9 @@ export default function DriverHomeScreen() {
             try {
               alarmPlayer.seekTo(0);
               alarmPlayer.play();
+              console.log('[Driver] Alarm loop playing');
             } catch (e) { console.log('[Driver] Alarm repeat error:', e); }
-          }, 6000);
+          }, 4000); // Loop every 4 seconds
 
           // --- Start persistent vibration pattern ---
           try {
@@ -232,28 +253,8 @@ export default function DriverHomeScreen() {
     }
   }, [offerData?.offer?.offerId]);
 
-  // Stop alarm when offer disappears (accepted, declined, expired)
-  useEffect(() => {
-    const hasActiveOffer = offerData?.hasOffer && offerData.offer && countdown > 0;
-    if (!hasActiveOffer) {
-      // Stop all alarms
-      if (Platform.OS === "web") {
-        stopWebAlarm();
-      } else {
-        if (alarmIntervalRef.current) {
-          clearInterval(alarmIntervalRef.current);
-          alarmIntervalRef.current = null;
-        }
-        if (vibrationIntervalRef.current) {
-          clearInterval(vibrationIntervalRef.current);
-          vibrationIntervalRef.current = null;
-        }
-        try {
-          alarmPlayer.pause();
-        } catch (e) { /* ignore */ }
-      }
-    }
-  }, [offerData?.hasOffer, offerData?.offer, countdown]);
+  // NOTE: Alarm is now stopped ONLY by explicit user actions (accept/decline)
+  // or by autoToggleOffline (countdown expired). No reactive stop on data refetch.
 
   // Auto-toggle offline: use a ref-based approach to avoid stale closures
   // Store user.id in a ref so the callback always has the latest value
@@ -264,6 +265,9 @@ export default function DriverHomeScreen() {
     if (isAutoTogglingOffRef.current) return; // Prevent double-fire
     isAutoTogglingOffRef.current = true;
     console.log('[Driver] Auto-toggling offline due to expired offer');
+    
+    // 0. Stop all alarms immediately
+    stopAllAlarms();
     
     // 1. Clear countdown immediately
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
@@ -391,6 +395,8 @@ export default function DriverHomeScreen() {
 
   const handleAcceptOffer = async () => {
     if (!offerData?.offer || !user) return;
+    // Stop alarm immediately on accept
+    stopAllAlarms();
     try {
       const result = await acceptOfferMutation.mutateAsync({
         offerId: offerData.offer.offerId,
@@ -407,6 +413,8 @@ export default function DriverHomeScreen() {
 
   const handleDeclineOffer = async () => {
     if (!offerData?.offer || !user) return;
+    // Stop alarm immediately on decline
+    stopAllAlarms();
     try {
       // Clear countdown immediately so the card disappears
       if (countdownRef.current) clearInterval(countdownRef.current);

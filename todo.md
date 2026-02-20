@@ -1571,3 +1571,7 @@
 - [x] Add customer phone number to printed receipt
 - [x] Driver starts offline by default on login (must toggle online to receive jobs)
 - [x] Fix sound alert when job offer arrives for driver
+
+## Driver Alarm Sound Fix
+- [x] Make alarm sound loop continuously every 3-4 seconds until driver accepts/declines or countdown expires
+- [x] Only stop alarm on explicit user action (accept/decline), not on data refetch
