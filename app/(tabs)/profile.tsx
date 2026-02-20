@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Platform, Alert, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -101,9 +101,13 @@ export default function ProfileScreen() {
     return (
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
-          {/* Logo/Icon */}
-          <View className="w-32 h-32 bg-primary rounded-full items-center justify-center mb-4">
-            <Text className="text-6xl">🛒</Text>
+          {/* Logo */}
+          <View className="w-36 h-36 rounded-full items-center justify-center mb-4 overflow-hidden">
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 144, height: 144, borderRadius: 72 }}
+              resizeMode="cover"
+            />
           </View>
           
           {/* Heading */}

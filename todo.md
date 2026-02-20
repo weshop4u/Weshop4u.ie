@@ -1597,3 +1597,6 @@
 - [x] Update driver app to display times in Irish timezone
 - [x] Update customer app (order tracking, order history) to display Irish timezone
 - [x] Update admin panel to display times in Irish timezone
+
+## Logo Placement
+- [x] Replace shopping cart icon on Profile/Login screen with WeShop4U logo
