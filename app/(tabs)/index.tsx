@@ -1,4 +1,6 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
+import { WebLayout } from "@/components/web-layout";
+import WebHome from "./web-home";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -29,6 +31,15 @@ function formatDistance(km: number): string {
 }
 
 export default function HomeScreen() {
+  // On web, render the web-optimised home page with header/footer
+  if (Platform.OS === "web") {
+    return (
+      <WebLayout>
+        <WebHome />
+      </WebLayout>
+    );
+  }
+
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { user } = useAuth();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WebLayout } from "@/components/web-layout";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -60,7 +61,11 @@ export default function RegisterScreen() {
     }
   };
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   return (
+    <Wrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -183,5 +188,6 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
+    </Wrapper>
   );
 }

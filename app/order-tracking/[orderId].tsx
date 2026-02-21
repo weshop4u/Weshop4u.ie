@@ -8,6 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/hooks/use-auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatIrishTime, formatIrishDateTime, formatIrishTimeAgo } from "@/lib/timezone";
+import { WebLayout } from "@/components/web-layout";
 
 /** Compute estimated delivery time based on status and timestamps. */
 function getEstimatedDelivery(order: any): { label: string; minutes: number | null } | null {
@@ -260,17 +261,23 @@ export default function OrderTrackingScreen() {
     });
   }, [showChat, currentUserId, order, authUser?.id]);
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   if (isLoading) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color="#00E5FF" />
         <Text className="text-muted mt-4">Loading order details...</Text>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
   if (!order) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center p-4">
         <Image
           source={require("@/assets/images/Weshop4ulogo.jpg")}
@@ -285,6 +292,7 @@ export default function OrderTrackingScreen() {
           <Text style={{ color: "#fff", fontWeight: "600" }}>Back to Home</Text>
         </TouchableOpacity>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
@@ -315,6 +323,7 @@ export default function OrderTrackingScreen() {
   const storeName = order.store?.name || "Store";
 
   return (
+    <Wrapper>
     <ScreenContainer>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
@@ -782,5 +791,6 @@ export default function OrderTrackingScreen() {
         />
       )}
     </ScreenContainer>
+    </Wrapper>
   );
 }

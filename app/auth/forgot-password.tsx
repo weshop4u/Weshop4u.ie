@@ -3,6 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
+import { WebLayout } from "@/components/web-layout";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -55,7 +56,11 @@ export default function ForgotPasswordScreen() {
     }
   };
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   return (
+    <Wrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -161,5 +166,6 @@ export default function ForgotPasswordScreen() {
         </View>
       </KeyboardAvoidingView>
     </ScreenContainer>
+    </Wrapper>
   );
 }

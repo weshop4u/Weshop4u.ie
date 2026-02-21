@@ -1610,3 +1610,17 @@
 
 ## Store Dashboard Improvements
 - [x] Show customer name and phone number on order cards in store dashboard
+
+## Customer-Facing Website (weshop4u.ie)
+- [x] Website landing page with hero, store listing, and WeShop4U branding
+- [x] Web-specific navigation header with logo, cart icon, and login/signup
+- [x] Web footer with branding, links, and contact info
+- [x] Hide mobile tab bar on web, use header navigation instead
+- [x] Platform detection to route web users to web pages vs app screens
+- [x] Store page with product catalogue wrapped in WebLayout
+- [x] Web cart and checkout page wrapped in WebLayout
+- [x] Web login, register, forgot-password pages wrapped in WebLayout
+- [x] Web order tracking page wrapped in WebLayout
+- [x] Web receipt page wrapped in WebLayout
+- [x] Orders tab and profile tab wrapped in WebLayout
+- [x] Responsive design (mobile-first, works on desktop/tablet)

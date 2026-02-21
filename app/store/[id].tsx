@@ -9,6 +9,7 @@ import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } fr
 import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
 import * as Haptics from "expo-haptics";
 import { StyleSheet } from "react-native";
+import { WebLayout } from "@/components/web-layout";
 
 type SortOption = "az" | "za" | "price_low" | "price_high";
 
@@ -176,25 +177,33 @@ export default function StoreDetailScreen() {
     setSelectedProduct(product);
   }, [getProductQuantity]);
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   if (storeLoading || productsLoading) {
     return (
-      <ScreenContainer className="items-center justify-center">
-        <ActivityIndicator size="large" color="#00E5FF" />
-      </ScreenContainer>
+      <Wrapper>
+        <ScreenContainer className="items-center justify-center">
+          <ActivityIndicator size="large" color="#00E5FF" />
+        </ScreenContainer>
+      </Wrapper>
     );
   }
 
   if (!store) {
     return (
-      <ScreenContainer className="items-center justify-center">
-        <Text className="text-foreground">Store not found</Text>
-      </ScreenContainer>
+      <Wrapper>
+        <ScreenContainer className="items-center justify-center">
+          <Text className="text-foreground">Store not found</Text>
+        </ScreenContainer>
+      </Wrapper>
     );
   }
 
   // If no category selected, show category selection
   if (selectedCategoryId === null) {
     return (
+      <Wrapper>
       <ScreenContainer className="bg-background">
         {/* Header with Cart Icon */}
         <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
@@ -404,6 +413,7 @@ export default function StoreDetailScreen() {
           </View>
         </ScrollView>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
@@ -612,6 +622,7 @@ export default function StoreDetailScreen() {
   };
 
   return (
+    <Wrapper>
     <ScreenContainer className="bg-background">
       {/* Product Detail Modal */}
       {renderProductModal()}
@@ -801,6 +812,7 @@ export default function StoreDetailScreen() {
         </View>
       )}
     </ScreenContainer>
+    </Wrapper>
   );
 }
 

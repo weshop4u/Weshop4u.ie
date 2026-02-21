@@ -9,6 +9,7 @@ import Constants from "expo-constants";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime, formatIrishDateTime } from "@/lib/timezone";
+import { WebLayout } from "@/components/web-layout";
 
 const isExpoGo = Constants.appOwnership === "expo";
 
@@ -208,8 +209,12 @@ export default function OrderHistoryScreen() {
     }
   }, [inlineMessage]);
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   if (!user) {
     return (
+      <Wrapper>
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
           <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
@@ -248,6 +253,7 @@ export default function OrderHistoryScreen() {
           </TouchableOpacity>
         </View>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
@@ -368,13 +374,16 @@ export default function OrderHistoryScreen() {
 
   if (isLoading) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
   return (
+    <Wrapper>
     <ScreenContainer>
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
@@ -811,5 +820,6 @@ export default function OrderHistoryScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
+    </Wrapper>
   );
 }

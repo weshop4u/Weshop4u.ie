@@ -3,6 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { formatIrishDateFull, formatIrishDate } from "@/lib/timezone";
+import { WebLayout } from "@/components/web-layout";
 
 function formatDate(dateStr: string | Date | null | undefined): string {
   return formatIrishDateFull(dateStr);
@@ -12,6 +13,8 @@ export default function ReceiptScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const router = useRouter();
   const orderIdNum = parseInt(orderId);
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
   const { data: order, isLoading } = trpc.orders.getById.useQuery({ orderId: orderIdNum });
 
@@ -23,15 +26,18 @@ export default function ReceiptScreen() {
 
   if (isLoading) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color="#0a7ea4" />
         <Text className="text-muted mt-4">Loading receipt...</Text>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
   if (!order) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center p-4">
         <Text style={{ fontSize: 48, marginBottom: 12 }}>🧾</Text>
         <Text className="text-foreground text-lg mb-2">Receipt not found</Text>
@@ -42,6 +48,7 @@ export default function ReceiptScreen() {
           <Text style={{ color: "#fff", fontWeight: "600" }}>Go Back</Text>
         </TouchableOpacity>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
@@ -52,6 +59,7 @@ export default function ReceiptScreen() {
   const total = parseFloat(order.total || "0");
 
   return (
+    <Wrapper>
     <ScreenContainer edges={["top", "bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header with back button */}
@@ -226,5 +234,6 @@ export default function ReceiptScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
+    </Wrapper>
   );
 }

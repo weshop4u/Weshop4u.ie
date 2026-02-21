@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-provider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
+import { WebLayout } from "@/components/web-layout";
 
 const GUEST_CASH_LIMIT = 30; // €30 cash limit for guest orders
 
@@ -238,8 +239,12 @@ export default function CartScreen() {
     }
   };
 
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   if (cartItems.length === 0) {
     return (
+      <Wrapper>
       <ScreenContainer className="items-center justify-center">
         <Image
           source={require("@/assets/images/Weshop4ulogo.jpg")}
@@ -254,10 +259,12 @@ export default function CartScreen() {
           <Text className="text-background font-semibold">Continue Shopping</Text>
         </TouchableOpacity>
       </ScreenContainer>
+      </Wrapper>
     );
   }
 
   return (
+    <Wrapper>
     <ScreenContainer>
       {/* Guest Checkout Choice Modal */}
       <Modal
@@ -895,5 +902,6 @@ export default function CartScreen() {
         </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>
+    </Wrapper>
   );
 }

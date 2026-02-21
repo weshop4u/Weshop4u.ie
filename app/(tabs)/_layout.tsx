@@ -27,7 +27,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.tint,
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarStyle: {
+        tabBarStyle: Platform.OS === "web" ? { display: "none" as const } : {
           paddingTop: 8,
           paddingBottom: bottomPadding,
           height: tabBarHeight,
@@ -56,6 +56,12 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="web-home"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
