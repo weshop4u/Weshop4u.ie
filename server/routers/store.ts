@@ -116,9 +116,26 @@ export const storeRouter = router({
             }
           }
 
+          // Get customer name and phone
+          let customerName: string | null = null;
+          let customerPhone: string | null = null;
+          if (order.customerId) {
+            const customerResult = await db
+              .select({ name: users.name, phone: users.phone })
+              .from(users)
+              .where(eq(users.id, order.customerId))
+              .limit(1);
+            if (customerResult.length > 0) {
+              customerName = customerResult[0].name;
+              customerPhone = customerResult[0].phone;
+            }
+          }
+
           return {
             ...order,
             driverName,
+            customerName,
+            customerPhone,
             items: items.map(item => ({
               ...item.order_items,
               product: item.products,

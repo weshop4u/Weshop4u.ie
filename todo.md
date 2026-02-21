@@ -1607,3 +1607,6 @@
 - [x] Make phone number mandatory on registration form (remove "Optional" label, add validation)
 - [x] Make phone number required in server-side registration API validation
 - [x] Ensure delivery address and Eircode auto-fill from previous orders with option to change (already implemented)
+
+## Store Dashboard Improvements
+- [x] Show customer name and phone number on order cards in store dashboard

@@ -473,6 +473,15 @@ export default function StoreDashboardScreen() {
         {/* Expanded Details */}
         {isExpanded && (
           <View style={{ marginTop: 8 }}>
+            {/* Customer Info */}
+            <View style={{ marginBottom: 12, padding: 10, backgroundColor: "rgba(0, 229, 255, 0.08)", borderRadius: 8 }}>
+              <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600", marginBottom: 4 }}>CUSTOMER</Text>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>{order.customerName || "Guest"}</Text>
+              {order.customerPhone ? (
+                <Text style={{ fontSize: 14, color: colors.foreground, marginTop: 2 }}>📞 {order.customerPhone}</Text>
+              ) : null}
+            </View>
+
             {/* Delivery Address */}
             <View style={{ marginBottom: 12, padding: 10, backgroundColor: "rgba(0,0,0,0.03)", borderRadius: 8 }}>
               <Text style={{ fontSize: 11, color: colors.muted, fontWeight: "600", marginBottom: 4 }}>DELIVER TO</Text>
