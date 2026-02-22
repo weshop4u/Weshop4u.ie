@@ -1633,3 +1633,7 @@
 - [x] Fix email address to weshop4u247@gmail.com
 - [x] Add "Download Our App" link/section on homepage
 - [x] Emphasise fast express delivery messaging
+
+## Website Header & Copy Fix
+- [x] Redesign web header for mobile - use hamburger menu on small screens, full nav on desktop
+- [x] Update description to "straight to your door, office or wherever you are"

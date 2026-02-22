@@ -94,7 +94,7 @@ export default function WebHome() {
           Your Local Store to Your Door
         </Text>
         <Text style={styles.heroDescription}>
-          Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door within minutes!
+          Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
 
         {/* Search Bar */}

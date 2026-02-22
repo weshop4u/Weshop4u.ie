@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, Platform, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, TouchableOpacity, Platform, StyleSheet, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,7 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 
 /**
  * Website header for web platform only.
- * Clean, professional layout with logo, navigation, cart, and auth.
+ * Responsive: full nav on desktop (>640px), hamburger menu on mobile.
  */
 export function WebHeader() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export function WebHeader() {
   const { cart, getItemCount } = useCart();
   const colors = useColors();
   const cartCount = getItemCount();
+  const { width } = useWindowDimensions();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (Platform.OS !== "web") return null;
 
@@ -23,14 +26,19 @@ export function WebHeader() {
   const hiddenPaths = ["/admin", "/store-dashboard", "/driver", "/pos-printer"];
   if (hiddenPaths.some(p => pathname.startsWith(p))) return null;
 
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
+  const isMobile = width < 640;
+
+  const navigateTo = (path: string) => {
+    setMenuOpen(false);
+    router.push(path as any);
+  };
 
   return (
     <View style={styles.header}>
       <View style={styles.container}>
         {/* Left: Logo + Brand */}
         <TouchableOpacity
-          onPress={() => router.push("/")}
+          onPress={() => navigateTo("/")}
           style={styles.logoArea}
         >
           <Image
@@ -38,81 +46,112 @@ export function WebHeader() {
             style={styles.logo}
             contentFit="contain"
           />
-          <View>
-            <Text style={styles.brandName}>WESHOP4U</Text>
-            <Text style={styles.tagline}>Your Local Store to Your Door</Text>
-          </View>
+          <Text style={styles.brandName}>WESHOP4U</Text>
         </TouchableOpacity>
 
-        {/* Right: Nav + Cart + Auth */}
-        <View style={styles.rightSection}>
-          {/* Navigation */}
-          <TouchableOpacity
-            onPress={() => router.push("/")}
-            style={[styles.navLink, isActive("/") && !isActive("/orders") && !isActive("/profile") && styles.navLinkActive]}
-          >
-            <Text style={[styles.navText, isActive("/") && !isActive("/orders") && !isActive("/profile") && { color: "#00E5FF" }]}>
-              Home
-            </Text>
+        {/* Right side */}
+        {isMobile ? (
+          /* Mobile: Cart + Hamburger */
+          <View style={styles.mobileRight}>
+            {/* Cart icon */}
+            {cartCount > 0 && cart.storeId && (
+              <TouchableOpacity
+                onPress={() => navigateTo(`/cart/${cart.storeId}`)}
+                style={styles.cartButton}
+              >
+                <Text style={styles.cartIcon}>🛒</Text>
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {/* Hamburger */}
+            <TouchableOpacity
+              onPress={() => setMenuOpen(!menuOpen)}
+              style={styles.hamburger}
+            >
+              <Text style={styles.hamburgerIcon}>{menuOpen ? "✕" : "☰"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Desktop: Full nav */
+          <View style={styles.desktopRight}>
+            <TouchableOpacity onPress={() => navigateTo("/")} style={styles.navLink}>
+              <Text style={styles.navText}>Home</Text>
+            </TouchableOpacity>
+
+            {user && (
+              <TouchableOpacity onPress={() => navigateTo("/orders")} style={styles.navLink}>
+                <Text style={styles.navText}>My Orders</Text>
+              </TouchableOpacity>
+            )}
+
+            {cartCount > 0 && cart.storeId && (
+              <TouchableOpacity
+                onPress={() => navigateTo(`/cart/${cart.storeId}`)}
+                style={styles.cartButton}
+              >
+                <Text style={styles.cartIcon}>🛒</Text>
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {user ? (
+              <TouchableOpacity onPress={() => navigateTo("/profile")} style={styles.profileButton}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {user.name?.charAt(0).toUpperCase() || "U"}
+                  </Text>
+                </View>
+                <Text style={styles.profileName} numberOfLines={1}>
+                  {user.name?.split(" ")[0] || "Account"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity onPress={() => navigateTo("/auth/login")} style={styles.loginButton}>
+                  <Text style={styles.loginButtonText}>Log In</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigateTo("/auth/register")} style={styles.signupButton}>
+                  <Text style={styles.signupButtonText}>Sign Up</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Mobile dropdown menu */}
+      {isMobile && menuOpen && (
+        <View style={styles.mobileMenu}>
+          <TouchableOpacity onPress={() => navigateTo("/")} style={styles.menuItem}>
+            <Text style={styles.menuItemText}>🏠  Home</Text>
           </TouchableOpacity>
 
           {user && (
-            <TouchableOpacity
-              onPress={() => router.push("/orders")}
-              style={[styles.navLink, isActive("/orders") && styles.navLinkActive]}
-            >
-              <Text style={[styles.navText, isActive("/orders") && { color: "#00E5FF" }]}>
-                My Orders
-              </Text>
+            <TouchableOpacity onPress={() => navigateTo("/orders")} style={styles.menuItem}>
+              <Text style={styles.menuItemText}>📋  My Orders</Text>
             </TouchableOpacity>
           )}
 
-          {/* Cart */}
-          {cartCount > 0 && cart.storeId && (
-            <TouchableOpacity
-              onPress={() => router.push(`/cart/${cart.storeId}` as any)}
-              style={styles.cartButton}
-            >
-              <Text style={styles.cartIcon}>🛒</Text>
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {/* Auth */}
           {user ? (
-            <TouchableOpacity
-              onPress={() => router.push("/profile")}
-              style={styles.profileButton}
-            >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {user.name?.charAt(0).toUpperCase() || "U"}
-                </Text>
-              </View>
-              <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>
-                {user.name?.split(" ")[0] || "Account"}
-              </Text>
+            <TouchableOpacity onPress={() => navigateTo("/profile")} style={styles.menuItem}>
+              <Text style={styles.menuItemText}>👤  My Account</Text>
             </TouchableOpacity>
           ) : (
             <>
-              <TouchableOpacity
-                onPress={() => router.push("/auth/login")}
-                style={styles.loginButton}
-              >
-                <Text style={styles.loginButtonText}>Log In</Text>
+              <TouchableOpacity onPress={() => navigateTo("/auth/login")} style={styles.menuItem}>
+                <Text style={[styles.menuItemText, { color: "#00E5FF" }]}>🔑  Log In</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push("/auth/register")}
-                style={styles.signupButton}
-              >
-                <Text style={styles.signupButtonText}>Sign Up</Text>
+              <TouchableOpacity onPress={() => navigateTo("/auth/register")} style={styles.menuItem}>
+                <Text style={[styles.menuItemText, { color: "#00E5FF" }]}>✨  Sign Up</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -122,8 +161,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
-    paddingHorizontal: 24,
-    paddingVertical: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -137,6 +174,8 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     width: "100%",
     alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   logoArea: {
     flexDirection: "row",
@@ -144,36 +183,58 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
   },
   brandName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
     color: "#00E5FF",
     letterSpacing: 1,
   },
-  tagline: {
-    fontSize: 10,
-    color: "#687076",
-    marginTop: -1,
-    fontWeight: "500",
-  },
-  rightSection: {
+  // Mobile right side
+  mobileRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
+    gap: 8,
+  },
+  hamburger: {
+    padding: 8,
+  },
+  hamburgerIcon: {
+    fontSize: 24,
+    color: "#11181C",
+    fontWeight: "700",
+  },
+  // Mobile dropdown
+  mobileMenu: {
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  menuItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#11181C",
+  },
+  // Desktop right side
+  desktopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   navLink: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
-  },
-  navLinkActive: {
-    backgroundColor: "rgba(0, 229, 255, 0.1)",
   },
   navText: {
     fontSize: 14,
@@ -183,7 +244,6 @@ const styles = StyleSheet.create({
   cartButton: {
     position: "relative",
     padding: 6,
-    marginLeft: 4,
   },
   cartIcon: {
     fontSize: 22,
@@ -213,7 +273,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: "rgba(0, 229, 255, 0.08)",
-    marginLeft: 4,
   },
   avatar: {
     width: 28,
@@ -228,18 +287,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  userName: {
+  profileName: {
     fontSize: 13,
     fontWeight: "600",
+    color: "#11181C",
     maxWidth: 80,
   },
   loginButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
     borderColor: "#00E5FF",
-    marginLeft: 4,
   },
   loginButtonText: {
     color: "#00E5FF",
@@ -247,8 +306,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   signupButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#00E5FF",
   },
