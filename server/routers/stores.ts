@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories } from "../../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, like, sql } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 export const storesRouter = router({
@@ -145,6 +145,48 @@ export const storesRouter = router({
         )
       );
       return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
+    }),
+
+  // Search products across all active stores
+  searchProducts: publicProcedure
+    .input(z.object({ query: z.string().min(1).max(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const searchTerm = `%${input.query}%`;
+
+      const results = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          price: products.price,
+          salePrice: products.salePrice,
+          images: products.images,
+          storeId: products.storeId,
+          storeName: stores.name,
+          storeLogo: stores.logo,
+          storeCategory: stores.category,
+          categoryName: productCategories.name,
+        })
+        .from(products)
+        .innerJoin(stores, and(eq(products.storeId, stores.id), eq(stores.isActive, true)))
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(
+          and(
+            eq(products.isActive, true),
+            like(products.name, searchTerm)
+          )
+        )
+        .limit(20);
+
+      // Parse images and group by store
+      return results.map(r => ({
+        ...r,
+        images: r.images ? (() => { try { return JSON.parse(r.images as string); } catch { return [r.images]; } })() : [],
+      }));
     }),
 
   // Get all stores (including inactive for admin)

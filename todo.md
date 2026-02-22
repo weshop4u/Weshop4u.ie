@@ -1666,3 +1666,9 @@
 ## Nav Bar & Store Card Fixes
 - [x] Remove duplicate WESHOP4U logo from top nav bar (keep hamburger menu only)
 - [x] Fix broken emoji characters on store cards (clock, store, arrow)
+
+## Smart Search & Logo Fixes
+- [x] Build unified smart search bar (searches both stores and products from one input)
+- [x] Add backend product search endpoint for cross-store product searching
+- [x] Show store results and product results (grouped by store) in search dropdown
+- [x] Verify and fix AppleGreen and Treasure Bowl logos displaying on the site (logos uploaded and accessible via CDN)

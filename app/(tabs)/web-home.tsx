@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
 import { useColors } from "@/hooks/use-colors";
 
@@ -43,19 +43,58 @@ export default function WebHome() {
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
   const screenWidth = Dimensions.get("window").width;
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Filter stores
+  // Debounce search input
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [searchQuery]);
+
+  // Product search query (only fires when debounced query has 2+ chars)
+  const { data: productResults } = trpc.stores.searchProducts.useQuery(
+    { query: debouncedQuery },
+    { enabled: debouncedQuery.length >= 2 }
+  );
+
+  // Filter stores by name
+  const matchingStores = useMemo(() => {
+    if (!stores || !debouncedQuery) return [];
+    const q = debouncedQuery.toLowerCase();
+    return stores.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 4);
+  }, [stores, debouncedQuery]);
+
+  // Group product results by store
+  const groupedProducts = useMemo(() => {
+    if (!productResults || productResults.length === 0) return [];
+    const groups: Record<number, { storeName: string; storeLogo: string | null; storeId: number; products: typeof productResults }> = {};
+    for (const p of productResults) {
+      if (!groups[p.storeId]) {
+        groups[p.storeId] = { storeName: p.storeName, storeLogo: p.storeLogo, storeId: p.storeId, products: [] };
+      }
+      groups[p.storeId].products.push(p);
+    }
+    return Object.values(groups);
+  }, [productResults]);
+
+  const hasSearchResults = matchingStores.length > 0 || groupedProducts.length > 0;
+
+  // Show dropdown when typing
+  useEffect(() => {
+    setShowDropdown(debouncedQuery.length >= 2);
+  }, [debouncedQuery]);
+
+  // Filter stores for the grid (no search filter — grid always shows all stores)
   const filteredStores = useMemo(() => {
     if (!stores) return [];
-    if (!searchQuery.trim()) return stores;
-    const query = searchQuery.toLowerCase().trim();
-    return stores.filter((store) => {
-      const nameMatch = store.name.toLowerCase().includes(query);
-      const categoryMatch = CATEGORY_LABELS[store.category as StoreCategory]?.toLowerCase().includes(query);
-      return nameMatch || categoryMatch;
-    });
-  }, [stores, searchQuery]);
+    return stores;
+  }, [stores]);
 
   // Sort: open first, then by position
   const sortedStores = useMemo(() => {
@@ -98,22 +137,105 @@ export default function WebHome() {
           Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search stores by name or category..."
-            placeholderTextColor="#9BA1A6"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>✕</Text>
-            </TouchableOpacity>
+        {/* Smart Search Bar */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchContainer}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search stores or products..."
+              placeholderTextColor="#9BA1A6"
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                if (!text.trim()) setShowDropdown(false);
+              }}
+              onFocus={() => { if (debouncedQuery.length >= 2) setShowDropdown(true); }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(""); setShowDropdown(false); }} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Search Dropdown */}
+          {showDropdown && debouncedQuery.length >= 2 && (
+            <View style={searchDropdownStyles.dropdown}>
+              {/* Matching Stores */}
+              {matchingStores.length > 0 && (
+                <View style={searchDropdownStyles.section}>
+                  <Text style={searchDropdownStyles.sectionLabel}>Stores</Text>
+                  {matchingStores.map((store) => (
+                    <TouchableOpacity
+                      key={`store-${store.id}`}
+                      style={searchDropdownStyles.storeRow}
+                      onPress={() => {
+                        setShowDropdown(false);
+                        setSearchQuery("");
+                        router.push(`/store/${store.id}`);
+                      }}
+                    >
+                      {store.logo ? (
+                        <Image source={{ uri: store.logo }} style={searchDropdownStyles.storeLogo} contentFit="cover" />
+                      ) : (
+                        <View style={searchDropdownStyles.storeLogoPlaceholder}>
+                          <Text style={{ fontSize: 16 }}>{CATEGORY_ICONS[store.category as StoreCategory] || "🏪"}</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={searchDropdownStyles.storeName}>{store.name}</Text>
+                        <Text style={searchDropdownStyles.storeCategory}>{CATEGORY_LABELS[store.category as StoreCategory]}</Text>
+                      </View>
+                      <View style={[searchDropdownStyles.statusDot, { backgroundColor: isStoreOpen(store) ? "#16A34A" : "#DC2626" }]} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Matching Products grouped by store */}
+              {groupedProducts.length > 0 && (
+                <View style={searchDropdownStyles.section}>
+                  <Text style={searchDropdownStyles.sectionLabel}>Products</Text>
+                  {groupedProducts.map((group) => (
+                    <View key={`group-${group.storeId}`}>
+                      <Text style={searchDropdownStyles.groupStoreName}>{group.storeName}</Text>
+                      {group.products.slice(0, 4).map((product) => (
+                        <TouchableOpacity
+                          key={`product-${product.id}`}
+                          style={searchDropdownStyles.productRow}
+                          onPress={() => {
+                            setShowDropdown(false);
+                            setSearchQuery("");
+                            router.push(`/store/${group.storeId}`);
+                          }}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={searchDropdownStyles.productName} numberOfLines={1}>{product.name}</Text>
+                            {product.categoryName && (
+                              <Text style={searchDropdownStyles.productCategory}>{product.categoryName}</Text>
+                            )}
+                          </View>
+                          <Text style={searchDropdownStyles.productPrice}>
+                            {product.salePrice ? `€${product.salePrice}` : `€${product.price}`}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* No results */}
+              {!hasSearchResults && debouncedQuery.length >= 2 && (
+                <View style={searchDropdownStyles.noResults}>
+                  <Text style={searchDropdownStyles.noResultsText}>No stores or products found for "{debouncedQuery}"</Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -210,9 +332,7 @@ export default function WebHome() {
       {/* Stores Section */}
       <View style={styles.storesSection}>
         <View style={styles.storesSectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {searchQuery ? `Results for "${searchQuery}"` : "Browse Stores"}
-          </Text>
+          <Text style={styles.sectionTitle}>Browse Stores</Text>
           <Text style={styles.storeCount}>
             {sortedStores.length} store{sortedStores.length !== 1 ? "s" : ""} available
           </Text>
@@ -294,13 +414,8 @@ export default function WebHome() {
             <Text style={styles.emptyEmoji}>🔍</Text>
             <Text style={styles.emptyTitle}>No stores found</Text>
             <Text style={styles.emptyDesc}>
-              {searchQuery ? `No stores match "${searchQuery}"` : "No stores available at the moment"}
+              No stores available at the moment
             </Text>
-            {searchQuery && (
-              <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearSearchButton}>
-                <Text style={styles.clearSearchText}>Clear Search</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </View>
@@ -410,6 +525,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 28,
   },
+  searchWrapper: {
+    width: "100%",
+    maxWidth: 500,
+    position: "relative" as const,
+    zIndex: 50,
+  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -420,7 +541,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     width: "100%",
-    maxWidth: 500,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -750,6 +870,110 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
+  },
+});
+
+const searchDropdownStyles = StyleSheet.create({
+  dropdown: {
+    position: "absolute" as const,
+    top: "100%" as any,
+    left: 0,
+    right: 0,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    maxHeight: 400,
+    overflow: "hidden" as const,
+    zIndex: 100,
+  },
+  section: {
+    paddingVertical: 8,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: "#9BA1A6",
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  storeRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  storeLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+  },
+  storeLogoPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  storeName: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: "#11181C",
+  },
+  storeCategory: {
+    fontSize: 12,
+    color: "#687076",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  groupStoreName: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: "#00E5FF",
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  productRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  productName: {
+    fontSize: 14,
+    color: "#11181C",
+  },
+  productCategory: {
+    fontSize: 11,
+    color: "#9BA1A6",
+  },
+  productPrice: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: "#11181C",
+  },
+  noResults: {
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+    alignItems: "center" as const,
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: "#687076",
   },
 });
 
