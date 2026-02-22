@@ -1694,3 +1694,11 @@
 - [x] Bulk-set DRS flag on likely products (cans/bottles from drink categories) — auto-detect endpoint + review modal
 - [x] Allow bulk DRS toggle in admin for multiple products at once — Select All / individual checkboxes
 - [x] 6 DRS unit tests passing
+
+## Bug: Missing Store Logos (FIXED)
+- [x] Fix missing logo images for AppleGreen Balbriggan and Treasure Bowl Balbriggan on home page store cards
+- [x] Verify Open All Ours logo is also displaying correctly
+- [x] Root cause: base64 data URL prefix ("data:image/jpeg;base64,") not stripped before Buffer.from() decode — Node silently decoded the prefix as 15 garbage bytes prepended to the image
+- [x] Fix applied to stores.uploadLogo and categories.uploadImage endpoints
+- [x] Re-uploaded clean logos for AppleGreen and Treasure Bowl to S3
+- [x] 5 unit tests for base64 stripping fix (logo-upload.test.ts)

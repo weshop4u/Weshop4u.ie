@@ -398,7 +398,12 @@ export const storesRouter = router({
     }))
     .mutation(async ({ input }) => {
       try {
-        const buffer = Buffer.from(input.base64, "base64");
+        // Strip data URL prefix if present (e.g. "data:image/jpeg;base64,...")
+        let rawBase64 = input.base64;
+        if (rawBase64.includes(",")) {
+          rawBase64 = rawBase64.split(",")[1];
+        }
+        const buffer = Buffer.from(rawBase64, "base64");
         const ext = input.mimeType.split("/")[1] || "jpg";
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8);
