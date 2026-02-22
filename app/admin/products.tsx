@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Modal, StyleSheet, Platform, FlatList } from "react-native";
+import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useMemo } from "react";
@@ -9,6 +9,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+const IS_WEB = Platform.OS === "web";
 
 type StockStatus = "in_stock" | "out_of_stock" | "low_stock";
 
@@ -198,6 +200,9 @@ function ProductsManagementScreenContent() {
     }
   };
 
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktopTable = IS_WEB && windowWidth >= 1000;
+
   const getStockBadge = (status: string) => {
     const opt = STOCK_STATUS_OPTIONS.find(o => o.value === status);
     return opt || STOCK_STATUS_OPTIONS[0];
@@ -382,13 +387,95 @@ function ProductsManagementScreenContent() {
           </View>
 
           {/* Products List */}
-          <FlatList
-            data={filteredProducts}
-            renderItem={renderProductItem}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 10 }}
-            showsVerticalScrollIndicator={false}
-          />
+          {isDesktopTable ? (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+              {/* Desktop Table Header */}
+              <View style={tableStyles.headerRow}>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>#</Text>
+                <Text style={[tableStyles.headerCell, { width: 60 }]}>Image</Text>
+                <Text style={[tableStyles.headerCell, { flex: 2, minWidth: 200 }]}>Product Name</Text>
+                <Text style={[tableStyles.headerCell, { width: 100 }]}>Price</Text>
+                <Text style={[tableStyles.headerCell, { width: 100 }]}>Stock</Text>
+                <Text style={[tableStyles.headerCell, { flex: 1, minWidth: 120 }]}>Category</Text>
+                <Text style={[tableStyles.headerCell, { width: 70 }]}>SKU</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
+                <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
+              </View>
+              {/* Desktop Table Rows */}
+              {filteredProducts.map((product: any, idx: number) => {
+                const stockBadge = getStockBadge(product.stockStatus);
+                const hasDesc = product.description && product.description.trim() !== "";
+                return (
+                  <View key={product.id} style={[tableStyles.row, idx % 2 === 0 ? tableStyles.rowEven : tableStyles.rowOdd]}>
+                    <Text style={[tableStyles.cell, { width: 50, color: colors.muted }]}>{idx + 1}</Text>
+                    <View style={[tableStyles.cell, { width: 60 }]}>
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          source={{ uri: Array.isArray(product.images) ? product.images[0] : product.images }}
+                          style={{ width: 40, height: 40, borderRadius: 6 }}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}>
+                          <Text style={{ fontSize: 16 }}>📦</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={[tableStyles.cell, { flex: 2, minWidth: 200 }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 13 }} numberOfLines={1}>{product.name}</Text>
+                        {!hasDesc && (
+                          <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
+                            <Text style={{ color: "#F59E0B", fontSize: 9, fontWeight: "700" }}>NO DESC</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>{product.description || "No description"}</Text>
+                    </View>
+                    <Text style={[tableStyles.cell, { width: 100, color: colors.primary, fontWeight: "700", fontSize: 14 }]}>€{product.price}</Text>
+                    <View style={[tableStyles.cell, { width: 100 }]}>
+                      <View style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: "flex-start" }}>
+                        <Text style={{ color: stockBadge.color, fontSize: 11, fontWeight: "700" }}>{stockBadge.label}</Text>
+                      </View>
+                    </View>
+                    <Text style={[tableStyles.cell, { flex: 1, minWidth: 120, color: colors.muted, fontSize: 12 }]} numberOfLines={1}>{product.category?.name || "—"}</Text>
+                    <Text style={[tableStyles.cell, { width: 70, color: colors.muted, fontSize: 11 }]} numberOfLines={1}>{product.sku || "—"}</Text>
+                    <View style={[tableStyles.cell, { width: 50 }]}>
+                      {product.isDrs ? (
+                        <View style={{ backgroundColor: "#0EA5E920", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: "#0EA5E9", fontSize: 10, fontWeight: "700" }}>DRS</Text>
+                        </View>
+                      ) : (
+                        <Text style={{ color: colors.border, fontSize: 11 }}>—</Text>
+                      )}
+                    </View>
+                    <View style={[tableStyles.cell, { width: 140, flexDirection: "row", gap: 6 }]}>
+                      <TouchableOpacity
+                        onPress={() => handleEdit(product)}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary + "15", borderRadius: 6 }}
+                      >
+                        <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 12 }}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setDeleteConfirmId(product.id)}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "#EF444415", borderRadius: 6 }}
+                      >
+                        <Text style={{ color: "#EF4444", fontWeight: "600", fontSize: 12 }}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <FlatList
+              data={filteredProducts}
+              renderItem={renderProductItem}
+              keyExtractor={(item) => String(item.id)}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 10 }}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
         </View>
       )}
 
@@ -797,6 +884,46 @@ const editStyles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     alignItems: "center",
+  },
+});
+
+const tableStyles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderBottomWidth: 2,
+    borderBottomColor: "#E2E8F0",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  headerCell: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    paddingHorizontal: 6,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  rowEven: {
+    backgroundColor: "#ffffff",
+  },
+  rowOdd: {
+    backgroundColor: "#FAFBFC",
+  },
+  cell: {
+    paddingHorizontal: 6,
+    justifyContent: "center",
   },
 });
 

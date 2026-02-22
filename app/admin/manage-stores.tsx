@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Switch, RefreshControl, StyleSheet } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Switch, RefreshControl, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useCallback } from "react";
@@ -33,6 +33,8 @@ function parseOpeningHours(json: string | null): WeekHours {
 
 function ManageStoresScreenContent() {
   const colors = useColors();
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = Platform.OS === "web" && windowWidth >= 1000;
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "hours" | "logo">("details");
   const [refreshing, setRefreshing] = useState(false);
@@ -160,6 +162,230 @@ function ManageStoresScreenContent() {
 
   const selectedStore = storesList?.find(s => s.id === selectedStoreId);
 
+  // ─── Shared render functions for tab content (used by both desktop and mobile) ───
+  const renderDetailsTab = () => (
+    <View className="p-4 gap-4">
+      <View>
+        <Text style={styles.label}>Store Name *</Text>
+        <TextInput
+          value={editName}
+          onChangeText={setEditName}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder="Store name"
+          placeholderTextColor={colors.muted}
+        />
+      </View>
+      <View>
+        <Text style={styles.label}>Description</Text>
+        <TextInput
+          value={editDescription}
+          onChangeText={setEditDescription}
+          style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder="Store description"
+          placeholderTextColor={colors.muted}
+          multiline
+          numberOfLines={3}
+        />
+      </View>
+      <View>
+        <Text style={styles.label}>Category</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {CATEGORIES.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              onPress={() => setEditCategory(cat)}
+              style={[
+                styles.categoryChip,
+                { borderColor: editCategory === cat ? colors.primary : colors.border, backgroundColor: editCategory === cat ? "#E0F7FA" : colors.surface },
+              ]}
+            >
+              <Text style={{ fontSize: 13, fontWeight: editCategory === cat ? "700" : "500", color: editCategory === cat ? colors.primary : colors.foreground }}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View>
+        <Text style={styles.label}>Address</Text>
+        <TextInput
+          value={editAddress}
+          onChangeText={setEditAddress}
+          style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder="Full address"
+          placeholderTextColor={colors.muted}
+          multiline
+          numberOfLines={2}
+        />
+      </View>
+      <View>
+        <Text style={styles.label}>Eircode</Text>
+        <TextInput
+          value={editEircode}
+          onChangeText={setEditEircode}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder="e.g. K32 D868"
+          placeholderTextColor={colors.muted}
+          autoCapitalize="characters"
+        />
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Updating Eircode will re-calculate store GPS coordinates</Text>
+      </View>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Phone</Text>
+          <TextInput
+            value={editPhone}
+            onChangeText={setEditPhone}
+            style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+            placeholder="Phone number"
+            placeholderTextColor={colors.muted}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            value={editEmail}
+            onChangeText={setEditEmail}
+            style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+            placeholder="Email"
+            placeholderTextColor={colors.muted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+      </View>
+      <View>
+        <Text style={[styles.label, { color: colors.foreground }]}>Display Position (1 = top of list)</Text>
+        <TextInput
+          value={editSortPosition}
+          onChangeText={setEditSortPosition}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder="999"
+          placeholderTextColor={colors.muted}
+          keyboardType="number-pad"
+        />
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Lower number = higher in customer store list. Set 1 for featured/top position.</Text>
+      </View>
+      {selectedStore?.latitude && selectedStore?.longitude ? (
+        <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={{ fontSize: 12, color: colors.muted }}>GPS Coordinates</Text>
+          <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: "600", marginTop: 2 }}>
+            {parseFloat(selectedStore.latitude).toFixed(6)}, {parseFloat(selectedStore.longitude).toFixed(6)}
+          </Text>
+        </View>
+      ) : null}
+      <TouchableOpacity
+        onPress={handleSaveDetails}
+        disabled={saving || !editName.trim()}
+        style={[styles.saveButton, { opacity: saving || !editName.trim() ? 0.5 : 1 }]}
+      >
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Details</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderHoursTab = () => (
+    <View className="p-4 gap-4">
+      <View style={[styles.toggleCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>Open 24/7</Text>
+          <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>Store is always open, no specific hours</Text>
+        </View>
+        <Switch
+          value={isOpen247}
+          onValueChange={setIsOpen247}
+          trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+          thumbColor={isOpen247 ? "#22C55E" : "#9CA3AF"}
+        />
+      </View>
+      {!isOpen247 && (
+        <View className="gap-3">
+          {DAYS.map(day => {
+            const dh = weekHours[day];
+            return (
+              <View key={day} style={[styles.dayRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: dh.closed ? colors.muted : colors.foreground }}>{day}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>{dh.closed ? "Closed" : "Open"}</Text>
+                    <Switch
+                      value={!dh.closed}
+                      onValueChange={(val) => updateDayHours(day, "closed", !val)}
+                      trackColor={{ false: "#FEE2E2", true: "#86EFAC" }}
+                      thumbColor={!dh.closed ? "#22C55E" : "#EF4444"}
+                    />
+                  </View>
+                </View>
+                {!dh.closed && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>Opens</Text>
+                      <TextInput
+                        value={dh.open}
+                        onChangeText={(v) => updateDayHours(day, "open", v)}
+                        style={[styles.timeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                        placeholder="08:00"
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                    <Text style={{ fontSize: 16, color: colors.muted, marginTop: 14 }}>&mdash;</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>Closes</Text>
+                      <TextInput
+                        value={dh.close}
+                        onChangeText={(v) => updateDayHours(day, "close", v)}
+                        style={[styles.timeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+                        placeholder="22:00"
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+      <TouchableOpacity
+        onPress={handleSaveHours}
+        disabled={saving}
+        style={[styles.saveButton, { opacity: saving ? 0.5 : 1 }]}
+      >
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Hours</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderLogoTab = () => (
+    <View className="p-4 gap-4">
+      <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, alignItems: "center", padding: 20 }]}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 12 }}>Current Logo</Text>
+        {selectedStore?.logo ? (
+          <Image source={{ uri: selectedStore.logo }} style={{ width: 120, height: 120, borderRadius: 16 }} contentFit="cover" />
+        ) : (
+          <View style={{ width: 120, height: 120, borderRadius: 16, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
+            <Text style={{ fontSize: 40 }}>{"\ud83c\udfea"}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>No logo set</Text>
+          </View>
+        )}
+      </View>
+      <View>
+        <Text style={styles.label}>Logo URL</Text>
+        <TextInput
+          value={selectedStore?.logo || ""}
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.muted }]}
+          editable={false}
+          placeholder="No logo URL set"
+          placeholderTextColor={colors.muted}
+        />
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
+          To upload a new logo, use the "Upload Store Logos" tool from the dashboard
+        </Text>
+      </View>
+    </View>
+  );
+
   if (isLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
@@ -169,7 +395,124 @@ function ManageStoresScreenContent() {
     );
   }
 
-  // Store List View
+  // ─── DESKTOP: Side-by-side layout (store list left, edit panel right) ───
+  if (isDesktop) {
+    return (
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        {/* Left: Store List */}
+        <ScrollView style={{ width: 340, borderRightWidth: 1, borderRightColor: colors.border, backgroundColor: colors.surface }}>
+          <View style={{ padding: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>Stores</Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 16 }}>{storesList?.length || 0} registered</Text>
+            {storesList?.map((store) => (
+              <TouchableOpacity
+                key={store.id}
+                onPress={() => selectStore(store)}
+                style={{
+                  flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 10, marginBottom: 8,
+                  backgroundColor: selectedStoreId === store.id ? "#E0F7FA" : colors.background,
+                  borderWidth: 1, borderColor: selectedStoreId === store.id ? "#00E5FF" : colors.border,
+                }}
+              >
+                {store.logo ? (
+                  <Image source={{ uri: store.logo }} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="cover" />
+                ) : (
+                  <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 18 }}>🏪</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }} numberOfLines={1}>{store.name}</Text>
+                  <Text style={{ fontSize: 11, color: colors.muted }}>{store.category} {store.isActive ? "\u00b7 Active" : "\u00b7 Inactive"}</Text>
+                </View>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: store.isActive ? "#22C55E" : "#EF4444" }} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Right: Edit Panel */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
+          {selectedStoreId && selectedStore ? (
+            <View>
+              {/* Store Header */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 }}>
+                {selectedStore.logo ? (
+                  <Image source={{ uri: selectedStore.logo }} style={{ width: 56, height: 56, borderRadius: 12 }} contentFit="cover" />
+                ) : (
+                  <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 24 }}>🏪</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground }}>{selectedStore.name}</Text>
+                  <Text style={{ fontSize: 13, color: colors.muted }}>
+                    {selectedStore.category.charAt(0).toUpperCase() + selectedStore.category.slice(1)}
+                    {selectedStore.isActive ? " \u00b7 Active" : " \u00b7 Inactive"}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>Active</Text>
+                    <Switch
+                      value={selectedStore.isActive ?? true}
+                      onValueChange={() => handleToggleActive(selectedStore.id, selectedStore.isActive ?? true)}
+                      trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+                      thumbColor={selectedStore.isActive ? "#22C55E" : "#9CA3AF"}
+                    />
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>Featured</Text>
+                    <Switch
+                      value={(selectedStore as any).isFeatured ?? false}
+                      onValueChange={() => handleToggleFeatured(selectedStore.id, (selectedStore as any).isFeatured ?? false)}
+                      trackColor={{ false: "#E5E7EB", true: "#B2EBF2" }}
+                      thumbColor={(selectedStore as any).isFeatured ? "#00E5FF" : "#9CA3AF"}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Tabs */}
+              <View style={[styles.tabBar, { borderBottomColor: colors.border, marginBottom: 20 }]}>
+                {(["details", "hours", "logo"] as const).map(tab => (
+                  <TouchableOpacity
+                    key={tab}
+                    onPress={() => { setActiveTab(tab); setMessage(""); }}
+                    style={[styles.tab, activeTab === tab && { borderBottomColor: "#00E5FF", borderBottomWidth: 2 }]}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: activeTab === tab ? "700" : "500", color: activeTab === tab ? "#00E5FF" : colors.muted }}>
+                      {tab === "details" ? "\u2699\ufe0f Details" : tab === "hours" ? "\u23f0 Hours" : "\ud83d\uddbc\ufe0f Logo"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Message */}
+              {message ? (
+                <View style={[styles.messageBox, { borderColor: messageType === "error" ? colors.error : "#22C55E", backgroundColor: messageType === "error" ? "#FEE2E2" : "#DCFCE7", marginBottom: 16 }]}>
+                  <Text style={{ color: messageType === "error" ? colors.error : "#16A34A", fontWeight: "600" }}>{message}</Text>
+                </View>
+              ) : null}
+
+              {/* Render the same tab content as mobile */}
+              {activeTab === "details" && renderDetailsTab()}
+              {activeTab === "hours" && renderHoursTab()}
+              {activeTab === "logo" && renderLogoTab()}
+            </View>
+          ) : (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 80 }}>
+              <Text style={{ fontSize: 48, marginBottom: 16 }}>🏪</Text>
+              <Text style={{ fontSize: 18, fontWeight: "600", color: colors.foreground }}>Select a store</Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginTop: 4 }}>Choose a store from the left panel to edit its details</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ─── MOBILE: Store List View ───
   if (!selectedStoreId) {
     return (
       <ScreenContainer className="bg-background">
@@ -307,247 +650,13 @@ function ManageStoresScreenContent() {
         ) : null}
 
         {/* Details Tab */}
-        {activeTab === "details" && (
-          <View className="p-4 gap-4">
-            <View>
-              <Text style={styles.label}>Store Name *</Text>
-              <TextInput
-                value={editName}
-                onChangeText={setEditName}
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="Store name"
-                placeholderTextColor={colors.muted}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                value={editDescription}
-                onChangeText={setEditDescription}
-                style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="Store description"
-                placeholderTextColor={colors.muted}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.label}>Category</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    onPress={() => setEditCategory(cat)}
-                    style={[
-                      styles.categoryChip,
-                      { borderColor: editCategory === cat ? colors.primary : colors.border, backgroundColor: editCategory === cat ? "#E0F7FA" : colors.surface },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: editCategory === cat ? "700" : "500", color: editCategory === cat ? colors.primary : colors.foreground }}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View>
-              <Text style={styles.label}>Address</Text>
-              <TextInput
-                value={editAddress}
-                onChangeText={setEditAddress}
-                style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="Full address"
-                placeholderTextColor={colors.muted}
-                multiline
-                numberOfLines={2}
-              />
-            </View>
-
-            <View>
-              <Text style={styles.label}>Eircode</Text>
-              <TextInput
-                value={editEircode}
-                onChangeText={setEditEircode}
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="e.g. K32 D868"
-                placeholderTextColor={colors.muted}
-                autoCapitalize="characters"
-              />
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Updating Eircode will re-calculate store GPS coordinates</Text>
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Phone</Text>
-                <TextInput
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  placeholder="Phone number"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="phone-pad"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                  placeholder="Email"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            {/* Sort Position */}
-            <View>
-              <Text style={[styles.label, { color: colors.foreground }]}>Display Position (1 = top of list)</Text>
-              <TextInput
-                value={editSortPosition}
-                onChangeText={setEditSortPosition}
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                placeholder="999"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-              />
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Lower number = higher in customer store list. Set 1 for featured/top position.</Text>
-            </View>
-
-            {/* GPS Coordinates (read-only) */}
-            {selectedStore?.latitude && selectedStore?.longitude ? (
-              <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 12, color: colors.muted }}>GPS Coordinates</Text>
-                <Text style={{ fontSize: 13, color: colors.foreground, fontWeight: "600", marginTop: 2 }}>
-                  {parseFloat(selectedStore.latitude).toFixed(6)}, {parseFloat(selectedStore.longitude).toFixed(6)}
-                </Text>
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              onPress={handleSaveDetails}
-              disabled={saving || !editName.trim()}
-              style={[styles.saveButton, { opacity: saving || !editName.trim() ? 0.5 : 1 }]}
-            >
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Details</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
+        {activeTab === "details" && renderDetailsTab()}
 
         {/* Hours Tab */}
-        {activeTab === "hours" && (
-          <View className="p-4 gap-4">
-            {/* 24/7 Toggle */}
-            <View style={[styles.toggleCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>Open 24/7</Text>
-                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>Store is always open, no specific hours</Text>
-              </View>
-              <Switch
-                value={isOpen247}
-                onValueChange={setIsOpen247}
-                trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
-                thumbColor={isOpen247 ? "#22C55E" : "#9CA3AF"}
-              />
-            </View>
-
-            {/* Per-day hours */}
-            {!isOpen247 && (
-              <View className="gap-3">
-                {DAYS.map(day => {
-                  const dh = weekHours[day];
-                  return (
-                    <View key={day} style={[styles.dayRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "600", color: dh.closed ? colors.muted : colors.foreground }}>{day}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={{ fontSize: 12, color: colors.muted }}>{dh.closed ? "Closed" : "Open"}</Text>
-                          <Switch
-                            value={!dh.closed}
-                            onValueChange={(val) => updateDayHours(day, "closed", !val)}
-                            trackColor={{ false: "#FEE2E2", true: "#86EFAC" }}
-                            thumbColor={!dh.closed ? "#22C55E" : "#EF4444"}
-                          />
-                        </View>
-                      </View>
-                      {!dh.closed && (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>Opens</Text>
-                            <TextInput
-                              value={dh.open}
-                              onChangeText={(v) => updateDayHours(day, "open", v)}
-                              style={[styles.timeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                              placeholder="08:00"
-                              placeholderTextColor={colors.muted}
-                            />
-                          </View>
-                          <Text style={{ fontSize: 16, color: colors.muted, marginTop: 14 }}>—</Text>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>Closes</Text>
-                            <TextInput
-                              value={dh.close}
-                              onChangeText={(v) => updateDayHours(day, "close", v)}
-                              style={[styles.timeInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
-                              placeholder="22:00"
-                              placeholderTextColor={colors.muted}
-                            />
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            <TouchableOpacity
-              onPress={handleSaveHours}
-              disabled={saving}
-              style={[styles.saveButton, { opacity: saving ? 0.5 : 1 }]}
-            >
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Hours</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
+        {activeTab === "hours" && renderHoursTab()}
 
         {/* Logo Tab */}
-        {activeTab === "logo" && (
-          <View className="p-4 gap-4">
-            {/* Current Logo */}
-            <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, alignItems: "center", padding: 20 }]}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 12 }}>Current Logo</Text>
-              {selectedStore?.logo ? (
-                <Image source={{ uri: selectedStore.logo }} style={{ width: 120, height: 120, borderRadius: 16 }} contentFit="cover" />
-              ) : (
-                <View style={{ width: 120, height: 120, borderRadius: 16, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
-                  <Text style={{ fontSize: 40 }}>🏪</Text>
-                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>No logo set</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Logo URL Input */}
-            <View>
-              <Text style={styles.label}>Logo URL</Text>
-              <TextInput
-                value={selectedStore?.logo || ""}
-                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.muted }]}
-                editable={false}
-                placeholder="No logo URL set"
-                placeholderTextColor={colors.muted}
-              />
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
-                To upload a new logo, use the "Upload Store Logos" tool from the dashboard
-              </Text>
-            </View>
-          </View>
-        )}
+        {activeTab === "logo" && renderLogoTab()}
       </ScrollView>
     </ScreenContainer>
   );

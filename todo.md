@@ -1729,7 +1729,7 @@
 - [x] All 11 admin pages wrapped with AdminDesktopLayout
 - [x] Desktop layout activates at width >= 900px, mobile layout below
 - [x] Admin dashboard home with summary cards (Orders, Revenue, Delivery Fees, Tips)
-- [ ] Further desktop optimisation of tables (orders, products) for wider screens
+- [x] Further desktop optimisation of tables (orders, products) for wider screens
 
 ## PWA Support
 - [x] Add web manifest for PWA (name, icons, theme color, start URL) — public/manifest.json
@@ -1738,3 +1738,11 @@
 - [x] Configure service worker for offline support basics — public/sw.js
 - [x] PWA meta tags injected via root layout useEffect (theme-color, apple-mobile-web-app, og tags)
 - [x] Favicon created for web
+
+## Admin Desktop Optimisation
+- [x] Optimise orders page — desktop table with columns (Order #, Customer, Store, Items, Total, Status, Date, Actions)
+- [x] Optimise products page — desktop table with columns (Image, Name, Category, Price, Stock, DRS, Actions)
+- [x] Optimise dashboard home — wider stat cards grid, better spacing on desktop
+- [x] Optimise manage-stores page — side-by-side layout (store list left, edit panel right) on desktop
+- [x] Optimise other admin pages (categories, drivers, settings) for wider screens
+- [x] Add sorting controls to orders and products tables
