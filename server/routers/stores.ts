@@ -156,7 +156,7 @@ export const storesRouter = router({
         throw new Error("Database not available");
       }
 
-      const searchTerm = `%${input.query}%`;
+      const searchTerm = `%${input.query.toLowerCase()}%`;
 
       const results = await db
         .select({
@@ -177,10 +177,10 @@ export const storesRouter = router({
         .where(
           and(
             eq(products.isActive, true),
-            like(products.name, searchTerm)
+            sql`LOWER(${products.name}) LIKE ${searchTerm}`
           )
         )
-        .limit(20);
+        .limit(30);
 
       // Parse images and group by store
       return results.map(r => ({

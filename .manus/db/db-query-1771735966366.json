@@ -1,0 +1,70 @@
+{
+  "query": "SELECT id, name, store_id, is_active FROM products WHERE LOWER(name) LIKE '%pepsi%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, store_id, is_active FROM products WHERE LOWER(name) LIKE '%pepsi%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "60399",
+      "name": "Pepsi Max 2ltr",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60400",
+      "name": "Pepsi Max 330ml 4pk",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60401",
+      "name": "Pepsi Max 750ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60402",
+      "name": "Pepsi Max Can 330ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60403",
+      "name": "Pepsi Max Cherry 750ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60404",
+      "name": "Pepsi Max Cherry Can 330ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60405",
+      "name": "Pepsi reg 2ltr",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60406",
+      "name": "Pepsi Reg 500ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60407",
+      "name": "Pepsi Reg 750ml",
+      "store_id": "1",
+      "is_active": "1"
+    },
+    {
+      "id": "60408",
+      "name": "Pepsi Reg Can 330ml",
+      "store_id": "1",
+      "is_active": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tstore_id\tis_active\n60399\tPepsi Max 2ltr\t1\t1\n60400\tPepsi Max 330ml 4pk\t1\t1\n60401\tPepsi Max 750ml\t1\t1\n60402\tPepsi Max Can 330ml\t1\t1\n60403\tPepsi Max Cherry 750ml\t1\t1\n60404\tPepsi Max Cherry Can 330ml\t1\t1\n60405\tPepsi reg 2ltr\t1\t1\n60406\tPepsi Reg 500ml\t1\t1\n60407\tPepsi Reg 750ml\t1\t1\n60408\tPepsi Reg Can 330ml\t1\t1\n",
+  "stderr": "",
+  "execution_time_ms": 406
+}

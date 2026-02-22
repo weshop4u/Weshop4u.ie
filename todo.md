@@ -1672,3 +1672,7 @@
 - [x] Add backend product search endpoint for cross-store product searching
 - [x] Show store results and product results (grouped by store) in search dropdown
 - [x] Verify and fix AppleGreen and Treasure Bowl logos displaying on the site (logos uploaded and accessible via CDN)
+
+## Bug: Search Dropdown Issues
+- [x] Fix search dropdown transparency (solid white background, elevation, zIndex 1000)
+- [x] Fix product search not finding many products (was case-sensitive LIKE, now uses LOWER() for case-insensitive search)
