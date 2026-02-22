@@ -56,6 +56,7 @@ export default function ManageStoresScreen() {
   const updateStoreMutation = trpc.admin.updateStore.useMutation();
   const updateHoursMutation = trpc.admin.updateStoreHours.useMutation();
   const toggleActiveMutation = trpc.admin.toggleStoreActive.useMutation();
+  const toggleFeaturedMutation = trpc.admin.toggleStoreFeatured.useMutation();
   const updateLogoMutation = trpc.admin.updateStoreLogo.useMutation();
 
   const onRefresh = useCallback(async () => {
@@ -138,6 +139,16 @@ export default function ManageStoresScreen() {
     }
   };
 
+  const handleToggleFeatured = async (storeId: number, currentFeatured: boolean) => {
+    try {
+      await toggleFeaturedMutation.mutateAsync({ storeId, isFeatured: !currentFeatured });
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to toggle featured");
+      setMessageType("error");
+    }
+  };
+
   const updateDayHours = (day: string, field: keyof DayHours, value: string | boolean) => {
     setWeekHours(prev => ({
       ...prev,
@@ -198,6 +209,13 @@ export default function ManageStoresScreen() {
                             {store.isActive ? "Active" : "Inactive"}
                           </Text>
                         </View>
+                        {(store as any).isFeatured && (
+                          <View style={[styles.statusBadge, { backgroundColor: "#E0F7FA" }]}>
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#00838F" }}>
+                              Featured
+                            </Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
                         {store.category.charAt(0).toUpperCase() + store.category.slice(1)}
@@ -213,7 +231,7 @@ export default function ManageStoresScreen() {
                     <Text style={{ fontSize: 20, color: colors.muted }}>›</Text>
                   </View>
 
-                  {/* Quick toggle */}
+                  {/* Quick toggles */}
                   <View style={[styles.toggleRow, { borderTopColor: colors.border }]}>
                     <Text style={{ fontSize: 13, color: colors.muted }}>Store Active</Text>
                     <Switch
@@ -221,6 +239,18 @@ export default function ManageStoresScreen() {
                       onValueChange={() => handleToggleActive(store.id, store.isActive ?? true)}
                       trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
                       thumbColor={store.isActive ? "#22C55E" : "#9CA3AF"}
+                    />
+                  </View>
+                  <View style={[styles.toggleRow, { borderTopColor: colors.border }]}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={{ fontSize: 13, color: colors.muted }}>Featured on Homepage</Text>
+                      {(store as any).isFeatured && <Text style={{ fontSize: 11, color: "#00E5FF", fontWeight: "700" }}>⭐</Text>}
+                    </View>
+                    <Switch
+                      value={(store as any).isFeatured ?? false}
+                      onValueChange={() => handleToggleFeatured(store.id, (store as any).isFeatured ?? false)}
+                      trackColor={{ false: "#E5E7EB", true: "#B2EBF2" }}
+                      thumbColor={(store as any).isFeatured ? "#00E5FF" : "#9CA3AF"}
                     />
                   </View>
                 </TouchableOpacity>

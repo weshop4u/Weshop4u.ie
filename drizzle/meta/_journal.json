@@ -78,6 +78,13 @@
       "when": 1771590566467,
       "tag": "0010_woozy_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771731010162,
+      "tag": "0011_complete_siren",
+      "breakpoints": true
     }
   ]
 }

@@ -1637,3 +1637,10 @@
 ## Website Header & Copy Fix
 - [x] Redesign web header for mobile - use hamburger menu on small screens, full nav on desktop
 - [x] Update description to "straight to your door, office or wherever you are"
+
+## Popular Stores Section & New Stores
+- [x] Add "Popular Stores" split-view section on homepage with two side-by-side cards (Spar + Open All Hours)
+- [x] Make featured/popular stores configurable via admin panel (can swap which stores appear)
+- [x] Add Apple Green store to the system
+- [x] Add Chinese restaurant store to the system
+- [x] Ensure McDonald's, Hamlet Bar remain in system but not featured initially

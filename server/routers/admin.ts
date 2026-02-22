@@ -900,6 +900,7 @@ export const adminRouter = router({
       phone: z.string().optional(),
       email: z.string().optional(),
       sortPosition: z.number().optional(),
+      isFeatured: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -916,6 +917,7 @@ export const adminRouter = router({
       if (updates.phone !== undefined) updateData.phone = updates.phone;
       if (updates.email !== undefined) updateData.email = updates.email;
       if (updates.sortPosition !== undefined) updateData.sortPosition = updates.sortPosition;
+      if (updates.isFeatured !== undefined) updateData.isFeatured = updates.isFeatured;
 
       // If Eircode changed, re-geocode
       if (updates.eircode && updates.eircode.trim()) {
@@ -966,6 +968,18 @@ export const adminRouter = router({
       await db.update(stores).set({ isActive: input.isActive }).where(eq(stores.id, input.storeId));
 
       return { success: true, isActive: input.isActive };
+    }),
+
+  // Toggle store featured status (appears in "Popular Stores" on homepage)
+  toggleStoreFeatured: publicProcedure
+    .input(z.object({ storeId: z.number(), isFeatured: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db.update(stores).set({ isFeatured: input.isFeatured }).where(eq(stores.id, input.storeId));
+
+      return { success: true, isFeatured: input.isFeatured };
     }),
 
   // Update store logo URL

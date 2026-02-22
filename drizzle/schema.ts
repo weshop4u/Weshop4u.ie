@@ -71,6 +71,7 @@ export const stores = mysqlTable(
     shortCode: varchar("short_code", { length: 10 }), // e.g. SPR, OAO - used in order numbers
     orderCounter: int("order_counter").default(0), // Sequential order counter per store
     sortPosition: int("sort_position").default(999), // Lower number = higher in customer list (1 = top)
+    isFeatured: boolean("is_featured").default(false), // Whether this store appears in the "Popular Stores" section on homepage
     // POS printing settings
     autoPrintEnabled: boolean("auto_print_enabled").default(false),
     autoPrintThreshold: int("auto_print_threshold").default(5), // Auto-print orders with this many items or more

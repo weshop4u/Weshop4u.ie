@@ -39,6 +39,7 @@ const CATEGORY_ICONS: Record<StoreCategory, string> = {
 export default function WebHome() {
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
+  const { data: featuredStores } = trpc.stores.getFeatured.useQuery();
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +117,67 @@ export default function WebHome() {
           )}
         </View>
       </View>
+
+      {/* Popular Stores Section */}
+      {featuredStores && featuredStores.length > 0 && !searchQuery && (
+        <View style={popularStyles.section}>
+          <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
+          <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
+          <View style={popularStyles.cardsRow}>
+            {featuredStores.slice(0, 2).map((store) => {
+              const open = isStoreOpen(store);
+              const todayHours = getTodayHours(store);
+              return (
+                <TouchableOpacity
+                  key={store.id}
+                  onPress={() => router.push(`/store/${store.id}`)}
+                  style={popularStyles.card}
+                  activeOpacity={0.85}
+                >
+                  {/* Store Logo */}
+                  <View style={popularStyles.cardLogoContainer}>
+                    {store.logo ? (
+                      <Image
+                        source={{ uri: store.logo }}
+                        style={popularStyles.cardLogo}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : (
+                      <View style={popularStyles.cardLogoPlaceholder}>
+                        <Text style={{ fontSize: 40 }}>
+                          {CATEGORY_ICONS[store.category as StoreCategory] || "\uD83C\uDFEA"}
+                        </Text>
+                      </View>
+                    )}
+                    {/* Open/Closed overlay badge */}
+                    <View style={[popularStyles.statusOverlay, { backgroundColor: open ? "#16A34A" : "#DC2626" }]}>
+                      <Text style={popularStyles.statusOverlayText}>{open ? "Open" : "Closed"}</Text>
+                    </View>
+                  </View>
+                  {/* Store Info */}
+                  <View style={popularStyles.cardInfo}>
+                    <Text style={popularStyles.cardName} numberOfLines={1}>{store.name}</Text>
+                    <Text style={popularStyles.cardCategory}>
+                      {CATEGORY_LABELS[store.category as StoreCategory]}
+                    </Text>
+                    {todayHours && (
+                      <Text style={[popularStyles.cardHours, { color: open ? "#687076" : "#DC2626" }]}>
+                        \uD83D\uDD50 {todayHours}
+                      </Text>
+                    )}
+                    <View style={[popularStyles.cardButton, !open && popularStyles.cardButtonClosed]}>
+                      <Text style={[popularStyles.cardButtonText, !open && popularStyles.cardButtonTextClosed]}>
+                        {open ? "Order Now \u2192" : "View Menu"}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* How It Works Section */}
       <View style={styles.howItWorks}>
@@ -688,5 +750,113 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
+  },
+});
+
+const popularStyles = StyleSheet.create({
+  section: {
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  sectionTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#11181C",
+    marginBottom: 6,
+  },
+  sectionSubtitle: {
+    fontSize: 15,
+    color: "#687076",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 16,
+    width: "100%",
+    maxWidth: 700,
+    justifyContent: "center",
+  },
+  card: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    maxWidth: 340,
+  },
+  cardLogoContainer: {
+    height: 140,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  cardLogo: {
+    width: "100%",
+    height: 140,
+  },
+  cardLogoPlaceholder: {
+    width: "100%",
+    height: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E0F7FA",
+  },
+  statusOverlay: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusOverlayText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  cardInfo: {
+    padding: 14,
+    gap: 4,
+  },
+  cardName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#11181C",
+  },
+  cardCategory: {
+    fontSize: 13,
+    color: "#687076",
+  },
+  cardHours: {
+    fontSize: 12,
+  },
+  cardButton: {
+    backgroundColor: "#00E5FF",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  cardButtonClosed: {
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  cardButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  cardButtonTextClosed: {
+    color: "#687076",
   },
 });

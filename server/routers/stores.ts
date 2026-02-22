@@ -130,6 +130,23 @@ export const storesRouter = router({
       }));
     }),
 
+  // Get featured stores for homepage "Popular Stores" section
+  getFeatured: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const storesList = await db.select().from(stores).where(
+        and(
+          eq(stores.isActive, true),
+          eq(stores.isFeatured, true)
+        )
+      );
+      return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
+    }),
+
   // Get all stores (including inactive for admin)
   getAll: publicProcedure
     .query(async () => {
