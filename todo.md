@@ -1679,3 +1679,6 @@
 
 ## Bug: Search Product Navigation
 - [x] Fix product search result tap to navigate to store page with correct category pre-selected/expanded (passes categoryId in URL query param)
+
+## Search Query Passthrough
+- [x] Pass search query from homepage to store page so product search field is pre-filled with the searched term

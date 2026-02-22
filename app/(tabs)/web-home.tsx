@@ -208,9 +208,14 @@ export default function WebHome() {
                           key={`product-${product.id}`}
                           style={searchDropdownStyles.productRow}
                           onPress={() => {
+                            const query = searchQuery.trim();
                             setShowDropdown(false);
                             setSearchQuery("");
-                            router.push(`/store/${group.storeId}${product.categoryId ? `?categoryId=${product.categoryId}` : ''}`);
+                            const params = new URLSearchParams();
+                            if (product.categoryId) params.set('categoryId', String(product.categoryId));
+                            if (query) params.set('productSearch', query);
+                            const qs = params.toString();
+                            router.push(`/store/${group.storeId}${qs ? `?${qs}` : ''}`);
                           }}
                         >
                           <View style={{ flex: 1 }}>
