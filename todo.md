@@ -1676,3 +1676,6 @@
 ## Bug: Search Dropdown Issues
 - [x] Fix search dropdown transparency (solid white background, elevation, zIndex 1000)
 - [x] Fix product search not finding many products (was case-sensitive LIKE, now uses LOWER() for case-insensitive search)
+
+## Bug: Search Product Navigation
+- [x] Fix product search result tap to navigate to store page with correct category pre-selected/expanded (passes categoryId in URL query param)

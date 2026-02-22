@@ -210,7 +210,7 @@ export default function WebHome() {
                           onPress={() => {
                             setShowDropdown(false);
                             setSearchQuery("");
-                            router.push(`/store/${group.storeId}`);
+                            router.push(`/store/${group.storeId}${product.categoryId ? `?categoryId=${product.categoryId}` : ''}`);
                           }}
                         >
                           <View style={{ flex: 1 }}>

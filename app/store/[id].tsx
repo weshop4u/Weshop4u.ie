@@ -14,9 +14,11 @@ import { WebLayout } from "@/components/web-layout";
 type SortOption = "az" | "za" | "price_low" | "price_high";
 
 export default function StoreDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, categoryId: categoryIdParam } = useLocalSearchParams<{ id: string; categoryId?: string }>();
   const router = useRouter();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    categoryIdParam ? parseInt(categoryIdParam) : null
+  );
   const [categorySearch, setCategorySearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [showHours, setShowHours] = useState(false);

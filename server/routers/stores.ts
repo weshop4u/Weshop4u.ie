@@ -166,6 +166,7 @@ export const storesRouter = router({
           salePrice: products.salePrice,
           images: products.images,
           storeId: products.storeId,
+          categoryId: products.categoryId,
           storeName: stores.name,
           storeLogo: stores.logo,
           storeCategory: stores.category,
