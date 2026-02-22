@@ -277,8 +277,32 @@ export const storesRouter = router({
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
       if (input.price !== undefined) updateData.price = input.price;
-      if (input.image !== undefined && input.image.length > 10 && (input.image.startsWith('http') || input.image.startsWith('data:'))) {
-        updateData.images = JSON.stringify([input.image]);
+      if (input.image !== undefined && input.image.length > 10) {
+        if (input.image.startsWith('http')) {
+          // Already a URL (e.g. from S3)
+          updateData.images = JSON.stringify([input.image]);
+        } else if (input.image.startsWith('data:') || input.image.length > 200) {
+          // Base64 data - upload to S3 first
+          try {
+            let rawBase64 = input.image;
+            let mimeType = 'image/jpeg';
+            if (rawBase64.includes(',')) {
+              const prefix = rawBase64.split(',')[0];
+              const mimeMatch = prefix.match(/data:([^;]+)/);
+              if (mimeMatch) mimeType = mimeMatch[1];
+              rawBase64 = rawBase64.split(',')[1];
+            }
+            const buffer = Buffer.from(rawBase64, 'base64');
+            const ext = mimeType.split('/')[1] || 'jpg';
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 8);
+            const filename = `product-image-${timestamp}-${random}.${ext}`;
+            const result = await storagePut(`product-images/${filename}`, buffer, mimeType);
+            updateData.images = JSON.stringify([result.url]);
+          } catch (e: any) {
+            console.warn('Failed to upload product image:', e.message);
+          }
+        }
       }
       if (input.quantity !== undefined) updateData.quantity = input.quantity;
       if (input.sku !== undefined) updateData.sku = input.sku;
@@ -421,5 +445,73 @@ export const storesRouter = router({
       } catch (error: any) {
         throw new Error(`Failed to upload logo: ${error.message}`);
       }
+    }),
+
+  // Upload product image from base64 data
+  uploadProductImage: publicProcedure
+    .input(z.object({
+      base64: z.string(),
+      mimeType: z.string().default("image/jpeg"),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        let rawBase64 = input.base64;
+        if (rawBase64.includes(",")) {
+          rawBase64 = rawBase64.split(",")[1];
+        }
+        const buffer = Buffer.from(rawBase64, "base64");
+        const ext = input.mimeType.split("/")[1] || "jpg";
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const filename = `product-image-${timestamp}-${random}.${ext}`;
+
+        const result = await storagePut(`product-images/${filename}`, buffer, input.mimeType);
+        return { url: result.url };
+      } catch (error: any) {
+        throw new Error(`Failed to upload product image: ${error.message}`);
+      }
+    }),
+
+  // Add a new product (supports multi-store: copies product to each selected store)
+  addProduct: publicProcedure
+    .input(z.object({
+      storeIds: z.array(z.number()).min(1),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      price: z.string(),
+      categoryId: z.number().optional(),
+      stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
+      isActive: z.boolean().optional(),
+      imageUrl: z.string().optional(),
+      isDrs: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const createdIds: number[] = [];
+
+      for (const storeId of input.storeIds) {
+        // For each store, find the matching category by name if categoryId is provided
+        let targetCategoryId = input.categoryId || null;
+
+        // Categories are global (not per-store), so the same categoryId works for all stores
+
+        const result = await db.insert(products).values({
+          storeId,
+          name: input.name,
+          description: input.description || null,
+          price: input.price,
+          categoryId: targetCategoryId,
+          stockStatus: input.stockStatus || "in_stock",
+          isActive: input.isActive ?? true,
+          images: input.imageUrl ? JSON.stringify([input.imageUrl]) : null,
+          isDrs: input.isDrs ?? false,
+        });
+
+        createdIds.push(Number(result[0].insertId));
+      }
+
+      return { ids: createdIds, success: true, count: createdIds.length };
     }),
 });

@@ -1746,3 +1746,21 @@
 - [x] Optimise manage-stores page — side-by-side layout (store list left, edit panel right) on desktop
 - [x] Optimise other admin pages (categories, drivers, settings) for wider screens
 - [x] Add sorting controls to orders and products tables
+
+## Product Image Upload
+- [x] Add image upload field to admin product create form (accepts JPEG, PNG, WebP, AVIF)
+- [x] Add image upload field to admin product edit form
+- [x] Upload product images to S3 (same infrastructure as store logos)
+- [x] Show image preview in the product form after upload
+- [x] Display product images on customer-facing store page and search results
+- [x] Clean placeholder/fallback for products without images
+
+## Cross-Store Data Bug Fix
+- [x] Investigate AppleGreen products appearing under Spar (confirmed no bug — all products correctly assigned)
+- [x] No fix needed — data is correct, admin shows all products when logged in as admin
+- [x] Added 'No Image' filter badge and missing image indicators on products
+
+## Multi-Store Product Creation
+- [x] Add "Add to stores" multi-select when creating a new product
+- [x] Copy product (name, description, price, category, image) to each selected store
+- [x] Each store gets its own independent copy (can edit price/stock separately)

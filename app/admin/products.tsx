@@ -27,15 +27,32 @@ function ProductsManagementScreenContent() {
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
+  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
   const [filterMissingDesc, setFilterMissingDesc] = useState(false);
   const [filterDrs, setFilterDrs] = useState(false);
+  const [filterNoImage, setFilterNoImage] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
   const [showBulkDrs, setShowBulkDrs] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Add product form state
+  const [addForm, setAddForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    categoryId: null as number | null,
+    stockStatus: "in_stock" as StockStatus,
+    isDrs: false,
+    storeIds: [] as number[],
+  });
+  const [addImageBase64, setAddImageBase64] = useState<string | null>(null);
+  const [addImageUri, setAddImageUri] = useState<string | null>(null);
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: products, refetch } = trpc.stores.getProducts.useQuery(
@@ -47,10 +64,17 @@ function ProductsManagementScreenContent() {
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
+  const uploadImageMutation = trpc.stores.uploadProductImage.useMutation();
+  const addProductMutation = trpc.stores.addProduct.useMutation();
   const { data: drsSuggestions, refetch: refetchSuggestions } = trpc.stores.suggestDrs.useQuery(
     { storeId: selectedStore! },
     { enabled: !!selectedStore && showBulkDrs }
   );
+
+  // Active stores for multi-select
+  const activeStores = useMemo(() => {
+    return stores?.filter(s => s.isActive) || [];
+  }, [stores]);
 
   // Get unique categories from products for this store
   const storeCategories = useMemo(() => {
@@ -76,6 +100,12 @@ function ProductsManagementScreenContent() {
     return products.filter(p => p.isDrs).length;
   }, [products]);
 
+  // Count products missing images
+  const missingImageCount = useMemo(() => {
+    if (!products) return 0;
+    return products.filter(p => !p.images || p.images.length === 0).length;
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     let filtered = [...products];
@@ -99,13 +129,18 @@ function ProductsManagementScreenContent() {
       filtered = filtered.filter(p => p.isDrs);
     }
 
+    // Filter by missing image
+    if (filterNoImage) {
+      filtered = filtered.filter(p => !p.images || p.images.length === 0);
+    }
+
     // Filter by category
     if (selectedCategoryFilter !== "all") {
       filtered = filtered.filter(p => p.category?.id === selectedCategoryFilter);
     }
 
     return filtered;
-  }, [products, searchQuery, filterMissingDesc, filterDrs, selectedCategoryFilter]);
+  }, [products, searchQuery, filterMissingDesc, filterDrs, filterNoImage, selectedCategoryFilter]);
 
   const handleEdit = (product: any) => {
     setEditingProduct({
@@ -115,10 +150,11 @@ function ProductsManagementScreenContent() {
     });
     setShowEditModal(true);
     setPendingImageBase64(null);
+    setPendingImageUri(null);
     setMessage("");
   };
 
-  const handlePickImage = async () => {
+  const handlePickImage = async (mode: "edit" | "add") => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
@@ -137,11 +173,16 @@ function ProductsManagementScreenContent() {
           base64Data = fileData;
         }
 
-        if (base64Data) {
-          setPendingImageBase64(base64Data);
-          setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
+        if (mode === "edit") {
+          if (base64Data) {
+            setPendingImageBase64(base64Data);
+            setPendingImageUri(asset.uri);
+          }
         } else {
-          setEditingProduct({ ...editingProduct, images: [asset.uri], _localPreview: true });
+          if (base64Data) {
+            setAddImageBase64(base64Data);
+            setAddImageUri(asset.uri);
+          }
         }
       }
     } catch (error: any) {
@@ -151,7 +192,8 @@ function ProductsManagementScreenContent() {
   };
 
   const handleSave = async () => {
-    if (!editingProduct) return;
+    if (!editingProduct || isSaving) return;
+    setIsSaving(true);
 
     try {
       const payload: any = {
@@ -178,11 +220,73 @@ function ProductsManagementScreenContent() {
       setShowEditModal(false);
       setEditingProduct(null);
       setPendingImageBase64(null);
+      setPendingImageUri(null);
       refetch();
     } catch (error: any) {
       setMessage(error.message || "Failed to update product");
       setMessageType("error");
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleAddProduct = async () => {
+    if (!addForm.name.trim() || !addForm.price.trim() || isSaving) return;
+    if (addForm.storeIds.length === 0) {
+      setMessage("Please select at least one store");
+      setMessageType("error");
+      return;
+    }
+    setIsSaving(true);
+
+    try {
+      // Upload image first if one was picked
+      let imageUrl: string | undefined;
+      if (addImageBase64) {
+        const uploadResult = await uploadImageMutation.mutateAsync({
+          base64: addImageBase64,
+          mimeType: "image/jpeg",
+        });
+        imageUrl = uploadResult.url;
+      }
+
+      await addProductMutation.mutateAsync({
+        storeIds: addForm.storeIds,
+        name: addForm.name.trim(),
+        description: addForm.description.trim() || undefined,
+        price: addForm.price.trim(),
+        categoryId: addForm.categoryId || undefined,
+        stockStatus: addForm.stockStatus,
+        isDrs: addForm.isDrs,
+        imageUrl,
+      });
+
+      const storeCount = addForm.storeIds.length;
+      setMessage(`Product added to ${storeCount} store${storeCount > 1 ? "s" : ""} successfully!`);
+      setMessageType("success");
+      setShowAddModal(false);
+      resetAddForm();
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to add product");
+      setMessageType("error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetAddForm = () => {
+    setAddForm({
+      name: "",
+      description: "",
+      price: "",
+      categoryId: null,
+      stockStatus: "in_stock",
+      isDrs: false,
+      storeIds: selectedStore ? [selectedStore] : [],
+    });
+    setAddImageBase64(null);
+    setAddImageUri(null);
   };
 
   const confirmDelete = async () => {
@@ -208,23 +312,34 @@ function ProductsManagementScreenContent() {
     return opt || STOCK_STATUS_OPTIONS[0];
   };
 
+  const getProductImageUri = (product: any) => {
+    if (!product.images || product.images.length === 0) return null;
+    const img = Array.isArray(product.images) ? product.images[0] : product.images;
+    return img || null;
+  };
+
   const renderProductItem = ({ item: product }: { item: any }) => {
     const hasDesc = product.description && product.description.trim() !== "";
     const stockBadge = getStockBadge(product.stockStatus);
+    const imageUri = getProductImageUri(product);
 
     return (
       <View style={[itemStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={{ flexDirection: "row", gap: 12 }}>
-          {product.images && product.images.length > 0 ? (
+          {imageUri ? (
             <Image
-              source={{ uri: Array.isArray(product.images) ? product.images[0] : product.images }}
+              source={{ uri: imageUri }}
               style={{ width: 60, height: 60, borderRadius: 8 }}
               contentFit="cover"
             />
           ) : (
-            <View style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ fontSize: 24 }}>📦</Text>
-            </View>
+            <TouchableOpacity
+              onPress={() => handleEdit(product)}
+              style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 18 }}>📷</Text>
+              <Text style={{ fontSize: 8, color: colors.muted, marginTop: 2 }}>Add</Text>
+            </TouchableOpacity>
           )}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -232,6 +347,11 @@ function ProductsManagementScreenContent() {
               {!hasDesc && (
                 <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                   <Text style={{ color: "#F59E0B", fontSize: 10, fontWeight: "700" }}>NO DESC</Text>
+                </View>
+              )}
+              {!imageUri && (
+                <View style={{ backgroundColor: "#8B5CF620", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ color: "#8B5CF6", fontSize: 10, fontWeight: "700" }}>NO IMG</Text>
                 </View>
               )}
             </View>
@@ -306,13 +426,26 @@ function ProductsManagementScreenContent() {
       ) : (
         <View style={{ flex: 1 }}>
           {/* Store header + back to stores */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-            <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setFilterDrs(false); setSelectedCategoryFilter("all"); }}>
-              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View>
+              <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setFilterDrs(false); setFilterNoImage(false); setSelectedCategoryFilter("all"); }}>
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 6 }}>
+                {stores?.find(s => s.id === selectedStore)?.name} — {filteredProducts.length} products
+              </Text>
+            </View>
+            {/* Add Product Button */}
+            <TouchableOpacity
+              onPress={() => {
+                resetAddForm();
+                setAddForm(prev => ({ ...prev, storeIds: [selectedStore] }));
+                setShowAddModal(true);
+              }}
+              style={{ backgroundColor: "#22C55E", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginTop: 4 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>+ Add Product</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 6 }}>
-              {stores?.find(s => s.id === selectedStore)?.name} — {filteredProducts.length} products
-            </Text>
           </View>
 
           {/* Message */}
@@ -344,7 +477,17 @@ function ProductsManagementScreenContent() {
               style={[itemStyles.filterPill, { backgroundColor: filterMissingDesc ? "#F59E0B" : colors.surface, borderColor: filterMissingDesc ? "#F59E0B" : colors.border }]}
             >
               <Text style={{ color: filterMissingDesc ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
-                ⚠️ No Desc ({missingDescCount})
+                No Desc ({missingDescCount})
+              </Text>
+            </TouchableOpacity>
+
+            {/* Missing image filter */}
+            <TouchableOpacity
+              onPress={() => setFilterNoImage(!filterNoImage)}
+              style={[itemStyles.filterPill, { backgroundColor: filterNoImage ? "#8B5CF6" : colors.surface, borderColor: filterNoImage ? "#8B5CF6" : colors.border }]}
+            >
+              <Text style={{ color: filterNoImage ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                No Image ({missingImageCount})
               </Text>
             </TouchableOpacity>
 
@@ -354,7 +497,7 @@ function ProductsManagementScreenContent() {
               style={[itemStyles.filterPill, { backgroundColor: filterDrs ? "#0EA5E9" : colors.surface, borderColor: filterDrs ? "#0EA5E9" : colors.border }]}
             >
               <Text style={{ color: filterDrs ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
-                ♻️ DRS ({drsCount})
+                DRS ({drsCount})
               </Text>
             </TouchableOpacity>
 
@@ -405,20 +548,24 @@ function ProductsManagementScreenContent() {
               {filteredProducts.map((product: any, idx: number) => {
                 const stockBadge = getStockBadge(product.stockStatus);
                 const hasDesc = product.description && product.description.trim() !== "";
+                const imageUri = getProductImageUri(product);
                 return (
                   <View key={product.id} style={[tableStyles.row, idx % 2 === 0 ? tableStyles.rowEven : tableStyles.rowOdd]}>
                     <Text style={[tableStyles.cell, { width: 50, color: colors.muted }]}>{idx + 1}</Text>
                     <View style={[tableStyles.cell, { width: 60 }]}>
-                      {product.images && product.images.length > 0 ? (
+                      {imageUri ? (
                         <Image
-                          source={{ uri: Array.isArray(product.images) ? product.images[0] : product.images }}
+                          source={{ uri: imageUri }}
                           style={{ width: 40, height: 40, borderRadius: 6 }}
                           contentFit="cover"
                         />
                       ) : (
-                        <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}>
-                          <Text style={{ fontSize: 16 }}>📦</Text>
-                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleEdit(product)}
+                          style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: colors.border, justifyContent: "center", alignItems: "center" }}
+                        >
+                          <Text style={{ fontSize: 14 }}>📷</Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                     <View style={[tableStyles.cell, { flex: 2, minWidth: 200 }]}>
@@ -427,6 +574,11 @@ function ProductsManagementScreenContent() {
                         {!hasDesc && (
                           <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
                             <Text style={{ color: "#F59E0B", fontSize: 9, fontWeight: "700" }}>NO DESC</Text>
+                          </View>
+                        )}
+                        {!imageUri && (
+                          <View style={{ backgroundColor: "#8B5CF620", paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
+                            <Text style={{ color: "#8B5CF6", fontSize: 9, fontWeight: "700" }}>NO IMG</Text>
                           </View>
                         )}
                       </View>
@@ -511,28 +663,41 @@ function ProductsManagementScreenContent() {
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, maxHeight: "92%" }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Edit Product</Text>
-              <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); }}>
+              <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); setPendingImageUri(null); }}>
                 <Text style={{ fontSize: 28, color: colors.muted }}>×</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-              {/* Image */}
-              {editingProduct?.images && editingProduct.images.length > 0 && (
-                <View style={{ alignItems: "center" }}>
+              {/* Image - always show, with upload option */}
+              <View style={{ alignItems: "center" }}>
+                {pendingImageUri ? (
+                  <Image
+                    source={{ uri: pendingImageUri }}
+                    style={{ width: 120, height: 120, borderRadius: 12 }}
+                    contentFit="cover"
+                  />
+                ) : editingProduct?.images && editingProduct.images.length > 0 ? (
                   <Image
                     source={{ uri: Array.isArray(editingProduct.images) ? editingProduct.images[0] : editingProduct.images }}
                     style={{ width: 120, height: 120, borderRadius: 12 }}
                     contentFit="cover"
                   />
-                  <TouchableOpacity
-                    onPress={handlePickImage}
-                    style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary + "20", borderRadius: 8 }}
-                  >
-                    <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>Change Image</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                ) : (
+                  <View style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border, borderStyle: "dashed", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 32 }}>📷</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>No image</Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  onPress={() => handlePickImage("edit")}
+                  style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary + "20", borderRadius: 8 }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
+                    {editingProduct?.images?.length > 0 || pendingImageUri ? "Change Image" : "Upload Image"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {/* Name */}
               <View>
@@ -698,6 +863,7 @@ function ProductsManagementScreenContent() {
                   setShowEditModal(false);
                   setEditingProduct(null);
                   setPendingImageBase64(null);
+                  setPendingImageUri(null);
                 }}
                 style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, alignItems: "center" }}
               >
@@ -705,10 +871,256 @@ function ProductsManagementScreenContent() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSave}
-                style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.primary, borderRadius: 12, alignItems: "center" }}
+                disabled={isSaving}
+                style={{ flex: 1, paddingVertical: 14, backgroundColor: isSaving ? colors.muted : colors.primary, borderRadius: 12, alignItems: "center" }}
               >
                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Product Modal */}
+      <Modal visible={showAddModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, maxHeight: "92%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Add New Product</Text>
+              <TouchableOpacity onPress={() => { setShowAddModal(false); resetAddForm(); }}>
+                <Text style={{ fontSize: 28, color: colors.muted }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flexGrow: 0, flexShrink: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              {/* Image Upload */}
+              <View style={{ alignItems: "center" }}>
+                {addImageUri ? (
+                  <Image
+                    source={{ uri: addImageUri }}
+                    style={{ width: 120, height: 120, borderRadius: 12 }}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border, borderStyle: "dashed", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 32 }}>📷</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>Add image</Text>
+                  </View>
+                )}
+                <TouchableOpacity
+                  onPress={() => handlePickImage("add")}
+                  style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: colors.primary + "20", borderRadius: 8 }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
+                    {addImageUri ? "Change Image" : "Upload Image"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Name */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Name *</Text>
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={addForm.name}
+                  onChangeText={(text) => setAddForm({ ...addForm, name: text })}
+                  placeholder="e.g. Pepsi 330ml"
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Description */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Description</Text>
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 60, textAlignVertical: "top" }]}
+                  value={addForm.description}
+                  onChangeText={(text) => setAddForm({ ...addForm, description: text })}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Product description..."
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+
+              {/* Price */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Price (€) *</Text>
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={addForm.price}
+                  onChangeText={(text) => setAddForm({ ...addForm, price: text })}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Stock Status */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Stock Status</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {STOCK_STATUS_OPTIONS.map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      onPress={() => setAddForm({ ...addForm, stockStatus: opt.value })}
+                      style={[
+                        editStyles.stockPill,
+                        {
+                          backgroundColor: addForm.stockStatus === opt.value ? opt.color : colors.surface,
+                          borderColor: addForm.stockStatus === opt.value ? opt.color : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={{
+                        color: addForm.stockStatus === opt.value ? "#fff" : colors.foreground,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Category */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  {storeCategories.map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id })}
+                      style={[
+                        editStyles.stockPill,
+                        {
+                          backgroundColor: addForm.categoryId === cat.id ? colors.primary : colors.surface,
+                          borderColor: addForm.categoryId === cat.id ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          color: addForm.categoryId === cat.id ? "#fff" : colors.foreground,
+                          fontSize: 12,
+                          fontWeight: "600",
+                        }}
+                        numberOfLines={1}
+                      >{cat.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* DRS Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>DRS (Deposit Return Scheme)</Text>
+                <TouchableOpacity
+                  onPress={() => setAddForm({ ...addForm, isDrs: !addForm.isDrs })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: addForm.isDrs ? "#0EA5E915" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: addForm.isDrs ? "#0EA5E9" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: addForm.isDrs ? "#0EA5E9" : colors.muted,
+                    backgroundColor: addForm.isDrs ? "#0EA5E9" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {addForm.isDrs && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {addForm.isDrs ? "DRS deposit included" : "No DRS deposit"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Multi-Store Selection */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Add to Stores *</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
+                  Select which stores should receive this product. A copy will be created in each selected store.
+                </Text>
+                <View style={{ gap: 6 }}>
+                  {activeStores.map(store => {
+                    const isSelected = addForm.storeIds.includes(store.id);
+                    return (
+                      <TouchableOpacity
+                        key={store.id}
+                        onPress={() => {
+                          const newIds = isSelected
+                            ? addForm.storeIds.filter(id => id !== store.id)
+                            : [...addForm.storeIds, store.id];
+                          setAddForm({ ...addForm, storeIds: newIds });
+                        }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          paddingVertical: 10,
+                          paddingHorizontal: 12,
+                          backgroundColor: isSelected ? colors.primary + "10" : colors.surface,
+                          borderWidth: 1,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          borderRadius: 10,
+                        }}
+                      >
+                        <View style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : colors.muted,
+                          backgroundColor: isSelected ? colors.primary : "transparent",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}>
+                          {isSelected && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                        </View>
+                        <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "500" }}>{store.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Buttons */}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => { setShowAddModal(false); resetAddForm(); }}
+                style={{ flex: 1, paddingVertical: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, alignItems: "center" }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 15 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleAddProduct}
+                disabled={isSaving || !addForm.name.trim() || !addForm.price.trim() || addForm.storeIds.length === 0}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  backgroundColor: (isSaving || !addForm.name.trim() || !addForm.price.trim() || addForm.storeIds.length === 0) ? colors.muted : "#22C55E",
+                  borderRadius: 12,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                  {isSaving ? "Adding..." : addForm.storeIds.length > 1 ? `Add to ${addForm.storeIds.length} Stores` : "Add Product"}
                 </Text>
               </TouchableOpacity>
             </View>
