@@ -1624,3 +1624,12 @@
 - [x] Web receipt page wrapped in WebLayout
 - [x] Orders tab and profile tab wrapped in WebLayout
 - [x] Responsive design (mobile-first, works on desktop/tablet)
+
+## Website Homepage Polish
+- [x] Fix rough header layout on web (clean up overlapping elements)
+- [x] Update tagline to "Your Local Store to Your Door"
+- [x] Update description to "Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door within minutes!"
+- [x] Remove Balbriggan/town-specific references from website copy
+- [x] Fix email address to weshop4u247@gmail.com
+- [x] Add "Download Our App" link/section on homepage
+- [x] Emphasise fast express delivery messaging

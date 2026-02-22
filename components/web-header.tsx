@@ -7,7 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 
 /**
  * Website header for web platform only.
- * Shows logo, navigation links, cart icon, and login/profile.
+ * Clean, professional layout with logo, navigation, cart, and auth.
  */
 export function WebHeader() {
   const router = useRouter();
@@ -28,7 +28,7 @@ export function WebHeader() {
   return (
     <View style={styles.header}>
       <View style={styles.container}>
-        {/* Logo */}
+        {/* Left: Logo + Brand */}
         <TouchableOpacity
           onPress={() => router.push("/")}
           style={styles.logoArea}
@@ -39,13 +39,14 @@ export function WebHeader() {
             contentFit="contain"
           />
           <View>
-            <Text style={[styles.brandName, { color: "#00E5FF" }]}>WESHOP4U</Text>
-            <Text style={[styles.tagline, { color: colors.muted }]}>24/7 Delivery</Text>
+            <Text style={styles.brandName}>WESHOP4U</Text>
+            <Text style={styles.tagline}>Your Local Store to Your Door</Text>
           </View>
         </TouchableOpacity>
 
-        {/* Navigation Links */}
-        <View style={styles.nav}>
+        {/* Right: Nav + Cart + Auth */}
+        <View style={styles.rightSection}>
+          {/* Navigation */}
           <TouchableOpacity
             onPress={() => router.push("/")}
             style={[styles.navLink, isActive("/") && !isActive("/orders") && !isActive("/profile") && styles.navLinkActive]}
@@ -65,10 +66,7 @@ export function WebHeader() {
               </Text>
             </TouchableOpacity>
           )}
-        </View>
 
-        {/* Right Side: Cart + Auth */}
-        <View style={styles.rightSection}>
           {/* Cart */}
           {cartCount > 0 && cart.storeId && (
             <TouchableOpacity
@@ -98,7 +96,7 @@ export function WebHeader() {
               </Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.authButtons}>
+            <>
               <TouchableOpacity
                 onPress={() => router.push("/auth/login")}
                 style={styles.loginButton}
@@ -111,7 +109,7 @@ export function WebHeader() {
               >
                 <Text style={styles.signupButtonText}>Sign Up</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </View>
       </View>
@@ -125,11 +123,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     zIndex: 100,
   },
   container: {
@@ -139,8 +137,6 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     width: "100%",
     alignSelf: "center",
-    flexWrap: "wrap",
-    gap: 8,
   },
   logoArea: {
     flexDirection: "row",
@@ -148,120 +144,117 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 10,
   },
   brandName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
+    color: "#00E5FF",
     letterSpacing: 1,
   },
   tagline: {
-    fontSize: 11,
-    marginTop: -2,
+    fontSize: 10,
+    color: "#687076",
+    marginTop: -1,
+    fontWeight: "500",
   },
-  nav: {
+  rightSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
   navLink: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
   },
   navLinkActive: {
     backgroundColor: "rgba(0, 229, 255, 0.1)",
   },
   navText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#687076",
   },
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
   cartButton: {
     position: "relative",
-    padding: 8,
+    padding: 6,
+    marginLeft: 4,
   },
   cartIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
   cartBadge: {
     position: "absolute",
-    top: 2,
-    right: 2,
+    top: 0,
+    right: 0,
     backgroundColor: "#00E5FF",
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
   },
   cartBadgeText: {
     color: "#ffffff",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
   },
   profileButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: "rgba(0, 229, 255, 0.08)",
+    marginLeft: 4,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "#00E5FF",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
   userName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    maxWidth: 100,
-  },
-  authButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
+    maxWidth: 80,
   },
   loginButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1.5,
     borderColor: "#00E5FF",
+    marginLeft: 4,
   },
   loginButtonText: {
     color: "#00E5FF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
   signupButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: "#00E5FF",
   },
   signupButtonText: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
 });

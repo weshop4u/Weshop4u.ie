@@ -32,7 +32,7 @@ export function WebFooter() {
               <Text style={styles.brandName}>WESHOP4U</Text>
             </View>
             <Text style={styles.description}>
-              Your local 24/7 delivery platform. Order from your favourite stores and get it delivered to your door.
+              Your local store to your door. Fast express delivery from your favourite stores, 24/7.
             </Text>
           </View>
 
@@ -65,8 +65,8 @@ export function WebFooter() {
           <View style={styles.column}>
             <Text style={styles.columnTitle}>Contact Us</Text>
             <Text style={styles.contactText}>📞 089-4 626262</Text>
-            <Text style={styles.contactText}>📧 info@weshop4u.ie</Text>
-            <Text style={styles.contactText}>📍 Balbriggan, Co. Dublin</Text>
+            <Text style={styles.contactText}>📧 weshop4u247@gmail.com</Text>
+            <Text style={styles.contactText}>📍 Ireland</Text>
           </View>
         </View>
 

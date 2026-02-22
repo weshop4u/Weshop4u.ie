@@ -91,10 +91,10 @@ export default function WebHome() {
         />
         <Text style={styles.heroTitle}>WESHOP4U</Text>
         <Text style={styles.heroSubtitle}>
-          24/7 Delivery from Your Favourite Stores
+          Your Local Store to Your Door
         </Text>
         <Text style={styles.heroDescription}>
-          Order groceries, food, and essentials from local stores in Balbriggan and get them delivered straight to your door.
+          Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door within minutes!
         </Text>
 
         {/* Search Bar */}
@@ -139,8 +139,8 @@ export default function WebHome() {
             <View style={styles.stepIcon}>
               <Text style={styles.stepEmoji}>🚗</Text>
             </View>
-            <Text style={styles.stepTitle}>Get Delivered</Text>
-            <Text style={styles.stepDesc}>We deliver to your door — track in real-time</Text>
+            <Text style={styles.stepTitle}>Express Delivery</Text>
+            <Text style={styles.stepDesc}>Fast delivery to your door — track in real-time</Text>
           </View>
         </View>
       </View>
@@ -241,6 +241,37 @@ export default function WebHome() {
             )}
           </View>
         )}
+      </View>
+
+      {/* Download App Section */}
+      <View style={styles.downloadSection}>
+        <View style={styles.downloadContent}>
+          <View style={styles.downloadTextArea}>
+            <Text style={styles.downloadTitle}>Download Our App</Text>
+            <Text style={styles.downloadDesc}>
+              Get the full WeShop4U experience on your phone. Faster ordering, real-time tracking, and exclusive app-only features.
+            </Text>
+            <View style={styles.downloadBadges}>
+              <TouchableOpacity style={styles.storeBadge}>
+                <Text style={styles.storeBadgeSmall}>Download on the</Text>
+                <Text style={styles.storeBadgeLarge}>App Store</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.storeBadge}>
+                <Text style={styles.storeBadgeSmall}>Get it on</Text>
+                <Text style={styles.storeBadgeLarge}>Google Play</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.downloadImageArea}>
+            <View style={styles.phoneMockup}>
+              <Image
+                source={require("@/assets/images/Weshop4ulogo.jpg")}
+                style={styles.phoneMockupImage}
+                contentFit="contain"
+              />
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* CTA Section */}
@@ -584,5 +615,78 @@ const styles = StyleSheet.create({
     color: "#00E5FF",
     fontSize: 16,
     fontWeight: "700",
+  },
+  // Download App
+  downloadSection: {
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    backgroundColor: "#0A0E27",
+  },
+  downloadContent: {
+    maxWidth: 1000,
+    alignSelf: "center" as const,
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 40,
+  },
+  downloadTextArea: {
+    flex: 1,
+    minWidth: 280,
+    gap: 12,
+  },
+  downloadTitle: {
+    fontSize: 28,
+    fontWeight: "800" as const,
+    color: "#ffffff",
+  },
+  downloadDesc: {
+    fontSize: 16,
+    color: "#9BA1A6",
+    lineHeight: 24,
+  },
+  downloadBadges: {
+    flexDirection: "row" as const,
+    gap: 12,
+    marginTop: 8,
+    flexWrap: "wrap" as const,
+  },
+  storeBadge: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: "center" as const,
+    minWidth: 140,
+  },
+  storeBadgeSmall: {
+    fontSize: 10,
+    color: "#687076",
+    fontWeight: "500" as const,
+  },
+  storeBadgeLarge: {
+    fontSize: 16,
+    color: "#11181C",
+    fontWeight: "800" as const,
+  },
+  downloadImageArea: {
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  phoneMockup: {
+    width: 120,
+    height: 120,
+    borderRadius: 24,
+    backgroundColor: "rgba(0, 229, 255, 0.15)",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    borderWidth: 2,
+    borderColor: "#00E5FF",
+  },
+  phoneMockupImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
   },
 });
