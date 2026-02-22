@@ -336,14 +336,21 @@ export const storesRouter = router({
           )
         );
 
-      // Keywords that suggest DRS-applicable products
+      // Keywords that suggest DRS-applicable products (container sizes)
       const drsKeywords = ["can", "bottle", "ml", "ltr", "litre", "liter", "330ml", "500ml", "440ml", "250ml", "750ml", "1l", "2l", "1.5l"];
       // Drink-related category keywords
-      const drinkCategoryKeywords = ["drink", "beverage", "soft", "water", "juice", "beer", "cider", "energy", "soda", "mineral", "fizzy", "sparkling", "cola", "lemonade"];
+      const drinkCategoryKeywords = ["drink", "beverage", "soft", "water", "juice", "beer", "cider", "energy", "soda", "mineral", "fizzy", "sparkling", "cola", "lemonade", "wine", "spirit", "alcohol", "smoothie", "shake", "protein"];
+      // Categories to EXCLUDE from DRS suggestions (non-drink items that happen to have ml/can in names)
+      const excludedCategories = ["ice cream", "household", "vape", "medicine", "personal", "tobacco", "cigar", "sweet", "candy", "animal", "gift", "pasta", "sauce", "soup", "oil", "condiment", "spread", "jam", "gravy", "herb", "spice", "rice", "noodle", "crisp", "nut", "chip", "bakery", "bread", "roll", "wrap", "sandwich", "meal", "breakfast", "confect", "halloween", "cantonese", "duck", "chicken", "beef", "prawn", "tofu", "pork"];
 
       const suggestions = allProducts.filter(p => {
         const name = p.name.toLowerCase();
         const cat = (p.categoryName || "").toLowerCase();
+
+        // Skip products in excluded categories
+        if (excludedCategories.some(exc => cat.includes(exc))) return false;
+        // Skip milk cartons (not DRS)
+        if (name.includes("milk") && (name.includes("ltr") || name.includes("litre") || /\d+\s*l\b/i.test(name))) return false;
 
         // Check if product name contains DRS keywords
         const nameHasKeyword = drsKeywords.some(kw => name.includes(kw));

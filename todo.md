@@ -1702,3 +1702,12 @@
 - [x] Fix applied to stores.uploadLogo and categories.uploadImage endpoints
 - [x] Re-uploaded clean logos for AppleGreen and Treasure Bowl to S3
 - [x] 5 unit tests for base64 stripping fix (logo-upload.test.ts)
+
+## Bulk DRS Auto-Detect on All Stores
+- [x] Run DRS auto-detect on Spar Balbriggan — 783 products flagged (after cleanup)
+- [x] Run DRS auto-detect on Open All Ours — 28 products flagged
+- [x] Run DRS auto-detect on AppleGreen Balbriggan — 123 products flagged (after cleanup)
+- [x] Run DRS auto-detect on Treasure Bowl Balbriggan — 2 products flagged (soft drinks only)
+- [x] Cleaned up false positives: ice creams, soups, sauces, medicine, vapes, tobacco, sweets, Cantonese dishes, milk cartons, toothpaste, nuts
+- [x] Improved suggestDrs endpoint with excluded categories list to prevent future false positives
+- [x] TOTAL: 936 products flagged as DRS across all stores
