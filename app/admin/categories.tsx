@@ -9,6 +9,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
 type DaySchedule = { open: string; close: string };
 type AvailabilitySchedule = {
   mon?: DaySchedule;
@@ -40,7 +42,7 @@ const ALCOHOL_SCHEDULE: AvailabilitySchedule = {
   sun: { open: "12:30", close: "22:00" },
 };
 
-export default function CategoriesScreen() {
+function CategoriesScreenContent() {
   const router = useRouter();
   const colors = useColors();
   const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
@@ -755,3 +757,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+
+export default function CategoriesScreen() {
+  return (
+    <AdminDesktopLayout title="Category Images">
+      <CategoriesScreenContent />
+    </AdminDesktopLayout>
+  );
+}

@@ -429,19 +429,30 @@ export default function WebHome() {
       <View style={styles.downloadSection}>
         <View style={styles.downloadContent}>
           <View style={styles.downloadTextArea}>
-            <Text style={styles.downloadTitle}>Download Our App</Text>
+            <Text style={styles.downloadTitle}>Get WESHOP4U on Your Phone</Text>
             <Text style={styles.downloadDesc}>
-              Get the full WeShop4U experience on your phone. Faster ordering, real-time tracking, and exclusive app-only features.
+              Add WESHOP4U to your home screen for instant access. No app store needed — just tap the button below and enjoy faster ordering, real-time tracking, and a native app experience.
             </Text>
             <View style={styles.downloadBadges}>
-              <TouchableOpacity style={styles.storeBadge}>
-                <Text style={styles.storeBadgeSmall}>Download on the</Text>
-                <Text style={styles.storeBadgeLarge}>App Store</Text>
+              <TouchableOpacity
+                style={[styles.storeBadge, { backgroundColor: "#00E5FF" }]}
+                onPress={() => {
+                  // Try to trigger PWA install prompt
+                  if (typeof window !== "undefined" && (window as any).__pwaInstallPrompt) {
+                    (window as any).__pwaInstallPrompt.prompt();
+                  } else {
+                    // Fallback: show instructions
+                    alert("To install WESHOP4U:\n\niPhone: Tap the Share button (box with arrow) then 'Add to Home Screen'\n\nAndroid: Tap the menu (three dots) then 'Add to Home Screen' or 'Install App'");
+                  }
+                }}
+              >
+                <Text style={[styles.storeBadgeSmall, { color: "#ffffff" }]}>Tap to</Text>
+                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>Install App</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.storeBadge}>
-                <Text style={styles.storeBadgeSmall}>Get it on</Text>
-                <Text style={styles.storeBadgeLarge}>Google Play</Text>
-              </TouchableOpacity>
+              <View style={[styles.storeBadge, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#334155" }]}>
+                <Text style={[styles.storeBadgeSmall, { color: "#9BA1A6" }]}>Works on</Text>
+                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>iPhone & Android</Text>
+              </View>
             </View>
           </View>
           <View style={styles.downloadImageArea}>

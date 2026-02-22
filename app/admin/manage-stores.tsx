@@ -5,6 +5,8 @@ import { useState, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const CATEGORIES = ["convenience", "restaurant", "hardware", "electrical", "clothing", "grocery", "pharmacy", "other"] as const;
 
@@ -29,7 +31,7 @@ function parseOpeningHours(json: string | null): WeekHours {
   }
 }
 
-export default function ManageStoresScreen() {
+function ManageStoresScreenContent() {
   const colors = useColors();
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "hours" | "logo">("details");
@@ -665,3 +667,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+
+export default function ManageStoresScreen() {
+  return (
+    <AdminDesktopLayout title="Manage Stores">
+      <ManageStoresScreenContent />
+    </AdminDesktopLayout>
+  );
+}

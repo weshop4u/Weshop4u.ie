@@ -7,6 +7,8 @@ import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
 
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: "#FEF3C7", text: "#D97706" },
   accepted: { bg: "#DBEAFE", text: "#2563EB" },
@@ -29,7 +31,7 @@ function getTimeSince(date: Date | string | null): string {
   return formatIrishTimeAgo(date) || "";
 }
 
-export default function AdminOrdersScreen() {
+function AdminOrdersScreenContent() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const [statusFilter, setStatusFilter] = useState("all");
@@ -510,3 +512,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 });
+
+export default function AdminOrdersScreen() {
+  return (
+    <AdminDesktopLayout title="All Orders">
+      <AdminOrdersScreenContent />
+    </AdminDesktopLayout>
+  );
+}

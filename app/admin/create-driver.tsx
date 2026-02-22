@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 
-export default function CreateDriverScreen() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function CreateDriverScreenContent() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -216,5 +218,13 @@ export default function CreateDriverScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
+  );
+}
+
+export default function CreateDriverScreen() {
+  return (
+    <AdminDesktopLayout title="Create Driver">
+      <CreateDriverScreenContent />
+    </AdminDesktopLayout>
   );
 }

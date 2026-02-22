@@ -3,7 +3,9 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 
-export default function DriversListScreen() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function DriversListScreenContent() {
   const router = useRouter();
   const { data: drivers, isLoading, error } = trpc.auth.getAllDrivers.useQuery();
 
@@ -111,5 +113,13 @@ export default function DriversListScreen() {
         )}
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+export default function DriversListScreen() {
+  return (
+    <AdminDesktopLayout title="All Drivers">
+      <DriversListScreenContent />
+    </AdminDesktopLayout>
   );
 }

@@ -83,6 +83,12 @@ const config: ExpoConfig = {
     bundler: "metro",
     output: "static",
     favicon: "./assets/images/favicon.png",
+    name: "WESHOP4U - 24/7 Delivery Platform",
+    shortName: "WESHOP4U",
+    description: "Order groceries, food, and essentials from local stores in Balbriggan. Delivered to your door within minutes!",
+    themeColor: "#0F172A",
+    backgroundColor: "#0F172A",
+    lang: "en-IE",
   },
   plugins: [
     "expo-router",

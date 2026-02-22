@@ -8,6 +8,8 @@ import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
 type StockStatus = "in_stock" | "out_of_stock" | "low_stock";
 
 const STOCK_STATUS_OPTIONS: { value: StockStatus; label: string; color: string }[] = [
@@ -16,7 +18,7 @@ const STOCK_STATUS_OPTIONS: { value: StockStatus; label: string; color: string }
   { value: "low_stock", label: "Low Stock", color: "#F59E0B" },
 ];
 
-export default function ProductsManagementScreen() {
+function ProductsManagementScreenContent() {
   const router = useRouter();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -824,3 +826,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 });
+
+export default function ProductsManagementScreen() {
+  return (
+    <AdminDesktopLayout title="Manage Products">
+      <ProductsManagementScreenContent />
+    </AdminDesktopLayout>
+  );
+}

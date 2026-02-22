@@ -7,6 +7,8 @@ import { useRouter } from "expo-router";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { useColors } from "@/hooks/use-colors";
 
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
 type CartItem = {
   productId: number;
   name: string;
@@ -24,7 +26,7 @@ type FeeInfo = {
   formattedAddress: string;
 } | null;
 
-export default function PhoneOrderScreen() {
+function PhoneOrderScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const colors = useColors();
@@ -874,5 +876,13 @@ export default function PhoneOrderScreen() {
       {/* Confirm Modal Overlay */}
       {ConfirmOverlay}
     </ScreenContainer>
+  );
+}
+
+export default function PhoneOrderScreen() {
+  return (
+    <AdminDesktopLayout title="Create Phone Order">
+      <PhoneOrderScreenContent />
+    </AdminDesktopLayout>
   );
 }

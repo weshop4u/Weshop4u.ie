@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
+
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { CartProvider } from "@/lib/cart-provider";
@@ -85,6 +86,46 @@ export default function RootLayout() {
       },
     };
   }, [initialInsets, initialFrame]);
+
+  // Inject PWA head tags for web
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const head = document.head;
+    const tags: HTMLElement[] = [];
+    const addMeta = (attrs: Record<string, string>) => {
+      const el = document.createElement("meta");
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      head.appendChild(el);
+      tags.push(el);
+    };
+    const addLink = (attrs: Record<string, string>) => {
+      const el = document.createElement("link");
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      head.appendChild(el);
+      tags.push(el);
+    };
+    addMeta({ name: "theme-color", content: "#0F172A" });
+    addMeta({ name: "description", content: "WESHOP4U - Your Local Store to Your Door. Order groceries, food, and essentials from local stores in Balbriggan for delivery." });
+    addMeta({ name: "apple-mobile-web-app-capable", content: "yes" });
+    addMeta({ name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" });
+    addMeta({ name: "apple-mobile-web-app-title", content: "WESHOP4U" });
+    addLink({ rel: "apple-touch-icon", href: "/logo192.png" });
+    addLink({ rel: "manifest", href: "/manifest.json" });
+    addMeta({ property: "og:title", content: "WESHOP4U - 24/7 Delivery Platform" });
+    addMeta({ property: "og:description", content: "Order groceries, food, and essentials from local stores in Balbriggan. Delivered to your door within minutes!" });
+    addMeta({ property: "og:type", content: "website" });
+    // Capture PWA install prompt
+    const handler = (e: Event) => { e.preventDefault(); (window as any).__pwaInstallPrompt = e; };
+    window.addEventListener("beforeinstallprompt", handler);
+    // Register service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+    return () => {
+      tags.forEach(t => t.remove());
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
+  }, []);
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>

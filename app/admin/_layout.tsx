@@ -1,10 +1,15 @@
 import { Stack } from "expo-router";
+import { Platform, useWindowDimensions } from "react-native";
 
 export default function AdminLayout() {
+  const { width } = useWindowDimensions();
+  // On web with desktop sidebar (>900px), hide the Stack header since sidebar provides navigation
+  const isDesktopWeb = Platform.OS === "web" && width >= 900;
+
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
+        headerShown: !isDesktopWeb,
         headerStyle: {
           backgroundColor: "#0a7ea4",
         },

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 
-export default function BatchCategoryImagesScreen() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function BatchCategoryImagesScreenContent() {
   const router = useRouter();
   const [csvText, setCsvText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -157,5 +159,13 @@ dairy-eggs,https://example.com/dairy.jpg`;
         </View>
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+export default function BatchCategoryImagesScreen() {
+  return (
+    <AdminDesktopLayout title="Batch Category Images">
+      <BatchCategoryImagesScreenContent />
+    </AdminDesktopLayout>
   );
 }

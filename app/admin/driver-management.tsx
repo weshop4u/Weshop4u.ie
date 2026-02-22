@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishDate } from "@/lib/timezone";
 
-export default function AdminDriverManagement() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function AdminDriverManagementContent() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const [refreshing, setRefreshing] = useState(false);
@@ -334,5 +336,13 @@ export default function AdminDriverManagement() {
         </View>
       )}
     </ScreenContainer>
+  );
+}
+
+export default function AdminDriverManagement() {
+  return (
+    <AdminDesktopLayout title="Driver Management">
+      <AdminDriverManagementContent />
+    </AdminDesktopLayout>
   );
 }

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 
-export default function ImportProductsScreen() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function ImportProductsScreenContent() {
   const router = useRouter();
   const [csvText, setCsvText] = useState("");
   const [storeId, setStoreId] = useState("");
@@ -177,5 +179,13 @@ Avonmore Milk 2L,Fresh whole milk,2.99,dairy-eggs,AVM2L,5000112345680,30,https:/
         </View>
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+export default function ImportProductsScreen() {
+  return (
+    <AdminDesktopLayout title="Import Products">
+      <ImportProductsScreenContent />
+    </AdminDesktopLayout>
   );
 }

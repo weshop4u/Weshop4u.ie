@@ -1711,3 +1711,30 @@
 - [x] Cleaned up false positives: ice creams, soups, sauces, medicine, vapes, tobacco, sweets, Cantonese dishes, milk cartons, toothpaste, nuts
 - [x] Improved suggestDrs endpoint with excluded categories list to prevent future false positives
 - [x] TOTAL: 936 products flagged as DRS across all stores
+
+## Responsive Website for weshop4u.ie
+- [x] Improve web header with logo, proper navigation, and store owner/admin login links
+- [x] Improve web home page — hero, search, popular stores, how it works, store grid, download app CTA, footer
+- [x] Store detail page (/store/[id]) already uses WebLayout on web
+- [x] Cart page already uses WebLayout on web
+- [x] Orders page already uses WebLayout on web
+- [x] Profile/account pages already use WebLayout on web
+- [x] Auth pages (login, register) already use WebLayout on web
+- [x] "Store Login" link in web header
+- [x] Customer flows work end-to-end on web (browse → add to cart → checkout → order tracking)
+
+## Desktop Admin Dashboard
+- [x] Build desktop admin layout with sidebar navigation (AdminDesktopLayout component)
+- [x] Sidebar: dark navy with WESHOP4U branding, 11 nav items, user info, logout
+- [x] All 11 admin pages wrapped with AdminDesktopLayout
+- [x] Desktop layout activates at width >= 900px, mobile layout below
+- [x] Admin dashboard home with summary cards (Orders, Revenue, Delivery Fees, Tips)
+- [ ] Further desktop optimisation of tables (orders, products) for wider screens
+
+## PWA Support
+- [x] Add web manifest for PWA (name, icons, theme color, start URL) — public/manifest.json
+- [x] PWA icons created (192px and 512px) from WESHOP4U logo
+- [x] Add "Install App" / "Add to Home Screen" prompt on mobile web — captures beforeinstallprompt event
+- [x] Configure service worker for offline support basics — public/sw.js
+- [x] PWA meta tags injected via root layout useEffect (theme-color, apple-mobile-web-app, og tags)
+- [x] Favicon created for web

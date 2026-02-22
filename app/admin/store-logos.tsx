@@ -7,7 +7,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useColors } from "@/hooks/use-colors";
 
-export default function StoreLogosScreen() {
+import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+
+function StoreLogosScreenContent() {
   const colors = useColors();
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -230,3 +232,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 });
+
+export default function StoreLogosScreen() {
+  return (
+    <AdminDesktopLayout title="Store Logos">
+      <StoreLogosScreenContent />
+    </AdminDesktopLayout>
+  );
+}
