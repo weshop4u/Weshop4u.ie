@@ -28,7 +28,10 @@ export default function ProductsManagementScreen() {
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [filterMissingDesc, setFilterMissingDesc] = useState(false);
+  const [filterDrs, setFilterDrs] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
+  const [showBulkDrs, setShowBulkDrs] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: products, refetch } = trpc.stores.getProducts.useQuery(
@@ -39,6 +42,11 @@ export default function ProductsManagementScreen() {
 
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
+  const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
+  const { data: drsSuggestions, refetch: refetchSuggestions } = trpc.stores.suggestDrs.useQuery(
+    { storeId: selectedStore! },
+    { enabled: !!selectedStore && showBulkDrs }
+  );
 
   // Get unique categories from products for this store
   const storeCategories = useMemo(() => {
@@ -56,6 +64,12 @@ export default function ProductsManagementScreen() {
   const missingDescCount = useMemo(() => {
     if (!products) return 0;
     return products.filter(p => !p.description || p.description.trim() === "").length;
+  }, [products]);
+
+  // Count DRS products
+  const drsCount = useMemo(() => {
+    if (!products) return 0;
+    return products.filter(p => p.isDrs).length;
   }, [products]);
 
   const filteredProducts = useMemo(() => {
@@ -76,13 +90,18 @@ export default function ProductsManagementScreen() {
       filtered = filtered.filter(p => !p.description || p.description.trim() === "");
     }
 
+    // Filter by DRS
+    if (filterDrs) {
+      filtered = filtered.filter(p => p.isDrs);
+    }
+
     // Filter by category
     if (selectedCategoryFilter !== "all") {
       filtered = filtered.filter(p => p.category?.id === selectedCategoryFilter);
     }
 
     return filtered;
-  }, [products, searchQuery, filterMissingDesc, selectedCategoryFilter]);
+  }, [products, searchQuery, filterMissingDesc, filterDrs, selectedCategoryFilter]);
 
   const handleEdit = (product: any) => {
     setEditingProduct({
@@ -140,6 +159,7 @@ export default function ProductsManagementScreen() {
         sku: editingProduct.sku || "",
         stockStatus: editingProduct._stockStatus,
         categoryId: editingProduct._categoryId,
+        isDrs: editingProduct.isDrs ?? false,
       };
 
       // Only send image if it was actually changed (new image picked)
@@ -220,8 +240,15 @@ export default function ProductsManagementScreen() {
                 <Text style={{ color: colors.muted, fontSize: 10 }}>SKU: {product.sku}</Text>
               )}
             </View>
-            {product.category?.name && (
+              {product.category?.name && (
               <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>📁 {product.category.name}</Text>
+            )}
+            {product.isDrs && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                <View style={{ backgroundColor: "#0EA5E920", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ color: "#0EA5E9", fontSize: 10, fontWeight: "700" }}>DRS</Text>
+                </View>
+              </View>
             )}
           </View>
         </View>
@@ -273,7 +300,7 @@ export default function ProductsManagementScreen() {
         <View style={{ flex: 1 }}>
           {/* Store header + back to stores */}
           <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-            <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setSelectedCategoryFilter("all"); }}>
+            <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setFilterDrs(false); setSelectedCategoryFilter("all"); }}>
               <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 6 }}>
@@ -314,6 +341,16 @@ export default function ProductsManagementScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* DRS filter */}
+            <TouchableOpacity
+              onPress={() => setFilterDrs(!filterDrs)}
+              style={[itemStyles.filterPill, { backgroundColor: filterDrs ? "#0EA5E9" : colors.surface, borderColor: filterDrs ? "#0EA5E9" : colors.border }]}
+            >
+              <Text style={{ color: filterDrs ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                ♻️ DRS ({drsCount})
+              </Text>
+            </TouchableOpacity>
+
             {/* Category filters */}
             <TouchableOpacity
               onPress={() => setSelectedCategoryFilter("all")}
@@ -331,6 +368,16 @@ export default function ProductsManagementScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+
+          {/* Bulk DRS Action Button */}
+          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <TouchableOpacity
+              onPress={() => { setShowBulkDrs(true); setSelectedBulkIds(new Set()); }}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#0EA5E915", borderWidth: 1, borderColor: "#0EA5E9", borderRadius: 10 }}
+            >
+              <Text style={{ color: "#0EA5E9", fontSize: 13, fontWeight: "700" }}>Bulk DRS Flag — Auto-Detect Drinks</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Products List */}
           <FlatList
@@ -519,6 +566,40 @@ export default function ProductsManagementScreen() {
                   ))}
                 </ScrollView>
               </View>
+              {/* DRS Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>DRS (Deposit Return Scheme)</Text>
+                <TouchableOpacity
+                  onPress={() => setEditingProduct({ ...editingProduct, isDrs: !editingProduct?.isDrs })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: editingProduct?.isDrs ? "#0EA5E915" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: editingProduct?.isDrs ? "#0EA5E9" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: editingProduct?.isDrs ? "#0EA5E9" : colors.muted,
+                    backgroundColor: editingProduct?.isDrs ? "#0EA5E9" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {editingProduct?.isDrs && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {editingProduct?.isDrs ? "DRS deposit included in price" : "No DRS deposit on this product"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
 
             {/* Buttons */}
@@ -542,6 +623,134 @@ export default function ProductsManagementScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk DRS Modal */}
+      <Modal visible={showBulkDrs} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24, maxHeight: "85%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Bulk DRS Flag</Text>
+              <TouchableOpacity onPress={() => setShowBulkDrs(false)}>
+                <Text style={{ fontSize: 28, color: colors.muted }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>
+              Auto-detected products likely needing DRS flag (cans, bottles, drinks with ml/ltr). Review and select which to flag.
+            </Text>
+
+            {drsSuggestions && drsSuggestions.length > 0 ? (
+              <>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+                    {drsSuggestions.length} suggestions — {selectedBulkIds.size} selected
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedBulkIds.size === drsSuggestions.length) {
+                        setSelectedBulkIds(new Set());
+                      } else {
+                        setSelectedBulkIds(new Set(drsSuggestions.map((p: any) => p.id)));
+                      }
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: colors.primary + "15", borderRadius: 8 }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
+                      {selectedBulkIds.size === drsSuggestions.length ? "Deselect All" : "Select All"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <FlatList
+                  data={drsSuggestions}
+                  keyExtractor={(item: any) => String(item.id)}
+                  style={{ maxHeight: 400 }}
+                  contentContainerStyle={{ gap: 6 }}
+                  renderItem={({ item }: { item: any }) => (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newSet = new Set(selectedBulkIds);
+                        if (newSet.has(item.id)) {
+                          newSet.delete(item.id);
+                        } else {
+                          newSet.add(item.id);
+                        }
+                        setSelectedBulkIds(newSet);
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
+                        paddingVertical: 8,
+                        paddingHorizontal: 10,
+                        backgroundColor: selectedBulkIds.has(item.id) ? "#0EA5E910" : colors.surface,
+                        borderWidth: 1,
+                        borderColor: selectedBulkIds.has(item.id) ? "#0EA5E9" : colors.border,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <View style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        borderWidth: 2,
+                        borderColor: selectedBulkIds.has(item.id) ? "#0EA5E9" : colors.muted,
+                        backgroundColor: selectedBulkIds.has(item.id) ? "#0EA5E9" : "transparent",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}>
+                        {selectedBulkIds.has(item.id) && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "500" }} numberOfLines={1}>{item.name}</Text>
+                        <Text style={{ color: colors.muted, fontSize: 11 }}>{item.categoryName || "No category"} — €{parseFloat(item.price).toFixed(2)}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (selectedBulkIds.size === 0) return;
+                    try {
+                      await bulkDrsMutation.mutateAsync({
+                        productIds: Array.from(selectedBulkIds),
+                        isDrs: true,
+                      });
+                      setMessage(`DRS flag set on ${selectedBulkIds.size} products!`);
+                      setMessageType("success");
+                      setShowBulkDrs(false);
+                      setSelectedBulkIds(new Set());
+                      refetch();
+                      refetchSuggestions();
+                    } catch (error: any) {
+                      setMessage(error.message || "Failed to bulk update DRS");
+                      setMessageType("error");
+                    }
+                  }}
+                  style={{
+                    marginTop: 14,
+                    paddingVertical: 14,
+                    backgroundColor: selectedBulkIds.size > 0 ? "#0EA5E9" : colors.border,
+                    borderRadius: 12,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                    {bulkDrsMutation.isPending ? "Applying..." : `Flag ${selectedBulkIds.size} Products as DRS`}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={{ alignItems: "center", paddingVertical: 30 }}>
+                <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center" }}>
+                  {drsSuggestions ? "No unflagged DRS candidates found.\nAll likely products may already be flagged." : "Loading suggestions..."}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </Modal>

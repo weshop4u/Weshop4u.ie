@@ -488,6 +488,9 @@ export default function StoreDetailScreen() {
                 <Text style={styles.modalPrice}>
                   €{parseFloat(selectedProduct.price).toFixed(2)}
                 </Text>
+                {selectedProduct.isDrs && (
+                  <Text style={{ fontSize: 12, color: "#0EA5E9", fontWeight: "600", marginTop: 4 }}>Price incl. DRS deposit</Text>
+                )}
 
                 {/* Stock status */}
                 {isOutOfStock && (
@@ -753,6 +756,9 @@ export default function StoreDetailScreen() {
                           <Text className="text-lg font-bold text-primary">
                             €{parseFloat(product.price).toFixed(2)}
                           </Text>
+                          {product.isDrs && (
+                            <Text style={{ fontSize: 10, color: "#0EA5E9", fontWeight: "600", marginTop: 1 }}>Price incl. DRS deposit</Text>
+                          )}
                           {product.stockStatus === "out_of_stock" && (
                             <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
                           )}

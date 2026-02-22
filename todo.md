@@ -1682,3 +1682,15 @@
 
 ## Search Query Passthrough
 - [x] Pass search query from homepage to store page so product search field is pre-filled with the searched term
+
+## DRS (Deposit Return Scheme) System
+- [x] Add isDrs boolean field to products table in database schema
+- [x] Run migration to add the column
+- [x] Add DRS toggle checkbox in admin product management (individual product edit)
+- [x] Show "Price incl. DRS deposit" info note on product cards where isDrs is true
+- [x] Show DRS note in product detail modal
+- [x] Add DRS badge to product list in admin panel
+- [x] Add DRS filter pill to admin product filters
+- [x] Bulk-set DRS flag on likely products (cans/bottles from drink categories) — auto-detect endpoint + review modal
+- [x] Allow bulk DRS toggle in admin for multiple products at once — Select All / individual checkboxes
+- [x] 6 DRS unit tests passing

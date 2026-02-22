@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories } from "../../drizzle/schema";
-import { eq, and, like, sql } from "drizzle-orm";
+import { eq, and, like, sql, inArray } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 export const storesRouter = router({
@@ -103,6 +103,7 @@ export const storesRouter = router({
           quantity: products.quantity,
           images: products.images,
           isActive: products.isActive,
+          isDrs: products.isDrs,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
@@ -167,6 +168,7 @@ export const storesRouter = router({
           images: products.images,
           storeId: products.storeId,
           categoryId: products.categoryId,
+          isDrs: products.isDrs,
           storeName: stores.name,
           storeLogo: stores.logo,
           storeCategory: stores.category,
@@ -262,6 +264,7 @@ export const storesRouter = router({
         sku: z.string().optional(),
         stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
         categoryId: z.number().nullable().optional(),
+        isDrs: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -281,10 +284,77 @@ export const storesRouter = router({
       if (input.sku !== undefined) updateData.sku = input.sku;
       if (input.stockStatus !== undefined) updateData.stockStatus = input.stockStatus;
       if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+      if (input.isDrs !== undefined) updateData.isDrs = input.isDrs;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 
       return { success: true };
+    }),
+
+  // Bulk toggle DRS flag on multiple products
+  bulkToggleDrs: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      isDrs: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      await db.update(products)
+        .set({ isDrs: input.isDrs })
+        .where(inArray(products.id, input.productIds));
+
+      return { success: true, updatedCount: input.productIds.length };
+    }),
+
+  // Suggest products that likely need DRS flag based on keywords in drink categories
+  suggestDrs: publicProcedure
+    .input(z.object({ storeId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get all active products for this store that are NOT already flagged as DRS
+      const allProducts = await db.select({
+        id: products.id,
+        name: products.name,
+        price: products.price,
+        categoryName: productCategories.name,
+      })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(
+          and(
+            eq(products.storeId, input.storeId),
+            eq(products.isActive, true),
+            eq(products.isDrs, false)
+          )
+        );
+
+      // Keywords that suggest DRS-applicable products
+      const drsKeywords = ["can", "bottle", "ml", "ltr", "litre", "liter", "330ml", "500ml", "440ml", "250ml", "750ml", "1l", "2l", "1.5l"];
+      // Drink-related category keywords
+      const drinkCategoryKeywords = ["drink", "beverage", "soft", "water", "juice", "beer", "cider", "energy", "soda", "mineral", "fizzy", "sparkling", "cola", "lemonade"];
+
+      const suggestions = allProducts.filter(p => {
+        const name = p.name.toLowerCase();
+        const cat = (p.categoryName || "").toLowerCase();
+
+        // Check if product name contains DRS keywords
+        const nameHasKeyword = drsKeywords.some(kw => name.includes(kw));
+        // Check if category is drink-related
+        const isDrinkCategory = drinkCategoryKeywords.some(kw => cat.includes(kw));
+
+        // Product is likely DRS if: name has container keyword, OR it's in a drink category with container-like name
+        return nameHasKeyword || (isDrinkCategory && (name.includes("can") || name.includes("bottle") || /\d+\s*ml/i.test(name) || /\d+\s*l\b/i.test(name)));
+      });
+
+      return suggestions;
     }),
 
   // Delete product
