@@ -1644,3 +1644,17 @@
 - [x] Add Apple Green store to the system
 - [x] Add Chinese restaurant store to the system
 - [x] Ensure McDonald's, Hamlet Bar remain in system but not featured initially
+
+## Store Logo Uploads & Product Imports
+- [x] Upload AppleGreen logo to store (from applegreenlogo.jpg)
+- [x] Upload Treasure Bowl logo to store (from treasurebowllogo.jpg)
+- [x] Import AppleGreen products from CSV into store_id for AppleGreen (305 products, 27 categories)
+- [x] Import Treasure Bowl products from CSV into store_id for Treasure Bowl (235 products, 34 categories)
+
+## Future: Product Modifier System (Discussion Only — Not Building Yet)
+- [ ] Modifier groups (Salad, Sauces, Extras, Bread Choice, Side Choice, Rice Choice)
+- [ ] Modifier options with individual pricing (free, +€0.50, +€1.00, etc.)
+- [ ] Product-to-modifier linking (per store, per product)
+- [ ] Required single-choice groups (pick one side) vs optional multi-select (pick any add-ons)
+- [ ] Order item modifier storage and receipt printing
+- [ ] Use cases: deli rolls/wraps, restaurant sides, Chinese takeaway rice/chips tiers
