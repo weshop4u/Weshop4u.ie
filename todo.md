@@ -1658,3 +1658,7 @@
 - [ ] Required single-choice groups (pick one side) vs optional multi-select (pick any add-ons)
 - [ ] Order item modifier storage and receipt printing
 - [ ] Use cases: deli rolls/wraps, restaurant sides, Chinese takeaway rice/chips tiers
+
+## Store Address Updates
+- [x] Update AppleGreen Balbriggan address: Naul Road, Balbriggan, K32 Y180, phone 0894626262
+- [x] Update Treasure Bowl Balbriggan address: Castlemill, Balbriggan, K32 Y198, phone 0894626262
