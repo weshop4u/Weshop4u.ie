@@ -36,18 +36,8 @@ export function WebHeader() {
   return (
     <View style={styles.header}>
       <View style={styles.container}>
-        {/* Left: Logo + Brand */}
-        <TouchableOpacity
-          onPress={() => navigateTo("/")}
-          style={styles.logoArea}
-        >
-          <Image
-            source={require("@/assets/images/Weshop4ulogo.jpg")}
-            style={styles.logo}
-            contentFit="contain"
-          />
-          <Text style={styles.brandName}>WESHOP4U</Text>
-        </TouchableOpacity>
+        {/* Left: Empty spacer for balance (logo removed to avoid duplication with hero) */}
+        <View style={styles.logoArea} />
 
         {/* Right side */}
         {isMobile ? (

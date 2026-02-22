@@ -1662,3 +1662,7 @@
 ## Store Address Updates
 - [x] Update AppleGreen Balbriggan address: Naul Road, Balbriggan, K32 Y180, phone 0894626262
 - [x] Update Treasure Bowl Balbriggan address: Castlemill, Balbriggan, K32 Y198, phone 0894626262
+
+## Nav Bar & Store Card Fixes
+- [x] Remove duplicate WESHOP4U logo from top nav bar (keep hamburger menu only)
+- [x] Fix broken emoji characters on store cards (clock, store, arrow)

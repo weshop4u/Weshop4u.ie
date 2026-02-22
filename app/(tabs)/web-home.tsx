@@ -146,7 +146,7 @@ export default function WebHome() {
                     ) : (
                       <View style={popularStyles.cardLogoPlaceholder}>
                         <Text style={{ fontSize: 40 }}>
-                          {CATEGORY_ICONS[store.category as StoreCategory] || "\uD83C\uDFEA"}
+                          {CATEGORY_ICONS[store.category as StoreCategory] || "🏪"}
                         </Text>
                       </View>
                     )}
@@ -163,12 +163,12 @@ export default function WebHome() {
                     </Text>
                     {todayHours && (
                       <Text style={[popularStyles.cardHours, { color: open ? "#687076" : "#DC2626" }]}>
-                        \uD83D\uDD50 {todayHours}
+                        🕐 {todayHours}
                       </Text>
                     )}
                     <View style={[popularStyles.cardButton, !open && popularStyles.cardButtonClosed]}>
                       <Text style={[popularStyles.cardButtonText, !open && popularStyles.cardButtonTextClosed]}>
-                        {open ? "Order Now \u2192" : "View Menu"}
+                        {open ? "Order Now →" : "View Menu"}
                       </Text>
                     </View>
                   </View>
