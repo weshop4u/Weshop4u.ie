@@ -1796,3 +1796,8 @@
 - [x] Verify 9 AppleGreen-branded products exist in AppleGreen store (ID 3) — all 9 confirmed
 - [x] Copy any missing ones to AppleGreen first — none missing, all already existed
 - [x] Delete all 9 AppleGreen-branded products from Spar (ID 1) — done, Spar now 2487 products
+
+## Category UX Improvements — Feb 23 2026
+- [x] Admin products page: make category pills wrap on desktop (flexWrap) instead of being cut off
+- [x] Customer store page: default category sort to popular (most products first)
+- [x] Customer store page: add A-Z and Z-A sort toggle for categories

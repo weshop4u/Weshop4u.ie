@@ -12,6 +12,7 @@ import { StyleSheet } from "react-native";
 import { WebLayout } from "@/components/web-layout";
 
 type SortOption = "az" | "za" | "price_low" | "price_high";
+type CategorySortOption = "popular" | "az" | "za";
 
 export default function StoreDetailScreen() {
   const { id, categoryId: categoryIdParam, productSearch: productSearchParam } = useLocalSearchParams<{ id: string; categoryId?: string; productSearch?: string }>();
@@ -20,6 +21,7 @@ export default function StoreDetailScreen() {
     categoryIdParam ? parseInt(categoryIdParam) : null
   );
   const [categorySearch, setCategorySearch] = useState("");
+  const [categorySortBy, setCategorySortBy] = useState<CategorySortOption>("popular");
   const [productSearch, setProductSearch] = useState(productSearchParam || "");
   const [globalSearch, setGlobalSearch] = useState("");
   const [showHours, setShowHours] = useState(false);
@@ -111,15 +113,30 @@ export default function StoreDetailScreen() {
 
   const categories = Object.values(categoriesWithProducts);
 
-  // Filter categories based on search query
+  // Filter and sort categories
   const filteredCategories = useMemo(() => {
+    let result = [...categories];
     const searchTerm = globalSearch.trim() || categorySearch.trim();
-    if (!searchTerm) return categories;
-    const query = searchTerm.toLowerCase();
-    return categories.filter((category) =>
-      category.name.toLowerCase().includes(query)
-    );
-  }, [categories, categorySearch, globalSearch]);
+    if (searchTerm) {
+      const query = searchTerm.toLowerCase();
+      result = result.filter((category) =>
+        category.name.toLowerCase().includes(query)
+      );
+    }
+    // Sort categories
+    switch (categorySortBy) {
+      case "popular":
+        result.sort((a, b) => b.products.length - a.products.length);
+        break;
+      case "az":
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "za":
+        result.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+    }
+    return result;
+  }, [categories, categorySearch, globalSearch, categorySortBy]);
 
   // Search products across all categories (for global search)
   const globalSearchResults = useMemo(() => {
@@ -563,9 +580,32 @@ export default function StoreDetailScreen() {
 
           {/* Categories */}
           <View className="px-4">
-            <Text className="text-xl font-bold text-foreground mb-4">
-              {globalSearch.trim() && filteredCategories.length > 0 ? "Matching Categories" : "Browse by Category"}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <Text className="text-xl font-bold text-foreground">
+                {globalSearch.trim() && filteredCategories.length > 0 ? "Matching Categories" : "Browse by Category"}
+              </Text>
+              <View style={{ flexDirection: "row", gap: 4 }}>
+                {(["popular", "az", "za"] as CategorySortOption[]).map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => setCategorySortBy(opt)}
+                    style={[{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                    }, categorySortBy === opt
+                      ? { backgroundColor: "#00BCD4", borderColor: "#00BCD4" }
+                      : { backgroundColor: "transparent", borderColor: "#9BA1A6" }
+                    ]}
+                  >
+                    <Text style={[{ fontSize: 11, fontWeight: "700" }, categorySortBy === opt ? { color: "#fff" } : { color: "#9BA1A6" }]}>
+                      {opt === "popular" ? "Popular" : opt === "az" ? "A → Z" : "Z → A"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
             
             {filteredCategories.length > 0 ? (
               <View className="gap-3">

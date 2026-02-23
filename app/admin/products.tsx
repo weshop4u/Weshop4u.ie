@@ -510,8 +510,8 @@ function ProductsManagementScreenContent() {
                 />
               </View>
 
-              {/* Filters row */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
+              {/* Filters row - wrapping on desktop */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 8, flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 {/* Missing desc filter */}
                 <TouchableOpacity
                   onPress={() => setActiveFilter(activeFilter === "no_desc" ? "all" : "no_desc")}
@@ -558,7 +558,7 @@ function ProductsManagementScreenContent() {
                     <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name} ({cat.count})</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
 
               {/* Bulk DRS Action Button */}
               <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
