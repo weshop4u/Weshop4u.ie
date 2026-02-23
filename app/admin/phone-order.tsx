@@ -99,9 +99,20 @@ function PhoneOrderScreenContent() {
 
   // Queries
   const { data: storesList, isLoading: storesLoading } = trpc.admin.getStores.useQuery();
+  // Debounce search query for API calls
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery]);
+
   const { data: productsList, isLoading: productsLoading } = trpc.admin.getStoreProducts.useQuery(
-    { storeId: selectedStoreId!, search: searchQuery || undefined },
-    { enabled: selectedStoreId !== null }
+    { storeId: selectedStoreId!, search: debouncedSearch.trim() || undefined },
+    { enabled: selectedStoreId !== null && step === "products" }
   );
 
   const createPhoneOrderMutation = trpc.admin.createPhoneOrder.useMutation();

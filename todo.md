@@ -1764,3 +1764,9 @@
 - [x] Add "Add to stores" multi-select when creating a new product
 - [x] Copy product (name, description, price, category, image) to each selected store
 - [x] Each store gets its own independent copy (can edit price/stock separately)
+
+## Bug Fixes — Feb 22 2026
+- [x] Orders page: show store name and product items in the expanded order detail view
+- [x] Phone Order: search not finding products — fixed with server-side SQL LIKE search, debounce, increased limit to 200
+- [x] Products page: search now server-side with SQL LIKE, pagination (100 per page)
+- [x] Products page: category pills, filters, and table now load for all stores — server-side pagination, categories, and counts

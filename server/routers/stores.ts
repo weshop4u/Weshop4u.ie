@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories } from "../../drizzle/schema";
-import { eq, and, like, sql, inArray } from "drizzle-orm";
+import { eq, and, like, sql, inArray, count } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 export const storesRouter = router({
@@ -81,12 +81,51 @@ export const storesRouter = router({
 
   // Get products for a store
   getProducts: publicProcedure
-    .input(z.object({ storeId: z.number() }))
+    .input(z.object({
+      storeId: z.number(),
+      search: z.string().optional(),
+      categoryId: z.number().optional(),
+      filter: z.enum(["all", "no_desc", "no_image", "drs"]).optional(),
+      limit: z.number().optional().default(100),
+      offset: z.number().optional().default(0),
+    }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) {
         throw new Error("Database not available");
       }
+
+      let conditions: any[] = [
+        eq(products.storeId, input.storeId),
+        eq(products.isActive, true),
+      ];
+
+      // Server-side search
+      if (input.search && input.search.trim()) {
+        const term = `%${input.search.trim()}%`;
+        conditions.push(sql`(LOWER(${products.name}) LIKE LOWER(${term}) OR LOWER(${products.sku}) LIKE LOWER(${term}))`);
+      }
+
+      // Server-side category filter
+      if (input.categoryId) {
+        conditions.push(eq(products.categoryId, input.categoryId));
+      }
+
+      // Server-side special filters
+      if (input.filter === "no_desc") {
+        conditions.push(sql`(${products.description} IS NULL OR ${products.description} = '')`);
+      } else if (input.filter === "no_image") {
+        conditions.push(sql`(${products.images} IS NULL OR ${products.images} = '' OR ${products.images} = '[]')`);
+      } else if (input.filter === "drs") {
+        conditions.push(eq(products.isDrs, true));
+      }
+
+      // Get total count for this query
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(and(...conditions));
 
       const productsList = await db
         .select({
@@ -117,18 +156,50 @@ export const storesRouter = router({
         })
         .from(products)
         .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
-        .where(
-          and(
-            eq(products.storeId, input.storeId),
-            eq(products.isActive, true)
-          )
-        );
+        .where(and(...conditions))
+        .orderBy(products.name)
+        .limit(input.limit)
+        .offset(input.offset);
+
+      // Get category summary for this store (always unfiltered)
+      const categorySummary = await db
+        .select({
+          categoryId: products.categoryId,
+          categoryName: productCategories.name,
+          count: count(),
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(and(eq(products.storeId, input.storeId), eq(products.isActive, true)))
+        .groupBy(products.categoryId, productCategories.name);
+
+      // Get counts for filter badges (always unfiltered by search/category)
+      const baseConditions = [eq(products.storeId, input.storeId), eq(products.isActive, true)];
+      const [{ noDescCount }] = await db
+        .select({ noDescCount: count() })
+        .from(products)
+        .where(and(...baseConditions, sql`(${products.description} IS NULL OR ${products.description} = '')`));
+      const [{ noImageCount }] = await db
+        .select({ noImageCount: count() })
+        .from(products)
+        .where(and(...baseConditions, sql`(${products.images} IS NULL OR ${products.images} = '' OR ${products.images} = '[]')`));
+      const [{ drsCount }] = await db
+        .select({ drsCount: count() })
+        .from(products)
+        .where(and(...baseConditions, eq(products.isDrs, true)));
 
       // Parse images JSON string to array for client
-      return productsList.map(p => ({
+      const items = productsList.map(p => ({
         ...p,
         images: p.images ? (() => { try { return JSON.parse(p.images as string); } catch { return [p.images]; } })() : [],
       }));
+
+      return {
+        items,
+        total,
+        categories: categorySummary.map(c => ({ id: c.categoryId, name: c.categoryName || "Uncategorized", count: c.count })),
+        counts: { noDesc: noDescCount, noImage: noImageCount, drs: drsCount },
+      };
     }),
 
   // Get featured stores for homepage "Popular Stores" section

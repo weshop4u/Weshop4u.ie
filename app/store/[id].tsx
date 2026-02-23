@@ -29,7 +29,8 @@ export default function StoreDetailScreen() {
   
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
-  const { data: products, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId });
+  const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId, limit: 5000 });
+  const products = productsData?.items || [];
 
   const storeOpen = store ? isStoreOpen(store) : true;
   const todayHours = store ? getTodayHours(store) : null;

@@ -106,7 +106,8 @@ export default function CartScreen() {
   
   const storeIdNum = parseInt(storeId);
   const { data: store } = trpc.stores.getById.useQuery({ id: storeIdNum });
-  const { data: products } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum });
+  const { data: productsData } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum, limit: 5000 });
+  const products = productsData?.items || [];
   
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
@@ -157,7 +158,7 @@ export default function CartScreen() {
   };
 
   const cartItems = cartContext.items.map(item => {
-    const product = products?.find(p => p.id === item.productId);
+    const product = products.find(p => p.id === item.productId);
     return product ? { ...product, cartQuantity: item.quantity } : null;
   }).filter(Boolean) || [];
   const subtotal = cartItems.reduce((sum, p) => sum + (p ? parseFloat(p.price) * p.cartQuantity : 0), 0);

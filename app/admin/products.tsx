@@ -1,7 +1,7 @@
-import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, StyleSheet, Platform, useWindowDimensions } from "react-native";
+import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, StyleSheet, Platform, useWindowDimensions, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
@@ -11,6 +11,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
 const IS_WEB = Platform.OS === "web";
+const PAGE_SIZE = 100;
 
 type StockStatus = "in_stock" | "out_of_stock" | "low_stock";
 
@@ -24,6 +25,7 @@ function ProductsManagementScreenContent() {
   const router = useRouter();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -33,13 +35,12 @@ function ProductsManagementScreenContent() {
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
-  const [filterMissingDesc, setFilterMissingDesc] = useState(false);
-  const [filterDrs, setFilterDrs] = useState(false);
-  const [filterNoImage, setFilterNoImage] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"all" | "no_desc" | "no_image" | "drs">("all");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
   const [showBulkDrs, setShowBulkDrs] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [page, setPage] = useState(0);
 
   // Add product form state
   const [addForm, setAddForm] = useState({
@@ -54,9 +55,30 @@ function ProductsManagementScreenContent() {
   const [addImageBase64, setAddImageBase64] = useState<string | null>(null);
   const [addImageUri, setAddImageUri] = useState<string | null>(null);
 
+  // Debounce search
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(0);
+    }, 300);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [activeFilter, selectedCategoryFilter]);
+
   const { data: stores } = trpc.stores.getAll.useQuery();
-  const { data: products, refetch } = trpc.stores.getProducts.useQuery(
-    { storeId: selectedStore! },
+  const { data: productsData, refetch, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
+    {
+      storeId: selectedStore!,
+      search: debouncedSearch || undefined,
+      filter: activeFilter !== "all" ? activeFilter : undefined,
+      categoryId: selectedCategoryFilter !== "all" ? selectedCategoryFilter : undefined,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+    },
     { enabled: !!selectedStore }
   );
   const { data: categories } = trpc.categories.getAll.useQuery();
@@ -76,71 +98,19 @@ function ProductsManagementScreenContent() {
     return stores?.filter(s => s.isActive) || [];
   }, [stores]);
 
-  // Get unique categories from products for this store
+  // Extract data from new API shape
+  const products = productsData?.items || [];
+  const totalProducts = productsData?.total || 0;
   const storeCategories = useMemo(() => {
-    if (!products) return [];
-    const catMap = new Map<number, string>();
-    products.forEach(p => {
-      if (p.category?.id && p.category?.name) {
-        catMap.set(p.category.id, p.category.name);
-      }
-    });
-    return Array.from(catMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products]);
+    return (productsData?.categories || [])
+      .filter((c: any) => c.id != null)
+      .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+  }, [productsData]);
+  const missingDescCount = productsData?.counts?.noDesc || 0;
+  const missingImageCount = productsData?.counts?.noImage || 0;
+  const drsCount = productsData?.counts?.drs || 0;
 
-  // Count products missing descriptions
-  const missingDescCount = useMemo(() => {
-    if (!products) return 0;
-    return products.filter(p => !p.description || p.description.trim() === "").length;
-  }, [products]);
-
-  // Count DRS products
-  const drsCount = useMemo(() => {
-    if (!products) return 0;
-    return products.filter(p => p.isDrs).length;
-  }, [products]);
-
-  // Count products missing images
-  const missingImageCount = useMemo(() => {
-    if (!products) return 0;
-    return products.filter(p => !p.images || p.images.length === 0).length;
-  }, [products]);
-
-  const filteredProducts = useMemo(() => {
-    if (!products) return [];
-    let filtered = [...products];
-
-    // Filter by search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(query) ||
-        (p.sku && p.sku.toLowerCase().includes(query))
-      );
-    }
-
-    // Filter by missing description
-    if (filterMissingDesc) {
-      filtered = filtered.filter(p => !p.description || p.description.trim() === "");
-    }
-
-    // Filter by DRS
-    if (filterDrs) {
-      filtered = filtered.filter(p => p.isDrs);
-    }
-
-    // Filter by missing image
-    if (filterNoImage) {
-      filtered = filtered.filter(p => !p.images || p.images.length === 0);
-    }
-
-    // Filter by category
-    if (selectedCategoryFilter !== "all") {
-      filtered = filtered.filter(p => p.category?.id === selectedCategoryFilter);
-    }
-
-    return filtered;
-  }, [products, searchQuery, filterMissingDesc, filterDrs, filterNoImage, selectedCategoryFilter]);
+  const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
 
   const handleEdit = (product: any) => {
     setEditingProduct({
@@ -208,7 +178,6 @@ function ProductsManagementScreenContent() {
         isDrs: editingProduct.isDrs ?? false,
       };
 
-      // Only send image if it was actually changed (new image picked)
       if (pendingImageBase64) {
         payload.image = `data:image/jpeg;base64,${pendingImageBase64}`;
       }
@@ -240,7 +209,6 @@ function ProductsManagementScreenContent() {
     setIsSaving(true);
 
     try {
-      // Upload image first if one was picked
       let imageUrl: string | undefined;
       if (addImageBase64) {
         const uploadResult = await uploadImageMutation.mutateAsync({
@@ -397,6 +365,32 @@ function ProductsManagementScreenContent() {
     );
   };
 
+  // Pagination controls
+  const PaginationBar = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 16 }}>
+        <TouchableOpacity
+          disabled={page === 0}
+          onPress={() => setPage(Math.max(0, page - 1))}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: page === 0 ? colors.border : colors.primary, borderRadius: 8 }}
+        >
+          <Text style={{ color: page === 0 ? colors.muted : "#fff", fontWeight: "600", fontSize: 13 }}>← Prev</Text>
+        </TouchableOpacity>
+        <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600" }}>
+          Page {page + 1} of {totalPages} ({totalProducts} products)
+        </Text>
+        <TouchableOpacity
+          disabled={page >= totalPages - 1}
+          onPress={() => setPage(Math.min(totalPages - 1, page + 1))}
+          style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: page >= totalPages - 1 ? colors.border : colors.primary, borderRadius: 8 }}
+        >
+          <Text style={{ color: page >= totalPages - 1 ? colors.muted : "#fff", fontWeight: "600", fontSize: 13 }}>Next →</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <ScreenContainer className="bg-background">
       {/* Header */}
@@ -428,11 +422,11 @@ function ProductsManagementScreenContent() {
           {/* Store header + back to stores */}
           <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View>
-              <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setFilterMissingDesc(false); setFilterDrs(false); setFilterNoImage(false); setSelectedCategoryFilter("all"); }}>
+              <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setDebouncedSearch(""); setActiveFilter("all"); setSelectedCategoryFilter("all"); setPage(0); }}>
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
               </TouchableOpacity>
               <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 6 }}>
-                {stores?.find(s => s.id === selectedStore)?.name} — {filteredProducts.length} products
+                {stores?.find(s => s.id === selectedStore)?.name} — {totalProducts} products
               </Text>
             </View>
             {/* Add Product Button */}
@@ -473,30 +467,30 @@ function ProductsManagementScreenContent() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
             {/* Missing desc filter */}
             <TouchableOpacity
-              onPress={() => setFilterMissingDesc(!filterMissingDesc)}
-              style={[itemStyles.filterPill, { backgroundColor: filterMissingDesc ? "#F59E0B" : colors.surface, borderColor: filterMissingDesc ? "#F59E0B" : colors.border }]}
+              onPress={() => setActiveFilter(activeFilter === "no_desc" ? "all" : "no_desc")}
+              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_desc" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "no_desc" ? "#F59E0B" : colors.border }]}
             >
-              <Text style={{ color: filterMissingDesc ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+              <Text style={{ color: activeFilter === "no_desc" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
                 No Desc ({missingDescCount})
               </Text>
             </TouchableOpacity>
 
             {/* Missing image filter */}
             <TouchableOpacity
-              onPress={() => setFilterNoImage(!filterNoImage)}
-              style={[itemStyles.filterPill, { backgroundColor: filterNoImage ? "#8B5CF6" : colors.surface, borderColor: filterNoImage ? "#8B5CF6" : colors.border }]}
+              onPress={() => setActiveFilter(activeFilter === "no_image" ? "all" : "no_image")}
+              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_image" ? "#8B5CF6" : colors.surface, borderColor: activeFilter === "no_image" ? "#8B5CF6" : colors.border }]}
             >
-              <Text style={{ color: filterNoImage ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+              <Text style={{ color: activeFilter === "no_image" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
                 No Image ({missingImageCount})
               </Text>
             </TouchableOpacity>
 
             {/* DRS filter */}
             <TouchableOpacity
-              onPress={() => setFilterDrs(!filterDrs)}
-              style={[itemStyles.filterPill, { backgroundColor: filterDrs ? "#0EA5E9" : colors.surface, borderColor: filterDrs ? "#0EA5E9" : colors.border }]}
+              onPress={() => setActiveFilter(activeFilter === "drs" ? "all" : "drs")}
+              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "drs" ? "#0EA5E9" : colors.surface, borderColor: activeFilter === "drs" ? "#0EA5E9" : colors.border }]}
             >
-              <Text style={{ color: filterDrs ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+              <Text style={{ color: activeFilter === "drs" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
                 DRS ({drsCount})
               </Text>
             </TouchableOpacity>
@@ -508,13 +502,13 @@ function ProductsManagementScreenContent() {
             >
               <Text style={{ color: selectedCategoryFilter === "all" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>All</Text>
             </TouchableOpacity>
-            {storeCategories.map(cat => (
+            {storeCategories.map((cat: any) => (
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => setSelectedCategoryFilter(cat.id === selectedCategoryFilter ? "all" : cat.id)}
                 style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === cat.id ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === cat.id ? colors.primary : colors.border }]}
               >
-                <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name}</Text>
+                <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name} ({cat.count})</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -529,9 +523,19 @@ function ProductsManagementScreenContent() {
             </TouchableOpacity>
           </View>
 
+          {/* Loading */}
+          {productsLoading && (
+            <View style={{ alignItems: "center", paddingVertical: 40 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>Loading products...</Text>
+            </View>
+          )}
+
           {/* Products List */}
-          {isDesktopTable ? (
+          {!productsLoading && isDesktopTable ? (
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+              {/* Pagination top */}
+              <PaginationBar />
               {/* Desktop Table Header */}
               <View style={tableStyles.headerRow}>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>#</Text>
@@ -545,13 +549,13 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
-              {filteredProducts.map((product: any, idx: number) => {
+              {products.map((product: any, idx: number) => {
                 const stockBadge = getStockBadge(product.stockStatus);
                 const hasDesc = product.description && product.description.trim() !== "";
                 const imageUri = getProductImageUri(product);
                 return (
                   <View key={product.id} style={[tableStyles.row, idx % 2 === 0 ? tableStyles.rowEven : tableStyles.rowOdd]}>
-                    <Text style={[tableStyles.cell, { width: 50, color: colors.muted }]}>{idx + 1}</Text>
+                    <Text style={[tableStyles.cell, { width: 50, color: colors.muted }]}>{page * PAGE_SIZE + idx + 1}</Text>
                     <View style={[tableStyles.cell, { width: 60 }]}>
                       {imageUri ? (
                         <Image
@@ -618,16 +622,28 @@ function ProductsManagementScreenContent() {
                   </View>
                 );
               })}
+              {/* Pagination bottom */}
+              <PaginationBar />
             </ScrollView>
-          ) : (
-            <FlatList
-              data={filteredProducts}
-              renderItem={renderProductItem}
-              keyExtractor={(item) => String(item.id)}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 10 }}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
+          ) : !productsLoading ? (
+            <>
+              <FlatList
+                data={products}
+                renderItem={renderProductItem}
+                keyExtractor={(item) => String(item.id)}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20, gap: 10 }}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                    <Text style={{ color: colors.muted, fontSize: 14 }}>
+                      {debouncedSearch ? `No products matching "${debouncedSearch}"` : "No products found"}
+                    </Text>
+                  </View>
+                }
+              />
+              <PaginationBar />
+            </>
+          ) : null}
         </View>
       )}
 
@@ -990,7 +1006,7 @@ function ProductsManagementScreenContent() {
               <View>
                 <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                  {storeCategories.map(cat => (
+                  {storeCategories.map((cat: any) => (
                     <TouchableOpacity
                       key={cat.id}
                       onPress={() => setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id })}

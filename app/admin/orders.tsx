@@ -334,6 +334,30 @@ function AdminOrdersScreenContent() {
                   {expanded && (
                     <View style={dtStyles.expandedRow}>
                       <View style={{ flexDirection: "row", gap: 32, flexWrap: "wrap" }}>
+                        {/* Store */}
+                        <View style={{ minWidth: 140 }}>
+                          <Text style={dtStyles.detailLabel}>Store</Text>
+                          <Text style={[dtStyles.detailValue, { fontWeight: "700" }]}>{order.storeName}</Text>
+                        </View>
+                        {/* Order Items */}
+                        <View style={{ minWidth: 260, flex: 1 }}>
+                          <Text style={dtStyles.detailLabel}>Items Ordered</Text>
+                          {(order as any).items && (order as any).items.length > 0 ? (
+                            (order as any).items.map((item: any, idx: number) => (
+                              <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                                <Text style={[dtStyles.detailValue, { flex: 1 }]}>
+                                  {item.quantity}x {item.productName}
+                                </Text>
+                                <Text style={[dtStyles.detailValue, { color: "#00E5FF", fontWeight: "600", marginLeft: 12 }]}>
+                                  €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
+                                </Text>
+                              </View>
+                            ))
+                          ) : (
+                            <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No items data</Text>
+                          )}
+                        </View>
+                        {/* Delivery Address */}
                         <View style={{ minWidth: 200 }}>
                           <Text style={dtStyles.detailLabel}>Delivery Address</Text>
                           <Text style={dtStyles.detailValue}>{order.deliveryAddress}</Text>

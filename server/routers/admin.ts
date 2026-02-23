@@ -247,12 +247,32 @@ export const adminRouter = router({
         );
       }
 
+      // Fetch order items for all orders
+      const orderIds = ordersList.map(o => o.id);
+      let itemsMap: Record<number, Array<{ productName: string; quantity: number; productPrice: string }>> = {};
+      if (orderIds.length > 0) {
+        const allItems = await db
+          .select({
+            orderId: orderItems.orderId,
+            productName: orderItems.productName,
+            quantity: orderItems.quantity,
+            productPrice: orderItems.productPrice,
+          })
+          .from(orderItems)
+          .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`);
+        for (const item of allItems) {
+          if (!itemsMap[item.orderId]) itemsMap[item.orderId] = [];
+          itemsMap[item.orderId].push({ productName: item.productName, quantity: item.quantity, productPrice: item.productPrice });
+        }
+      }
+
       return ordersList.map(order => ({
         ...order,
         customerName: order.customerId
           ? customerMap[order.customerId] || "Unknown"
           : order.guestName || "Guest",
         driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
+        items: itemsMap[order.id] || [],
       }));
     }),
 
@@ -849,7 +869,13 @@ export const adminRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      let conditions = [eq(products.storeId, input.storeId), eq(products.isActive, true)];
+      let conditions: any[] = [eq(products.storeId, input.storeId), eq(products.isActive, true)];
+
+      // Apply search filter at SQL level for efficiency
+      if (input.search && input.search.trim()) {
+        const term = `%${input.search.trim()}%`;
+        conditions.push(sql`LOWER(${products.name}) LIKE LOWER(${term})`);
+      }
 
       const productsList = await db
         .select({ id: products.id, name: products.name, price: products.price, images: products.images, stockStatus: products.stockStatus })
@@ -857,12 +883,6 @@ export const adminRouter = router({
         .where(and(...conditions))
         .orderBy(products.name)
         .limit(200);
-
-      // Filter by search term in JS if provided
-      if (input.search && input.search.trim()) {
-        const term = input.search.toLowerCase().trim();
-        return productsList.filter(p => p.name.toLowerCase().includes(term));
-      }
 
       return productsList;
     }),
