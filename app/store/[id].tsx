@@ -210,6 +210,131 @@ export default function StoreDetailScreen() {
   const isWeb = Platform.OS === "web";
   const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
+  // Product detail modal — works from both category view and search results
+  // Defined here (before early returns) so it can be rendered in all views
+  const renderProductModal = () => {
+    if (!selectedProduct) return null;
+    const productImage = getProductImage(selectedProduct);
+    const productCatSchedule = selectedProduct.category?.availabilitySchedule ?? selectedCategory?.availabilitySchedule ?? null;
+    const productCatAvailable = isCategoryAvailable(productCatSchedule);
+    const productCatAvailMsg = getAvailabilityMessage(productCatSchedule);
+    const productCatAgeRestricted = selectedProduct.category?.ageRestricted ?? selectedCategory?.ageRestricted ?? false;
+    const isRestricted = !productCatAvailable;
+    const isOutOfStock = selectedProduct.stockStatus === "out_of_stock";
+    const canAdd = !isRestricted && storeOpen && !isOutOfStock;
+    const quantity = getProductQuantity(selectedProduct.id);
+
+    return (
+      <Modal
+        visible={!!selectedProduct}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedProduct(null)}
+          />
+          <View style={styles.modalContent}>
+            <View style={styles.handleBar} />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              <TouchableOpacity onPress={() => setSelectedProduct(null)} style={styles.closeButton}>
+                <Text style={{ fontSize: 18, color: "#687076", fontWeight: "600" }}>✕</Text>
+              </TouchableOpacity>
+              {productImage ? (
+                <View style={styles.modalImageContainer}>
+                  <Image source={{ uri: productImage }} style={styles.modalImage} contentFit="contain" />
+                </View>
+              ) : (
+                <View style={[styles.modalImageContainer, styles.modalImagePlaceholder]}>
+                  <Text style={{ fontSize: 64 }}>📦</Text>
+                </View>
+              )}
+              <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
+                  {productCatAgeRestricted && (
+                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.modalPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
+                {selectedProduct.isDrs && (
+                  <Text style={{ fontSize: 12, color: "#0EA5E9", fontWeight: "600", marginTop: 4 }}>Price incl. DRS deposit</Text>
+                )}
+                {isOutOfStock && (
+                  <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>Out of Stock</Text>
+                  </View>
+                )}
+                {isRestricted && productCatAvailMsg && (
+                  <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderRadius: 10, marginTop: 12, borderWidth: 1, borderColor: "#FDE68A" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>🕐 {productCatAvailMsg}</Text>
+                  </View>
+                )}
+                {selectedProduct.description ? (
+                  <View style={{ marginTop: 16 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", marginBottom: 6 }}>Description</Text>
+                    <Text style={{ fontSize: 14, color: "#687076", lineHeight: 21 }}>{selectedProduct.description}</Text>
+                  </View>
+                ) : null}
+                {selectedProduct.sku ? (
+                  <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 12 }}>SKU: {selectedProduct.sku}</Text>
+                ) : null}
+                {quantity > 0 && (
+                  <View style={{ backgroundColor: "#DCFCE7", padding: 10, borderRadius: 10, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontSize: 13, color: "#16A34A", fontWeight: "600" }}>✓ {quantity} already in cart</Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+            {canAdd && (
+              <View style={styles.modalBottom}>
+                <View style={styles.quantitySelector}>
+                  <TouchableOpacity
+                    onPress={() => { if (modalQuantity > 1) { setModalQuantity(modalQuantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
+                    style={[styles.quantityButton, modalQuantity <= 1 && { opacity: 0.3 }]}
+                    disabled={modalQuantity <= 1}
+                  >
+                    <Text style={styles.quantityButtonText}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.quantityText}>{modalQuantity}</Text>
+                  <TouchableOpacity
+                    onPress={() => { setModalQuantity(modalQuantity + 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    style={styles.quantityButton}
+                  >
+                    <Text style={styles.quantityButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    handleAddToCart(selectedProduct.id, selectedProduct.name, selectedProduct.price, productCatSchedule, modalQuantity);
+                    setSelectedProduct(null);
+                  }}
+                  style={styles.addToCartButton}
+                >
+                  <Text style={styles.addToCartText}>Add to Cart · €{(parseFloat(selectedProduct.price) * modalQuantity).toFixed(2)}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {!canAdd && (
+              <View style={styles.modalBottom}>
+                <View style={[styles.addToCartButton, { backgroundColor: "#9BA1A6", flex: 1 }]}>
+                  <Text style={styles.addToCartText}>
+                    {isOutOfStock ? "Out of Stock" : !storeOpen ? "Store Closed" : "Not Available Right Now"}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (storeLoading || productsLoading) {
     return (
       <Wrapper>
@@ -515,193 +640,12 @@ export default function StoreDetailScreen() {
             )}
           </View>
         </ScrollView>
+      {/* Product Detail Modal — also rendered in category browsing/search view */}
+      {renderProductModal()}
       </ScreenContainer>
       </Wrapper>
     );
   }
-
-  // Product detail modal
-  const renderProductModal = () => {
-    if (!selectedProduct) return null;
-    const productImage = getProductImage(selectedProduct);
-    const isRestricted = !catAvailable;
-    const isOutOfStock = selectedProduct.stockStatus === "out_of_stock";
-    const canAdd = !isRestricted && storeOpen && !isOutOfStock;
-    const quantity = getProductQuantity(selectedProduct.id);
-
-    return (
-      <Modal
-        visible={!!selectedProduct}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSelectedProduct(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setSelectedProduct(null)}
-          />
-          <View style={styles.modalContent}>
-            {/* Handle bar */}
-            <View style={styles.handleBar} />
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
-            >
-              {/* Close button */}
-              <TouchableOpacity
-                onPress={() => setSelectedProduct(null)}
-                style={styles.closeButton}
-              >
-                <Text style={{ fontSize: 18, color: "#687076", fontWeight: "600" }}>✕</Text>
-              </TouchableOpacity>
-
-              {/* Product Image */}
-              {productImage ? (
-                <View style={styles.modalImageContainer}>
-                  <Image
-                    source={{ uri: productImage }}
-                    style={styles.modalImage}
-                    contentFit="contain"
-                  />
-                </View>
-              ) : (
-                <View style={[styles.modalImageContainer, styles.modalImagePlaceholder]}>
-                  <Text style={{ fontSize: 64 }}>📦</Text>
-                </View>
-              )}
-
-              {/* Product Info */}
-              <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-                {/* Name and badges */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
-                  {selectedCategory?.ageRestricted && (
-                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Price */}
-                <Text style={styles.modalPrice}>
-                  €{parseFloat(selectedProduct.price).toFixed(2)}
-                </Text>
-                {selectedProduct.isDrs && (
-                  <Text style={{ fontSize: 12, color: "#0EA5E9", fontWeight: "600", marginTop: 4 }}>Price incl. DRS deposit</Text>
-                )}
-
-                {/* Stock status */}
-                {isOutOfStock && (
-                  <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 }}>
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>Out of Stock</Text>
-                  </View>
-                )}
-
-                {/* Restricted banner */}
-                {isRestricted && catAvailMsg && (
-                  <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderRadius: 10, marginTop: 12, borderWidth: 1, borderColor: "#FDE68A" }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>
-                      🕐 {catAvailMsg}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Description */}
-                {selectedProduct.description ? (
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", marginBottom: 6 }}>Description</Text>
-                    <Text style={{ fontSize: 14, color: "#687076", lineHeight: 21 }}>
-                      {selectedProduct.description}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {/* SKU */}
-                {selectedProduct.sku ? (
-                  <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 12 }}>
-                    SKU: {selectedProduct.sku}
-                  </Text>
-                ) : null}
-
-                {/* Already in cart indicator */}
-                {quantity > 0 && (
-                  <View style={{ backgroundColor: "#DCFCE7", padding: 10, borderRadius: 10, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={{ fontSize: 13, color: "#16A34A", fontWeight: "600" }}>
-                      ✓ {quantity} already in cart
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-
-            {/* Bottom: Quantity Selector + Add to Cart */}
-            {canAdd && (
-              <View style={styles.modalBottom}>
-                {/* Quantity Selector */}
-                <View style={styles.quantitySelector}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (modalQuantity > 1) {
-                        setModalQuantity(modalQuantity - 1);
-                        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }
-                    }}
-                    style={[styles.quantityButton, modalQuantity <= 1 && { opacity: 0.3 }]}
-                    disabled={modalQuantity <= 1}
-                  >
-                    <Text style={styles.quantityButtonText}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.quantityText}>{modalQuantity}</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setModalQuantity(modalQuantity + 1);
-                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                    style={styles.quantityButton}
-                  >
-                    <Text style={styles.quantityButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Add to Cart Button */}
-                <TouchableOpacity
-                  onPress={() => {
-                    handleAddToCart(
-                      selectedProduct.id,
-                      selectedProduct.name,
-                      selectedProduct.price,
-                      selectedCategory?.availabilitySchedule,
-                      modalQuantity
-                    );
-                    setSelectedProduct(null);
-                  }}
-                  style={styles.addToCartButton}
-                >
-                  <Text style={styles.addToCartText}>
-                    Add to Cart · €{(parseFloat(selectedProduct.price) * modalQuantity).toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Disabled state button */}
-            {!canAdd && (
-              <View style={styles.modalBottom}>
-                <View style={[styles.addToCartButton, { backgroundColor: "#9BA1A6", flex: 1 }]}>
-                  <Text style={styles.addToCartText}>
-                    {isOutOfStock ? "Out of Stock" : !storeOpen ? "Store Closed" : "Not Available Right Now"}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-    );
-  };
 
   // Sort pill component
   const SortPill = ({ label, value }: { label: string; value: SortOption }) => {
