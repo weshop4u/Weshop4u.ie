@@ -1782,3 +1782,12 @@
 - [x] Update placeholder text to "Search products and categories..."
 - [x] Fix: tapping a product from search results now opens the product detail modal with image, price, description, and add-to-cart
 - [x] Fix: large gap between search bar and filter pills/product table on admin products page (for stores like AppleGreen)
+
+## Store Hours Bug — Feb 23 2026
+- [x] Verified: "Open 24/7" toggle is working correctly — isOpen247=true saved in DB, openingHours=null is expected for 24/7 stores
+
+## Duplicate Product Cleanup — Feb 23 2026
+- [x] Find all duplicate products (same name) within each store
+- [x] For each set of duplicates, keep the one with the highest price and delete the rest
+- [x] Run for all stores (Spar, Open All Ours, AppleGreen, Treasure Bowl, etc.)
+- [x] Verify product counts after cleanup
