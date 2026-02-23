@@ -48,6 +48,9 @@ export function WebFooter() {
             <TouchableOpacity onPress={() => router.push("/auth/register")}>
               <Text style={styles.link}>Create Account</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/contact")}>
+              <Text style={styles.link}>Contact Us</Text>
+            </TouchableOpacity>
           </View>
 
           {/* For Businesses */}

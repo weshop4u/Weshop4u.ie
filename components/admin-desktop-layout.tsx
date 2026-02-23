@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { path: "/admin/batch-category-images", label: "Batch Images", icon: "🗂️", exact: false },
   { path: "/admin/driver-management", label: "Drivers", icon: "🚗", exact: false },
   { path: "/admin/create-driver", label: "New Driver", icon: "➕", exact: false },
+  { path: "/admin/messages", label: "Messages", icon: "💬", exact: false },
 ];
 
 /**

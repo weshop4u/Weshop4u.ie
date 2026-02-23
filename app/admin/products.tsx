@@ -1,4 +1,4 @@
-import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, StyleSheet, Platform, useWindowDimensions, ActivityIndicator } from "react-native";
+import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, StyleSheet, Platform, useWindowDimensions, ActivityIndicator, Alert } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
@@ -335,7 +335,25 @@ function ProductsManagementScreenContent() {
     return img || null;
   };
 
-  const handleQuickMarkInStock = async (productId: number, targetStatus: "in_stock" | "out_of_stock" = "in_stock") => {
+  const handleQuickMarkInStock = (productId: number, targetStatus: "in_stock" | "out_of_stock" = "in_stock") => {
+    const label = targetStatus === "in_stock" ? "In Stock" : "Out of Stock";
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(`Mark this product as ${label}?`);
+      if (!confirmed) return;
+      doToggleStock(productId, targetStatus);
+    } else {
+      Alert.alert(
+        "Update Stock Status",
+        `Mark this product as ${label}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Yes", onPress: () => doToggleStock(productId, targetStatus) },
+        ]
+      );
+    }
+  };
+
+  const doToggleStock = async (productId: number, targetStatus: "in_stock" | "out_of_stock") => {
     try {
       await bulkStockMutation.mutateAsync({ productIds: [productId], stockStatus: targetStatus });
       setMessage(targetStatus === "in_stock" ? "Product marked as In Stock!" : "Product marked as Out of Stock!");

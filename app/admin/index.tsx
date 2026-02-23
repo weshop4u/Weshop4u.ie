@@ -197,6 +197,14 @@ function DashboardContent() {
                 <Text style={{ fontSize: 16 }}>🚗</Text>
                 <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Driver Management</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push("/admin/messages" as any)}
+                style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>💬</Text>
+                <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Messages</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -305,8 +313,11 @@ function DashboardContent() {
           <TouchableOpacity onPress={() => router.push("/admin/categories" as any)} className="bg-surface border border-border p-4 rounded-xl active:opacity-70 mb-3">
             <Text className="text-foreground font-semibold text-center text-base">🖼️ Manage Category Images</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/admin/store-logos" as any)} className="bg-surface border border-border p-4 rounded-xl active:opacity-70">
+          <TouchableOpacity onPress={() => router.push("/admin/store-logos" as any)} className="bg-surface border border-border p-4 rounded-xl active:opacity-70 mb-3">
             <Text className="text-foreground font-semibold text-center text-base">🏪 Upload Store Logos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/admin/messages" as any)} className="bg-surface border border-border p-4 rounded-xl active:opacity-70">
+            <Text className="text-foreground font-semibold text-center text-base">💬 Messages</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

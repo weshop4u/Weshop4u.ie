@@ -1818,3 +1818,12 @@
 
 ## Stock Toggle on Product Row — Feb 23 2026
 - [x] Make stock badge clickable to toggle In Stock / Out of Stock directly from product table (desktop + mobile)
+
+## Stock Toggle Confirmation — Feb 23 2026
+- [x] Add confirmation prompt before toggling stock status (prevent accidental taps)
+
+## Contact Form & Admin Messages Inbox — Feb 23 2026
+- [x] Create messages database table (name, email, subject, message, read status, timestamps)
+- [x] Backend: add endpoints for submitting messages and listing/reading/deleting messages
+- [x] Customer side: add contact form page accessible from footer/menu
+- [x] Admin side: add Messages inbox page to view, mark read, and delete messages

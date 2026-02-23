@@ -590,3 +590,25 @@ export const printJobsRelations = relations(printJobs, ({ one }) => ({
     references: [orders.id],
   }),
 }));
+
+
+// ===== CONTACT MESSAGES =====
+export const contactMessages = mysqlTable(
+  "contact_messages",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    name: varchar("name", { length: 255 }).notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    subject: varchar("subject", { length: 500 }).notNull(),
+    message: text("message").notNull(),
+    isRead: boolean("is_read").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    isReadIdx: index("cm_is_read_idx").on(table.isRead),
+    createdAtIdx: index("cm_created_at_idx").on(table.createdAt),
+  })
+);
+
+export type ContactMessage = typeof contactMessages.$inferSelect;
+export type InsertContactMessage = typeof contactMessages.$inferInsert;
