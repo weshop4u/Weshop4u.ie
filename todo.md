@@ -1805,3 +1805,8 @@
 ## Add Product Modal Category Fix — Feb 23 2026
 - [x] Fix: category selector in Add Product modal is hidden/cut off, only half categories visible
 - [x] Add searchable category list with full scrollable height in Add Product modal
+
+## Out of Stock Filter — Feb 23 2026
+- [x] Add "Out of Stock" filter pill on admin Manage Products page
+- [x] Backend: return out-of-stock count in product counts
+- [x] Allow quick toggle back to "In Stock" from the filtered view (user can click Edit on any out-of-stock product to change status)

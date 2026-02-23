@@ -85,7 +85,7 @@ export const storesRouter = router({
       storeId: z.number(),
       search: z.string().optional(),
       categoryId: z.number().optional(),
-      filter: z.enum(["all", "no_desc", "no_image", "drs"]).optional(),
+      filter: z.enum(["all", "no_desc", "no_image", "drs", "out_of_stock"]).optional(),
       limit: z.number().optional().default(100),
       offset: z.number().optional().default(0),
     }))
@@ -118,6 +118,8 @@ export const storesRouter = router({
         conditions.push(sql`(${products.images} IS NULL OR ${products.images} = '' OR ${products.images} = '[]')`);
       } else if (input.filter === "drs") {
         conditions.push(eq(products.isDrs, true));
+      } else if (input.filter === "out_of_stock") {
+        conditions.push(eq(products.stockStatus, "out_of_stock"));
       }
 
       // Get total count for this query
@@ -187,6 +189,10 @@ export const storesRouter = router({
         .select({ drsCount: count() })
         .from(products)
         .where(and(...baseConditions, eq(products.isDrs, true)));
+      const [{ outOfStockCount }] = await db
+        .select({ outOfStockCount: count() })
+        .from(products)
+        .where(and(...baseConditions, eq(products.stockStatus, "out_of_stock")));
 
       // Parse images JSON string to array for client
       const items = productsList.map(p => ({
@@ -198,7 +204,7 @@ export const storesRouter = router({
         items,
         total,
         categories: categorySummary.map(c => ({ id: c.categoryId, name: c.categoryName || "Uncategorized", count: c.count })),
-        counts: { noDesc: noDescCount, noImage: noImageCount, drs: drsCount },
+        counts: { noDesc: noDescCount, noImage: noImageCount, drs: drsCount, outOfStock: outOfStockCount },
       };
     }),
 

@@ -35,7 +35,7 @@ function ProductsManagementScreenContent() {
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<"all" | "no_desc" | "no_image" | "drs">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "no_desc" | "no_image" | "drs" | "out_of_stock">("all");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
   const [showBulkDrs, setShowBulkDrs] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
@@ -114,6 +114,7 @@ function ProductsManagementScreenContent() {
   const missingDescCount = productsData?.counts?.noDesc || 0;
   const missingImageCount = productsData?.counts?.noImage || 0;
   const drsCount = productsData?.counts?.drs || 0;
+  const outOfStockCount = productsData?.counts?.outOfStock || 0;
 
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
 
@@ -544,6 +545,16 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Out of Stock filter */}
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "out_of_stock" ? "all" : "out_of_stock")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.surface, borderColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "out_of_stock" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    Out of Stock ({outOfStockCount})
+                  </Text>
+                </TouchableOpacity>
+
                 {/* Category filters */}
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryFilter("all")}
@@ -709,6 +720,12 @@ function ProductsManagementScreenContent() {
                   style={[itemStyles.filterPill, { backgroundColor: activeFilter === "drs" ? "#0EA5E9" : colors.surface, borderColor: activeFilter === "drs" ? "#0EA5E9" : colors.border }]}
                 >
                   <Text style={{ color: activeFilter === "drs" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>DRS ({drsCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "out_of_stock" ? "all" : "out_of_stock")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.surface, borderColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "out_of_stock" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>Out of Stock ({outOfStockCount})</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryFilter("all")}
