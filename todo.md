@@ -1815,3 +1815,6 @@
 - [x] Add quick "Mark In Stock" button on each product card when Out of Stock filter is active
 - [x] Add bulk select/update: select multiple out-of-stock products and mark all as "In Stock" at once
 - [x] Backend: add bulk stock status update endpoint
+
+## Stock Toggle on Product Row — Feb 23 2026
+- [x] Make stock badge clickable to toggle In Stock / Out of Stock directly from product table (desktop + mobile)

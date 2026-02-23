@@ -335,10 +335,10 @@ function ProductsManagementScreenContent() {
     return img || null;
   };
 
-  const handleQuickMarkInStock = async (productId: number) => {
+  const handleQuickMarkInStock = async (productId: number, targetStatus: "in_stock" | "out_of_stock" = "in_stock") => {
     try {
-      await bulkStockMutation.mutateAsync({ productIds: [productId], stockStatus: "in_stock" });
-      setMessage("Product marked as In Stock!");
+      await bulkStockMutation.mutateAsync({ productIds: [productId], stockStatus: targetStatus });
+      setMessage(targetStatus === "in_stock" ? "Product marked as In Stock!" : "Product marked as Out of Stock!");
       setMessageType("success");
       refetch();
     } catch (err) {
@@ -403,9 +403,12 @@ function ProductsManagementScreenContent() {
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
               <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>€{product.price}</Text>
-              <View style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <Text style={{ color: stockBadge.color, fontSize: 10, fontWeight: "700" }}>{stockBadge.label}</Text>
-              </View>
+              <TouchableOpacity
+                onPress={() => handleQuickMarkInStock(product.id, product.stockStatus === "out_of_stock" ? "in_stock" : "out_of_stock")}
+                style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: stockBadge.color + "40" }}
+              >
+                <Text style={{ color: stockBadge.color, fontSize: 10, fontWeight: "700" }}>{stockBadge.label} ↻</Text>
+              </TouchableOpacity>
               {product.sku && (
                 <Text style={{ color: colors.muted, fontSize: 10 }}>SKU: {product.sku}</Text>
               )}
@@ -725,9 +728,12 @@ function ProductsManagementScreenContent() {
                     </View>
                     <Text style={[tableStyles.cell, { width: 100, color: colors.primary, fontWeight: "700", fontSize: 14 }]}>€{product.price}</Text>
                     <View style={[tableStyles.cell, { width: 100 }]}>
-                      <View style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: "flex-start" }}>
-                        <Text style={{ color: stockBadge.color, fontSize: 11, fontWeight: "700" }}>{stockBadge.label}</Text>
-                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleQuickMarkInStock(product.id, product.stockStatus === "out_of_stock" ? "in_stock" : "out_of_stock")}
+                        style={{ backgroundColor: stockBadge.color + "20", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: "flex-start", borderWidth: 1, borderColor: stockBadge.color + "40" }}
+                      >
+                        <Text style={{ color: stockBadge.color, fontSize: 11, fontWeight: "700" }}>{stockBadge.label} ↻</Text>
+                      </TouchableOpacity>
                     </View>
                     <Text style={[tableStyles.cell, { flex: 1, minWidth: 120, color: colors.muted, fontSize: 12 }]} numberOfLines={1}>{product.category?.name || "—"}</Text>
                     <Text style={[tableStyles.cell, { width: 70, color: colors.muted, fontSize: 11 }]} numberOfLines={1}>{product.sku || "—"}</Text>
