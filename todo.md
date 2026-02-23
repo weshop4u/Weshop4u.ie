@@ -1775,3 +1775,8 @@
 - [x] Show "Current Store" label at top of edit product modal
 - [x] Add "Duplicate to Store" button in edit product modal (copy product + image to selected store)
 - [x] Fix category selector — changed to searchable wrapping grid with current category display and clear option
+
+## Customer Store Page Search — Feb 23 2026
+- [x] Change "Search categories..." to search both categories AND products
+- [x] Show matching products inline when customer types a product name (e.g. "Pepsi")
+- [x] Update placeholder text to "Search products and categories..."

@@ -21,6 +21,7 @@ export default function StoreDetailScreen() {
   );
   const [categorySearch, setCategorySearch] = useState("");
   const [productSearch, setProductSearch] = useState(productSearchParam || "");
+  const [globalSearch, setGlobalSearch] = useState("");
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -112,12 +113,38 @@ export default function StoreDetailScreen() {
 
   // Filter categories based on search query
   const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return categories;
-    const query = categorySearch.toLowerCase().trim();
+    const searchTerm = globalSearch.trim() || categorySearch.trim();
+    if (!searchTerm) return categories;
+    const query = searchTerm.toLowerCase();
     return categories.filter((category) =>
       category.name.toLowerCase().includes(query)
     );
-  }, [categories, categorySearch]);
+  }, [categories, categorySearch, globalSearch]);
+
+  // Search products across all categories (for global search)
+  const globalSearchResults = useMemo(() => {
+    if (!globalSearch.trim()) return [];
+    const query = globalSearch.toLowerCase().trim();
+    const results: Array<{ product: any; categoryName: string; categoryId: number; categorySchedule: string | null }> = [];
+    for (const cat of categories) {
+      for (const product of cat.products) {
+        if (
+          product.name.toLowerCase().includes(query) ||
+          (product.description?.toLowerCase().includes(query) || false)
+        ) {
+          results.push({
+            product,
+            categoryName: cat.name,
+            categoryId: cat.id,
+            categorySchedule: cat.availabilitySchedule,
+          });
+        }
+      }
+    }
+    // Sort by name
+    results.sort((a, b) => a.product.name.localeCompare(b.product.name));
+    return results.slice(0, 50); // Limit to 50 results
+  }, [categories, globalSearch]);
 
   // These hooks MUST be before any conditional returns to avoid hooks ordering errors
   const selectedCategory = selectedCategoryId !== null ? categoriesWithProducts[selectedCategoryId] : null;
@@ -317,22 +344,103 @@ export default function StoreDetailScreen() {
             </View>
           )}
 
-          {/* Category Search Bar */}
+          {/* Search Bar — categories + products */}
           <View className="px-4 mb-4">
             <TextInput
               className="bg-surface border border-border rounded-xl p-4 text-foreground"
-              placeholder="Search categories..."
+              placeholder="Search products and categories..."
               placeholderTextColor="#9BA1A6"
-              value={categorySearch}
-              onChangeText={setCategorySearch}
+              value={globalSearch}
+              onChangeText={(text) => {
+                setGlobalSearch(text);
+                setCategorySearch("");
+              }}
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="search"
             />
           </View>
 
+          {/* Product Search Results */}
+          {globalSearch.trim().length > 0 && globalSearchResults.length > 0 && (
+            <View className="px-4 mb-4">
+              <Text className="text-lg font-bold text-foreground mb-3">
+                Products ({globalSearchResults.length}{globalSearchResults.length >= 50 ? "+" : ""})
+              </Text>
+              <View className="gap-2">
+                {globalSearchResults.map(({ product, categoryName, categorySchedule }) => {
+                  const productImage = getProductImage(product);
+                  const qty = getProductQuantity(product.id);
+                  const catOk = isCategoryAvailable(categorySchedule);
+                  return (
+                    <TouchableOpacity
+                      key={product.id}
+                      onPress={() => openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } })}
+                      className="bg-surface rounded-xl border border-border active:opacity-70"
+                      style={{ flexDirection: "row", alignItems: "center", padding: 12, gap: 12, opacity: catOk ? 1 : 0.5 }}
+                    >
+                      {/* Product Image */}
+                      <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
+                        {productImage ? (
+                          <Image source={{ uri: productImage }} style={{ width: 52, height: 52 }} contentFit="cover" />
+                        ) : (
+                          <View style={{ width: 52, height: 52, justifyContent: "center", alignItems: "center" }}>
+                            <Text style={{ fontSize: 22 }}>📦</Text>
+                          </View>
+                        )}
+                      </View>
+                      {/* Product Info */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1}>{product.name}</Text>
+                        <Text style={{ fontSize: 11, color: "#9BA1A6", marginTop: 1 }} numberOfLines={1}>{categoryName}</Text>
+                      </View>
+                      {/* Price + Add */}
+                      <View style={{ alignItems: "flex-end", gap: 4 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(product.price).toFixed(2)}</Text>
+                        {qty > 0 ? (
+                          <View style={{ backgroundColor: "#00E5FF", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{qty} in cart</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              handleAddToCart(product.id, product.name, product.price, categorySchedule);
+                            }}
+                            style={{ backgroundColor: "#00E5FF", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 }}
+                          >
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>+ Add</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* No results message */}
+          {globalSearch.trim().length > 0 && globalSearchResults.length === 0 && filteredCategories.length === 0 && (
+            <View className="px-4 mb-4 items-center py-8">
+              <Text style={{ fontSize: 40, marginBottom: 8 }}>🔍</Text>
+              <Text className="text-muted text-center" style={{ fontSize: 15 }}>
+                No products or categories match "{globalSearch}"
+              </Text>
+              <TouchableOpacity
+                onPress={() => setGlobalSearch("")}
+                className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
+              >
+                <Text className="text-background font-semibold">Clear Search</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Categories */}
           <View className="px-4">
-            <Text className="text-xl font-bold text-foreground mb-4">Browse by Category</Text>
+            <Text className="text-xl font-bold text-foreground mb-4">
+              {globalSearch.trim() && filteredCategories.length > 0 ? "Matching Categories" : "Browse by Category"}
+            </Text>
             
             {filteredCategories.length > 0 ? (
               <View className="gap-3">
@@ -399,19 +507,11 @@ export default function StoreDetailScreen() {
                 })}
               </View>
             ) : (
-              <View className="items-center py-8">
-                <Text className="text-muted text-center">
-                  {categorySearch ? "No categories match your search" : "No products available"}
-                </Text>
-                {categorySearch && (
-                  <TouchableOpacity
-                    onPress={() => setCategorySearch("")}
-                    className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
-                  >
-                    <Text className="text-background font-semibold">Clear Search</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              !globalSearch.trim() ? (
+                <View className="items-center py-8">
+                  <Text className="text-muted text-center">No products available</Text>
+                </View>
+              ) : null
             )}
           </View>
         </ScrollView>
