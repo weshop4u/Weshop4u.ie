@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Platform, StyleSheet, ScrollView, useWind
 import { Image } from "expo-image";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
+import { trpc } from "@/lib/trpc";
 
 interface AdminDesktopLayoutProps {
   children: React.ReactNode;
@@ -20,7 +21,7 @@ const NAV_ITEMS = [
   { path: "/admin/batch-category-images", label: "Batch Images", icon: "🗂️", exact: false },
   { path: "/admin/driver-management", label: "Drivers", icon: "🚗", exact: false },
   { path: "/admin/create-driver", label: "New Driver", icon: "➕", exact: false },
-  { path: "/admin/messages", label: "Messages", icon: "💬", exact: false },
+  { path: "/admin/messages", label: "Messages", icon: "💬", exact: false, hasBadge: true },
 ];
 
 /**
@@ -33,6 +34,13 @@ export function AdminDesktopLayout({ children, title }: AdminDesktopLayoutProps)
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
+
+  // Fetch unread message count for badge (only for admin users)
+  const { data: unreadData } = trpc.messages.unreadCount.useQuery(undefined, {
+    refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!user && user.role === "admin",
+  });
+  const unreadCount = unreadData?.count ?? 0;
 
   // Only show desktop layout on web with sufficient width
   if (Platform.OS !== "web" || width < 900) {
@@ -77,6 +85,11 @@ export function AdminDesktopLayout({ children, title }: AdminDesktopLayoutProps)
               >
                 <Text style={styles.navIcon}>{item.icon}</Text>
                 <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+                {item.hasBadge && unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -206,10 +219,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#94A3B8",
+    flex: 1,
   },
   navLabelActive: {
     color: "#00E5FF",
     fontWeight: "600",
+  },
+  badge: {
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   // Sidebar footer
   sidebarFooter: {

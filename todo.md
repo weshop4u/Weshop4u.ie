@@ -1827,3 +1827,8 @@
 - [x] Backend: add endpoints for submitting messages and listing/reading/deleting messages
 - [x] Customer side: add contact form page accessible from footer/menu
 - [x] Admin side: add Messages inbox page to view, mark read, and delete messages
+
+## Unread Badge & Email Notifications — Feb 23 2026
+- [x] Add unread message count badge on admin sidebar Messages link
+- [x] Add unread message count badge on admin dashboard Messages button (desktop + mobile)
+- [ ] Add email notification to admin when new contact message is submitted (DEFERRED — Gmail App Passwords not available, code is ready in server/email.ts, just needs SMTP credentials)

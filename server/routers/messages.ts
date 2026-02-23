@@ -3,6 +3,7 @@ import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { contactMessages } from "../../drizzle/schema";
 import { eq, desc, sql } from "drizzle-orm";
+import { sendNewMessageNotification } from "../email";
 
 export const messagesRouter = router({
   // Public: anyone can submit a contact message
@@ -25,6 +26,14 @@ export const messagesRouter = router({
         subject: input.subject,
         message: input.message,
       });
+
+      // Send email notification to admin (non-blocking)
+      sendNewMessageNotification({
+        name: input.name,
+        email: input.email,
+        subject: input.subject,
+        message: input.message,
+      }).catch(() => {}); // Fire and forget — don't block the response
 
       return { success: true };
     }),
@@ -102,6 +111,22 @@ export const messagesRouter = router({
         .where(eq(contactMessages.id, input.id));
 
       return { success: true };
+    }),
+
+  // Admin: get unread count (lightweight, for badge)
+  unreadCount: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") return { count: 0 };
+
+      const db = await getDb();
+      if (!db) return { count: 0 };
+
+      const [result] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(contactMessages)
+        .where(eq(contactMessages.isRead, false));
+
+      return { count: result?.count || 0 };
     }),
 
   // Admin: delete a message

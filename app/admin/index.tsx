@@ -50,6 +50,12 @@ function DashboardContent() {
     refetchInterval: 30000,
   });
 
+  // Unread messages count for badge
+  const { data: unreadData } = trpc.messages.unreadCount.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const unreadCount = unreadData?.count ?? 0;
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -204,6 +210,11 @@ function DashboardContent() {
               >
                 <Text style={{ fontSize: 16 }}>💬</Text>
                 <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Messages</Text>
+                {unreadCount > 0 && (
+                  <View style={{ backgroundColor: "#EF4444", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -317,7 +328,14 @@ function DashboardContent() {
             <Text className="text-foreground font-semibold text-center text-base">🏪 Upload Store Logos</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/admin/messages" as any)} className="bg-surface border border-border p-4 rounded-xl active:opacity-70">
-            <Text className="text-foreground font-semibold text-center text-base">💬 Messages</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Text className="text-foreground font-semibold text-center text-base">💬 Messages</Text>
+              {unreadCount > 0 && (
+                <View style={{ backgroundColor: "#EF4444", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
+                  <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
