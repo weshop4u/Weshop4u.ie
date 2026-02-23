@@ -39,6 +39,7 @@ function ProductsManagementScreenContent() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
   const [showBulkDrs, setShowBulkDrs] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
+  const [selectedStockIds, setSelectedStockIds] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [page, setPage] = useState(0);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -90,6 +91,7 @@ function ProductsManagementScreenContent() {
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
+  const bulkStockMutation = trpc.stores.bulkUpdateStock.useMutation();
   const uploadImageMutation = trpc.stores.uploadProductImage.useMutation();
   const addProductMutation = trpc.stores.addProduct.useMutation();
   const duplicateProductMutation = trpc.stores.duplicateProduct.useMutation();
@@ -333,6 +335,32 @@ function ProductsManagementScreenContent() {
     return img || null;
   };
 
+  const handleQuickMarkInStock = async (productId: number) => {
+    try {
+      await bulkStockMutation.mutateAsync({ productIds: [productId], stockStatus: "in_stock" });
+      setMessage("Product marked as In Stock!");
+      setMessageType("success");
+      refetch();
+    } catch (err) {
+      setMessage("Failed to update stock status");
+      setMessageType("error");
+    }
+  };
+
+  const handleBulkMarkInStock = async () => {
+    if (selectedStockIds.size === 0) return;
+    try {
+      await bulkStockMutation.mutateAsync({ productIds: Array.from(selectedStockIds), stockStatus: "in_stock" });
+      setMessage(`${selectedStockIds.size} products marked as In Stock!`);
+      setMessageType("success");
+      setSelectedStockIds(new Set());
+      refetch();
+    } catch (err) {
+      setMessage("Failed to update stock status");
+      setMessageType("error");
+    }
+  };
+
   const renderProductItem = ({ item: product }: { item: any }) => {
     const hasDesc = product.description && product.description.trim() !== "";
     const stockBadge = getStockBadge(product.stockStatus);
@@ -395,6 +423,27 @@ function ProductsManagementScreenContent() {
           </View>
         </View>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+          {activeFilter === "out_of_stock" && (
+            <TouchableOpacity
+              onPress={() => {
+                const newSet = new Set(selectedStockIds);
+                if (newSet.has(product.id)) newSet.delete(product.id);
+                else newSet.add(product.id);
+                setSelectedStockIds(newSet);
+              }}
+              style={[itemStyles.actionBtn, { backgroundColor: selectedStockIds.has(product.id) ? "#22C55E20" : colors.surface, borderWidth: 1, borderColor: selectedStockIds.has(product.id) ? "#22C55E" : colors.border }]}
+            >
+              <Text style={{ color: selectedStockIds.has(product.id) ? "#22C55E" : colors.foreground, textAlign: "center", fontWeight: "600", fontSize: 13 }}>{selectedStockIds.has(product.id) ? "✓ Selected" : "Select"}</Text>
+            </TouchableOpacity>
+          )}
+          {activeFilter === "out_of_stock" && (
+            <TouchableOpacity
+              onPress={() => handleQuickMarkInStock(product.id)}
+              style={[itemStyles.actionBtn, { backgroundColor: "#22C55E" }]}
+            >
+              <Text style={{ color: "#fff", textAlign: "center", fontWeight: "600", fontSize: 13 }}>Mark In Stock</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => handleEdit(product)}
             style={[itemStyles.actionBtn, { backgroundColor: colors.primary + "15" }]}
@@ -583,6 +632,33 @@ function ProductsManagementScreenContent() {
                 </TouchableOpacity>
               </View>
 
+              {/* Bulk Mark In Stock bar - shown when Out of Stock filter is active */}
+              {activeFilter === "out_of_stock" && !productsLoading && products.length > 0 && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 14, backgroundColor: "#22C55E10", borderWidth: 1, borderColor: "#22C55E", borderRadius: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedStockIds.size === products.length) {
+                          setSelectedStockIds(new Set());
+                        } else {
+                          setSelectedStockIds(new Set(products.map((p: any) => p.id)));
+                        }
+                      }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: selectedStockIds.size === products.length ? "#22C55E" : colors.surface, borderRadius: 6, borderWidth: 1, borderColor: "#22C55E" }}
+                    >
+                      <Text style={{ color: selectedStockIds.size === products.length ? "#fff" : "#22C55E", fontSize: 12, fontWeight: "700" }}>{selectedStockIds.size === products.length ? "Deselect All" : "Select All"}</Text>
+                    </TouchableOpacity>
+                    <Text style={{ color: "#22C55E", fontSize: 13, fontWeight: "600", flex: 1 }}>{selectedStockIds.size} selected</Text>
+                    <TouchableOpacity
+                      onPress={handleBulkMarkInStock}
+                      style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: selectedStockIds.size > 0 ? "#22C55E" : colors.border, borderRadius: 8 }}
+                    >
+                      <Text style={{ color: selectedStockIds.size > 0 ? "#fff" : colors.muted, fontSize: 13, fontWeight: "700" }}>{bulkStockMutation.isPending ? "Updating..." : `Mark ${selectedStockIds.size} In Stock`}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {/* Loading */}
               {productsLoading && (
                 <View style={{ alignItems: "center", paddingVertical: 40 }}>
@@ -664,7 +740,28 @@ function ProductsManagementScreenContent() {
                         <Text style={{ color: colors.border, fontSize: 11 }}>—</Text>
                       )}
                     </View>
-                    <View style={[tableStyles.cell, { width: 140, flexDirection: "row", gap: 6 }]}>
+                    <View style={[tableStyles.cell, { width: activeFilter === "out_of_stock" ? 260 : 140, flexDirection: "row", gap: 6 }]}>
+                      {activeFilter === "out_of_stock" && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newSet = new Set(selectedStockIds);
+                            if (newSet.has(product.id)) newSet.delete(product.id);
+                            else newSet.add(product.id);
+                            setSelectedStockIds(newSet);
+                          }}
+                          style={{ width: 28, height: 28, borderRadius: 6, borderWidth: 2, borderColor: selectedStockIds.has(product.id) ? "#22C55E" : colors.muted, backgroundColor: selectedStockIds.has(product.id) ? "#22C55E" : "transparent", justifyContent: "center", alignItems: "center" }}
+                        >
+                          {selectedStockIds.has(product.id) && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                        </TouchableOpacity>
+                      )}
+                      {activeFilter === "out_of_stock" && (
+                        <TouchableOpacity
+                          onPress={() => handleQuickMarkInStock(product.id)}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "#22C55E", borderRadius: 6 }}
+                        >
+                          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 11 }}>In Stock</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         onPress={() => handleEdit(product)}
                         style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.primary + "15", borderRadius: 6 }}
@@ -753,6 +850,33 @@ function ProductsManagementScreenContent() {
                   <Text style={{ color: "#0EA5E9", fontSize: 13, fontWeight: "700" }}>Bulk DRS Flag — Auto-Detect Drinks</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Bulk Mark In Stock bar - mobile */}
+              {activeFilter === "out_of_stock" && !productsLoading && products.length > 0 && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: "#22C55E10", borderWidth: 1, borderColor: "#22C55E", borderRadius: 10, flexWrap: "wrap" }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (selectedStockIds.size === products.length) {
+                          setSelectedStockIds(new Set());
+                        } else {
+                          setSelectedStockIds(new Set(products.map((p: any) => p.id)));
+                        }
+                      }}
+                      style={{ paddingHorizontal: 10, paddingVertical: 5, backgroundColor: selectedStockIds.size === products.length ? "#22C55E" : colors.surface, borderRadius: 6, borderWidth: 1, borderColor: "#22C55E" }}
+                    >
+                      <Text style={{ color: selectedStockIds.size === products.length ? "#fff" : "#22C55E", fontSize: 11, fontWeight: "700" }}>{selectedStockIds.size === products.length ? "Deselect All" : "Select All"}</Text>
+                    </TouchableOpacity>
+                    <Text style={{ color: "#22C55E", fontSize: 12, fontWeight: "600", flex: 1 }}>{selectedStockIds.size} selected</Text>
+                    <TouchableOpacity
+                      onPress={handleBulkMarkInStock}
+                      style={{ paddingHorizontal: 14, paddingVertical: 6, backgroundColor: selectedStockIds.size > 0 ? "#22C55E" : colors.border, borderRadius: 8 }}
+                    >
+                      <Text style={{ color: selectedStockIds.size > 0 ? "#fff" : colors.muted, fontSize: 12, fontWeight: "700" }}>{bulkStockMutation.isPending ? "Updating..." : `Mark ${selectedStockIds.size} In Stock`}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {/* Loading */}
               {productsLoading && (

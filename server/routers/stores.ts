@@ -411,6 +411,25 @@ export const storesRouter = router({
       return { success: true, updatedCount: input.productIds.length };
     }),
 
+  // Bulk update stock status on multiple products
+  bulkUpdateStock: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      await db.update(products)
+        .set({ stockStatus: input.stockStatus })
+        .where(inArray(products.id, input.productIds));
+
+      return { success: true, updatedCount: input.productIds.length };
+    }),
+
   // Suggest products that likely need DRS flag based on keywords in drink categories
   suggestDrs: publicProcedure
     .input(z.object({ storeId: z.number() }))

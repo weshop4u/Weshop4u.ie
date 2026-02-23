@@ -1810,3 +1810,8 @@
 - [x] Add "Out of Stock" filter pill on admin Manage Products page
 - [x] Backend: return out-of-stock count in product counts
 - [x] Allow quick toggle back to "In Stock" from the filtered view (user can click Edit on any out-of-stock product to change status)
+
+## Quick Stock Management — Feb 23 2026
+- [x] Add quick "Mark In Stock" button on each product card when Out of Stock filter is active
+- [x] Add bulk select/update: select multiple out-of-stock products and mark all as "In Stock" at once
+- [x] Backend: add bulk stock status update endpoint
