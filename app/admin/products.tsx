@@ -57,6 +57,7 @@ function ProductsManagementScreenContent() {
   });
   const [addImageBase64, setAddImageBase64] = useState<string | null>(null);
   const [addImageUri, setAddImageUri] = useState<string | null>(null);
+  const [addCategorySearch, setAddCategorySearch] = useState("");
 
   // Debounce search
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -299,6 +300,7 @@ function ProductsManagementScreenContent() {
     });
     setAddImageBase64(null);
     setAddImageUri(null);
+    setAddCategorySearch("");
   };
 
   const confirmDelete = async () => {
@@ -1243,29 +1245,57 @@ function ProductsManagementScreenContent() {
               {/* Category */}
               <View>
                 <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                  {storeCategories.map((cat: any) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id })}
-                      style={[
-                        editStyles.stockPill,
-                        {
-                          backgroundColor: addForm.categoryId === cat.id ? colors.primary : colors.surface,
-                          borderColor: addForm.categoryId === cat.id ? colors.primary : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: addForm.categoryId === cat.id ? "#fff" : colors.foreground,
-                          fontSize: 12,
-                          fontWeight: "600",
-                        }}
-                        numberOfLines={1}
-                      >{cat.name}</Text>
+                {addForm.categoryId && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+                        {storeCategories.find((c: any) => c.id === addForm.categoryId)?.name || categories?.find((c: any) => c.id === addForm.categoryId)?.name || "Unknown"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setAddForm({ ...addForm, categoryId: null })}>
+                      <Text style={{ color: colors.error, fontSize: 12 }}>✕ Clear</Text>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                )}
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, marginBottom: 8 }]}
+                  value={addCategorySearch}
+                  onChangeText={setAddCategorySearch}
+                  placeholder="Search categories..."
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                />
+                <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {(addCategorySearch.trim()
+                      ? storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim()))
+                      : storeCategories
+                    ).map((cat: any) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => { setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id }); setAddCategorySearch(""); }}
+                        style={[
+                          editStyles.stockPill,
+                          {
+                            backgroundColor: addForm.categoryId === cat.id ? colors.primary : colors.surface,
+                            borderColor: addForm.categoryId === cat.id ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: addForm.categoryId === cat.id ? "#fff" : colors.foreground,
+                            fontSize: 12,
+                            fontWeight: "600",
+                          }}
+                          numberOfLines={1}
+                        >{cat.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {addCategorySearch.trim() && storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim())).length === 0 && (
+                      <Text style={{ color: colors.muted, fontSize: 12, padding: 8 }}>No categories match "{addCategorySearch}"</Text>
+                    )}
+                  </View>
                 </ScrollView>
               </View>
 

@@ -1801,3 +1801,7 @@
 - [x] Admin products page: make category pills wrap on desktop (flexWrap) instead of being cut off
 - [x] Customer store page: default category sort to popular (most products first)
 - [x] Customer store page: add A-Z and Z-A sort toggle for categories
+
+## Add Product Modal Category Fix — Feb 23 2026
+- [x] Fix: category selector in Add Product modal is hidden/cut off, only half categories visible
+- [x] Add searchable category list with full scrollable height in Add Product modal
