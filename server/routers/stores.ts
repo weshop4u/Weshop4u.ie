@@ -585,4 +585,49 @@ export const storesRouter = router({
 
       return { ids: createdIds, success: true, count: createdIds.length };
     }),
+
+  duplicateProduct: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      targetStoreIds: z.array(z.number()).min(1),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Fetch the source product
+      const [source] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, input.productId))
+        .limit(1);
+
+      if (!source) throw new Error("Product not found");
+
+      const createdIds: number[] = [];
+
+      for (const storeId of input.targetStoreIds) {
+        // Skip if same store as source
+        if (storeId === source.storeId) continue;
+
+        const result = await db.insert(products).values({
+          storeId,
+          name: source.name,
+          description: source.description,
+          price: source.price,
+          categoryId: source.categoryId,
+          stockStatus: source.stockStatus || "in_stock",
+          isActive: source.isActive ?? true,
+          images: source.images,
+          isDrs: source.isDrs ?? false,
+          sku: source.sku,
+          barcode: source.barcode,
+          quantity: source.quantity,
+        });
+
+        createdIds.push(Number(result[0].insertId));
+      }
+
+      return { ids: createdIds, success: true, count: createdIds.length };
+    }),
 });

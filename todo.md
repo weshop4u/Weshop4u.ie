@@ -1770,3 +1770,8 @@
 - [x] Phone Order: search not finding products — fixed with server-side SQL LIKE search, debounce, increased limit to 200
 - [x] Products page: search now server-side with SQL LIKE, pagination (100 per page)
 - [x] Products page: category pills, filters, and table now load for all stores — server-side pagination, categories, and counts
+
+## Product Edit Modal Improvements — Feb 23 2026
+- [x] Show "Current Store" label at top of edit product modal
+- [x] Add "Duplicate to Store" button in edit product modal (copy product + image to selected store)
+- [x] Fix category selector — changed to searchable wrapping grid with current category display and clear option

@@ -41,6 +41,9 @@ function ProductsManagementScreenContent() {
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [page, setPage] = useState(0);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateTargetStoreIds, setDuplicateTargetStoreIds] = useState<number[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
 
   // Add product form state
   const [addForm, setAddForm] = useState({
@@ -88,6 +91,7 @@ function ProductsManagementScreenContent() {
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
   const uploadImageMutation = trpc.stores.uploadProductImage.useMutation();
   const addProductMutation = trpc.stores.addProduct.useMutation();
+  const duplicateProductMutation = trpc.stores.duplicateProduct.useMutation();
   const { data: drsSuggestions, refetch: refetchSuggestions } = trpc.stores.suggestDrs.useQuery(
     { storeId: selectedStore! },
     { enabled: !!selectedStore && showBulkDrs }
@@ -111,6 +115,46 @@ function ProductsManagementScreenContent() {
   const drsCount = productsData?.counts?.drs || 0;
 
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
+
+  // Filtered categories for edit modal search
+  const filteredCategories = useMemo(() => {
+    const allCats = categories || [];
+    if (!categorySearch.trim()) return allCats;
+    const q = categorySearch.toLowerCase();
+    return allCats.filter((c: any) => c.name?.toLowerCase().includes(q));
+  }, [categories, categorySearch]);
+
+  // Get current store name for edit modal
+  const currentStoreName = useMemo(() => {
+    if (!editingProduct?.storeId) return stores?.find(s => s.id === selectedStore)?.name || "";
+    return stores?.find(s => s.id === editingProduct.storeId)?.name || "";
+  }, [editingProduct, stores, selectedStore]);
+
+  // Other stores for duplication (exclude current)
+  const otherStores = useMemo(() => {
+    const currentStoreId = editingProduct?.storeId || selectedStore;
+    return activeStores.filter(s => s.id !== currentStoreId);
+  }, [activeStores, editingProduct, selectedStore]);
+
+  const handleDuplicate = async () => {
+    if (!editingProduct || duplicateTargetStoreIds.length === 0 || isSaving) return;
+    setIsSaving(true);
+    try {
+      const result = await duplicateProductMutation.mutateAsync({
+        productId: editingProduct.id,
+        targetStoreIds: duplicateTargetStoreIds,
+      });
+      setMessage(`Product duplicated to ${result.count} store${result.count > 1 ? "s" : ""}!`);
+      setMessageType("success");
+      setShowDuplicateModal(false);
+      setDuplicateTargetStoreIds([]);
+    } catch (error: any) {
+      setMessage(error.message || "Failed to duplicate product");
+      setMessageType("error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleEdit = (product: any) => {
     setEditingProduct({
@@ -677,10 +721,22 @@ function ProductsManagementScreenContent() {
       <Modal visible={showEditModal} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, maxHeight: "92%" }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Edit Product</Text>
-              <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); setPendingImageUri(null); }}>
+              <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingProduct(null); setPendingImageBase64(null); setPendingImageUri(null); setCategorySearch(""); }}>
                 <Text style={{ fontSize: 28, color: colors.muted }}>×</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Current Store Label */}
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
+              <View style={{ backgroundColor: colors.primary + "20", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>📍 {currentStoreName}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => { setDuplicateTargetStoreIds([]); setShowDuplicateModal(true); }}
+                style={{ backgroundColor: "#8B5CF620", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <Text style={{ color: "#8B5CF6", fontSize: 12, fontWeight: "700" }}>📋 Duplicate to Store</Text>
               </TouchableOpacity>
             </View>
 
@@ -808,32 +864,61 @@ function ProductsManagementScreenContent() {
                 />
               </View>
 
-              {/* Category */}
+              {/* Category - searchable */}
               <View>
                 <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                  {categories?.map((cat: any) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => setEditingProduct({ ...editingProduct, _categoryId: cat.id })}
-                      style={[
-                        editStyles.stockPill,
-                        {
-                          backgroundColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.surface,
-                          borderColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: editingProduct?._categoryId === cat.id ? "#fff" : colors.foreground,
-                          fontSize: 12,
-                          fontWeight: "600",
-                        }}
-                        numberOfLines={1}
-                      >{cat.name}</Text>
+                {/* Current category display */}
+                {editingProduct?._categoryId && (
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>Current:</Text>
+                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+                        {categories?.find((c: any) => c.id === editingProduct._categoryId)?.name || "Unknown"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setEditingProduct({ ...editingProduct, _categoryId: null })}>
+                      <Text style={{ color: colors.error, fontSize: 12 }}>✕ Clear</Text>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                )}
+                {/* Category search input */}
+                <TextInput
+                  style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, marginBottom: 8 }]}
+                  value={categorySearch}
+                  onChangeText={setCategorySearch}
+                  placeholder="Search categories..."
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                />
+                {/* Scrollable wrapping category grid */}
+                <ScrollView style={{ maxHeight: 140 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {filteredCategories.map((cat: any) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => { setEditingProduct({ ...editingProduct, _categoryId: cat.id }); setCategorySearch(""); }}
+                        style={[
+                          editStyles.stockPill,
+                          {
+                            backgroundColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.surface,
+                            borderColor: editingProduct?._categoryId === cat.id ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: editingProduct?._categoryId === cat.id ? "#fff" : colors.foreground,
+                            fontSize: 12,
+                            fontWeight: "600",
+                          }}
+                          numberOfLines={1}
+                        >{cat.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {filteredCategories.length === 0 && (
+                      <Text style={{ color: colors.muted, fontSize: 12, padding: 8 }}>No categories match "{categorySearch}"</Text>
+                    )}
+                  </View>
                 </ScrollView>
               </View>
               {/* DRS Toggle */}
@@ -892,6 +977,83 @@ function ProductsManagementScreenContent() {
               >
                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
                   {isSaving ? "Saving..." : "Save Changes"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Duplicate to Store Modal */}
+      <Modal visible={showDuplicateModal} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+          <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 24, width: "90%", maxWidth: 420, maxHeight: "70%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Duplicate to Store</Text>
+              <TouchableOpacity onPress={() => setShowDuplicateModal(false)}>
+                <Text style={{ fontSize: 24, color: colors.muted }}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>
+              Copy "{editingProduct?.name}" to selected stores:
+            </Text>
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator>
+              {otherStores.map(store => {
+                const isSelected = duplicateTargetStoreIds.includes(store.id);
+                return (
+                  <TouchableOpacity
+                    key={store.id}
+                    onPress={() => {
+                      setDuplicateTargetStoreIds(prev =>
+                        isSelected ? prev.filter(id => id !== store.id) : [...prev, store.id]
+                      );
+                    }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      paddingVertical: 12,
+                      paddingHorizontal: 12,
+                      marginBottom: 6,
+                      backgroundColor: isSelected ? "#8B5CF615" : colors.surface,
+                      borderWidth: 1,
+                      borderColor: isSelected ? "#8B5CF6" : colors.border,
+                      borderRadius: 10,
+                    }}
+                  >
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 4, borderWidth: 2,
+                      borderColor: isSelected ? "#8B5CF6" : colors.muted,
+                      backgroundColor: isSelected ? "#8B5CF6" : "transparent",
+                      justifyContent: "center", alignItems: "center",
+                    }}>
+                      {isSelected && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                    </View>
+                    <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "500" }}>{store.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {otherStores.length === 0 && (
+                <Text style={{ color: colors.muted, fontSize: 13, textAlign: "center", padding: 20 }}>No other active stores available</Text>
+              )}
+            </ScrollView>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => setShowDuplicateModal(false)}
+                style={{ flex: 1, paddingVertical: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, alignItems: "center" }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDuplicate}
+                disabled={isSaving || duplicateTargetStoreIds.length === 0}
+                style={{
+                  flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center",
+                  backgroundColor: (isSaving || duplicateTargetStoreIds.length === 0) ? colors.muted : "#8B5CF6",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
+                  {isSaving ? "Duplicating..." : duplicateTargetStoreIds.length > 0 ? `Duplicate to ${duplicateTargetStoreIds.length} Store${duplicateTargetStoreIds.length > 1 ? "s" : ""}` : "Select Stores"}
                 </Text>
               </TouchableOpacity>
             </View>
