@@ -464,7 +464,7 @@ function ProductsManagementScreenContent() {
       ) : (
         <View style={{ flex: 1 }}>
           {/* Store header + back to stores */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View>
               <TouchableOpacity onPress={() => { setSelectedStore(null); setSearchQuery(""); setDebouncedSearch(""); setActiveFilter("all"); setSelectedCategoryFilter("all"); setPage(0); }}>
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>‹ Change Store</Text>
@@ -495,90 +495,92 @@ function ProductsManagementScreenContent() {
             </TouchableOpacity>
           ) : null}
 
-          {/* Search */}
-          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, color: colors.foreground, fontSize: 14 }}
-              placeholder="Search by name or SKU..."
-              placeholderTextColor={colors.muted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="done"
-            />
-          </View>
+          {/* Desktop: single ScrollView for search + filters + table */}
+          {isDesktopTable ? (
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* Search */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                <TextInput
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, color: colors.foreground, fontSize: 14 }}
+                  placeholder="Search by name or SKU..."
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="done"
+                />
+              </View>
 
-          {/* Filters row */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
-            {/* Missing desc filter */}
-            <TouchableOpacity
-              onPress={() => setActiveFilter(activeFilter === "no_desc" ? "all" : "no_desc")}
-              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_desc" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "no_desc" ? "#F59E0B" : colors.border }]}
-            >
-              <Text style={{ color: activeFilter === "no_desc" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
-                No Desc ({missingDescCount})
-              </Text>
-            </TouchableOpacity>
+              {/* Filters row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
+                {/* Missing desc filter */}
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "no_desc" ? "all" : "no_desc")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_desc" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "no_desc" ? "#F59E0B" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "no_desc" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    No Desc ({missingDescCount})
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Missing image filter */}
-            <TouchableOpacity
-              onPress={() => setActiveFilter(activeFilter === "no_image" ? "all" : "no_image")}
-              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_image" ? "#8B5CF6" : colors.surface, borderColor: activeFilter === "no_image" ? "#8B5CF6" : colors.border }]}
-            >
-              <Text style={{ color: activeFilter === "no_image" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
-                No Image ({missingImageCount})
-              </Text>
-            </TouchableOpacity>
+                {/* Missing image filter */}
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "no_image" ? "all" : "no_image")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_image" ? "#8B5CF6" : colors.surface, borderColor: activeFilter === "no_image" ? "#8B5CF6" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "no_image" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    No Image ({missingImageCount})
+                  </Text>
+                </TouchableOpacity>
 
-            {/* DRS filter */}
-            <TouchableOpacity
-              onPress={() => setActiveFilter(activeFilter === "drs" ? "all" : "drs")}
-              style={[itemStyles.filterPill, { backgroundColor: activeFilter === "drs" ? "#0EA5E9" : colors.surface, borderColor: activeFilter === "drs" ? "#0EA5E9" : colors.border }]}
-            >
-              <Text style={{ color: activeFilter === "drs" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
-                DRS ({drsCount})
-              </Text>
-            </TouchableOpacity>
+                {/* DRS filter */}
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "drs" ? "all" : "drs")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "drs" ? "#0EA5E9" : colors.surface, borderColor: activeFilter === "drs" ? "#0EA5E9" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "drs" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    DRS ({drsCount})
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Category filters */}
-            <TouchableOpacity
-              onPress={() => setSelectedCategoryFilter("all")}
-              style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === "all" ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === "all" ? colors.primary : colors.border }]}
-            >
-              <Text style={{ color: selectedCategoryFilter === "all" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>All</Text>
-            </TouchableOpacity>
-            {storeCategories.map((cat: any) => (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => setSelectedCategoryFilter(cat.id === selectedCategoryFilter ? "all" : cat.id)}
-                style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === cat.id ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === cat.id ? colors.primary : colors.border }]}
-              >
-                <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name} ({cat.count})</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                {/* Category filters */}
+                <TouchableOpacity
+                  onPress={() => setSelectedCategoryFilter("all")}
+                  style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === "all" ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === "all" ? colors.primary : colors.border }]}
+                >
+                  <Text style={{ color: selectedCategoryFilter === "all" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>All</Text>
+                </TouchableOpacity>
+                {storeCategories.map((cat: any) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedCategoryFilter(cat.id === selectedCategoryFilter ? "all" : cat.id)}
+                    style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === cat.id ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === cat.id ? colors.primary : colors.border }]}
+                  >
+                    <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name} ({cat.count})</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-          {/* Bulk DRS Action Button */}
-          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <TouchableOpacity
-              onPress={() => { setShowBulkDrs(true); setSelectedBulkIds(new Set()); }}
-              style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#0EA5E915", borderWidth: 1, borderColor: "#0EA5E9", borderRadius: 10 }}
-            >
-              <Text style={{ color: "#0EA5E9", fontSize: 13, fontWeight: "700" }}>Bulk DRS Flag — Auto-Detect Drinks</Text>
-            </TouchableOpacity>
-          </View>
+              {/* Bulk DRS Action Button */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                <TouchableOpacity
+                  onPress={() => { setShowBulkDrs(true); setSelectedBulkIds(new Set()); }}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#0EA5E915", borderWidth: 1, borderColor: "#0EA5E9", borderRadius: 10 }}
+                >
+                  <Text style={{ color: "#0EA5E9", fontSize: 13, fontWeight: "700" }}>Bulk DRS Flag — Auto-Detect Drinks</Text>
+                </TouchableOpacity>
+              </View>
 
-          {/* Loading */}
-          {productsLoading && (
-            <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>Loading products...</Text>
-            </View>
-          )}
+              {/* Loading */}
+              {productsLoading && (
+                <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>Loading products...</Text>
+                </View>
+              )}
 
-          {/* Products List */}
-          {!productsLoading && isDesktopTable ? (
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
-              {/* Pagination top */}
+              {/* Desktop Table */}
+              {!productsLoading && (
+              <View style={{ paddingHorizontal: 16 }}>
               <PaginationBar />
               {/* Desktop Table Header */}
               <View style={tableStyles.headerRow}>
@@ -668,9 +670,81 @@ function ProductsManagementScreenContent() {
               })}
               {/* Pagination bottom */}
               <PaginationBar />
+              </View>
+              )}
             </ScrollView>
-          ) : !productsLoading ? (
-            <>
+          ) : (
+            /* Mobile layout */
+            <View style={{ flex: 1 }}>
+              {/* Search */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                <TextInput
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, color: colors.foreground, fontSize: 14 }}
+                  placeholder="Search by name or SKU..."
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Filters row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8, minHeight: 40 }} contentContainerStyle={{ gap: 8, paddingVertical: 4, alignItems: "center" }}>
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "no_desc" ? "all" : "no_desc")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_desc" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "no_desc" ? "#F59E0B" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "no_desc" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>No Desc ({missingDescCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "no_image" ? "all" : "no_image")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "no_image" ? "#8B5CF6" : colors.surface, borderColor: activeFilter === "no_image" ? "#8B5CF6" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "no_image" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>No Image ({missingImageCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "drs" ? "all" : "drs")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "drs" ? "#0EA5E9" : colors.surface, borderColor: activeFilter === "drs" ? "#0EA5E9" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "drs" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>DRS ({drsCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setSelectedCategoryFilter("all")}
+                  style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === "all" ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === "all" ? colors.primary : colors.border }]}
+                >
+                  <Text style={{ color: selectedCategoryFilter === "all" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>All</Text>
+                </TouchableOpacity>
+                {storeCategories.map((cat: any) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedCategoryFilter(cat.id === selectedCategoryFilter ? "all" : cat.id)}
+                    style={[itemStyles.filterPill, { backgroundColor: selectedCategoryFilter === cat.id ? colors.primary : colors.surface, borderColor: selectedCategoryFilter === cat.id ? colors.primary : colors.border }]}
+                  >
+                    <Text style={{ color: selectedCategoryFilter === cat.id ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{cat.name} ({cat.count})</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Bulk DRS Action Button */}
+              <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                <TouchableOpacity
+                  onPress={() => { setShowBulkDrs(true); setSelectedBulkIds(new Set()); }}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, backgroundColor: "#0EA5E915", borderWidth: 1, borderColor: "#0EA5E9", borderRadius: 10 }}
+                >
+                  <Text style={{ color: "#0EA5E9", fontSize: 13, fontWeight: "700" }}>Bulk DRS Flag — Auto-Detect Drinks</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Loading */}
+              {productsLoading && (
+                <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>Loading products...</Text>
+                </View>
+              )}
+
+              {!productsLoading && (
+              <>
               <FlatList
                 data={products}
                 renderItem={renderProductItem}
@@ -687,7 +761,9 @@ function ProductsManagementScreenContent() {
               />
               <PaginationBar />
             </>
-          ) : null}
+              )}
+            </View>
+          )}
         </View>
       )}
 

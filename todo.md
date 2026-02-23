@@ -1781,3 +1781,4 @@
 - [x] Show matching products inline when customer types a product name (e.g. "Pepsi")
 - [x] Update placeholder text to "Search products and categories..."
 - [x] Fix: tapping a product from search results now opens the product detail modal with image, price, description, and add-to-cart
+- [x] Fix: large gap between search bar and filter pills/product table on admin products page (for stores like AppleGreen)
