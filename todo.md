@@ -1791,3 +1791,8 @@
 - [x] For each set of duplicates, keep the one with the highest price and delete the rest
 - [x] Run for all stores (Spar, Open All Ours, AppleGreen, Treasure Bowl, etc.)
 - [x] Verify product counts after cleanup
+
+## AppleGreen Products in Spar Cleanup — Feb 23 2026
+- [x] Verify 9 AppleGreen-branded products exist in AppleGreen store (ID 3) — all 9 confirmed
+- [x] Copy any missing ones to AppleGreen first — none missing, all already existed
+- [x] Delete all 9 AppleGreen-branded products from Spar (ID 1) — done, Spar now 2487 products
