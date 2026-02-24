@@ -54,3 +54,15 @@ making isGuest=false, which:
 3. Fetches saved addresses from DB (line 112-115)
 
 Fix approach: Check how auth.me handles errors and ensure isGuest is truly false only when auth succeeds.
+
+
+PLACE ORDER BUTTON DISABLED BUG (Feb 24, second report):
+=========================================================
+User screenshot shows: Place Order button greyed out, delivery fee calculated (€3.50), 
+total €6.46, Cash on Delivery selected, incognito mode.
+
+The guest info section (name, phone, OTP) is rendered above but user scrolled past it.
+Phone was never verified via OTP, so (isGuest && !phoneVerified) keeps button disabled.
+
+Need to add a visible error/hint near the Place Order button when phone isn't verified.
+Also need to check if the guest form is actually visible or if there's a rendering issue.

@@ -1851,3 +1851,8 @@
 ## Bug Fix: Guest checkout not showing for non-logged-in users — Feb 24 2026
 - [x] Fix: saved address and delivery form showing even when user is not logged in (no guest modal appearing)
 - [x] Root cause: all tRPC routers (auth.ts, addresses.ts, orders.ts, users.ts) had userId || 1 fallback causing guest users to see user ID 1's data. Fixed by returning null/[] for unauthenticated users and throwing auth errors for mutations.
+
+## Bug Fix: Place Order button unpressable for guest checkout — Feb 24 2026
+- [x] Fix: Place Order button stays disabled/greyed out because phone OTP verification was not completed
+- [x] Add clear warning banners above Place Order button showing exactly what's still needed (phone verification, delivery fee, cash limit)
+- [x] Investigate disabled state conditions on the Place Order button

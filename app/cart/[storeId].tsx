@@ -1035,6 +1035,26 @@ export default function CartScreen() {
           </View>
         </View>
 
+        {/* Missing steps warning */}
+        {isGuest && !phoneVerified && (
+          <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+            <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Phone verification required</Text>
+            <Text style={{ color: '#92400E', fontSize: 13, lineHeight: 18 }}>Scroll up to the "Your Information" section and verify your phone number with an OTP code before placing your order.</Text>
+          </View>
+        )}
+        {!deliveryFeeCalculated && (
+          <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+            <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Delivery fee not calculated</Text>
+            <Text style={{ color: '#92400E', fontSize: 13, lineHeight: 18 }}>Please enter your address and Eircode above, then tap "Calculate Delivery Fee".</Text>
+          </View>
+        )}
+        {guestCashLimitExceeded && (
+          <View style={{ backgroundColor: '#FEE2E2', borderColor: '#EF4444', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+            <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Cash limit exceeded</Text>
+            <Text style={{ color: '#991B1B', fontSize: 13, lineHeight: 18 }}>Guest cash orders are limited to €{GUEST_CASH_LIMIT}. Please reduce your cart or switch to card payment.</Text>
+          </View>
+        )}
+
         {/* Checkout Button */}
         <TouchableOpacity
           onPress={handleCheckout}
