@@ -35,3 +35,22 @@ User sees tabs: All Active | Pending | Preparing (1) | Ready (1) | Completed
 The tab-filtered views likely render order cards differently from renderOrderCard.
 Need to find the tab rendering code that shows individual order views.
 The renderOrderCard with the Print button is only used in the "All Active" section at the bottom.
+
+
+GUEST CHECKOUT BUG (Feb 24):
+============================
+User reports: In incognito mode, saved address still shows. No guest modal appearing.
+Header shows "Log In"/"Sign Up" = user NOT logged in.
+BUT: "Home ★ 5 Fullam Terrace Balbriggan K32XE94" saved address card is visible.
+
+Root cause: The auth.me query (line 21) likely returns stale/cached data OR the server session cookie
+persists in a way that returns user data even in incognito. Server log shows "Invalid session cookie"
+error, but TanStack Query may cache the previous successful response.
+
+The meData from trpc.auth.me.useQuery() might be returning the user even though the session is invalid,
+making isGuest=false, which:
+1. Hides the guest choice modal (line 148 check fails)
+2. Shows the saved address picker (line 725 condition passes)
+3. Fetches saved addresses from DB (line 112-115)
+
+Fix approach: Check how auth.me handles errors and ensure isGuest is truly false only when auth succeeds.

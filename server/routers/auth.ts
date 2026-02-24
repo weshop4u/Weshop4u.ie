@@ -446,12 +446,17 @@ export const authRouter = router({
 
   // Get current user
   me: publicProcedure.query(async ({ ctx }) => {
+    // If no authenticated user, return null (guest/unauthenticated)
+    if (!ctx.user?.id) {
+      return null;
+    }
+
     const db = await getDb();
     if (!db) {
       throw new Error("Database not available");
     }
 
-    const userId = ctx.user?.id || 1;
+    const userId = ctx.user.id;
 
     const [user] = await db
       .select({

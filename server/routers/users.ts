@@ -20,8 +20,10 @@ export const usersRouter = router({
         throw new Error("Database not available");
       }
 
-      // For now, update user 1 (in production, use ctx.user.id)
-      const userId = ctx.user?.id || 1;
+      if (!ctx.user?.id) {
+        throw new Error("Authentication required to update profile");
+      }
+      const userId = ctx.user.id;
 
       await db
         .update(users)
@@ -42,8 +44,10 @@ export const usersRouter = router({
       throw new Error("Database not available");
     }
 
-    // For now, get user 1 (in production, use ctx.user.id)
-    const userId = ctx.user?.id || 1;
+    if (!ctx.user?.id) {
+      return null; // Guest users have no profile
+    }
+    const userId = ctx.user.id;
 
     const user = await db
       .select({

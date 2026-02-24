@@ -399,8 +399,11 @@ export const ordersRouter = router({
     }
 
     // Get user info to determine role
-    const userId = ctx.user?.id || 1;
-    const userRole = ctx.user?.role || "customer";
+    if (!ctx.user?.id) {
+      return []; // Guest users have no order history
+    }
+    const userId = ctx.user.id;
+    const userRole = ctx.user.role || "customer";
 
     // If store staff, find their store and return store orders
     let whereCondition;
@@ -819,7 +822,10 @@ export const ordersRouter = router({
         throw new Error("Database not available");
       }
 
-      const userId = ctx.user?.id || 1;
+      if (!ctx.user?.id) {
+        throw new Error("Authentication required to rate orders");
+      }
+      const userId = ctx.user.id;
 
       // Get the order to find the driver
       const [order] = await db

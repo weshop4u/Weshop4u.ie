@@ -7,12 +7,16 @@ import { eq, and } from "drizzle-orm";
 export const addressesRouter = router({
   // Get all saved addresses for current user
   getAddresses: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user?.id) {
+      return []; // Guest users have no saved addresses
+    }
+
     const db = await getDb();
     if (!db) {
       throw new Error("Database not available");
     }
 
-    const userId = ctx.user?.id || 1;
+    const userId = ctx.user.id;
 
     const addresses = await db
       .select()
@@ -35,12 +39,16 @@ export const addressesRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.user?.id) {
+        throw new Error("Authentication required to save addresses");
+      }
+
       const db = await getDb();
       if (!db) {
         throw new Error("Database not available");
       }
 
-      const userId = ctx.user?.id || 1;
+      const userId = ctx.user.id;
 
       // If this is set as default, unset other defaults
       if (input.isDefault) {
@@ -77,12 +85,16 @@ export const addressesRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.user?.id) {
+        throw new Error("Authentication required to update addresses");
+      }
+
       const db = await getDb();
       if (!db) {
         throw new Error("Database not available");
       }
 
-      const userId = ctx.user?.id || 1;
+      const userId = ctx.user.id;
 
       // If this is set as default, unset other defaults
       if (input.isDefault) {
@@ -117,12 +129,16 @@ export const addressesRouter = router({
   deleteAddress: publicProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
+      if (!ctx.user?.id) {
+        throw new Error("Authentication required to delete addresses");
+      }
+
       const db = await getDb();
       if (!db) {
         throw new Error("Database not available");
       }
 
-      const userId = ctx.user?.id || 1;
+      const userId = ctx.user.id;
 
       await db
         .delete(savedAddresses)

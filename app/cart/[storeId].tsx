@@ -18,8 +18,8 @@ export default function CartScreen() {
   const colors = useColors();
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
   const { user: authUser, loading: authLoading } = useAuth();
-  const { data: meData } = trpc.auth.me.useQuery();
-  const user = authUser || meData;
+  const { data: meData, isLoading: meLoading } = trpc.auth.me.useQuery();
+  const user = authUser || (meData ?? null);
   const isGuest = !user;
   
   // Guest checkout choice state
@@ -145,10 +145,10 @@ export default function CartScreen() {
   
   // Show guest choice modal when guest user arrives at checkout
   useEffect(() => {
-    if (!authLoading && isGuest && !guestChoiceMade) {
+    if (!authLoading && !meLoading && isGuest && !guestChoiceMade) {
       setShowGuestChoice(true);
     }
-  }, [authLoading, isGuest, guestChoiceMade]);
+  }, [authLoading, meLoading, isGuest, guestChoiceMade]);
   
   // Handle saved address selection
   const handleSelectSavedAddress = (addressId: number) => {
