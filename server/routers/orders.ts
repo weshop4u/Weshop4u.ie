@@ -4,7 +4,7 @@ import { getDb } from "../db";
 import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
-import { sendOrderConfirmationSMS, sendOnTheWaySMS, sendDriverArrivedSMS, sendDeliveredSMS, sendOrderCancelledSMS } from "../sms";
+import { sendOrderConfirmationSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
@@ -241,30 +241,17 @@ export const ordersRouter = router({
         });
       }
 
-      // Send SMS confirmation to customer
-      let customerPhone = input.guestPhone || null;
-      
-      // If logged-in user, get phone from user profile
-      if (!customerPhone && input.customerId) {
-        const customer = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, input.customerId))
-          .limit(1);
-        
-        if (customer.length > 0 && customer[0].phone) {
-          customerPhone = customer[0].phone;
-        }
-      }
-      
-      if (customerPhone) {
+      // SMS #1 — Order Confirmed
+      // Only sent to GUEST orders (no customerId). Logged-in users get push notifications (free).
+      const isGuestOrder = !input.customerId;
+      if (isGuestOrder && input.guestPhone) {
         try {
           await sendOrderConfirmationSMS(
-            customerPhone,
+            input.guestPhone,
             storeData.name,
             Number(orderId)
           );
-          console.log(`[SMS] Order confirmation sent to ${customerPhone}`);
+          console.log(`[SMS] Order confirmation sent to ${input.guestPhone}`);
         } catch (error) {
           console.error(`[SMS] Failed to send order confirmation:`, error);
           // Don't fail the order if SMS fails
@@ -715,49 +702,11 @@ export const ordersRouter = router({
       // Send SMS at key delivery stages
       const orderData = order[0];
       
-      // Get customer phone — guest phone or registered user's phone
-      let customerPhone = orderData.guestPhone || null;
-      if (!customerPhone && orderData.customerId) {
-        const customerRecord = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, orderData.customerId))
-          .limit(1);
-        if (customerRecord.length > 0 && customerRecord[0].phone) {
-          customerPhone = customerRecord[0].phone;
-        }
-      }
-      
-      // Get store name for SMS messages
-      let storeName = "";
-      if (customerPhone) {
-        const storeResult = await db
-          .select()
-          .from(stores)
-          .where(eq(stores.id, orderData.storeId))
-          .limit(1);
-        if (storeResult.length > 0) {
-          storeName = storeResult[0].name;
-        }
-      }
-      
-      if (customerPhone && storeName) {
-        try {
-          if (input.status === "on_the_way" || input.status === "picked_up") {
-            await sendOnTheWaySMS(customerPhone, storeName, orderData.orderNumber);
-            console.log(`[SMS] On-the-way SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
-          } else if (input.status === "delivered") {
-            await sendDeliveredSMS(customerPhone, orderData.orderNumber);
-            console.log(`[SMS] Delivered SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
-          } else if (input.status === "cancelled") {
-            await sendOrderCancelledSMS(customerPhone, orderData.orderNumber, storeName);
-            console.log(`[SMS] Cancelled SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
-          }
-        } catch (smsError) {
-          console.error(`[SMS] Failed to send status SMS:`, smsError);
-          // Don't fail the status update if SMS fails
-        }
-      }
+      // SMS is NOT sent on status changes from this endpoint.
+      // Only 2 SMS per guest order:
+      //   SMS #1 — Order confirmed (sent in placeOrder below)
+      //   SMS #2 — Driver at store (sent in drivers.notifyDriverAtStore)
+      // Logged-in users get push notifications only (free).
 
       // Print job is now manual only - staff presses "Print Pick List" button
 

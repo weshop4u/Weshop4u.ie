@@ -541,16 +541,17 @@ export const driversRouter = router({
         );
       }
 
-      // Send SMS to customer — get phone from guest order or registered user
+      // SMS #2 — Driver at Store + tracking link
+      // Only sent to GUEST orders (no customerId). Logged-in users get push notifications (free).
       const orderRecord = orderResult[0].orders;
-      let customerPhone = orderRecord.guestPhone || null;
-      if (!customerPhone && customer && customer.phone) {
-        customerPhone = customer.phone;
-      }
-      if (customerPhone && store) {
+      const isGuestOrder = !orderRecord.customerId;
+      if (isGuestOrder && orderRecord.guestPhone && store) {
         try {
-          await sendDriverAtStoreSMS(customerPhone, store.name, orderRecord.orderNumber);
-          console.log(`[SMS] Driver-at-store SMS sent to ${customerPhone} for order ${orderRecord.orderNumber}`);
+          // Build tracking URL — use the public API server URL
+          const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
+          const trackingUrl = `${baseUrl}/track/${input.orderId}`;
+          await sendDriverAtStoreSMS(orderRecord.guestPhone, store.name, orderRecord.orderNumber, trackingUrl);
+          console.log(`[SMS] Driver-at-store SMS sent to ${orderRecord.guestPhone} for order ${orderRecord.orderNumber}`);
         } catch (smsError) {
           console.error(`[SMS] Failed to send driver-at-store SMS:`, smsError);
         }

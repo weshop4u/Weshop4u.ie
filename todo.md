@@ -1886,3 +1886,16 @@
 - [x] Wire "driver at store" notification to send SMS to customer (not just push)
 - [x] Add rate limiting on OTP sendCode endpoint (max 3 SMS per phone per hour)
 - [x] Test SMS functions and rate limiting (55 tests passing)
+
+## Customer Order Tracking Page — Feb 24 2026
+- [x] Build backend endpoint for public order tracking (no auth, returns driver location + order status + store/delivery info)
+- [x] Build customer-facing tracking page at /track/[orderId] with live driver location on map (OpenStreetMap + Leaflet)
+- [x] Show order status timeline, driver position, and ETA on tracking page
+- [x] Auto-refresh driver location every 10 seconds
+
+## Refine SMS to 2 messages for guests only — Feb 24 2026
+- [x] SMS #1 (order confirmed): "Your Spar order #70 is confirmed! We'll let you know when the driver is at the store."
+- [x] SMS #2 (driver at store): "Your driver has arrived at Spar! Track your driver here: [tracking link]"
+- [x] Remove all other SMS triggers (on_the_way, delivered, cancelled, driver_arrived) — not needed with tracking link
+- [x] Only send SMS to guest users (no customerId) — logged-in users get push notifications only
+- [x] Driver "Arrived at Store" button triggers SMS #2 — admin status changes do NOT trigger SMS

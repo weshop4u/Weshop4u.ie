@@ -60,6 +60,10 @@ async function startServer() {
     res.json({ ok: true, timestamp: Date.now() });
   });
 
+  // Public order tracking page (no auth required)
+  const { trackingRouter } = await import("../routers/tracking");
+  app.use(trackingRouter);
+
   // Quick test print endpoint - no login required
   // Usage: GET /api/test-print?storeId=1
   app.get("/api/test-print", async (req, res) => {

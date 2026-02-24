@@ -1,9 +1,13 @@
 /**
- * SMS Service for sending text messages to customers
- * Uses Twilio with Alpha Sender ID "WeShop4U" for consistent branding.
+ * SMS Service for WeShop4U
  * 
- * All customer-facing SMS comes from "WeShop4U" sender name.
- * Irish numbers are normalized to E.164 format (+353...).
+ * Cost-saving strategy: Only 2 SMS per guest order.
+ * Logged-in users get push notifications instead (free).
+ * 
+ * SMS #1 — Order Confirmed (sent on order placement)
+ * SMS #2 — Driver at Store + tracking link (sent when driver taps "Arrived at Store")
+ * 
+ * Uses Twilio with Alpha Sender ID "WeShop4U" for consistent branding.
  */
 
 import twilio from 'twilio';
@@ -63,77 +67,34 @@ export async function sendSMS({ to, message }: SendSMSParams): Promise<boolean> 
 }
 
 /**
- * Send order confirmation SMS
- * Triggered: when order is placed
+ * SMS #1 — Order Confirmed
+ * Triggered: when a GUEST order is placed (no customerId)
+ * 
+ * "Your Spar Balbriggan order #70 is confirmed! We'll let you know when the driver is at the store."
  */
 export async function sendOrderConfirmationSMS(
   phoneNumber: string,
   storeName: string,
   orderId: number
 ): Promise<boolean> {
-  const message = `Your ${storeName} order #${orderId} is confirmed! We'll text you when it's on the way.\n- WeShop4U`;
+  const message = `Your ${storeName} order #${orderId} is confirmed! We'll let you know when the driver is at the store.\n- WeShop4U`;
   return sendSMS({ to: phoneNumber, message });
 }
 
 /**
- * Send "driver at store" SMS
- * Triggered: when driver taps "Arrived at Store"
+ * SMS #2 — Driver at Store + Tracking Link
+ * Triggered: when driver taps "Arrived at Store" (notifyDriverAtStore endpoint)
+ * Only sent to GUEST orders (no customerId)
+ * 
+ * "Your driver has arrived at Spar Balbriggan to collect your order WS4U/SPR/070!
+ *  Track your driver here: https://..."
  */
 export async function sendDriverAtStoreSMS(
   phoneNumber: string,
   storeName: string,
-  orderNumber: string
-): Promise<boolean> {
-  const message = `Your driver has arrived at ${storeName} to collect your order ${orderNumber}. It won't be long now!\n- WeShop4U`;
-  return sendSMS({ to: phoneNumber, message });
-}
-
-/**
- * Send "order picked up / on the way" SMS
- * Triggered: when driver taps "Picked Up Order" or status changes to on_the_way
- */
-export async function sendOnTheWaySMS(
-  phoneNumber: string,
-  storeName: string,
-  orderNumber: string
-): Promise<boolean> {
-  const message = `Your ${storeName} order ${orderNumber} is on its way to you! Your driver will be there shortly.\n- WeShop4U`;
-  return sendSMS({ to: phoneNumber, message });
-}
-
-/**
- * Send "driver arrived at your location" SMS
- * Triggered: when driver is near customer (or taps "Arrived")
- */
-export async function sendDriverArrivedSMS(
-  phoneNumber: string,
-  orderNumber: string
-): Promise<boolean> {
-  const message = `Your driver has arrived with your order ${orderNumber}! Please come to collect your delivery.\n- WeShop4U`;
-  return sendSMS({ to: phoneNumber, message });
-}
-
-/**
- * Send "order delivered" SMS
- * Triggered: when driver marks order as delivered
- */
-export async function sendDeliveredSMS(
-  phoneNumber: string,
-  orderNumber: string
-): Promise<boolean> {
-  const message = `Your order ${orderNumber} has been delivered. Enjoy! Thank you for using WeShop4U.\n- WeShop4U`;
-  return sendSMS({ to: phoneNumber, message });
-}
-
-/**
- * Send "order cancelled" SMS
- * Triggered: when order is cancelled by store or system
- */
-export async function sendOrderCancelledSMS(
-  phoneNumber: string,
   orderNumber: string,
-  storeName: string
+  trackingUrl: string
 ): Promise<boolean> {
-  const message = `Unfortunately your ${storeName} order ${orderNumber} has been cancelled. If you were charged, a refund will be processed. Contact us if you need help.\n- WeShop4U`;
+  const message = `Your driver has arrived at ${storeName} to collect your order ${orderNumber}! Track your driver here: ${trackingUrl}\n- WeShop4U`;
   return sendSMS({ to: phoneNumber, message });
 }

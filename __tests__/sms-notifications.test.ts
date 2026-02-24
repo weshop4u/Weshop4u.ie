@@ -11,15 +11,11 @@ vi.mock("twilio", () => {
   };
 });
 
-describe("SMS Notification System", () => {
-  describe("sms.ts — Alpha Sender ID and message functions", () => {
+describe("SMS Notification System — 2 SMS per guest order", () => {
+  describe("sms.ts — Alpha Sender ID and core sendSMS", () => {
     let sendSMS: any;
     let sendOrderConfirmationSMS: any;
     let sendDriverAtStoreSMS: any;
-    let sendOnTheWaySMS: any;
-    let sendDriverArrivedSMS: any;
-    let sendDeliveredSMS: any;
-    let sendOrderCancelledSMS: any;
     let mockCreate: any;
 
     beforeEach(async () => {
@@ -36,10 +32,6 @@ describe("SMS Notification System", () => {
       sendSMS = sms.sendSMS;
       sendOrderConfirmationSMS = sms.sendOrderConfirmationSMS;
       sendDriverAtStoreSMS = sms.sendDriverAtStoreSMS;
-      sendOnTheWaySMS = sms.sendOnTheWaySMS;
-      sendDriverArrivedSMS = sms.sendDriverArrivedSMS;
-      sendDeliveredSMS = sms.sendDeliveredSMS;
-      sendOrderCancelledSMS = sms.sendOrderCancelledSMS;
     });
 
     it("should use Alpha Sender ID 'WeShop4U' instead of phone number", async () => {
@@ -65,58 +57,16 @@ describe("SMS Notification System", () => {
       );
     });
 
-    it("sendOrderConfirmationSMS should include store name and order ID", async () => {
-      await sendOrderConfirmationSMS("+353891234567", "Spar Balbriggan", 42);
+    it("should normalize numbers with spaces and dashes", async () => {
+      await sendSMS({ to: "089-123 4567", message: "Test" });
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          body: expect.stringContaining("Spar Balbriggan"),
-          from: "WeShop4U",
-        })
+        expect.objectContaining({ to: "+353891234567" })
       );
-      expect(mockCreate.mock.calls[0][0].body).toContain("#42");
-      expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
-    });
-
-    it("sendDriverAtStoreSMS should mention store and order number", async () => {
-      await sendDriverAtStoreSMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070");
-      const body = mockCreate.mock.calls[0][0].body;
-      expect(body).toContain("Spar Balbriggan");
-      expect(body).toContain("WS4U/SPR/070");
-      expect(body).toContain("arrived");
-    });
-
-    it("sendOnTheWaySMS should mention order is on the way", async () => {
-      await sendOnTheWaySMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070");
-      const body = mockCreate.mock.calls[0][0].body;
-      expect(body).toContain("on its way");
-      expect(body).toContain("WS4U/SPR/070");
-    });
-
-    it("sendDriverArrivedSMS should tell customer driver has arrived", async () => {
-      await sendDriverArrivedSMS("+353891234567", "WS4U/SPR/070");
-      const body = mockCreate.mock.calls[0][0].body;
-      expect(body).toContain("arrived");
-      expect(body).toContain("WS4U/SPR/070");
-    });
-
-    it("sendDeliveredSMS should confirm delivery", async () => {
-      await sendDeliveredSMS("+353891234567", "WS4U/SPR/070");
-      const body = mockCreate.mock.calls[0][0].body;
-      expect(body).toContain("delivered");
-      expect(body).toContain("WS4U/SPR/070");
-    });
-
-    it("sendOrderCancelledSMS should mention cancellation and store", async () => {
-      await sendOrderCancelledSMS("+353891234567", "WS4U/SPR/070", "Spar Balbriggan");
-      const body = mockCreate.mock.calls[0][0].body;
-      expect(body).toContain("cancelled");
-      expect(body).toContain("Spar Balbriggan");
     });
 
     it("should log to console and return true when Twilio not configured", async () => {
       delete process.env.TWILIO_ACCOUNT_SID;
       delete process.env.TWILIO_AUTH_TOKEN;
-      // Re-import to get fresh module
       vi.resetModules();
       const smsNoConfig = await import("../server/sms");
       const result = await smsNoConfig.sendSMS({ to: "+353891234567", message: "Test" });
@@ -130,77 +80,8 @@ describe("SMS Notification System", () => {
     });
   });
 
-  describe("OTP Rate Limiting", () => {
-    it("should block after 3 sends to the same number within an hour", async () => {
-      vi.resetModules();
-      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
-      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
-
-      const otp = await import("../server/otp");
-
-      // First 3 sends should succeed
-      const result1 = await otp.sendOTP("+353891111111");
-      expect(result1.success).toBe(true);
-
-      const result2 = await otp.sendOTP("+353891111111");
-      expect(result2.success).toBe(true);
-
-      const result3 = await otp.sendOTP("+353891111111");
-      expect(result3.success).toBe(true);
-
-      // 4th send should be rate limited
-      const result4 = await otp.sendOTP("+353891111111");
-      expect(result4.success).toBe(false);
-      expect(result4.error).toContain("Too many verification codes");
-    });
-
-    it("should allow sends to different phone numbers independently", async () => {
-      vi.resetModules();
-      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
-      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
-
-      const otp = await import("../server/otp");
-
-      // Send 3 to number A
-      await otp.sendOTP("+353892222222");
-      await otp.sendOTP("+353892222222");
-      await otp.sendOTP("+353892222222");
-
-      // Number A should be rate limited
-      const resultA = await otp.sendOTP("+353892222222");
-      expect(resultA.success).toBe(false);
-
-      // Number B should still work
-      const resultB = await otp.sendOTP("+353893333333");
-      expect(resultB.success).toBe(true);
-    });
-
-    it("should normalize phone numbers for rate limiting (087... and +353...)", async () => {
-      vi.resetModules();
-      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
-      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
-
-      const otp = await import("../server/otp");
-
-      // Send using different formats of the same number
-      await otp.sendOTP("0894444444");
-      await otp.sendOTP("+353894444444");
-      await otp.sendOTP("353894444444");
-
-      // 4th send (same number, different format) should be blocked
-      const result = await otp.sendOTP("089 444 4444");
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("Too many");
-    });
-  });
-
-  describe("SMS message content quality", () => {
+  describe("SMS #1 — sendOrderConfirmationSMS", () => {
     let sendOrderConfirmationSMS: any;
-    let sendDriverAtStoreSMS: any;
-    let sendOnTheWaySMS: any;
-    let sendDriverArrivedSMS: any;
-    let sendDeliveredSMS: any;
-    let sendOrderCancelledSMS: any;
     let mockCreate: any;
 
     beforeEach(async () => {
@@ -215,58 +96,152 @@ describe("SMS Notification System", () => {
 
       const sms = await import("../server/sms");
       sendOrderConfirmationSMS = sms.sendOrderConfirmationSMS;
-      sendDriverAtStoreSMS = sms.sendDriverAtStoreSMS;
-      sendOnTheWaySMS = sms.sendOnTheWaySMS;
-      sendDriverArrivedSMS = sms.sendDriverArrivedSMS;
-      sendDeliveredSMS = sms.sendDeliveredSMS;
-      sendOrderCancelledSMS = sms.sendOrderCancelledSMS;
     });
 
-    it("all SMS messages should end with WeShop4U branding", async () => {
+    it("should include store name and order ID", async () => {
+      await sendOrderConfirmationSMS("+353891234567", "Spar Balbriggan", 42);
+      const body = mockCreate.mock.calls[0][0].body;
+      expect(body).toContain("Spar Balbriggan");
+      expect(body).toContain("#42");
+    });
+
+    it("should tell customer we'll notify when driver is at store", async () => {
+      await sendOrderConfirmationSMS("+353891234567", "Spar Balbriggan", 70);
+      const body = mockCreate.mock.calls[0][0].body;
+      expect(body).toContain("driver is at the store");
+    });
+
+    it("should include WeShop4U branding", async () => {
       await sendOrderConfirmationSMS("+353891234567", "Spar", 1);
       expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
+    });
 
-      mockCreate.mockClear();
-      await sendDriverAtStoreSMS("+353891234567", "Spar", "WS4U/SPR/001");
-      expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
+    it("should use Alpha Sender ID", async () => {
+      await sendOrderConfirmationSMS("+353891234567", "Spar", 1);
+      expect(mockCreate.mock.calls[0][0].from).toBe("WeShop4U");
+    });
+  });
 
-      mockCreate.mockClear();
-      await sendOnTheWaySMS("+353891234567", "Spar", "WS4U/SPR/001");
-      expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
+  describe("SMS #2 — sendDriverAtStoreSMS", () => {
+    let sendDriverAtStoreSMS: any;
+    let mockCreate: any;
 
-      mockCreate.mockClear();
-      await sendDriverArrivedSMS("+353891234567", "WS4U/SPR/001");
-      expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
+    beforeEach(async () => {
+      vi.resetModules();
+      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
+      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
 
+      const twilioMock = await import("twilio");
+      mockCreate = (twilioMock as any).__mockCreate;
       mockCreate.mockClear();
-      await sendDeliveredSMS("+353891234567", "WS4U/SPR/001");
-      expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
+      mockCreate.mockResolvedValue({ sid: "SM_test_123", status: "queued" });
 
-      mockCreate.mockClear();
-      await sendOrderCancelledSMS("+353891234567", "WS4U/SPR/001", "Spar");
+      const sms = await import("../server/sms");
+      sendDriverAtStoreSMS = sms.sendDriverAtStoreSMS;
+    });
+
+    it("should mention store name and order number", async () => {
+      await sendDriverAtStoreSMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070", "https://weshop4u.app/track/123");
+      const body = mockCreate.mock.calls[0][0].body;
+      expect(body).toContain("Spar Balbriggan");
+      expect(body).toContain("WS4U/SPR/070");
+    });
+
+    it("should include tracking link", async () => {
+      await sendDriverAtStoreSMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070", "https://weshop4u.app/track/123");
+      const body = mockCreate.mock.calls[0][0].body;
+      expect(body).toContain("https://weshop4u.app/track/123");
+    });
+
+    it("should say driver has arrived", async () => {
+      await sendDriverAtStoreSMS("+353891234567", "Spar", "WS4U/SPR/070", "https://weshop4u.app/track/123");
+      const body = mockCreate.mock.calls[0][0].body;
+      expect(body).toContain("arrived");
+    });
+
+    it("should include WeShop4U branding", async () => {
+      await sendDriverAtStoreSMS("+353891234567", "Spar", "WS4U/SPR/070", "https://weshop4u.app/track/123");
       expect(mockCreate.mock.calls[0][0].body).toContain("WeShop4U");
     });
 
-    it("all SMS messages should be under 160 characters (single SMS segment)", async () => {
-      // Test with typical data
-      await sendOrderConfirmationSMS("+353891234567", "Spar Balbriggan", 70);
-      expect(mockCreate.mock.calls[0][0].body.length).toBeLessThanOrEqual(160);
+    it("should use Alpha Sender ID", async () => {
+      await sendDriverAtStoreSMS("+353891234567", "Spar", "WS4U/SPR/070", "https://weshop4u.app/track/123");
+      expect(mockCreate.mock.calls[0][0].from).toBe("WeShop4U");
+    });
+  });
 
-      mockCreate.mockClear();
-      await sendDriverAtStoreSMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070");
-      expect(mockCreate.mock.calls[0][0].body.length).toBeLessThanOrEqual(160);
+  describe("Only 2 SMS functions exported (cost saving)", () => {
+    it("should only export sendSMS, sendOrderConfirmationSMS, and sendDriverAtStoreSMS", async () => {
+      vi.resetModules();
+      const sms = await import("../server/sms");
+      const exportedKeys = Object.keys(sms);
+      
+      expect(exportedKeys).toContain("sendSMS");
+      expect(exportedKeys).toContain("sendOrderConfirmationSMS");
+      expect(exportedKeys).toContain("sendDriverAtStoreSMS");
+      
+      // These should NOT exist anymore
+      expect(exportedKeys).not.toContain("sendOnTheWaySMS");
+      expect(exportedKeys).not.toContain("sendDriverArrivedSMS");
+      expect(exportedKeys).not.toContain("sendDeliveredSMS");
+      expect(exportedKeys).not.toContain("sendOrderCancelledSMS");
+    });
+  });
 
-      mockCreate.mockClear();
-      await sendOnTheWaySMS("+353891234567", "Spar Balbriggan", "WS4U/SPR/070");
-      expect(mockCreate.mock.calls[0][0].body.length).toBeLessThanOrEqual(160);
+  describe("OTP Rate Limiting", () => {
+    it("should block after 3 sends to the same number within an hour", async () => {
+      vi.resetModules();
+      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
+      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
 
-      mockCreate.mockClear();
-      await sendDriverArrivedSMS("+353891234567", "WS4U/SPR/070");
-      expect(mockCreate.mock.calls[0][0].body.length).toBeLessThanOrEqual(160);
+      const otp = await import("../server/otp");
 
-      mockCreate.mockClear();
-      await sendDeliveredSMS("+353891234567", "WS4U/SPR/070");
-      expect(mockCreate.mock.calls[0][0].body.length).toBeLessThanOrEqual(160);
+      const result1 = await otp.sendOTP("+353891111111");
+      expect(result1.success).toBe(true);
+
+      const result2 = await otp.sendOTP("+353891111111");
+      expect(result2.success).toBe(true);
+
+      const result3 = await otp.sendOTP("+353891111111");
+      expect(result3.success).toBe(true);
+
+      const result4 = await otp.sendOTP("+353891111111");
+      expect(result4.success).toBe(false);
+      expect(result4.error).toContain("Too many verification codes");
+    });
+
+    it("should allow sends to different phone numbers independently", async () => {
+      vi.resetModules();
+      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
+      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
+
+      const otp = await import("../server/otp");
+
+      await otp.sendOTP("+353892222222");
+      await otp.sendOTP("+353892222222");
+      await otp.sendOTP("+353892222222");
+
+      const resultA = await otp.sendOTP("+353892222222");
+      expect(resultA.success).toBe(false);
+
+      const resultB = await otp.sendOTP("+353893333333");
+      expect(resultB.success).toBe(true);
+    });
+
+    it("should normalize phone numbers for rate limiting (087... and +353...)", async () => {
+      vi.resetModules();
+      process.env.TWILIO_ACCOUNT_SID = "AC_test_sid";
+      process.env.TWILIO_AUTH_TOKEN = "test_auth_token";
+
+      const otp = await import("../server/otp");
+
+      await otp.sendOTP("0894444444");
+      await otp.sendOTP("+353894444444");
+      await otp.sendOTP("353894444444");
+
+      const result = await otp.sendOTP("089 444 4444");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Too many");
     });
   });
 });
