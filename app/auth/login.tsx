@@ -8,11 +8,17 @@ import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { WebLayout } from "@/components/web-layout";
+import { useColors } from "@/hooks/use-colors";
+
+type LoginMethod = "email" | "phone";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { refresh: refreshAuth } = useAuth();
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>("email");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,8 +28,16 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError("");
     
-    if (!email || !password) {
-      setError("Please enter email and password");
+    if (loginMethod === "email" && !email) {
+      setError("Please enter your email");
+      return;
+    }
+    if (loginMethod === "phone" && !phone) {
+      setError("Please enter your phone number");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password");
       return;
     }
 
@@ -31,10 +45,11 @@ export default function LoginScreen() {
 
     try {
       // Step 1: Validate credentials via tRPC
-      const result = await loginMutation.mutateAsync({
-        email: email.toLowerCase().trim(),
-        password,
-      });
+      const loginPayload = loginMethod === "email"
+        ? { email: email.toLowerCase().trim(), password }
+        : { phone: phone.trim(), password };
+      
+      const result = await loginMutation.mutateAsync(loginPayload);
 
       // Step 2: Store user data in AsyncStorage for quick access
       await AsyncStorage.setItem("user", JSON.stringify(result.user));
@@ -112,7 +127,7 @@ export default function LoginScreen() {
         }
       }
     } catch (error: any) {
-      setError(error.message || "Invalid email or password");
+      setError(error.message || (loginMethod === "email" ? "Invalid email or password" : "Invalid phone number or password"));
     } finally {
       setLoading(false);
     }
@@ -140,6 +155,54 @@ export default function LoginScreen() {
             <Text className="text-muted text-lg">Welcome Back!</Text>
           </View>
 
+          {/* Login Method Toggle */}
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: colors.surface,
+            borderRadius: 12,
+            padding: 4,
+            marginBottom: 20,
+          }}>
+            <TouchableOpacity
+              onPress={() => { setLoginMethod("email"); setError(""); }}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 10,
+                alignItems: 'center',
+                backgroundColor: loginMethod === "email" ? colors.primary : 'transparent',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{
+                fontWeight: '700',
+                fontSize: 15,
+                color: loginMethod === "email" ? '#FFFFFF' : colors.muted,
+              }}>
+                Email
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setLoginMethod("phone"); setError(""); }}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 10,
+                alignItems: 'center',
+                backgroundColor: loginMethod === "phone" ? colors.primary : 'transparent',
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{
+                fontWeight: '700',
+                fontSize: 15,
+                color: loginMethod === "phone" ? '#FFFFFF' : colors.muted,
+              }}>
+                Phone
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Error Message */}
           {error ? (
             <View className="bg-error/10 border border-error rounded-lg p-4 mb-4">
@@ -149,20 +212,38 @@ export default function LoginScreen() {
 
           {/* Login Form */}
           <View className="gap-4">
-            <View>
-              <Text className="text-foreground font-semibold mb-2">Email</Text>
-              <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
-                placeholder="your@email.com"
-                placeholderTextColor="#9BA1A6"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
-            </View>
+            {loginMethod === "email" ? (
+              <View>
+                <Text className="text-foreground font-semibold mb-2">Email</Text>
+                <TextInput
+                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  placeholder="your@email.com"
+                  placeholderTextColor="#9BA1A6"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              </View>
+            ) : (
+              <View>
+                <Text className="text-foreground font-semibold mb-2">Phone Number</Text>
+                <TextInput
+                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  placeholder="087 123 4567"
+                  placeholderTextColor="#9BA1A6"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  returnKeyType="next"
+                />
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+                  Enter the phone number you registered with
+                </Text>
+              </View>
+            )}
 
             <View>
               <Text className="text-foreground font-semibold mb-2">Password</Text>

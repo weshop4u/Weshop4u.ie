@@ -51,6 +51,9 @@ export function WebFooter() {
             <TouchableOpacity onPress={() => router.push("/contact")}>
               <Text style={styles.link}>Contact Us</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/faq")}>
+              <Text style={styles.link}>FAQ</Text>
+            </TouchableOpacity>
           </View>
 
           {/* For Businesses */}

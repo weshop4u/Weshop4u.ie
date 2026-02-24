@@ -105,6 +105,25 @@ export default function HelpScreen() {
             </View>
           </View>
 
+          {/* FAQ Link */}
+          <View>
+            <TouchableOpacity
+              onPress={() => router.push("/faq" as any)}
+              className="bg-surface rounded-xl border border-border p-4 active:opacity-70"
+            >
+              <View className="flex-row items-center gap-4">
+                <View className="w-12 h-12 bg-primary/10 rounded-full items-center justify-center">
+                  <Text className="text-2xl">❓</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-foreground font-semibold text-base">View All FAQs</Text>
+                  <Text className="text-muted text-sm mt-1">Find answers to common questions</Text>
+                </View>
+                <Text className="text-primary text-xl">›</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           {/* Info Note */}
           <View className="bg-primary/10 p-4 rounded-xl">
             <Text className="text-primary text-sm leading-relaxed">

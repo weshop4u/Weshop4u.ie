@@ -1832,3 +1832,18 @@
 - [x] Add unread message count badge on admin sidebar Messages link
 - [x] Add unread message count badge on admin dashboard Messages button (desktop + mobile)
 - [ ] Add email notification to admin when new contact message is submitted (DEFERRED — Gmail App Passwords not available, code is ready in server/email.ts, just needs SMTP credentials)
+
+## Guest Checkout Phone OTP — Feb 24 2026
+- [x] Set up Twilio Verify service for phone OTP
+- [x] Create backend endpoints: sendOTP and verifyOTP using Twilio Verify API
+- [x] Add phone OTP verification step to guest checkout flow (enter phone → receive code → enter code → proceed)
+- [x] Validate OTP before allowing guest order placement
+
+## Phone Number Login Option — Feb 24 2026
+- [x] Add phone + password login option alongside email + password on login page
+- [x] Update backend login endpoint to accept phone number as alternative to email
+- [x] Add toggle/tab on login page: "Log in with Email" / "Log in with Phone"
+
+## FAQ Page — Feb 24 2026
+- [x] Build FAQ page with common questions about ordering, delivery, payment, etc.
+- [x] Add FAQ link to website footer and Help & Support page

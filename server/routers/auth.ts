@@ -137,12 +137,15 @@ export const authRouter = router({
       };
     }),
 
-  // Login
+  // Login (supports both email and phone)
   login: publicProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.string().optional(),
+        phone: z.string().optional(),
         password: z.string(),
+      }).refine(data => data.email || data.phone, {
+        message: "Either email or phone number is required",
       })
     )
     .mutation(async ({ input }) => {
@@ -151,15 +154,45 @@ export const authRouter = router({
         throw new Error("Database not available");
       }
 
-      // Find user
-      const userResult = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, input.email))
-        .limit(1);
+      // Find user by email or phone
+      let userResult;
+      if (input.email) {
+        userResult = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, input.email))
+          .limit(1);
+      } else if (input.phone) {
+        // Normalize phone: strip spaces/dashes for matching
+        const cleanPhone = input.phone.replace(/[\s\-\(\)]/g, '');
+        userResult = await db
+          .select()
+          .from(users)
+          .where(eq(users.phone, cleanPhone))
+          .limit(1);
+        
+        // If not found, try with common Irish format variations
+        if (userResult.length === 0 && cleanPhone.startsWith('+353')) {
+          const domesticPhone = '0' + cleanPhone.substring(4);
+          userResult = await db
+            .select()
+            .from(users)
+            .where(eq(users.phone, domesticPhone))
+            .limit(1);
+        } else if (userResult.length === 0 && cleanPhone.startsWith('0')) {
+          const intlPhone = '+353' + cleanPhone.substring(1);
+          userResult = await db
+            .select()
+            .from(users)
+            .where(eq(users.phone, intlPhone))
+            .limit(1);
+        }
+      } else {
+        throw new Error("Email or phone number is required");
+      }
 
-      if (userResult.length === 0) {
-        throw new Error("Invalid email or password");
+      if (!userResult || userResult.length === 0) {
+        throw new Error(input.email ? "Invalid email or password" : "Invalid phone number or password");
       }
 
       const user = userResult[0];

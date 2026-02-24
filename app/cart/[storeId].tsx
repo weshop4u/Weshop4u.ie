@@ -38,6 +38,72 @@ export default function CartScreen() {
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   
+  // Phone OTP verification state
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  
+  const sendOtpMutation = trpc.otp.sendCode.useMutation();
+  const verifyOtpMutation = trpc.otp.verifyCode.useMutation();
+  
+  // OTP cooldown timer
+  useEffect(() => {
+    if (otpCooldown > 0) {
+      const timer = setTimeout(() => setOtpCooldown(otpCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpCooldown]);
+  
+  // Reset OTP state when phone number changes
+  useEffect(() => {
+    if (otpSent || phoneVerified) {
+      setOtpSent(false);
+      setOtpCode("");
+      setPhoneVerified(false);
+      setOtpError("");
+    }
+  }, [guestPhone]);
+  
+  const handleSendOtp = async () => {
+    if (!guestPhone.trim() || guestPhone.trim().length < 7) {
+      setOtpError("Please enter a valid phone number");
+      return;
+    }
+    setOtpSending(true);
+    setOtpError("");
+    try {
+      await sendOtpMutation.mutateAsync({ phoneNumber: guestPhone.trim() });
+      setOtpSent(true);
+      setOtpCooldown(60);
+    } catch (error: any) {
+      setOtpError(error.message || "Failed to send verification code");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+  
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      setOtpError("Please enter the 6-digit code");
+      return;
+    }
+    setOtpVerifying(true);
+    setOtpError("");
+    try {
+      await verifyOtpMutation.mutateAsync({ phoneNumber: guestPhone.trim(), code: otpCode });
+      setPhoneVerified(true);
+      setOtpError("");
+    } catch (error: any) {
+      setOtpError(error.message || "Invalid code. Please try again.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+  
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -182,6 +248,10 @@ export default function CartScreen() {
       }
       if (!guestPhone.trim()) {
         setErrorMessage("Please enter your phone number");
+        return;
+      }
+      if (!phoneVerified) {
+        setErrorMessage("Please verify your phone number with the OTP code");
         return;
       }
       // Check guest cash limit
@@ -543,14 +613,97 @@ export default function CartScreen() {
               onChangeText={setGuestName}
             />
             
-            <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
-              placeholder="Phone Number *"
-              placeholderTextColor={colors.muted}
-              value={guestPhone}
-              onChangeText={setGuestPhone}
-              keyboardType="phone-pad"
-            />
+            {/* Phone Number with OTP Verification */}
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  className="bg-surface text-foreground p-4 rounded-lg border border-border"
+                  style={{ flex: 1, borderColor: phoneVerified ? '#22C55E' : undefined, borderWidth: phoneVerified ? 2 : 1 }}
+                  placeholder="Phone Number *"
+                  placeholderTextColor={colors.muted}
+                  value={guestPhone}
+                  onChangeText={setGuestPhone}
+                  keyboardType="phone-pad"
+                  editable={!phoneVerified}
+                />
+                {!phoneVerified && (
+                  <TouchableOpacity
+                    onPress={handleSendOtp}
+                    disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
+                    style={{
+                      backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
+                      borderRadius: 8,
+                      paddingHorizontal: 14,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      minWidth: 80,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {otpSending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                        {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? 'Resend' : 'Verify'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Verified badge */}
+              {phoneVerified && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{ color: '#22C55E', fontSize: 13, fontWeight: '600' }}>✓ Phone number verified</Text>
+                </View>
+              )}
+              
+              {/* OTP Input */}
+              {otpSent && !phoneVerified && (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 6 }}>
+                    Enter the 6-digit code sent to {guestPhone}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput
+                      className="bg-surface text-foreground p-4 rounded-lg border border-border"
+                      style={{ flex: 1, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
+                      placeholder="000000"
+                      placeholderTextColor={colors.muted}
+                      value={otpCode}
+                      onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    <TouchableOpacity
+                      onPress={handleVerifyOtp}
+                      disabled={otpVerifying || otpCode.length !== 6}
+                      style={{
+                        backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
+                        borderRadius: 8,
+                        paddingHorizontal: 16,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {otpVerifying ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                          Confirm
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              
+              {/* OTP Error */}
+              {otpError ? (
+                <Text style={{ color: colors.error, fontSize: 12, marginTop: 6 }}>{otpError}</Text>
+              ) : null}
+            </View>
             
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border"
@@ -885,17 +1038,17 @@ export default function CartScreen() {
         {/* Checkout Button */}
         <TouchableOpacity
           onPress={handleCheckout}
-          disabled={!deliveryFeeCalculated || createOrderMutation.isPending || guestCashLimitExceeded}
+          disabled={!deliveryFeeCalculated || createOrderMutation.isPending || guestCashLimitExceeded || (isGuest && !phoneVerified)}
           style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
           className={`p-4 rounded-lg items-center ${
-            deliveryFeeCalculated && !createOrderMutation.isPending && !guestCashLimitExceeded ? "bg-primary active:opacity-70" : "bg-surface"
+            deliveryFeeCalculated && !createOrderMutation.isPending && !guestCashLimitExceeded && (!isGuest || phoneVerified) ? "bg-primary active:opacity-70" : "bg-surface"
           }`}
         >
           {createOrderMutation.isPending ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
             <Text className={`font-bold text-lg ${
-              deliveryFeeCalculated && !guestCashLimitExceeded ? "text-background" : "text-muted"
+              deliveryFeeCalculated && !guestCashLimitExceeded && (!isGuest || phoneVerified) ? "text-background" : "text-muted"
             }`}>
               Place Order
             </Text>
