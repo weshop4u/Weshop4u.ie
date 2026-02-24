@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import { useCart } from "@/lib/cart-provider";
+import { useCart, getItemLineTotal, getItemUnitPrice } from "@/lib/cart-provider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
@@ -194,11 +194,13 @@ export default function CartScreen() {
     }
   }, [errorMessage]);
 
-  const updateQuantity = (productId: number, delta: number) => {
-    const currentItem = cartContext.items.find(i => i.productId === productId);
+  const updateQuantity = (productId: number, delta: number, cartItemKey?: string) => {
+    const currentItem = cartItemKey
+      ? cartContext.items.find(i => i.cartItemKey === cartItemKey)
+      : cartContext.items.find(i => i.productId === productId);
     if (!currentItem) return;
     const newQty = currentItem.quantity + delta;
-    updateCartQuantity(productId, newQty);
+    updateCartQuantity(productId, newQty, cartItemKey);
   };
 
   const handleCalculateDeliveryFee = async () => {
@@ -227,9 +229,9 @@ export default function CartScreen() {
 
   const cartItems = cartContext.items.map(item => {
     const product = products.find(p => p.id === item.productId);
-    return product ? { ...product, cartQuantity: item.quantity } : null;
+    return product ? { ...product, cartQuantity: item.quantity, cartItem: item } : null;
   }).filter(Boolean) || [];
-  const subtotal = cartItems.reduce((sum, p) => sum + (p ? parseFloat(p.price) * p.cartQuantity : 0), 0);
+  const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
   const serviceFee = subtotal * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
   const distance = calculateDeliveryFeeMutation.data?.distance || 0;
@@ -280,10 +282,19 @@ export default function CartScreen() {
     }
 
     try {
-      const orderItems = cartItems.map(product => ({
-        productId: product!.id,
-        quantity: product!.cartQuantity,
-      }));
+      const orderItems = cartItems.map(product => {
+        const ci = (product as any).cartItem;
+        return {
+          productId: product!.id,
+          quantity: product!.cartQuantity,
+          modifiers: ci?.modifiers?.map((m: any) => ({
+            modifierId: m.modifierId,
+            modifierName: m.modifierName,
+            modifierPrice: m.modifierPrice,
+            groupName: m.groupName || "",
+          })) || [],
+        };
+      });
 
       const result = await createOrderMutation.mutateAsync({
         customerId: user?.id || null,
@@ -566,29 +577,59 @@ export default function CartScreen() {
 
         {/* Cart Items */}
         <View className="mb-6">
-          {cartItems.map((product) => product && (
-            <View key={product.id} className="flex-row justify-between items-center mb-4 pb-4 border-b border-border">
-              <View className="flex-1">
-                <Text className="text-foreground font-semibold">{product.name}</Text>
-                <Text className="text-muted text-sm">€{parseFloat(product.price).toFixed(2)}</Text>
+          {cartItems.map((product) => {
+            if (!product) return null;
+            const ci = (product as any).cartItem;
+            const key = ci?.cartItemKey || `p_${product.id}`;
+            const unitPrice = ci ? getItemUnitPrice(ci) : parseFloat(product.price);
+            const lineTotal = ci ? getItemLineTotal(ci) : parseFloat(product.price) * product.cartQuantity;
+            const hasMods = ci?.modifiers && ci.modifiers.length > 0;
+            const hasDeal = ci?.deal && product.cartQuantity >= ci.deal.quantity;
+            return (
+              <View key={key} className="mb-4 pb-4 border-b border-border">
+                <View className="flex-row justify-between items-center">
+                  <View className="flex-1">
+                    <Text className="text-foreground font-semibold">{product.name}</Text>
+                    <Text className="text-muted text-sm">€{unitPrice.toFixed(2)} each</Text>
+                  </View>
+                  <View className="flex-row items-center gap-3">
+                    <TouchableOpacity
+                      onPress={() => updateQuantity(product.id, -1, key)}
+                      className="w-8 h-8 bg-surface rounded-full items-center justify-center active:opacity-70"
+                    >
+                      <Text className="text-foreground font-bold">−</Text>
+                    </TouchableOpacity>
+                    <Text className="text-foreground font-semibold w-8 text-center">{product.cartQuantity}</Text>
+                    <TouchableOpacity
+                      onPress={() => updateQuantity(product.id, 1, key)}
+                      className="w-8 h-8 bg-primary rounded-full items-center justify-center active:opacity-70"
+                    >
+                      <Text className="text-background font-bold">+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {/* Modifier details */}
+                {hasMods && ci.modifiers.map((m: any, idx: number) => (
+                  <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 12, marginTop: 2 }}>
+                    <Text style={{ fontSize: 12, color: '#687076' }}>+ {m.modifierName}</Text>
+                    {parseFloat(m.modifierPrice) > 0 && (
+                      <Text style={{ fontSize: 12, color: '#00B8D4' }}>+€{parseFloat(m.modifierPrice).toFixed(2)}</Text>
+                    )}
+                  </View>
+                ))}
+                {/* Deal badge */}
+                {hasDeal && (
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400E' }}>🏷️ {ci.deal.label}</Text>
+                  </View>
+                )}
+                {/* Line total */}
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#11181C' }}>€{lineTotal.toFixed(2)}</Text>
+                </View>
               </View>
-              <View className="flex-row items-center gap-3">
-                <TouchableOpacity
-                  onPress={() => updateQuantity(product.id, -1)}
-                  className="w-8 h-8 bg-surface rounded-full items-center justify-center active:opacity-70"
-                >
-                  <Text className="text-foreground font-bold">−</Text>
-                </TouchableOpacity>
-                <Text className="text-foreground font-semibold w-8 text-center">{product.cartQuantity}</Text>
-                <TouchableOpacity
-                  onPress={() => updateQuantity(product.id, 1)}
-                  className="w-8 h-8 bg-primary rounded-full items-center justify-center active:opacity-70"
-                >
-                  <Text className="text-background font-bold">+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {/* Continue Shopping Button */}

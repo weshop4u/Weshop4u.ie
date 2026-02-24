@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useMemo, useCallback } from "react";
-import { useCart } from "@/lib/cart-provider";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useCart, CartItemModifier, getItemUnitPrice } from "@/lib/cart-provider";
 import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } from "@/lib/store-hours";
 import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
 import * as Haptics from "expo-haptics";
@@ -28,7 +28,8 @@ export default function StoreDetailScreen() {
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [modalQuantity, setModalQuantity] = useState(1);
-  const { cart, addToCart, clearCart, getItemCount } = useCart();
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
+  const { cart, addToCart, clearCart, getItemCount, getProductQuantity: cartGetProductQuantity } = useCart();
   
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
@@ -202,10 +203,11 @@ export default function StoreDetailScreen() {
     return sorted;
   }, [categoryProducts, productSearch, sortBy]);
 
-  // Get quantity for a product from cart
+  // Get quantity for a product from cart (sum across all modifier variants)
   const getProductQuantity = useCallback((productId: number) => {
-    const item = cart.items.find(i => i.productId === productId);
-    return item?.quantity || 0;
+    return cart.items
+      .filter(i => i.productId === productId)
+      .reduce((sum, i) => sum + i.quantity, 0);
   }, [cart.items]);
 
   // Get product image helper
@@ -219,13 +221,111 @@ export default function StoreDetailScreen() {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    const existingQty = getProductQuantity(product.id);
-    setModalQuantity(existingQty > 0 ? existingQty : 1);
+    setModalQuantity(1);
+    setSelectedModifiers({});
     setSelectedProduct(product);
-  }, [getProductQuantity]);
+  }, []);
 
   const isWeb = Platform.OS === "web";
   const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+  // Fetch modifiers for selected product
+  const { data: modifierData } = trpc.modifiers.getForProduct.useQuery(
+    { productId: selectedProduct?.id ?? 0 },
+    { enabled: !!selectedProduct }
+  );
+
+  // Set defaults when modifier data loads
+  useEffect(() => {
+    if (modifierData?.groups && selectedProduct) {
+      const defaults: Record<number, number[]> = {};
+      for (const group of modifierData.groups) {
+        const defaultMods = group.modifiers.filter((m: any) => m.isDefault);
+        if (defaultMods.length > 0) {
+          defaults[group.id] = defaultMods.map((m: any) => m.id);
+        } else if (group.required && group.type === "single" && group.modifiers.length > 0) {
+          defaults[group.id] = [group.modifiers[0].id];
+        }
+      }
+      setSelectedModifiers(defaults);
+    }
+  }, [modifierData, selectedProduct?.id]);
+
+  // Build selected modifiers list for cart
+  const getSelectedModifiersList = useCallback((): CartItemModifier[] => {
+    if (!modifierData?.groups) return [];
+    const result: CartItemModifier[] = [];
+    for (const group of modifierData.groups) {
+      const selectedIds = selectedModifiers[group.id] || [];
+      for (const mod of group.modifiers) {
+        if (selectedIds.includes(mod.id)) {
+          result.push({
+            groupName: group.name,
+            modifierId: mod.id,
+            modifierName: mod.name,
+            modifierPrice: mod.price,
+          });
+        }
+      }
+    }
+    return result;
+  }, [modifierData, selectedModifiers]);
+
+  // Calculate total price including modifiers
+  const getModalTotalPrice = useCallback((): number => {
+    if (!selectedProduct) return 0;
+    const basePrice = parseFloat(selectedProduct.price);
+    const modifierTotal = getSelectedModifiersList().reduce(
+      (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
+    );
+    // Check for multi-buy deal
+    const deal = modifierData?.deals?.[0];
+    const unitPrice = basePrice + modifierTotal;
+    if (deal && modalQuantity >= deal.quantity) {
+      const dealSets = Math.floor(modalQuantity / deal.quantity);
+      const remainder = modalQuantity % deal.quantity;
+      return dealSets * parseFloat(deal.dealPrice) + remainder * unitPrice;
+    }
+    return unitPrice * modalQuantity;
+  }, [selectedProduct, getSelectedModifiersList, modifierData, modalQuantity]);
+
+  // Check if all required modifier groups have selections
+  const allRequiredModifiersSelected = useCallback((): boolean => {
+    if (!modifierData?.groups) return true;
+    for (const group of modifierData.groups) {
+      if (group.required) {
+        const selected = selectedModifiers[group.id] || [];
+        if (selected.length === 0) return false;
+        if (group.minSelections && selected.length < group.minSelections) return false;
+      }
+    }
+    return true;
+  }, [modifierData, selectedModifiers]);
+
+  // Handle modifier toggle
+  const toggleModifier = useCallback((groupId: number, modifierId: number, groupType: string, maxSelections: number) => {
+    setSelectedModifiers(prev => {
+      const current = prev[groupId] || [];
+      if (groupType === "single") {
+        // Radio: replace selection
+        return { ...prev, [groupId]: [modifierId] };
+      } else {
+        // Multi: toggle
+        if (current.includes(modifierId)) {
+          return { ...prev, [groupId]: current.filter(id => id !== modifierId) };
+        } else {
+          // Check max selections
+          if (maxSelections > 0 && current.length >= maxSelections) {
+            return prev; // At max, don't add
+          }
+          return { ...prev, [groupId]: [...current, modifierId] };
+        }
+      }
+    });
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, []);
 
   // Product detail modal — works from both category view and search results
   // Defined here (before early returns) so it can be rendered in all views
@@ -240,6 +340,10 @@ export default function StoreDetailScreen() {
     const isOutOfStock = selectedProduct.stockStatus === "out_of_stock";
     const canAdd = !isRestricted && storeOpen && !isOutOfStock;
     const quantity = getProductQuantity(selectedProduct.id);
+    const hasModifiers = (modifierData?.groups?.length ?? 0) > 0;
+    const hasDeal = (modifierData?.deals?.length ?? 0) > 0;
+    const deal = modifierData?.deals?.[0];
+    const requiredMet = allRequiredModifiersSelected();
 
     return (
       <Modal
@@ -282,6 +386,12 @@ export default function StoreDetailScreen() {
                 {selectedProduct.isDrs && (
                   <Text style={{ fontSize: 12, color: "#0EA5E9", fontWeight: "600", marginTop: 4 }}>Price incl. DRS deposit</Text>
                 )}
+                {/* Multi-buy deal badge */}
+                {hasDeal && deal && (
+                  <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: "flex-start", marginTop: 8, borderWidth: 1, borderColor: "#FDE68A" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>🏷️ {deal.label || `${deal.quantity} for €${parseFloat(deal.dealPrice).toFixed(2)}`}</Text>
+                  </View>
+                )}
                 {isOutOfStock && (
                   <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 }}>
                     <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>Out of Stock</Text>
@@ -298,6 +408,75 @@ export default function StoreDetailScreen() {
                     <Text style={{ fontSize: 14, color: "#687076", lineHeight: 21 }}>{selectedProduct.description}</Text>
                   </View>
                 ) : null}
+
+                {/* Modifier Groups */}
+                {hasModifiers && modifierData?.groups?.map((group: any) => {
+                  const selectedIds = selectedModifiers[group.id] || [];
+                  return (
+                    <View key={group.id} style={{ marginTop: 20 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>{group.name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          {group.required && (
+                            <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                              <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>REQUIRED</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>
+                            {group.type === "single" ? "Pick one" : group.maxSelections > 0 ? `Pick up to ${group.maxSelections}` : "Pick any"}
+                          </Text>
+                        </View>
+                      </View>
+                      {group.modifiers.map((mod: any) => {
+                        const isSelected = selectedIds.includes(mod.id);
+                        const modPrice = parseFloat(mod.price);
+                        return (
+                          <TouchableOpacity
+                            key={mod.id}
+                            onPress={() => toggleModifier(group.id, mod.id, group.type, group.maxSelections || 0)}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              paddingVertical: 10,
+                              paddingHorizontal: 12,
+                              marginBottom: 4,
+                              borderRadius: 10,
+                              borderWidth: 1.5,
+                              borderColor: isSelected ? "#00E5FF" : "#E5E7EB",
+                              backgroundColor: isSelected ? "#F0FDFF" : "#FFFFFF",
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            {/* Radio/Checkbox indicator */}
+                            <View style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: group.type === "single" ? 11 : 4,
+                              borderWidth: 2,
+                              borderColor: isSelected ? "#00E5FF" : "#D1D5DB",
+                              backgroundColor: isSelected ? "#00E5FF" : "transparent",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginRight: 10,
+                            }}>
+                              {isSelected && (
+                                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>
+                              )}
+                            </View>
+                            <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: "#11181C" }}>{mod.name}</Text>
+                            {modPrice > 0 && (
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: "#00B8D4" }}>+€{modPrice.toFixed(2)}</Text>
+                            )}
+                            {modPrice === 0 && (
+                              <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Free</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+
                 {selectedProduct.sku ? (
                   <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 12 }}>SKU: {selectedProduct.sku}</Text>
                 ) : null}
@@ -328,12 +507,49 @@ export default function StoreDetailScreen() {
                 </View>
                 <TouchableOpacity
                   onPress={() => {
-                    handleAddToCart(selectedProduct.id, selectedProduct.name, selectedProduct.price, productCatSchedule, modalQuantity);
+                    if (!requiredMet) {
+                      Alert.alert("Required Options", "Please select all required options before adding to cart.");
+                      return;
+                    }
+                    const mods = getSelectedModifiersList();
+                    const deal = modifierData?.deals?.[0];
+                    const cartDeal = deal ? { dealId: deal.id, quantity: deal.quantity, dealPrice: deal.dealPrice, label: deal.label || `${deal.quantity} for €${parseFloat(deal.dealPrice).toFixed(2)}` } : null;
+                    const success = addToCart(storeId, store?.name || "Store", {
+                      productId: selectedProduct.id,
+                      productName: selectedProduct.name,
+                      productPrice: selectedProduct.price,
+                      quantity: modalQuantity,
+                      modifiers: mods.length > 0 ? mods : undefined,
+                      deal: cartDeal,
+                    });
+                    if (!success) {
+                      Alert.alert(
+                        "Replace cart items?",
+                        `You have items from ${cart.storeName} in your cart.\n\nAdding items from ${store?.name} will remove your current cart.`,
+                        [
+                          { text: "Keep Current Cart", style: "cancel" },
+                          {
+                            text: "Start New Cart",
+                            onPress: () => {
+                              clearCart();
+                              addToCart(storeId, store?.name || "Store", {
+                                productId: selectedProduct.id,
+                                productName: selectedProduct.name,
+                                productPrice: selectedProduct.price,
+                                quantity: modalQuantity,
+                                modifiers: mods.length > 0 ? mods : undefined,
+                                deal: cartDeal,
+                              });
+                            },
+                          },
+                        ]
+                      );
+                    }
                     setSelectedProduct(null);
                   }}
-                  style={styles.addToCartButton}
+                  style={[styles.addToCartButton, !requiredMet && { opacity: 0.5 }]}
                 >
-                  <Text style={styles.addToCartText}>Add to Cart · €{(parseFloat(selectedProduct.price) * modalQuantity).toFixed(2)}</Text>
+                  <Text style={styles.addToCartText}>Add to Cart · €{getModalTotalPrice().toFixed(2)}</Text>
                 </TouchableOpacity>
               </View>
             )}

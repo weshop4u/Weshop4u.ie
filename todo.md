@@ -1899,3 +1899,23 @@
 - [x] Remove all other SMS triggers (on_the_way, delivered, cancelled, driver_arrived) — not needed with tracking link
 - [x] Only send SMS to guest users (no customerId) — logged-in users get push notifications only
 - [x] Driver "Arrived at Store" button triggers SMS #2 — admin status changes do NOT trigger SMS
+
+## Product Add-ons / Modifiers System — Feb 24 2026
+- [x] Database schema: modifier_groups table (name, type: single/multi, required, min/max selections, linked to product)
+- [x] Database schema: modifiers table (name, price, group_id, sort_order)
+- [x] Database schema: multi_buy_deals table (product_id, quantity, deal_price, e.g. "2 for €2.50")
+- [x] Database schema: order_item_modifiers table (order_item_id, modifier_id, modifier_name, modifier_price)
+- [x] Migrate schema to database
+- [x] Backend API: CRUD for modifier groups and modifiers (admin)
+- [x] Backend API: CRUD for multi-buy deals (admin)
+- [x] Backend API: Fetch product with modifiers (customer-facing)
+- [x] Product detail screen with modifier selection UI (radio for single-select, checkboxes for multi-select)
+- [x] Build-your-own flow: base item + toppings + sauces with incremental pricing (uses multi modifier groups)
+- [x] Cart: store selected modifiers per item, show modifier names and extra cost
+- [x] Cart: auto-apply multi-buy pricing when quantity meets deal threshold
+- [x] Order placement: save selected modifiers to order_item_modifiers table
+- [x] Admin: UI to create/edit modifier groups on product edit screen (product-modifiers.tsx)
+- [x] Admin: UI to create/edit multi-buy deals (product-deals.tsx)
+- [x] Receipt printing: show modifiers under each item
+- [x] Driver active delivery view: show modifiers in order items list
+- [x] Tests for modifier CRUD, pricing calculations, and multi-buy logic (25 tests passing)

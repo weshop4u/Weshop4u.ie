@@ -660,9 +660,20 @@ export default function ActiveDeliveryScreen() {
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
           {order.items && order.items.length > 0 ? (
             order.items.map((item: any, index: number) => (
-              <View key={index} className="flex-row justify-between py-2 border-b border-border">
-                <Text className="text-foreground">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
-                <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
+              <View key={index} className="py-2 border-b border-border">
+                <View className="flex-row justify-between">
+                  <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
+                  <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
+                </View>
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <View className="ml-4 mt-1">
+                    {item.modifiers.map((mod: any, mi: number) => (
+                      <Text key={mi} className="text-muted text-xs">
+                        • {mod.modifierName}{parseFloat(mod.modifierPrice || "0") > 0 ? ` (+€${parseFloat(mod.modifierPrice).toFixed(2)})` : ""}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </View>
             ))
           ) : (

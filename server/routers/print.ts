@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { printJobs, orders, orderItems, stores, users, products, storeStaff } from "../../drizzle/schema";
+import { printJobs, orders, orderItems, stores, users, products, storeStaff, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { formatIrishTime, formatIrishDateShort } from "../lib/timezone";
+import { fetchItemModifiers } from "../lib/fetch-item-modifiers";
 
 // Display the order number from the database (WS4U/SPR/069 format)
 function getDisplayOrderNumber(order: any): string {
@@ -17,7 +18,7 @@ function getDisplayOrderNumber(order: any): string {
 }
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
-export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string): string {
+export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>): string {
   const LINE_WIDTH = 32;
   const lines: string[] = [];
 
@@ -124,6 +125,25 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     lines.push(`${i + 1}. ${qty}x ${name.length > LINE_WIDTH - 8 ? name.substring(0, LINE_WIDTH - 11) + "..." : name}`);
     lines.push(leftRight("", priceStr));
 
+    // Show modifiers/add-ons for this item
+    const mods = itemModifiers?.[item.id] || [];
+    if (mods.length > 0) {
+      // Group modifiers by group name
+      const grouped: Record<string, { name: string; price: string }[]> = {};
+      for (const m of mods) {
+        if (!grouped[m.groupName]) grouped[m.groupName] = [];
+        grouped[m.groupName].push({ name: m.modifierName, price: m.modifierPrice });
+      }
+      for (const [groupName, options] of Object.entries(grouped)) {
+        lines.push(`   ${groupName}:`);
+        for (const opt of options) {
+          const extraPrice = parseFloat(opt.price);
+          const extraStr = extraPrice > 0 ? ` +EUR${extraPrice.toFixed(2)}` : "";
+          lines.push(`    - ${opt.name}${extraStr}`);
+        }
+      }
+    }
+
     if (item.notes) {
       lines.push(`   Note: ${item.notes}`);
     }
@@ -223,8 +243,11 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
       if (order.guestPhone) customerPhone = order.guestPhone;
     }
 
+    // Fetch modifiers for items
+    const itemMods = await fetchItemModifiers(items.map(i => i.id));
+
     // Format and create print job
-    const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
+    const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
     await db.insert(printJobs).values({
       storeId,
       orderId,
@@ -306,8 +329,11 @@ export const printRouter = router({
         if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
+      // Fetch modifiers for items
+      const itemMods = await fetchItemModifiers(items.map(i => i.id));
+
       // Format receipt
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
 
       // Create print job
       const [result] = await db.insert(printJobs).values({
@@ -472,7 +498,10 @@ export const printRouter = router({
         if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone);
+      // Fetch modifiers for items
+      const itemMods = await fetchItemModifiers(items.map(i => i.id));
+
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
 
       return {
         receiptContent,

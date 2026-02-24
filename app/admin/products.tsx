@@ -1200,8 +1200,30 @@ function ProductsManagementScreenContent() {
               </View>
             </ScrollView>
 
+            {/* Add-ons & Deals */}
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowEditModal(false);
+                  router.push(`/admin/product-modifiers?productId=${editingProduct?.id}&productName=${encodeURIComponent(editingProduct?.name || '')}`);
+                }}
+                style={{ flex: 1, paddingVertical: 12, backgroundColor: "#8B5CF615", borderWidth: 1, borderColor: "#8B5CF6", borderRadius: 12, alignItems: "center" }}
+              >
+                <Text style={{ color: "#8B5CF6", fontWeight: "700", fontSize: 13 }}>🧩 Manage Add-ons</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowEditModal(false);
+                  router.push(`/admin/product-deals?productId=${editingProduct?.id}&productName=${encodeURIComponent(editingProduct?.name || '')}`);
+                }}
+                style={{ flex: 1, paddingVertical: 12, backgroundColor: "#F59E0B15", borderWidth: 1, borderColor: "#F59E0B", borderRadius: 12, alignItems: "center" }}
+              >
+                <Text style={{ color: "#92400E", fontWeight: "700", fontSize: 13 }}>🏷️ Manage Deals</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Buttons */}
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
               <TouchableOpacity
                 onPress={() => {
                   setShowEditModal(false);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS } from "../sms";
@@ -123,6 +123,14 @@ export const ordersRouter = router({
           z.object({
             productId: z.number(),
             quantity: z.number(),
+            modifiers: z.array(
+              z.object({
+                modifierId: z.number(),
+                modifierName: z.string(),
+                modifierPrice: z.string(),
+                groupName: z.string().optional(),
+              })
+            ).optional(),
           })
         ),
         deliveryAddress: z.string(),
@@ -186,7 +194,11 @@ export const ordersRouter = router({
 
         const productData = product[0];
         const price = parseFloat(productData.price);
-        const itemSubtotal = price * item.quantity;
+        const modifierTotal = (item.modifiers || []).reduce(
+          (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
+        );
+        const unitPrice = price + modifierTotal;
+        const itemSubtotal = unitPrice * item.quantity;
         subtotal += itemSubtotal;
 
         orderItemsData.push({
@@ -195,6 +207,7 @@ export const ordersRouter = router({
           productPrice: productData.price,
           quantity: item.quantity,
           subtotal: itemSubtotal.toFixed(2),
+          modifiers: item.modifiers || [],
         });
       }
 
@@ -233,12 +246,27 @@ export const ordersRouter = router({
 
       const orderId = order.insertId;
 
-      // Create order items
+      // Create order items and their modifiers
       for (const item of orderItemsData) {
-        await db.insert(orderItems).values({
+        const { modifiers: itemMods, ...itemData } = item;
+        const [insertedItem] = await db.insert(orderItems).values({
           orderId: Number(orderId),
-          ...item,
+          ...itemData,
         });
+        const orderItemId = Number(insertedItem.insertId);
+
+        // Save modifiers for this order item
+        if (itemMods && itemMods.length > 0) {
+          for (const mod of itemMods) {
+            await db.insert(orderItemModifiers).values({
+              orderItemId,
+              modifierId: mod.modifierId,
+              modifierName: mod.modifierName,
+              modifierPrice: mod.modifierPrice,
+              groupName: mod.groupName || "",
+            });
+          }
+        }
       }
 
       // SMS #1 — Order Confirmed
@@ -353,10 +381,34 @@ export const ordersRouter = router({
         .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, input.orderId));
 
+      // Fetch modifiers for all items
+      const itemIds = items.map(i => i.id);
+      let itemModsMap: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]> = {};
+      if (itemIds.length > 0) {
+        const mods = await db
+          .select({
+            orderItemId: orderItemModifiers.orderItemId,
+            groupName: orderItemModifiers.groupName,
+            modifierName: orderItemModifiers.modifierName,
+            modifierPrice: orderItemModifiers.modifierPrice,
+          })
+          .from(orderItemModifiers)
+          .where(inArray(orderItemModifiers.orderItemId, itemIds));
+        for (const m of mods) {
+          if (!itemModsMap[m.orderItemId]) itemModsMap[m.orderItemId] = [];
+          itemModsMap[m.orderItemId].push(m);
+        }
+      }
+
+      const itemsWithModifiers = items.map(item => ({
+        ...item,
+        modifiers: itemModsMap[item.id] || [],
+      }));
+
       return {
         ...orderResult[0].orders,
         store: orderResult[0].stores,
-        items,
+        items: itemsWithModifiers,
       };
     }),
 

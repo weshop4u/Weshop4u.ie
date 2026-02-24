@@ -178,6 +178,8 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [productCategories.id],
   }),
   orderItems: many(orderItems),
+  modifierGroups: many(modifierGroups),
+  multiBuyDeals: many(multiBuyDeals),
 }));
 
 // ===== DELIVERY ZONES =====
@@ -328,7 +330,7 @@ export const orderItems = mysqlTable(
   })
 );
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
@@ -337,6 +339,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.productId],
     references: [products.id],
   }),
+  modifiers: many(orderItemModifiers),
 }));
 
 // ===== ORDER TRACKING =====
@@ -612,3 +615,120 @@ export const contactMessages = mysqlTable(
 
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = typeof contactMessages.$inferInsert;
+
+// ===== MODIFIER GROUPS =====
+// A group of modifiers attached to a product, e.g. "Choose your side", "Add toppings"
+export const modifierGroups = mysqlTable(
+  "modifier_groups",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    productId: int("product_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(), // e.g. "Choose your side", "Add toppings"
+    type: mysqlEnum("type", ["single", "multi"]).notNull().default("single"), // single = radio, multi = checkboxes
+    required: boolean("required").default(false), // Must customer pick at least one?
+    minSelections: int("min_selections").default(0), // For multi: minimum picks
+    maxSelections: int("max_selections").default(0), // For multi: max picks (0 = unlimited)
+    sortOrder: int("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdIdx: index("mg_product_id_idx").on(table.productId),
+  })
+);
+
+export const modifierGroupsRelations = relations(modifierGroups, ({ one, many }) => ({
+  product: one(products, {
+    fields: [modifierGroups.productId],
+    references: [products.id],
+  }),
+  modifiers: many(modifiers),
+}));
+
+// ===== MODIFIERS =====
+// Individual options within a modifier group, e.g. "Rice (+€1.50)", "Lettuce (free)"
+export const modifiers = mysqlTable(
+  "modifiers",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    groupId: int("group_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(), // e.g. "Basmati Rice", "Lettuce"
+    price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0.00"), // Extra cost (0 = free)
+    isDefault: boolean("is_default").default(false), // Pre-selected option
+    isActive: boolean("is_active").default(true),
+    sortOrder: int("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    groupIdIdx: index("mod_group_id_idx").on(table.groupId),
+  })
+);
+
+export const modifiersRelations = relations(modifiers, ({ one }) => ({
+  group: one(modifierGroups, {
+    fields: [modifiers.groupId],
+    references: [modifierGroups.id],
+  }),
+}));
+
+// ===== MULTI-BUY DEALS =====
+// e.g. "2 for €2.50" on a product that normally costs €1.50 each
+export const multiBuyDeals = mysqlTable(
+  "multi_buy_deals",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    productId: int("product_id").notNull(),
+    quantity: int("quantity").notNull(), // e.g. 2
+    dealPrice: decimal("deal_price", { precision: 10, scale: 2 }).notNull(), // e.g. 2.50
+    label: varchar("label", { length: 255 }), // e.g. "2 for €2.50" — auto-generated if null
+    isActive: boolean("is_active").default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdIdx: index("mbd_product_id_idx").on(table.productId),
+  })
+);
+
+export const multiBuyDealsRelations = relations(multiBuyDeals, ({ one }) => ({
+  product: one(products, {
+    fields: [multiBuyDeals.productId],
+    references: [products.id],
+  }),
+}));
+
+// ===== ORDER ITEM MODIFIERS =====
+// Snapshot of selected modifiers at time of order (denormalized for history)
+export const orderItemModifiers = mysqlTable(
+  "order_item_modifiers",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    orderItemId: int("order_item_id").notNull(),
+    modifierId: int("modifier_id"), // Reference to original modifier (nullable if deleted)
+    groupName: varchar("group_name", { length: 255 }).notNull(), // Snapshot: "Choose your side"
+    modifierName: varchar("modifier_name", { length: 255 }).notNull(), // Snapshot: "Basmati Rice"
+    modifierPrice: decimal("modifier_price", { precision: 10, scale: 2 }).notNull().default("0.00"), // Snapshot: 1.50
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    orderItemIdIdx: index("oim_order_item_id_idx").on(table.orderItemId),
+  })
+);
+
+export const orderItemModifiersRelations = relations(orderItemModifiers, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderItemModifiers.orderItemId],
+    references: [orderItems.id],
+  }),
+  modifier: one(modifiers, {
+    fields: [orderItemModifiers.modifierId],
+    references: [modifiers.id],
+  }),
+}));
+
+export type ModifierGroup = typeof modifierGroups.$inferSelect;
+export type InsertModifierGroup = typeof modifierGroups.$inferInsert;
+export type Modifier = typeof modifiers.$inferSelect;
+export type InsertModifier = typeof modifiers.$inferInsert;
+export type MultiBuyDeal = typeof multiBuyDeals.$inferSelect;
+export type InsertMultiBuyDeal = typeof multiBuyDeals.$inferInsert;
+export type OrderItemModifier = typeof orderItemModifiers.$inferSelect;
+export type InsertOrderItemModifier = typeof orderItemModifiers.$inferInsert;
