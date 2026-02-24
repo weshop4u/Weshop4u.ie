@@ -1856,3 +1856,13 @@
 - [x] Fix: Place Order button stays disabled/greyed out because phone OTP verification was not completed
 - [x] Add clear warning banners above Place Order button showing exactly what's still needed (phone verification, delivery fee, cash limit)
 - [x] Investigate disabled state conditions on the Place Order button
+
+## UX: Move phone verification to bottom of checkout — Feb 24 2026
+- [x] Move phone OTP verification section from "Your Information" to just above Place Order button
+- [x] Keep name and email fields in "Your Information" section at top
+- [x] Ensure phone verification is clearly visible before placing order
+
+## Twilio OTP Blocking — Feb 24 2026
+- [x] Investigate "Verification Creation Attempt blocked by Twilio" error — caused by Twilio Fraud Guard
+- [x] Fix: Added +353892003003 to Twilio Safe List via API
+- [x] Created scripts/twilio-safelist.ts utility for managing Safe List numbers

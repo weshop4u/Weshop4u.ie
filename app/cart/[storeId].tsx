@@ -599,7 +599,7 @@ export default function CartScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Guest Information */}
+        {/* Guest Information — Name & Email */}
         {isGuest && (
           <View className="mb-6">
             <Text className="text-foreground font-semibold mb-3">Your Information</Text>
@@ -612,98 +612,6 @@ export default function CartScreen() {
               value={guestName}
               onChangeText={setGuestName}
             />
-            
-            {/* Phone Number with OTP Verification */}
-            <View style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TextInput
-                  className="bg-surface text-foreground p-4 rounded-lg border border-border"
-                  style={{ flex: 1, borderColor: phoneVerified ? '#22C55E' : undefined, borderWidth: phoneVerified ? 2 : 1 }}
-                  placeholder="Phone Number *"
-                  placeholderTextColor={colors.muted}
-                  value={guestPhone}
-                  onChangeText={setGuestPhone}
-                  keyboardType="phone-pad"
-                  editable={!phoneVerified}
-                />
-                {!phoneVerified && (
-                  <TouchableOpacity
-                    onPress={handleSendOtp}
-                    disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
-                    style={{
-                      backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
-                      borderRadius: 8,
-                      paddingHorizontal: 14,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      minWidth: 80,
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    {otpSending ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-                        {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? 'Resend' : 'Verify'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-              
-              {/* Verified badge */}
-              {phoneVerified && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                  <Text style={{ color: '#22C55E', fontSize: 13, fontWeight: '600' }}>✓ Phone number verified</Text>
-                </View>
-              )}
-              
-              {/* OTP Input */}
-              {otpSent && !phoneVerified && (
-                <View style={{ marginTop: 10 }}>
-                  <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 6 }}>
-                    Enter the 6-digit code sent to {guestPhone}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TextInput
-                      className="bg-surface text-foreground p-4 rounded-lg border border-border"
-                      style={{ flex: 1, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
-                      placeholder="000000"
-                      placeholderTextColor={colors.muted}
-                      value={otpCode}
-                      onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                    />
-                    <TouchableOpacity
-                      onPress={handleVerifyOtp}
-                      disabled={otpVerifying || otpCode.length !== 6}
-                      style={{
-                        backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
-                        borderRadius: 8,
-                        paddingHorizontal: 16,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {otpVerifying ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                          Confirm
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-              
-              {/* OTP Error */}
-              {otpError ? (
-                <Text style={{ color: colors.error, fontSize: 12, marginTop: 6 }}>{otpError}</Text>
-              ) : null}
-            </View>
             
             <TextInput
               className="bg-surface text-foreground p-4 rounded-lg border border-border"
@@ -1035,13 +943,110 @@ export default function CartScreen() {
           </View>
         </View>
 
-        {/* Missing steps warning */}
-        {isGuest && !phoneVerified && (
-          <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
-            <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Phone verification required</Text>
-            <Text style={{ color: '#92400E', fontSize: 13, lineHeight: 18 }}>Scroll up to the "Your Information" section and verify your phone number with an OTP code before placing your order.</Text>
+        {/* Phone Verification — Guest Only, placed right above Place Order */}
+        {isGuest && (
+          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
+              {phoneVerified ? '✅ Phone Verified' : '📱 Verify Your Phone'}
+            </Text>
+            {!phoneVerified && (
+              <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 12 }}>
+                We need to verify your phone number before you can place your order
+              </Text>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                className="bg-background text-foreground p-4 rounded-lg border border-border"
+                style={{ flex: 1, borderColor: phoneVerified ? '#22C55E' : undefined, borderWidth: phoneVerified ? 2 : 1 }}
+                placeholder="Phone Number *"
+                placeholderTextColor={colors.muted}
+                value={guestPhone}
+                onChangeText={setGuestPhone}
+                keyboardType="phone-pad"
+                editable={!phoneVerified}
+              />
+              {!phoneVerified && (
+                <TouchableOpacity
+                  onPress={handleSendOtp}
+                  disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
+                  style={{
+                    backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
+                    borderRadius: 8,
+                    paddingHorizontal: 16,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minWidth: 90,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {otpSending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                      {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? 'Resend' : 'Send Code'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Verified badge */}
+            {phoneVerified && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                <Text style={{ color: '#22C55E', fontSize: 14, fontWeight: '600' }}>✓ {guestPhone} verified — you're ready to order!</Text>
+              </View>
+            )}
+
+            {/* OTP Input */}
+            {otpSent && !phoneVerified && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
+                  Enter the 6-digit code sent to {guestPhone}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    className="bg-background text-foreground p-4 rounded-lg border border-border"
+                    style={{ flex: 1, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
+                    placeholder="000000"
+                    placeholderTextColor={colors.muted}
+                    value={otpCode}
+                    onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                  />
+                  <TouchableOpacity
+                    onPress={handleVerifyOtp}
+                    disabled={otpVerifying || otpCode.length !== 6}
+                    style={{
+                      backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
+                      borderRadius: 8,
+                      paddingHorizontal: 16,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {otpVerifying ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                        Confirm
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* OTP Error */}
+            {otpError ? (
+              <Text style={{ color: colors.error, fontSize: 13, marginTop: 8, fontWeight: '500' }}>{otpError}</Text>
+            ) : null}
           </View>
         )}
+
+        {/* Remaining warnings */}
         {!deliveryFeeCalculated && (
           <View style={{ backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
             <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Delivery fee not calculated</Text>
