@@ -4,7 +4,7 @@ import { getDb } from "../db";
 import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
-import { sendOrderConfirmationSMS, sendOnTheWaySMS } from "../sms";
+import { sendOrderConfirmationSMS, sendOnTheWaySMS, sendDriverArrivedSMS, sendDeliveredSMS, sendOrderCancelledSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
@@ -712,28 +712,50 @@ export const ordersRouter = router({
         throw new Error("Order not found");
       }
 
-      // Send SMS when order is on the way
+      // Send SMS at key delivery stages
       const orderData = order[0];
-      if (input.status === "on_the_way") {
-        const customerPhone = orderData.guestPhone || null;
-        if (customerPhone) {
-          // Get store name
-          const storeResult = await db
-            .select()
-            .from(stores)
-            .where(eq(stores.id, orderData.storeId))
-            .limit(1);
-          
-          if (storeResult.length > 0) {
-            const storeName = storeResult[0].name;
-            const trackingUrl = `https://weshop4u.app/order-tracking/${input.orderId}`;
-            await sendOnTheWaySMS(
-              customerPhone,
-              storeName,
-              orderData.orderNumber,
-              trackingUrl
-            );
+      
+      // Get customer phone — guest phone or registered user's phone
+      let customerPhone = orderData.guestPhone || null;
+      if (!customerPhone && orderData.customerId) {
+        const customerRecord = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, orderData.customerId))
+          .limit(1);
+        if (customerRecord.length > 0 && customerRecord[0].phone) {
+          customerPhone = customerRecord[0].phone;
+        }
+      }
+      
+      // Get store name for SMS messages
+      let storeName = "";
+      if (customerPhone) {
+        const storeResult = await db
+          .select()
+          .from(stores)
+          .where(eq(stores.id, orderData.storeId))
+          .limit(1);
+        if (storeResult.length > 0) {
+          storeName = storeResult[0].name;
+        }
+      }
+      
+      if (customerPhone && storeName) {
+        try {
+          if (input.status === "on_the_way" || input.status === "picked_up") {
+            await sendOnTheWaySMS(customerPhone, storeName, orderData.orderNumber);
+            console.log(`[SMS] On-the-way SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
+          } else if (input.status === "delivered") {
+            await sendDeliveredSMS(customerPhone, orderData.orderNumber);
+            console.log(`[SMS] Delivered SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
+          } else if (input.status === "cancelled") {
+            await sendOrderCancelledSMS(customerPhone, orderData.orderNumber, storeName);
+            console.log(`[SMS] Cancelled SMS sent to ${customerPhone} for order ${orderData.orderNumber}`);
           }
+        } catch (smsError) {
+          console.error(`[SMS] Failed to send status SMS:`, smsError);
+          // Don't fail the status update if SMS fails
         }
       }
 

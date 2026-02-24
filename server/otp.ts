@@ -12,9 +12,14 @@ import twilio from 'twilio';
 // In-memory OTP store: phone -> { code, expiresAt, attempts }
 const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
+// Rate limiting store: phone -> array of send timestamps (within the last hour)
+const rateLimitStore = new Map<string, number[]>();
+
 // OTP configuration
 const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_VERIFY_ATTEMPTS = 5; // Max wrong code attempts before requiring resend
+const MAX_SENDS_PER_HOUR = 3; // Max OTP sends per phone number per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const ALPHA_SENDER_ID = 'WeShop4U'; // Alphanumeric sender ID (no phone number needed)
 
 /**
@@ -64,7 +69,7 @@ function generateOTPCode(): string {
 }
 
 /**
- * Clean up expired OTP entries (runs on each send to prevent memory leaks)
+ * Clean up expired OTP entries and stale rate limit records
  */
 function cleanupExpiredOTPs(): void {
   const now = Date.now();
@@ -73,6 +78,47 @@ function cleanupExpiredOTPs(): void {
       otpStore.delete(phone);
     }
   }
+  // Clean up rate limit entries older than the window
+  for (const [phone, timestamps] of rateLimitStore.entries()) {
+    const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+    if (recent.length === 0) {
+      rateLimitStore.delete(phone);
+    } else {
+      rateLimitStore.set(phone, recent);
+    }
+  }
+}
+
+/**
+ * Check if a phone number has exceeded the rate limit
+ * Returns { allowed, remainingSeconds } — remainingSeconds is how long until next send is allowed
+ */
+function checkRateLimit(phone: string): { allowed: boolean; remainingSeconds: number } {
+  const now = Date.now();
+  const timestamps = rateLimitStore.get(phone) || [];
+  
+  // Filter to only timestamps within the last hour
+  const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  
+  if (recent.length >= MAX_SENDS_PER_HOUR) {
+    // Find the oldest timestamp in the window — that's when the limit will reset
+    const oldestInWindow = Math.min(...recent);
+    const resetAt = oldestInWindow + RATE_LIMIT_WINDOW_MS;
+    const remainingSeconds = Math.ceil((resetAt - now) / 1000);
+    return { allowed: false, remainingSeconds };
+  }
+  
+  return { allowed: true, remainingSeconds: 0 };
+}
+
+/**
+ * Record a send for rate limiting
+ */
+function recordSend(phone: string): void {
+  const now = Date.now();
+  const timestamps = rateLimitStore.get(phone) || [];
+  timestamps.push(now);
+  rateLimitStore.set(phone, timestamps);
 }
 
 /**
@@ -104,6 +150,14 @@ export async function sendOTP(phoneNumber: string): Promise<{ success: boolean; 
     // Generate new OTP code
     const code = generateOTPCode();
     
+    // Check rate limit before sending
+    const rateCheck = checkRateLimit(normalizedPhone);
+    if (!rateCheck.allowed) {
+      const minutes = Math.ceil(rateCheck.remainingSeconds / 60);
+      console.log(`[OTP] Rate limited: ${normalizedPhone} — try again in ${minutes} min`);
+      return { success: false, error: `Too many verification codes sent. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.` };
+    }
+    
     // Store the code with expiry
     otpStore.set(normalizedPhone, {
       code,
@@ -121,6 +175,9 @@ export async function sendOTP(phoneNumber: string): Promise<{ success: boolean; 
     });
     
     console.log(`[OTP] SMS sent. SID: ${message.sid}, Status: ${message.status}`);
+    
+    // Record this send for rate limiting
+    recordSend(normalizedPhone);
     
     return { success: true };
   } catch (error: any) {

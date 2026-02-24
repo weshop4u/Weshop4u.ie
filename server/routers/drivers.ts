@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns, orderTracking } from "../../drizzle/schema";
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
+import { sendDriverAtStoreSMS } from "../sms";
 
 // Directly offer the oldest eligible unassigned order to a specific driver.
 // This is used when a driver goes online or finishes declining — it finds the oldest
@@ -538,6 +539,21 @@ export const driversRouter = router({
           "driver_at_store",
           store.name
         );
+      }
+
+      // Send SMS to customer — get phone from guest order or registered user
+      const orderRecord = orderResult[0].orders;
+      let customerPhone = orderRecord.guestPhone || null;
+      if (!customerPhone && customer && customer.phone) {
+        customerPhone = customer.phone;
+      }
+      if (customerPhone && store) {
+        try {
+          await sendDriverAtStoreSMS(customerPhone, store.name, orderRecord.orderNumber);
+          console.log(`[SMS] Driver-at-store SMS sent to ${customerPhone} for order ${orderRecord.orderNumber}`);
+        } catch (smsError) {
+          console.error(`[SMS] Failed to send driver-at-store SMS:`, smsError);
+        }
       }
 
       return { success: true };

@@ -1876,3 +1876,13 @@
 - [x] Update server/routers/otp.ts to use the new OTP service (removed test bypass since real SMS works)
 - [x] Removed dependency on Twilio Verify service (no longer needed)
 - [x] Added max 5 wrong-code attempts before requiring resend, auto-cleanup of expired codes
+
+## Complete SMS Notification System — Feb 24 2026
+- [x] Update sms.ts to use Alpha Sender ID "WeShop4U" instead of US phone number (consistent with OTP)
+- [x] Add SMS function: driver picked up order ("Your order is on its way!")
+- [x] Add SMS function: driver arrived at customer ("Your driver has arrived!")
+- [x] Add SMS function: order delivered confirmation
+- [x] Wire SMS triggers into order status update flow (picked_up, on_the_way, delivered)
+- [x] Wire "driver at store" notification to send SMS to customer (not just push)
+- [x] Add rate limiting on OTP sendCode endpoint (max 3 SMS per phone per hour)
+- [x] Test SMS functions and rate limiting (55 tests passing)
