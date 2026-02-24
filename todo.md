@@ -1870,3 +1870,9 @@
 ## Bug Fix: OTP code input not showing when Twilio blocks send — Feb 24 2026
 - [x] Fix: OTP code input box now appears even when Twilio blocks the send (otpSent set to true in catch block)
 - [x] Add dev test bypass code 000000 so checkout can be tested while Twilio account is under review (error 60238)
+
+## Switch OTP from Twilio Verify to custom SMS with Alpha Sender ID — Feb 24 2026
+- [x] Rewrite server/otp.ts to generate random 6-digit codes, store in memory with 5min expiry, and send via regular SMS using Alpha Sender ID "WeShop4U"
+- [x] Update server/routers/otp.ts to use the new OTP service (removed test bypass since real SMS works)
+- [x] Removed dependency on Twilio Verify service (no longer needed)
+- [x] Added max 5 wrong-code attempts before requiring resend, auto-cleanup of expired codes
