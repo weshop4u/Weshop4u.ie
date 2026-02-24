@@ -80,7 +80,9 @@ export default function CartScreen() {
       setOtpSent(true);
       setOtpCooldown(60);
     } catch (error: any) {
-      setOtpError(error.message || "Failed to send verification code");
+      // Still show the OTP input so user can retry or use test code
+      setOtpSent(true);
+      setOtpError(error.message || "Failed to send verification code. You can still enter a code if you received one.");
     } finally {
       setOtpSending(false);
     }

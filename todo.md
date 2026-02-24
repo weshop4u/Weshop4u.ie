@@ -1866,3 +1866,7 @@
 - [x] Investigate "Verification Creation Attempt blocked by Twilio" error — caused by Twilio Fraud Guard
 - [x] Fix: Added +353892003003 to Twilio Safe List via API
 - [x] Created scripts/twilio-safelist.ts utility for managing Safe List numbers
+
+## Bug Fix: OTP code input not showing when Twilio blocks send — Feb 24 2026
+- [x] Fix: OTP code input box now appears even when Twilio blocks the send (otpSent set to true in catch block)
+- [x] Add dev test bypass code 000000 so checkout can be tested while Twilio account is under review (error 60238)

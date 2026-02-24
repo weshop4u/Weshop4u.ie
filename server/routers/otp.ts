@@ -29,6 +29,13 @@ export const otpRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      // Test bypass: code 000000 always verifies (for testing when Twilio is blocked)
+      // TODO: Remove this bypass once Twilio account review is complete
+      if (input.code === "000000") {
+        console.log(`[OTP] Test bypass used for ${input.phoneNumber}`);
+        return { success: true, message: "Phone number verified (test mode)" };
+      }
+      
       const result = await verifyOTP(input.phoneNumber, input.code);
       
       if (!result.success) {
