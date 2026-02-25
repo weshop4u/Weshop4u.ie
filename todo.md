@@ -1971,3 +1971,5 @@
 - [x] BUG: Cart item stuck — fixed key mismatch for old cart data without cartItemKey, added Remove (✕) button per item, added "Clear Cart" link
 - [x] Upload chicken fillet roll image and assign to "Create Your Own Chicken Fillet Roll" product (ID 390001)
 - [x] Upload breakfast roll image and assign to "Create Your Own Breakfast Roll" product (ID 390002)
+- [x] BUG: Products with required modifiers/templates can be quick-added to cart without customization — now shows "Customise" button that opens modal instead
+- [x] BUG: Products with required modifiers/templates can be quick-added to cart without customization — now shows "Customise" button that opens modal instead

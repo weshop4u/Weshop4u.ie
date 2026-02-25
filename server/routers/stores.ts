@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { stores, products, productCategories } from "../../drizzle/schema";
+import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
 import { eq, and, like, sql, inArray, count } from "drizzle-orm";
 import { storagePut } from "../storage";
 
@@ -194,10 +194,39 @@ export const storesRouter = router({
         .from(products)
         .where(and(...baseConditions, eq(products.stockStatus, "out_of_stock")));
 
+      // Check which products have modifiers (custom groups, product templates, or category templates)
+      const productIds = productsList.map(p => p.id);
+      const categoryIds = [...new Set(productsList.map(p => p.categoryId).filter(Boolean))] as number[];
+
+      // Products with custom modifier groups
+      const productsWithGroups = productIds.length > 0 ? await db
+        .select({ productId: modifierGroups.productId })
+        .from(modifierGroups)
+        .where(inArray(modifierGroups.productId, productIds))
+        .groupBy(modifierGroups.productId) : [];
+      const groupProductIds = new Set(productsWithGroups.map(r => r.productId));
+
+      // Products with directly assigned templates
+      const productsWithTemplates = productIds.length > 0 ? await db
+        .select({ productId: productModifierTemplates.productId })
+        .from(productModifierTemplates)
+        .where(inArray(productModifierTemplates.productId, productIds))
+        .groupBy(productModifierTemplates.productId) : [];
+      const templateProductIds = new Set(productsWithTemplates.map(r => r.productId));
+
+      // Categories with assigned templates
+      const categoriesWithTemplates = categoryIds.length > 0 ? await db
+        .select({ categoryId: categoryModifierTemplates.categoryId })
+        .from(categoryModifierTemplates)
+        .where(inArray(categoryModifierTemplates.categoryId, categoryIds))
+        .groupBy(categoryModifierTemplates.categoryId) : [];
+      const templateCategoryIds = new Set(categoriesWithTemplates.map(r => r.categoryId));
+
       // Parse images JSON string to array for client
       const items = productsList.map(p => ({
         ...p,
         images: p.images ? (() => { try { return JSON.parse(p.images as string); } catch { return [p.images]; } })() : [],
+        hasModifiers: groupProductIds.has(p.id) || templateProductIds.has(p.id) || (p.categoryId ? templateCategoryIds.has(p.categoryId) : false),
       }));
 
       return {

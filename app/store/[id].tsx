@@ -876,11 +876,15 @@ export default function StoreDetailScreen() {
                           <TouchableOpacity
                             onPress={(e) => {
                               e.stopPropagation?.();
-                              handleAddToCart(product.id, product.name, product.price, categorySchedule);
+                              if (product.hasModifiers) {
+                                openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } });
+                              } else {
+                                handleAddToCart(product.id, product.name, product.price, categorySchedule);
+                              }
                             }}
                             style={{ backgroundColor: "#00E5FF", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 }}
                           >
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>+ Add</Text>
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{product.hasModifiers ? "Customise" : "+ Add"}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -1182,7 +1186,11 @@ export default function StoreDetailScreen() {
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
-                            handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
+                            if (product.hasModifiers) {
+                              openProductDetail(product);
+                            } else {
+                              handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
+                            }
                           }}
                           style={[
                             styles.quickAddButton,
@@ -1193,7 +1201,7 @@ export default function StoreDetailScreen() {
                           disabled={product.stockStatus === "out_of_stock"}
                         >
                           <Text className="text-background font-semibold">
-                            {product.stockStatus === "out_of_stock" ? "N/A" : quantity > 0 ? `+${quantity}` : "Add"}
+                            {product.stockStatus === "out_of_stock" ? "N/A" : product.hasModifiers ? "Customise" : quantity > 0 ? `+${quantity}` : "Add"}
                           </Text>
                         </TouchableOpacity>
                       </View>
