@@ -173,6 +173,7 @@ export const modifierTemplatesRouter = router({
         name: z.string().min(1),
         price: z.string().default("0.00"),
         isDefault: z.boolean().default(false),
+        available: z.boolean().default(true),
         sortOrder: z.number().default(0),
       })
     )
@@ -185,6 +186,7 @@ export const modifierTemplatesRouter = router({
         name: input.name,
         price: input.price,
         isDefault: input.isDefault,
+        available: input.available,
         sortOrder: input.sortOrder,
       });
 
@@ -198,6 +200,7 @@ export const modifierTemplatesRouter = router({
         name: z.string().min(1).optional(),
         price: z.string().optional(),
         isDefault: z.boolean().optional(),
+        available: z.boolean().optional(),
         sortOrder: z.number().optional(),
       })
     )
@@ -505,6 +508,7 @@ export const modifierTemplatesRouter = router({
           name: string;
           price: string;
           isDefault: boolean | null;
+          available: boolean;
         }>;
       }> = [];
 
@@ -542,6 +546,7 @@ export const modifierTemplatesRouter = router({
                 name: o.name,
                 price: String(o.price),
                 isDefault: o.isDefault,
+                available: o.available !== false,
               })),
           });
         }

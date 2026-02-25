@@ -1949,3 +1949,12 @@
 - [x] Customer: Product detail merges all modifier sources seamlessly
 - [x] Receipt/driver view: continue showing modifiers correctly regardless of source (already compatible - uses orderItemModifiers snapshot)
 - [x] Tests for template system (20 tests passing)
+- [x] Create "Chinese Sides" modifier template with 5 options (Boiled Rice, Fried Rice, Chips, Fried Noodle, Yung Chow Fried Rice)
+- [x] Add `available` column to modifier_template_options schema (default true)
+- [x] Update admin Modifier Templates UI with availability toggle per option
+- [x] Update customer view to show unavailable options as greyed out / unselectable
+- [x] Create "Choose Your Base" template (single-select, required): White Bread, Brown Bread, White Roll, Brown Roll, Plain Wrap, Brown Wrap
+- [x] Create "Butter & Sauces" template (multi-select, optional): Butter, Mayo, Garlic Mayo, Sweet Chili, Ketchup, Brown Sauce, Taco Sauce, BBQ Sauce, Mustard
+- [x] Create "Choose Your Meat" template (multi-select, required): Plain Chicken Fillet +5, Spicy Chicken Fillet +5, Southern Fried Chicken Fillet +5, Chicken +5, Turkey +5, Ham +4, Tuna & Sweetcorn +4
+- [x] Create "Choose Your Fillings" template (multi-select, optional): Lettuce, Red Onion, White Onion, Cheese, Coleslaw, Cucumber, Jalapeño, Mixed Peppers, Egg Mayonnaise, Bacon, Spinach, Sweetcorn — all +0.90
+- [x] Create "Create Your Own" product in Deli category (base price €0.00) and assign all 4 templates (product ID 360001)

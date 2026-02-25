@@ -761,6 +761,7 @@ export const modifierTemplateOptions = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0.00"),
     isDefault: boolean("is_default").default(false),
+    available: boolean("available").default(true),
     sortOrder: int("sort_order").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

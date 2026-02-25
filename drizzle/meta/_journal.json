@@ -113,6 +113,13 @@
       "when": 1771983247804,
       "tag": "0015_secret_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1771988096692,
+      "tag": "0016_lowly_blindfold",
+      "breakpoints": true
     }
   ]
 }

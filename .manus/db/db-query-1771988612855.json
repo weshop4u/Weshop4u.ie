@@ -1,0 +1,20 @@
+{
+  "query": "SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id WHERE LOWER(pc.name) LIKE '%deli%' GROUP BY pc.id, pc.name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id WHERE LOWER(pc.name) LIKE '%deli%' GROUP BY pc.id, pc.name;",
+  "rows": [
+    {
+      "id": "150004",
+      "name": "Salt n Chili Delight",
+      "product_count": "4"
+    },
+    {
+      "id": "60001",
+      "name": "Deli",
+      "product_count": "6"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tproduct_count\n150004\tSalt n Chili Delight\t4\n60001\tDeli\t6\n",
+  "stderr": "",
+  "execution_time_ms": 355
+}

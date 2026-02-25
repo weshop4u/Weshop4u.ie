@@ -21,6 +21,7 @@ interface TemplateOption {
   name: string;
   price: string;
   isDefault: boolean;
+  available: boolean;
   sortOrder: number;
   isNew?: boolean;
 }
@@ -89,6 +90,7 @@ function ModifierTemplatesContent() {
         name: o.name,
         price: String(o.price ?? "0.00"),
         isDefault: o.isDefault ?? false,
+        available: o.available !== false,
         sortOrder: o.sortOrder ?? 0,
       })),
     });
@@ -174,6 +176,7 @@ function ModifierTemplatesContent() {
               name: opt.name.trim(),
               price: opt.price || "0.00",
               isDefault: opt.isDefault,
+              available: opt.available,
               sortOrder: i,
             });
           } else {
@@ -182,6 +185,7 @@ function ModifierTemplatesContent() {
               name: opt.name.trim(),
               price: opt.price || "0.00",
               isDefault: opt.isDefault,
+              available: opt.available,
               sortOrder: i,
             });
           }
@@ -206,7 +210,7 @@ function ModifierTemplatesContent() {
       ...editingTemplate,
       options: [
         ...editingTemplate.options,
-        { name: "", price: "0.00", isDefault: false, sortOrder: editingTemplate.options.length, isNew: true },
+        { name: "", price: "0.00", isDefault: false, available: true, sortOrder: editingTemplate.options.length, isNew: true },
       ],
     });
   };
@@ -327,7 +331,7 @@ function ModifierTemplatesContent() {
           </Text>
 
           {editingTemplate.options.map((opt, idx) => (
-            <View key={idx} style={s.optionRow}>
+            <View key={idx} style={[s.optionRow, !opt.available && { opacity: 0.5, backgroundColor: "#F9FAFB" }]}>
               <View style={{ flex: 2 }}>
                 <Text style={s.optLabel}>Name</Text>
                 <TextInput
@@ -347,6 +351,18 @@ function ModifierTemplatesContent() {
                   keyboardType="decimal-pad"
                 />
               </View>
+              <TouchableOpacity
+                onPress={() => updateOption(idx, "available", !opt.available)}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", marginBottom: 2,
+                  backgroundColor: opt.available ? "#DCFCE7" : "#FEE2E2",
+                  borderWidth: 1, borderColor: opt.available ? "#22C55E" : "#EF4444",
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "700", color: opt.available ? "#16A34A" : "#EF4444" }}>
+                  {opt.available ? "✓" : "✕"}
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => removeOption(idx)}
                 style={s.deleteBtn}
@@ -442,9 +458,16 @@ function ModifierTemplatesContent() {
             {/* Show options preview */}
             {template.options && template.options.length > 0 && (
               <View style={{ marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
-                {template.options.map((opt) => (
-                  <View key={opt.id} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 13, color: "#374151" }}>{opt.name}</Text>
+                {template.options.map((opt: any) => (
+                  <View key={opt.id} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3, opacity: opt.available === false ? 0.4 : 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      {opt.available === false && (
+                        <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "700", color: "#EF4444" }}>OUT</Text>
+                        </View>
+                      )}
+                      <Text style={{ fontSize: 13, color: opt.available === false ? "#9CA3AF" : "#374151", textDecorationLine: opt.available === false ? "line-through" : "none" }}>{opt.name}</Text>
+                    </View>
                     <Text style={{ fontSize: 13, color: parseFloat(String(opt.price)) > 0 ? "#16A34A" : "#9CA3AF", fontWeight: "600" }}>
                       {parseFloat(String(opt.price)) > 0 ? `+€${parseFloat(String(opt.price)).toFixed(2)}` : "Included"}
                     </Text>

@@ -1,0 +1,1 @@
+ALTER TABLE `modifier_template_options` ADD `available` boolean DEFAULT true;

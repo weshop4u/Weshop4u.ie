@@ -240,11 +240,12 @@ export default function StoreDetailScreen() {
     if (modifierData?.groups && selectedProduct) {
       const defaults: Record<number, number[]> = {};
       for (const group of modifierData.groups) {
-        const defaultMods = group.modifiers.filter((m: any) => m.isDefault);
+        const availableMods = group.modifiers.filter((m: any) => m.available !== false);
+        const defaultMods = availableMods.filter((m: any) => m.isDefault);
         if (defaultMods.length > 0) {
           defaults[group.id] = defaultMods.map((m: any) => m.id);
-        } else if (group.required && group.type === "single" && group.modifiers.length > 0) {
-          defaults[group.id] = [group.modifiers[0].id];
+        } else if (group.required && group.type === "single" && availableMods.length > 0) {
+          defaults[group.id] = [availableMods[0].id];
         }
       }
       setSelectedModifiers(defaults);
@@ -430,10 +431,12 @@ export default function StoreDetailScreen() {
                       {group.modifiers.map((mod: any) => {
                         const isSelected = selectedIds.includes(mod.id);
                         const modPrice = parseFloat(mod.price);
+                        const isUnavailable = mod.available === false;
                         return (
                           <TouchableOpacity
                             key={mod.id}
-                            onPress={() => toggleModifier(group.id, mod.id, group.type, group.maxSelections || 0)}
+                            onPress={() => !isUnavailable && toggleModifier(group.id, mod.id, group.type, group.maxSelections || 0)}
+                            disabled={isUnavailable}
                             style={{
                               flexDirection: "row",
                               alignItems: "center",
@@ -442,10 +445,11 @@ export default function StoreDetailScreen() {
                               marginBottom: 4,
                               borderRadius: 10,
                               borderWidth: 1.5,
-                              borderColor: isSelected ? "#00E5FF" : "#E5E7EB",
-                              backgroundColor: isSelected ? "#F0FDFF" : "#FFFFFF",
+                              borderColor: isUnavailable ? "#E5E7EB" : isSelected ? "#00E5FF" : "#E5E7EB",
+                              backgroundColor: isUnavailable ? "#F3F4F6" : isSelected ? "#F0FDFF" : "#FFFFFF",
+                              opacity: isUnavailable ? 0.5 : 1,
                             }}
-                            activeOpacity={0.7}
+                            activeOpacity={isUnavailable ? 1 : 0.7}
                           >
                             {/* Radio/Checkbox indicator */}
                             <View style={{
@@ -453,21 +457,29 @@ export default function StoreDetailScreen() {
                               height: 22,
                               borderRadius: group.type === "single" ? 11 : 4,
                               borderWidth: 2,
-                              borderColor: isSelected ? "#00E5FF" : "#D1D5DB",
-                              backgroundColor: isSelected ? "#00E5FF" : "transparent",
+                              borderColor: isUnavailable ? "#D1D5DB" : isSelected ? "#00E5FF" : "#D1D5DB",
+                              backgroundColor: isUnavailable ? "#E5E7EB" : isSelected ? "#00E5FF" : "transparent",
                               alignItems: "center",
                               justifyContent: "center",
                               marginRight: 10,
                             }}>
-                              {isSelected && (
+                              {isSelected && !isUnavailable && (
                                 <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>
                               )}
+                              {isUnavailable && (
+                                <Text style={{ color: "#9CA3AF", fontSize: 12, fontWeight: "700" }}>✕</Text>
+                              )}
                             </View>
-                            <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: "#11181C" }}>{mod.name}</Text>
-                            {modPrice > 0 && (
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 14, fontWeight: "500", color: isUnavailable ? "#9CA3AF" : "#11181C", textDecorationLine: isUnavailable ? "line-through" : "none" }}>{mod.name}</Text>
+                              {isUnavailable && (
+                                <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 1 }}>Unavailable</Text>
+                              )}
+                            </View>
+                            {!isUnavailable && modPrice > 0 && (
                               <Text style={{ fontSize: 13, fontWeight: "600", color: "#00B8D4" }}>+€{modPrice.toFixed(2)}</Text>
                             )}
-                            {modPrice === 0 && (
+                            {!isUnavailable && modPrice === 0 && (
                               <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Free</Text>
                             )}
                           </TouchableOpacity>
