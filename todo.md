@@ -1919,3 +1919,14 @@
 - [x] Receipt printing: show modifiers under each item
 - [x] Driver active delivery view: show modifiers in order items list
 - [x] Tests for modifier CRUD, pricing calculations, and multi-buy logic (25 tests passing)
+
+## Rebuild Admin Product Edit — Inline Modifiers (Botble-style)
+- [x] Rebuild product edit modal with inline "Product Options" section
+- [x] Each option group: Name, Type (Radio/Checkbox), Required toggle, delete button
+- [x] Each option value within group: Name, Price (€), delete button
+- [x] Add new option group button
+- [x] Add new value within group button
+- [x] Load existing modifiers when editing a product
+- [x] Save all modifier changes with dedicated Save Options button (create/update/delete in one go)
+- [x] Also include multi-buy deals inline on the same form (collapsible section)
+- [x] Replaced separate screens with inline sections in product edit modal (19 tests passing)

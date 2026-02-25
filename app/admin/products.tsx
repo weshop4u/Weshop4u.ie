@@ -1198,29 +1198,14 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </ScrollView>
 
-            {/* Add-ons & Deals */}
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowEditModal(false);
-                  router.push(`/admin/product-modifiers?productId=${editingProduct?.id}&productName=${encodeURIComponent(editingProduct?.name || '')}`);
-                }}
-                style={{ flex: 1, paddingVertical: 12, backgroundColor: "#8B5CF615", borderWidth: 1, borderColor: "#8B5CF6", borderRadius: 12, alignItems: "center" }}
-              >
-                <Text style={{ color: "#8B5CF6", fontWeight: "700", fontSize: 13 }}>🧩 Manage Add-ons</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowEditModal(false);
-                  router.push(`/admin/product-deals?productId=${editingProduct?.id}&productName=${encodeURIComponent(editingProduct?.name || '')}`);
-                }}
-                style={{ flex: 1, paddingVertical: 12, backgroundColor: "#F59E0B15", borderWidth: 1, borderColor: "#F59E0B", borderRadius: 12, alignItems: "center" }}
-              >
-                <Text style={{ color: "#92400E", fontWeight: "700", fontSize: 13 }}>🏷️ Manage Deals</Text>
-              </TouchableOpacity>
-            </View>
+              {/* ===== INLINE PRODUCT OPTIONS ===== */}
+              <InlineModifiersSection productId={editingProduct?.id} colors={colors} />
+
+              {/* ===== INLINE MULTI-BUY DEALS ===== */}
+              <InlineDealsSection productId={editingProduct?.id} colors={colors} />
+
+            </ScrollView>
 
             {/* Buttons */}
             <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
@@ -1727,6 +1712,479 @@ function ProductsManagementScreenContent() {
         </View>
       </Modal>
     </ScreenContainer>
+  );
+}
+
+// ===== INLINE MODIFIERS SECTION (Botble-style) =====
+function InlineModifiersSection({ productId, colors }: { productId: number | undefined; colors: any }) {
+  const [expanded, setExpanded] = useState(true);
+  const [localGroups, setLocalGroups] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [savingState, setSavingState] = useState<string | null>(null);
+
+  const { data: serverData, refetch } = trpc.modifiers.getForProduct.useQuery(
+    { productId: productId! },
+    { enabled: !!productId }
+  );
+
+  const createGroupMut = trpc.modifiers.createGroup.useMutation();
+  const updateGroupMut = trpc.modifiers.updateGroup.useMutation();
+  const deleteGroupMut = trpc.modifiers.deleteGroup.useMutation();
+  const createModMut = trpc.modifiers.createModifier.useMutation();
+  const updateModMut = trpc.modifiers.updateModifier.useMutation();
+  const deleteModMut = trpc.modifiers.deleteModifier.useMutation();
+
+  // Load server data into local state
+  useEffect(() => {
+    if (serverData?.groups && !loaded) {
+      setLocalGroups(serverData.groups.map(g => ({
+        ...g,
+        _isNew: false,
+        modifiers: g.modifiers.map(m => ({ ...m, _isNew: false })),
+      })));
+      setLoaded(true);
+    }
+  }, [serverData, loaded]);
+
+  // Reset when productId changes
+  useEffect(() => {
+    setLoaded(false);
+    setLocalGroups([]);
+  }, [productId]);
+
+  const addGroup = () => {
+    setLocalGroups(prev => [...prev, {
+      id: Date.now(), // temp ID
+      _isNew: true,
+      name: "",
+      type: "single",
+      required: false,
+      minSelections: 0,
+      maxSelections: 0,
+      sortOrder: prev.length,
+      modifiers: [],
+    }]);
+  };
+
+  const updateLocalGroup = (idx: number, field: string, value: any) => {
+    setLocalGroups(prev => prev.map((g, i) => i === idx ? { ...g, [field]: value } : g));
+  };
+
+  const removeGroup = async (idx: number) => {
+    const group = localGroups[idx];
+    if (!group._isNew && group.id) {
+      setSavingState(`Deleting ${group.name}...`);
+      try {
+        await deleteGroupMut.mutateAsync({ id: group.id });
+      } catch (e) { /* ignore */ }
+      setSavingState(null);
+    }
+    setLocalGroups(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addModifier = (groupIdx: number) => {
+    setLocalGroups(prev => prev.map((g, i) => {
+      if (i !== groupIdx) return g;
+      return {
+        ...g,
+        modifiers: [...g.modifiers, {
+          id: Date.now(),
+          _isNew: true,
+          name: "",
+          price: "0.00",
+          isDefault: false,
+          sortOrder: g.modifiers.length,
+        }],
+      };
+    }));
+  };
+
+  const updateLocalMod = (groupIdx: number, modIdx: number, field: string, value: any) => {
+    setLocalGroups(prev => prev.map((g, gi) => {
+      if (gi !== groupIdx) return g;
+      return {
+        ...g,
+        modifiers: g.modifiers.map((m: any, mi: number) => mi === modIdx ? { ...m, [field]: value } : m),
+      };
+    }));
+  };
+
+  const removeMod = async (groupIdx: number, modIdx: number) => {
+    const mod = localGroups[groupIdx].modifiers[modIdx];
+    if (!mod._isNew && mod.id) {
+      try {
+        await deleteModMut.mutateAsync({ id: mod.id });
+      } catch (e) { /* ignore */ }
+    }
+    setLocalGroups(prev => prev.map((g, gi) => {
+      if (gi !== groupIdx) return g;
+      return { ...g, modifiers: g.modifiers.filter((_: any, mi: number) => mi !== modIdx) };
+    }));
+  };
+
+  const saveAllGroups = async () => {
+    if (!productId) return;
+    setSavingState("Saving options...");
+    try {
+      for (const group of localGroups) {
+        if (!group.name.trim()) continue;
+        let groupId = group.id;
+
+        if (group._isNew) {
+          const res = await createGroupMut.mutateAsync({
+            productId,
+            name: group.name.trim(),
+            type: group.type,
+            required: group.required,
+            minSelections: group.minSelections,
+            maxSelections: group.maxSelections,
+            sortOrder: group.sortOrder,
+          });
+          groupId = res.id;
+        } else {
+          await updateGroupMut.mutateAsync({
+            id: groupId,
+            name: group.name.trim(),
+            type: group.type,
+            required: group.required,
+            minSelections: group.minSelections,
+            maxSelections: group.maxSelections,
+            sortOrder: group.sortOrder,
+          });
+        }
+
+        // Save modifiers
+        for (const mod of group.modifiers) {
+          if (!mod.name.trim()) continue;
+          if (mod._isNew) {
+            await createModMut.mutateAsync({
+              groupId,
+              name: mod.name.trim(),
+              price: mod.price || "0.00",
+              isDefault: mod.isDefault || false,
+              sortOrder: mod.sortOrder || 0,
+            });
+          } else {
+            await updateModMut.mutateAsync({
+              id: mod.id,
+              name: mod.name.trim(),
+              price: mod.price || "0.00",
+              isDefault: mod.isDefault || false,
+              sortOrder: mod.sortOrder || 0,
+            });
+          }
+        }
+      }
+      setSavingState("Saved!");
+      setLoaded(false);
+      refetch();
+      setTimeout(() => setSavingState(null), 1500);
+    } catch (e: any) {
+      setSavingState(`Error: ${e.message}`);
+      setTimeout(() => setSavingState(null), 3000);
+    }
+  };
+
+  if (!productId) return null;
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: "#8B5CF640", borderRadius: 12, overflow: "hidden" }}>
+      {/* Header */}
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, backgroundColor: "#8B5CF610" }}
+      >
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#8B5CF6" }}>
+          Product Options {localGroups.length > 0 ? `(${localGroups.length})` : ""}
+        </Text>
+        <Text style={{ fontSize: 16, color: "#8B5CF6" }}>{expanded ? "▲" : "▼"}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ padding: 14, gap: 14 }}>
+          {localGroups.map((group, gi) => (
+            <View key={group.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, gap: 10, backgroundColor: colors.surface }}>
+              {/* Group header row */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted }}>#{gi + 1}</Text>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity onPress={() => removeGroup(gi)} style={{ backgroundColor: "#EF444420", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                  <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "700" }}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Group fields */}
+              <View style={{ gap: 8 }}>
+                <View>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted, marginBottom: 4 }}>Name</Text>
+                  <TextInput
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.background }}
+                    value={group.name}
+                    onChangeText={(t) => updateLocalGroup(gi, "name", t)}
+                    placeholder="e.g. Choose your side"
+                    placeholderTextColor={colors.muted}
+                    returnKeyType="done"
+                  />
+                </View>
+
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted, marginBottom: 4 }}>Type</Text>
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                      {(["single", "multi"] as const).map(t => (
+                        <TouchableOpacity
+                          key={t}
+                          onPress={() => updateLocalGroup(gi, "type", t)}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: group.type === t ? "#8B5CF6" : colors.border,
+                            backgroundColor: group.type === t ? "#8B5CF615" : colors.background,
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: group.type === t ? "#8B5CF6" : colors.foreground }}>
+                            {t === "single" ? "Radio" : "Checkbox"}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={{ justifyContent: "flex-end" }}>
+                    <TouchableOpacity
+                      onPress={() => updateLocalGroup(gi, "required", !group.required)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8 }}
+                    >
+                      <View style={{
+                        width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+                        borderColor: group.required ? "#8B5CF6" : colors.muted,
+                        backgroundColor: group.required ? "#8B5CF6" : "transparent",
+                        justifyContent: "center", alignItems: "center",
+                      }}>
+                        {group.required && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.foreground }}>Required</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Modifier values */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Values</Text>
+                {group.modifiers.map((mod: any, mi: number) => (
+                  <View key={mod.id} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <TextInput
+                      style={{ flex: 3, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, fontSize: 12, color: colors.foreground, backgroundColor: colors.background }}
+                      value={mod.name}
+                      onChangeText={(t) => updateLocalMod(gi, mi, "name", t)}
+                      placeholder="Option name"
+                      placeholderTextColor={colors.muted}
+                      returnKeyType="done"
+                    />
+                    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.background, paddingHorizontal: 6 }}>
+                      <Text style={{ fontSize: 12, color: colors.muted }}>€</Text>
+                      <TextInput
+                        style={{ flex: 1, padding: 8, fontSize: 12, color: colors.foreground }}
+                        value={mod.price}
+                        onChangeText={(t) => updateLocalMod(gi, mi, "price", t)}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.muted}
+                        returnKeyType="done"
+                      />
+                    </View>
+                    <TouchableOpacity onPress={() => removeMod(gi, mi)} style={{ padding: 6 }}>
+                      <Text style={{ color: "#EF4444", fontSize: 16, fontWeight: "700" }}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity
+                  onPress={() => addModifier(gi)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6 }}
+                >
+                  <Text style={{ color: "#8B5CF6", fontSize: 12, fontWeight: "600" }}>+ Add value</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          {/* Add new option group */}
+          <TouchableOpacity
+            onPress={addGroup}
+            style={{ paddingVertical: 10, borderWidth: 1, borderColor: "#8B5CF640", borderRadius: 10, borderStyle: "dashed", alignItems: "center" }}
+          >
+            <Text style={{ color: "#8B5CF6", fontWeight: "700", fontSize: 13 }}>+ Add new option</Text>
+          </TouchableOpacity>
+
+          {/* Save options button */}
+          {localGroups.length > 0 && (
+            <TouchableOpacity
+              onPress={saveAllGroups}
+              style={{ paddingVertical: 10, backgroundColor: "#8B5CF6", borderRadius: 10, alignItems: "center" }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+                {savingState || "Save Options"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ===== INLINE DEALS SECTION =====
+function InlineDealsSection({ productId, colors }: { productId: number | undefined; colors: any }) {
+  const [expanded, setExpanded] = useState(true);
+  const [localDeals, setLocalDeals] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [savingState, setSavingState] = useState<string | null>(null);
+
+  const { data: serverDeals, refetch } = trpc.modifiers.getDeals.useQuery(
+    { productId: productId! },
+    { enabled: !!productId }
+  );
+
+  const createDealMut = trpc.modifiers.createDeal.useMutation();
+  const updateDealMut = trpc.modifiers.updateDeal.useMutation();
+  const deleteDealMut = trpc.modifiers.deleteDeal.useMutation();
+
+  useEffect(() => {
+    if (serverDeals && !loaded) {
+      setLocalDeals(serverDeals.map(d => ({ ...d, _isNew: false })));
+      setLoaded(true);
+    }
+  }, [serverDeals, loaded]);
+
+  useEffect(() => {
+    setLoaded(false);
+    setLocalDeals([]);
+  }, [productId]);
+
+  const addDeal = () => {
+    setLocalDeals(prev => [...prev, {
+      id: Date.now(),
+      _isNew: true,
+      quantity: 2,
+      dealPrice: "",
+      label: "",
+    }]);
+  };
+
+  const updateLocalDeal = (idx: number, field: string, value: any) => {
+    setLocalDeals(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
+  };
+
+  const removeDeal = async (idx: number) => {
+    const deal = localDeals[idx];
+    if (!deal._isNew && deal.id) {
+      try {
+        await deleteDealMut.mutateAsync({ id: deal.id });
+      } catch (e) { /* ignore */ }
+    }
+    setLocalDeals(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const saveAllDeals = async () => {
+    if (!productId) return;
+    setSavingState("Saving deals...");
+    try {
+      for (const deal of localDeals) {
+        if (!deal.dealPrice) continue;
+        const label = deal.label || `${deal.quantity} for €${deal.dealPrice}`;
+        if (deal._isNew) {
+          await createDealMut.mutateAsync({
+            productId,
+            quantity: Number(deal.quantity),
+            dealPrice: String(deal.dealPrice),
+            label,
+          });
+        } else {
+          await updateDealMut.mutateAsync({
+            id: deal.id,
+            quantity: Number(deal.quantity),
+            dealPrice: String(deal.dealPrice),
+            label,
+          });
+        }
+      }
+      setSavingState("Saved!");
+      setLoaded(false);
+      refetch();
+      setTimeout(() => setSavingState(null), 1500);
+    } catch (e: any) {
+      setSavingState(`Error: ${e.message}`);
+      setTimeout(() => setSavingState(null), 3000);
+    }
+  };
+
+  if (!productId) return null;
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: "#F59E0B40", borderRadius: 12, overflow: "hidden" }}>
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, backgroundColor: "#F59E0B10" }}
+      >
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#92400E" }}>
+          Multi-Buy Deals {localDeals.length > 0 ? `(${localDeals.length})` : ""}
+        </Text>
+        <Text style={{ fontSize: 16, color: "#92400E" }}>{expanded ? "▲" : "▼"}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ padding: 14, gap: 10 }}>
+          {localDeals.map((deal, di) => (
+            <View key={deal.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <TextInput
+                  style={{ width: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, fontSize: 13, color: colors.foreground, backgroundColor: colors.background, textAlign: "center" }}
+                  value={String(deal.quantity)}
+                  onChangeText={(t) => updateLocalDeal(di, "quantity", parseInt(t) || 2)}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                />
+                <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "600" }}>for €</Text>
+                <TextInput
+                  style={{ width: 70, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, fontSize: 13, color: colors.foreground, backgroundColor: colors.background }}
+                  value={String(deal.dealPrice)}
+                  onChangeText={(t) => updateLocalDeal(di, "dealPrice", t)}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                />
+              </View>
+              <TouchableOpacity onPress={() => removeDeal(di)} style={{ padding: 6 }}>
+                <Text style={{ color: "#EF4444", fontSize: 16, fontWeight: "700" }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          <TouchableOpacity
+            onPress={addDeal}
+            style={{ paddingVertical: 10, borderWidth: 1, borderColor: "#F59E0B40", borderRadius: 10, borderStyle: "dashed", alignItems: "center" }}
+          >
+            <Text style={{ color: "#92400E", fontWeight: "700", fontSize: 13 }}>+ Add deal</Text>
+          </TouchableOpacity>
+
+          {localDeals.length > 0 && (
+            <TouchableOpacity
+              onPress={saveAllDeals}
+              style={{ paddingVertical: 10, backgroundColor: "#F59E0B", borderRadius: 10, alignItems: "center" }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+                {savingState || "Save Deals"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
