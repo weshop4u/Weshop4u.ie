@@ -19,7 +19,8 @@ export default function CartScreen() {
   const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart, removeFromCart } = useCart();
   const { user: authUser, loading: authLoading } = useAuth();
   const { data: meData, isLoading: meLoading } = trpc.auth.me.useQuery();
-  const user = authUser || (meData ?? null);
+  // Only use meData if auth hook also confirms a user (prevents stale React Query cache from masking logout)
+  const user = authUser ? (meData || authUser) : null;
   const isGuest = !user;
   
   // Guest checkout choice state
@@ -147,10 +148,11 @@ export default function CartScreen() {
   
   // Show guest choice modal when guest user arrives at checkout
   useEffect(() => {
-    if (!authLoading && !meLoading && isGuest && !guestChoiceMade) {
+    // Wait for auth to finish loading, then show modal if user is not logged in
+    if (!authLoading && isGuest && !guestChoiceMade) {
       setShowGuestChoice(true);
     }
-  }, [authLoading, meLoading, isGuest, guestChoiceMade]);
+  }, [authLoading, isGuest, guestChoiceMade]);
   
   // Handle saved address selection
   const handleSelectSavedAddress = (addressId: number) => {

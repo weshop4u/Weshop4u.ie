@@ -1977,3 +1977,4 @@
 - [x] BUG: Customer order confirmation shows only "2x Create Your Own" without modifier breakdown — fixed: added modifier display to order-confirmation screen and receipt screen
 - [x] BUG: Print button shows correct preview but doesn't actually send to printer — fixed: replaced hidden iframe with popup window approach that auto-triggers print dialog, with fallback to iframe if popup is blocked
 - [x] BUG: Deli view shows only item names without modifier details — fixed: added modifier fetching to getDeliOrders and display in deli.tsx
+- [x] BUG: Guest checkout popup ("Continue as Guest or Log In") not showing when non-logged-in user goes to checkout — fixed: stale React Query cache from previous login was making isGuest=false; changed user detection to only trust meData when authUser is also present
