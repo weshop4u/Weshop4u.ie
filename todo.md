@@ -1968,3 +1968,4 @@
 - [x] Update cart system to store and display per-modifier quantities (e.g. "Sausage × 3") — cart, driver view, receipt all updated
 - [x] Create "Breakfast Fillings" template (multi-select, required, quantity enabled, max 6): Sausage, Rashers, White Pudding, Black Pudding, Fried Egg, Hash Brown, Cheese, Red Onion, White Onion — all +€0.90
 - [x] Create "Create Your Own Breakfast Roll" product (ID 390002) in Deli category with Base + Sauces + Breakfast Fillings templates
+- [x] BUG: Cart item stuck — fixed key mismatch for old cart data without cartItemKey, added Remove (✕) button per item, added "Clear Cart" link

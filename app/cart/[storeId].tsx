@@ -16,7 +16,7 @@ export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useColors();
-  const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart } = useCart();
+  const { cart: cartContext, updateQuantity: updateCartQuantity, clearCart, removeFromCart } = useCart();
   const { user: authUser, loading: authLoading } = useAuth();
   const { data: meData, isLoading: meLoading } = trpc.auth.me.useQuery();
   const user = authUser || (meData ?? null);
@@ -195,12 +195,19 @@ export default function CartScreen() {
   }, [errorMessage]);
 
   const updateQuantity = (productId: number, delta: number, cartItemKey?: string) => {
-    const currentItem = cartItemKey
+    // Try to find by cartItemKey first, then fall back to productId match
+    let currentItem = cartItemKey
       ? cartContext.items.find(i => i.cartItemKey === cartItemKey)
       : cartContext.items.find(i => i.productId === productId);
+    // Fallback: if key lookup failed (e.g. old cart data without cartItemKey), try productId
+    if (!currentItem && cartItemKey) {
+      currentItem = cartContext.items.find(i => i.productId === productId);
+    }
     if (!currentItem) return;
     const newQty = currentItem.quantity + delta;
-    updateCartQuantity(productId, newQty, cartItemKey);
+    // Use the item's actual cartItemKey for the update, or fall back to the passed key
+    const actualKey = currentItem.cartItemKey || cartItemKey;
+    updateCartQuantity(productId, newQty, actualKey);
   };
 
   const handleCalculateDeliveryFee = async () => {
@@ -577,6 +584,15 @@ export default function CartScreen() {
 
         {/* Cart Items */}
         <View className="mb-6">
+          {cartItems.length > 0 && (
+            <TouchableOpacity
+              onPress={clearCart}
+              style={{ alignSelf: 'flex-end', marginBottom: 8, paddingVertical: 4, paddingHorizontal: 8 }}
+              activeOpacity={0.6}
+            >
+              <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '600' }}>Clear Cart</Text>
+            </TouchableOpacity>
+          )}
           {cartItems.map((product) => {
             if (!product) return null;
             const ci = (product as any).cartItem;
@@ -588,9 +604,18 @@ export default function CartScreen() {
             return (
               <View key={key} className="mb-4 pb-4 border-b border-border">
                 <View className="flex-row justify-between items-center">
-                  <View className="flex-1">
-                    <Text className="text-foreground font-semibold">{product.name}</Text>
-                    <Text className="text-muted text-sm">€{unitPrice.toFixed(2)} each</Text>
+                  <View className="flex-1 flex-row items-center gap-2">
+                    <TouchableOpacity
+                      onPress={() => removeFromCart(product.id, key)}
+                      style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#EF444420', alignItems: 'center', justifyContent: 'center' }}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>✕</Text>
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Text className="text-foreground font-semibold">{product.name}</Text>
+                      <Text className="text-muted text-sm">€{unitPrice.toFixed(2)} each</Text>
+                    </View>
                   </View>
                   <View className="flex-row items-center gap-3">
                     <TouchableOpacity

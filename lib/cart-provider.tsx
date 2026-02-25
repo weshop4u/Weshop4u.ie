@@ -179,7 +179,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const current = cartRef.current;
     const newItems = current.items.filter((item) => {
       if (cartItemKey) {
-        return (item.cartItemKey || generateCartItemKey(item.productId, item.modifiers)) !== cartItemKey;
+        const itemKey = item.cartItemKey || generateCartItemKey(item.productId, item.modifiers);
+        if (itemKey === cartItemKey) return false;
+        // Also match by productId if the item has no cartItemKey (old data)
+        if (!item.cartItemKey && item.productId === productId) return false;
+        return true;
       }
       return item.productId !== productId;
     });
@@ -205,7 +209,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       items: current.items.map((item) => {
         if (cartItemKey) {
           const key = item.cartItemKey || generateCartItemKey(item.productId, item.modifiers);
-          return key === cartItemKey ? { ...item, quantity } : item;
+          if (key === cartItemKey) return { ...item, quantity };
+          // Also match by productId if the item has no cartItemKey (old data)
+          if (!item.cartItemKey && item.productId === productId) return { ...item, quantity };
+          return item;
         }
         return item.productId === productId ? { ...item, quantity } : item;
       }),
