@@ -1988,3 +1988,23 @@
 - [x] FEATURE: Live search suggestions/autocomplete — shows top 3 matching categories and top 5 products in a dropdown as user types, with highlighted text, tap to navigate directly
 - [x] FEATURE: Trending Now section on store page — show most-ordered products based on actual order data, with rank badges (#1 gold, #2 silver, #3 bronze), product images, category names, order counts, euro sign formatting, and horizontal scroll. Backend endpoint returns top 10 most-ordered products from last 30 days.
 - [x] BUG: Euro sign showing as literal \u20AC in some places — fixed: replaced all \u20AC escape sequences with literal € character across store page and store dashboard
+
+## POS Order Acceptance Feature (Planned — Next Session)
+- [ ] FEATURE: POS APK order acceptance — upgrade APK from print-only to orders + print mode
+- [ ] Add settings toggle: "Print Only" mode vs "Orders + Print" mode (backwards compatible)
+- [ ] Collapsible settings section (Server URL, Store ID, Start/Stop, Test Print) to free up screen space
+- [ ] Poll for pending orders for the store (using existing Store ID from settings)
+- [ ] Display incoming orders as "NEW ORDER" cards with order number, item count, total price
+- [ ] Sound/beep alert when new order arrives
+- [ ] Accept button on each order card (no reject button)
+- [ ] Auto-print receipt immediately on Accept (direct to thermal printer, no server round-trip)
+- [ ] Update order status to "accepted" via API call on Accept
+- [ ] Accepted orders stay on screen as collapsed cards ("✓ WS4U-1234 Accepted")
+- [ ] Tap accepted order to expand and see full item list with modifiers, quantities, prices
+- [ ] Show customer name and delivery address in expanded view
+- [ ] Reprint button on expanded accepted orders
+- [ ] Paper-out fallback: if print fails on accept, auto-expand order details on screen
+- [ ] Keep existing print job polling running in background (dashboard Print Pick List still works as backup)
+- [ ] Backend: endpoint for APK to fetch pending orders by store ID
+- [ ] Backend: endpoint for APK to accept an order (update status + create print job)
+- [ ] Three-tier redundancy: POS accepts+prints (primary) → Tablet dashboard+Print Pick List (backup) → Screen-only (emergency)
