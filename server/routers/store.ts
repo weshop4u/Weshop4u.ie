@@ -5,7 +5,7 @@ import { orders, orderItems, products, stores, users, productCategories, orderTr
 import { eq, and, or, like, inArray, desc, sql, gte } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
-// autoCreatePrintJob removed - printing is now manual only via Print Pick List button
+import { autoCreatePrintJob } from "./print";
 
 export const storeRouter = router({
   // Get the store linked to the current staff user
@@ -326,7 +326,8 @@ export const storeRouter = router({
         }
       }
 
-      // Print job is now manual only - staff presses "Print Pick List" button
+      // Auto-create print job so POS prints receipt immediately on accept
+      await autoCreatePrintJob(input.orderId, input.storeId);
 
       return { success: true };
     }),
@@ -785,5 +786,148 @@ export const storeRouter = router({
             orderCount: Number(t.orderCount),
           };
         });
+    }),
+
+  // Get pending orders for POS device (lightweight summary for small screens)
+  getPendingOrdersForPOS: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get all pending orders for this store
+      const pendingOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          total: orders.total,
+          paymentMethod: orders.paymentMethod,
+          createdAt: orders.createdAt,
+          guestName: orders.guestName,
+          customerId: orders.customerId,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            eq(orders.status, "pending")
+          )
+        )
+        .orderBy(desc(orders.createdAt));
+
+      // For each order, get item count and total quantity
+      const result = [];
+      for (const order of pendingOrders) {
+        const items = await db
+          .select({
+            id: orderItems.id,
+            productName: orderItems.productName,
+            quantity: orderItems.quantity,
+            subtotal: orderItems.subtotal,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, order.id));
+
+        const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Get customer name
+        let customerName = order.guestName || "Guest";
+        if (order.customerId) {
+          const customer = await db
+            .select({ name: users.name })
+            .from(users)
+            .where(eq(users.id, order.customerId))
+            .limit(1);
+          if (customer.length > 0) customerName = customer[0].name;
+        }
+
+        result.push({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          total: order.total,
+          paymentMethod: order.paymentMethod,
+          itemCount: items.length,
+          totalQuantity,
+          customerName,
+          createdAt: order.createdAt,
+          items: items.map(i => ({
+            name: i.productName,
+            quantity: i.quantity,
+            subtotal: i.subtotal,
+          })),
+        });
+      }
+
+      return result;
+    }),
+
+  // Accept order from POS device (same as acceptOrder but returns alreadyAccepted flag)
+  acceptOrderFromPOS: publicProcedure
+    .input(z.object({
+      orderId: z.number(),
+      storeId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Verify order belongs to this store and is pending
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.storeId, input.storeId),
+            eq(orders.status, "pending")
+          )
+        )
+        .limit(1);
+
+      if (orderResult.length === 0) {
+        // Already accepted by dashboard or another device
+        return { success: false, alreadyAccepted: true };
+      }
+
+      // Update order status to preparing
+      await db
+        .update(orders)
+        .set({
+          status: "preparing",
+          acceptedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, input.orderId));
+
+      // Send notification to customer
+      if (orderResult[0].customerId) {
+        const customer = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, orderResult[0].customerId))
+          .limit(1);
+
+        if (customer.length > 0 && customer[0].pushToken) {
+          const store = await db
+            .select()
+            .from(stores)
+            .where(eq(stores.id, input.storeId))
+            .limit(1);
+          const storeName = store.length > 0 ? store[0].name : "Store";
+          await sendOrderStatusNotification(
+            customer[0].pushToken,
+            input.orderId,
+            "accepted",
+            storeName
+          );
+        }
+      }
+
+      // Auto-create print job (POS picks this up for printing)
+      await autoCreatePrintJob(input.orderId, input.storeId);
+
+      return { success: true, alreadyAccepted: false };
     }),
 });
