@@ -2012,3 +2012,5 @@
 - [x] BUG: POS alert sound too quiet and only beeps once — fixed: now uses TONE_CDMA_EMERGENCY_RINGBACK at max volume, loops every 3 seconds with vibration until Accept is tapped
 - [x] BUG: POS prints 2 receipts on accept — fixed: autoCreatePrintJob now checks for existing pending print jobs before creating a new one (duplicate prevention)
 - [x] BUG: Accepted order disappears from POS screen immediately — fixed: getPendingOrdersForPOS now returns both pending and recently accepted (preparing, last 30 min) orders. Accepted cards show green border and ✔ ACCEPTED badge
+- [x] FEATURE: Order count badge on POS title bar — red badge next to status dot shows pending order count, hides when zero
+- [x] FEATURE: Customisable alert volume slider in POS settings gear menu — 0-100% slider with speaker icon, saved to SharedPreferences, recreates ToneGenerator with new volume

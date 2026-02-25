@@ -25,6 +25,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.SeekBar;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -63,6 +64,9 @@ public class MainActivity extends Activity {
     private boolean logVisible = false;
     private Handler handler = new Handler(Looper.getMainLooper());
     private StringBuilder logBuffer = new StringBuilder();
+    private int pendingCount = 0;
+    private TextView orderCountBadge;
+    private int alertVolume = 100; // 0-100
 
     private Set<Integer> alertedOrderIds = new HashSet<Integer>();
     private Set<Integer> expandedOrderIds = new HashSet<Integer>();
@@ -103,8 +107,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        SharedPreferences initPrefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        alertVolume = initPrefs.getInt("alert_volume", 100);
         try {
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_ALARM, alertVolume);
         } catch (Exception e) {
             toneGenerator = null;
         }
@@ -142,6 +148,24 @@ public class MainActivity extends Activity {
         titleGroup.addView(subtitle);
 
         topBar.addView(titleGroup);
+
+        // Order count badge
+        orderCountBadge = new TextView(this);
+        orderCountBadge.setTextSize(14);
+        orderCountBadge.setTextColor(Color.WHITE);
+        orderCountBadge.setTypeface(null, Typeface.BOLD);
+        orderCountBadge.setGravity(Gravity.CENTER);
+        orderCountBadge.setPadding(16, 6, 16, 6);
+        GradientDrawable badgeBgShape = new GradientDrawable();
+        badgeBgShape.setColor(Color.parseColor("#EF4444"));
+        badgeBgShape.setCornerRadius(20);
+        orderCountBadge.setBackground(badgeBgShape);
+        orderCountBadge.setVisibility(View.GONE);
+        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        badgeParams.setMargins(0, 0, 12, 0);
+        orderCountBadge.setLayoutParams(badgeParams);
+        topBar.addView(orderCountBadge);
 
         statusText = new TextView(this);
         statusText.setText("\u25CF");
@@ -245,6 +269,64 @@ public class MainActivity extends Activity {
         });
         settingsPanel.addView(testBtn);
         addSpacer(settingsPanel, 8);
+
+        // Volume slider
+        addSpacer(settingsPanel, 12);
+        settingsPanel.addView(createLabel("Alert Volume:"));
+
+        LinearLayout volumeRow = new LinearLayout(this);
+        volumeRow.setOrientation(LinearLayout.HORIZONTAL);
+        volumeRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView volIcon = new TextView(this);
+        volIcon.setText("\uD83D\uDD0A");
+        volIcon.setTextSize(16);
+        volIcon.setPadding(0, 0, 10, 0);
+        volumeRow.addView(volIcon);
+
+        final SeekBar volumeSlider = new SeekBar(this);
+        volumeSlider.setMax(100);
+        volumeSlider.setProgress(alertVolume);
+        LinearLayout.LayoutParams sliderParams = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        volumeSlider.setLayoutParams(sliderParams);
+        volumeRow.addView(volumeSlider);
+
+        final TextView volLabel = new TextView(this);
+        volLabel.setText(alertVolume + "%");
+        volLabel.setTextSize(13);
+        volLabel.setTextColor(Color.WHITE);
+        volLabel.setPadding(10, 0, 0, 0);
+        volLabel.setMinWidth(80);
+        volumeRow.addView(volLabel);
+
+        volumeSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                volLabel.setText(progress + "%");
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                alertVolume = seekBar.getProgress();
+                getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                    .putInt("alert_volume", alertVolume).apply();
+                // Recreate tone generator with new volume
+                if (toneGenerator != null) {
+                    toneGenerator.release();
+                }
+                try {
+                    toneGenerator = new ToneGenerator(AudioManager.STREAM_ALARM, alertVolume);
+                } catch (Exception e) {
+                    toneGenerator = null;
+                }
+                appendLog("Alert volume set to " + alertVolume + "%");
+            }
+        });
+
+        settingsPanel.addView(volumeRow);
+        addSpacer(settingsPanel, 12);
 
         TextView printerInfo = new TextView(this);
         printerInfo.setText("Printer: /dev/ttyMT1 @ 115200 baud");
@@ -350,18 +432,24 @@ public class MainActivity extends Activity {
             // Check for new pending orders to trigger alert
             boolean hasNewPending = false;
             boolean hasPending = false;
+            int newPendingCount = 0;
             for (int i = 0; i < allOrders.length(); i++) {
                 JSONObject order = allOrders.getJSONObject(i);
                 int orderId = order.getInt("id");
                 String status = order.optString("status", "pending");
                 if ("pending".equals(status)) {
                     hasPending = true;
+                    newPendingCount++;
                     if (!alertedOrderIds.contains(orderId)) {
                         alertedOrderIds.add(orderId);
                         hasNewPending = true;
                     }
                 }
             }
+
+            // Update badge count
+            pendingCount = newPendingCount;
+            updateOrderCountBadge();
 
             // Start looping alert if there are pending orders, stop if none
             if (hasPending && (hasNewPending || !alertPlaying)) {
@@ -741,6 +829,16 @@ public class MainActivity extends Activity {
         }
         if (toneGenerator != null) {
             try { toneGenerator.stopTone(); } catch (Exception e) { /* ignore */ }
+        }
+    }
+
+    private void updateOrderCountBadge() {
+        if (orderCountBadge == null) return;
+        if (pendingCount > 0) {
+            orderCountBadge.setText(String.valueOf(pendingCount));
+            orderCountBadge.setVisibility(View.VISIBLE);
+        } else {
+            orderCountBadge.setVisibility(View.GONE);
         }
     }
 
