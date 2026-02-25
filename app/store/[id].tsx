@@ -10,6 +10,8 @@ import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } fro
 import * as Haptics from "expo-haptics";
 import { StyleSheet } from "react-native";
 import { WebLayout } from "@/components/web-layout";
+import { HighlightText } from "@/components/highlight-text";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type SortOption = "az" | "za" | "price_low" | "price_high";
 type CategorySortOption = "popular" | "az" | "za";
@@ -24,6 +26,8 @@ export default function StoreDetailScreen() {
   const [categorySortBy, setCategorySortBy] = useState<CategorySortOption>("popular");
   const [productSearch, setProductSearch] = useState(productSearchParam || "");
   const [globalSearch, setGlobalSearch] = useState("");
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showRecentSearches, setShowRecentSearches] = useState(false);
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -253,6 +257,26 @@ export default function StoreDetailScreen() {
       setSelectedModifiers(defaults);
     }
   }, [modifierData, selectedProduct?.id]);
+
+  // Load recent searches on mount
+  useEffect(() => {
+    AsyncStorage.getItem(`recentSearches_${storeId}`).then((data) => {
+      if (data) setRecentSearches(JSON.parse(data));
+    }).catch(() => {});
+  }, [storeId]);
+
+  const saveRecentSearch = useCallback(async (query: string) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    const updated = [trimmed, ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+    setRecentSearches(updated);
+    await AsyncStorage.setItem(`recentSearches_${storeId}`, JSON.stringify(updated)).catch(() => {});
+  }, [recentSearches, storeId]);
+
+  const clearRecentSearches = useCallback(async () => {
+    setRecentSearches([]);
+    await AsyncStorage.removeItem(`recentSearches_${storeId}`).catch(() => {});
+  }, [storeId]);
 
   // Build selected modifiers list for cart
   const getSelectedModifiersList = useCallback((): CartItemModifier[] => {
@@ -825,11 +849,47 @@ export default function StoreDetailScreen() {
               onChangeText={(text) => {
                 setGlobalSearch(text);
                 setCategorySearch("");
+                if (text.trim().length > 0) setShowRecentSearches(false);
+              }}
+              onFocus={() => {
+                if (globalSearch.trim().length === 0 && recentSearches.length > 0) setShowRecentSearches(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowRecentSearches(false), 200);
+              }}
+              onSubmitEditing={() => {
+                if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
               }}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
             />
+            {/* Recent Searches Dropdown */}
+            {showRecentSearches && recentSearches.length > 0 && globalSearch.trim().length === 0 && (
+              <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, paddingVertical: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingBottom: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076" }}>Recent Searches</Text>
+                  <TouchableOpacity onPress={clearRecentSearches}>
+                    <Text style={{ fontSize: 12, color: "#00BCD4", fontWeight: "600" }}>Clear All</Text>
+                  </TouchableOpacity>
+                </View>
+                {recentSearches.map((term, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => {
+                      setGlobalSearch(term);
+                      setCategorySearch("");
+                      setShowRecentSearches(false);
+                    }}
+                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}
+                  >
+                    <Text style={{ fontSize: 16, color: "#9BA1A6" }}>🕒</Text>
+                    <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }}>{term}</Text>
+                    <Text style={{ fontSize: 14, color: "#9BA1A6" }}>↗</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Matching Categories (shown first when searching) */}
@@ -842,6 +902,7 @@ export default function StoreDetailScreen() {
                 <TouchableOpacity
                   key={cat.id}
                   onPress={() => {
+                    if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
                     setGlobalSearch("");
                     setSelectedCategoryId(cat.id);
                   }}
@@ -856,7 +917,7 @@ export default function StoreDetailScreen() {
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>{cat.name}</Text>
+                    <HighlightText text={cat.name} highlight={globalSearch} style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }} />
                     <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 2 }}>{cat.productCount ?? cat._count?.products ?? 0} items</Text>
                   </View>
                   <Text style={{ fontSize: 18, color: "#00E5FF" }}>›</Text>
@@ -895,8 +956,8 @@ export default function StoreDetailScreen() {
                       </View>
                       {/* Product Info */}
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1}>{product.name}</Text>
-                        <Text style={{ fontSize: 11, color: "#9BA1A6", marginTop: 1 }} numberOfLines={1}>{categoryName}</Text>
+                        <HighlightText text={product.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1} />
+                        <HighlightText text={categoryName} highlight={globalSearch} style={{ fontSize: 11, color: "#9BA1A6", marginTop: 1 }} numberOfLines={1} />
                       </View>
                       {/* Price + Add */}
                       <View style={{ alignItems: "flex-end", gap: 4 }}>
