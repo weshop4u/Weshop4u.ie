@@ -681,9 +681,8 @@ export default function StoreDashboardScreen() {
           </View>
         )}
 
-        {/* Print Button - always visible for accepted/preparing/ready orders */}
-        {!isPending && (
-          <TouchableOpacity
+        {/* Print Button - always visible so staff can reprint anytime */}
+        <TouchableOpacity
             onPress={() => handlePrintOrder(order.id)}
             disabled={isPrinting}
             style={{
@@ -704,7 +703,6 @@ export default function StoreDashboardScreen() {
               {isPrinting ? "Sending to Printer..." : justPrinted ? "Sent to Printer!" : "Print Pick List"}
             </Text>
           </TouchableOpacity>
-        )}
 
         {/* Action Buttons */}
         {nextStatus && (

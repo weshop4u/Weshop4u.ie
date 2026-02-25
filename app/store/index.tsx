@@ -818,8 +818,8 @@ export default function StoreDashboardScreen() {
                   </View>
                 )}
 
-                {/* Print Pick List Button - visible for accepted/preparing/ready orders */}
-                {(order.status === "preparing" || order.status === "ready_for_pickup" || order.status === "accepted") && (
+                {/* Print Pick List Button - always visible so staff can reprint anytime */}
+                {order.status !== "cancelled" && (
                   <TouchableOpacity
                     onPress={() => handlePrintOrder(order.id)}
                     disabled={printingOrderId === order.id}
