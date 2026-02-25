@@ -70,6 +70,8 @@ public class MainActivity extends Activity {
 
     private ToneGenerator toneGenerator;
     private Vibrator vibrator;
+    private boolean alertPlaying = false;
+    private Runnable alertLoopRunnable;
 
     private BroadcastReceiver printStatusReceiver = new BroadcastReceiver() {
         @Override
@@ -334,29 +336,44 @@ public class MainActivity extends Activity {
 
     private void updateOrdersUI(String ordersJson) {
         try {
-            JSONArray orders = new JSONArray(ordersJson);
+            JSONArray allOrders = new JSONArray(ordersJson);
 
-            if (orders.length() == 0) {
+            if (allOrders.length() == 0 && acceptedOrderIds.isEmpty()) {
                 noOrdersText.setVisibility(View.VISIBLE);
                 ordersContainer.removeAllViews();
+                stopOrderAlert();
                 return;
             }
 
             noOrdersText.setVisibility(View.GONE);
 
-            for (int i = 0; i < orders.length(); i++) {
-                JSONObject order = orders.getJSONObject(i);
+            // Check for new pending orders to trigger alert
+            boolean hasNewPending = false;
+            boolean hasPending = false;
+            for (int i = 0; i < allOrders.length(); i++) {
+                JSONObject order = allOrders.getJSONObject(i);
                 int orderId = order.getInt("id");
-                if (!alertedOrderIds.contains(orderId) && !acceptedOrderIds.contains(orderId)) {
-                    alertedOrderIds.add(orderId);
-                    playOrderAlert();
+                String status = order.optString("status", "pending");
+                if ("pending".equals(status)) {
+                    hasPending = true;
+                    if (!alertedOrderIds.contains(orderId)) {
+                        alertedOrderIds.add(orderId);
+                        hasNewPending = true;
+                    }
                 }
+            }
+
+            // Start looping alert if there are pending orders, stop if none
+            if (hasPending && (hasNewPending || !alertPlaying)) {
+                startOrderAlert();
+            } else if (!hasPending) {
+                stopOrderAlert();
             }
 
             ordersContainer.removeAllViews();
 
-            for (int i = 0; i < orders.length(); i++) {
-                JSONObject order = orders.getJSONObject(i);
+            for (int i = 0; i < allOrders.length(); i++) {
+                JSONObject order = allOrders.getJSONObject(i);
                 ordersContainer.addView(createOrderCard(order));
                 addSpacer(ordersContainer, 10);
             }
@@ -376,14 +393,18 @@ public class MainActivity extends Activity {
             String customerName = order.optString("customerName", "Guest");
             String paymentMethod = order.optString("paymentMethod", "card");
 
+            final String orderStatus = order.optString("status", "pending");
+            final boolean isPending = "pending".equals(orderStatus);
+            final boolean isAccepted = !isPending;
+
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setPadding(20, 16, 20, 16);
 
             GradientDrawable cardBg = new GradientDrawable();
-            cardBg.setColor(Color.parseColor("#2a2a4e"));
+            cardBg.setColor(isAccepted ? Color.parseColor("#1a3a2e") : Color.parseColor("#2a2a4e"));
             cardBg.setCornerRadius(12);
-            cardBg.setStroke(2, Color.parseColor("#00E5FF"));
+            cardBg.setStroke(2, isAccepted ? Color.parseColor("#22C55E") : Color.parseColor("#00E5FF"));
             card.setBackground(cardBg);
 
             // Top row: badge + order number
@@ -392,12 +413,12 @@ public class MainActivity extends Activity {
             topRow.setGravity(Gravity.CENTER_VERTICAL);
 
             TextView badge = new TextView(this);
-            badge.setText(" NEW ORDER ");
+            badge.setText(isAccepted ? " \u2714 ACCEPTED " : " NEW ORDER ");
             badge.setTextSize(11);
             badge.setTextColor(Color.WHITE);
             badge.setTypeface(null, Typeface.BOLD);
             GradientDrawable badgeBg = new GradientDrawable();
-            badgeBg.setColor(Color.parseColor("#EF4444"));
+            badgeBg.setColor(isAccepted ? Color.parseColor("#22C55E") : Color.parseColor("#EF4444"));
             badgeBg.setCornerRadius(8);
             badge.setBackground(badgeBg);
             badge.setPadding(12, 4, 12, 4);
@@ -559,17 +580,19 @@ public class MainActivity extends Activity {
             card.addView(expandHint);
             addSpacer(card, 8);
 
-            // ACCEPT button
-            Button acceptBtn = createButton("\u2714  ACCEPT ORDER", "#22C55E");
-            acceptBtn.setTextSize(16);
-            acceptBtn.setPadding(20, 16, 20, 16);
-            acceptBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    acceptOrder(orderId, orderNumber);
-                }
-            });
-            card.addView(acceptBtn);
+            // ACCEPT button (only for pending orders)
+            if (isPending) {
+                Button acceptBtn = createButton("\u2714  ACCEPT ORDER", "#22C55E");
+                acceptBtn.setTextSize(16);
+                acceptBtn.setPadding(20, 16, 20, 16);
+                acceptBtn.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        acceptOrder(orderId, orderNumber);
+                    }
+                });
+                card.addView(acceptBtn);
+            }
 
             return card;
 
@@ -588,6 +611,7 @@ public class MainActivity extends Activity {
     private void acceptOrder(final int orderId, final String orderNumber) {
         appendLog("Accepting order " + orderNumber + "...");
         acceptedOrderIds.add(orderId);
+        stopOrderAlert();
 
         new Thread(new Runnable() {
             @Override
@@ -684,15 +708,39 @@ public class MainActivity extends Activity {
 
     // ===== AUDIO ALERTS =====
 
-    private void playOrderAlert() {
-        if (vibrator != null) {
-            long[] pattern = {0, 500, 200, 500, 200, 500};
-            vibrator.vibrate(pattern, -1);
+    private void startOrderAlert() {
+        if (alertPlaying) return;
+        alertPlaying = true;
+
+        alertLoopRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!alertPlaying) return;
+                // Play loud alarm tone
+                if (toneGenerator != null) {
+                    try {
+                        toneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 1500);
+                    } catch (Exception e) { /* ignore */ }
+                }
+                // Vibrate pattern
+                if (vibrator != null) {
+                    long[] pattern = {0, 800, 300, 800, 300, 800};
+                    vibrator.vibrate(pattern, -1);
+                }
+                // Repeat every 3 seconds
+                handler.postDelayed(this, 3000);
+            }
+        };
+        handler.post(alertLoopRunnable);
+    }
+
+    private void stopOrderAlert() {
+        alertPlaying = false;
+        if (alertLoopRunnable != null) {
+            handler.removeCallbacks(alertLoopRunnable);
         }
         if (toneGenerator != null) {
-            try {
-                toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000);
-            } catch (Exception e) { /* ignore */ }
+            try { toneGenerator.stopTone(); } catch (Exception e) { /* ignore */ }
         }
     }
 

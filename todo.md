@@ -2008,3 +2008,7 @@
 - [x] Three-tier redundancy: POS accepts+prints (primary) → Tablet dashboard+Print Pick List (backup) → Screen-only (emergency)
 - [x] APK built and compiled: weshop4u-print-v2.apk (24K, Java 1.7 compatible)
 - [x] FEATURE: Reprint button on accepted orders in POS APK — staff can tap to reprint receipt from expanded order card
+- [ ] BUG: POS APK shows "No pending orders" even when orders are pending — print polling works (prints on dashboard accept) but order polling not displaying incoming orders on POS screen
+- [x] BUG: POS alert sound too quiet and only beeps once — fixed: now uses TONE_CDMA_EMERGENCY_RINGBACK at max volume, loops every 3 seconds with vibration until Accept is tapped
+- [x] BUG: POS prints 2 receipts on accept — fixed: autoCreatePrintJob now checks for existing pending print jobs before creating a new one (duplicate prevention)
+- [x] BUG: Accepted order disappears from POS screen immediately — fixed: getPendingOrdersForPOS now returns both pending and recently accepted (preparing, last 30 min) orders. Accepted cards show green border and ✔ ACCEPTED badge

@@ -797,7 +797,8 @@ export const storeRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      // Get all pending orders for this store
+      // Get pending orders + recently accepted orders (preparing, last 30 min) for this store
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
       const pendingOrders = await db
         .select({
           id: orders.id,
@@ -807,12 +808,20 @@ export const storeRouter = router({
           createdAt: orders.createdAt,
           guestName: orders.guestName,
           customerId: orders.customerId,
+          status: orders.status,
+          acceptedAt: orders.acceptedAt,
         })
         .from(orders)
         .where(
           and(
             eq(orders.storeId, input.storeId),
-            eq(orders.status, "pending")
+            or(
+              eq(orders.status, "pending"),
+              and(
+                eq(orders.status, "preparing"),
+                gte(orders.acceptedAt, thirtyMinAgo)
+              )
+            )
           )
         )
         .orderBy(desc(orders.createdAt));
@@ -848,6 +857,7 @@ export const storeRouter = router({
           orderNumber: order.orderNumber,
           total: order.total,
           paymentMethod: order.paymentMethod,
+          status: order.status,
           itemCount: items.length,
           totalQuantity,
           customerName,

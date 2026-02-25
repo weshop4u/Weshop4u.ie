@@ -251,10 +251,23 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
       if (order.guestPhone) customerPhone = order.guestPhone;
     }
 
+    // Check if a pending print job already exists for this order (prevent duplicates)
+    const existingJob = await db
+      .select({ id: printJobs.id })
+      .from(printJobs)
+      .where(and(
+        eq(printJobs.orderId, orderId),
+        eq(printJobs.storeId, storeId),
+        eq(printJobs.status, "pending")
+      ))
+      .limit(1);
+    if (existingJob.length > 0) {
+      console.log(`[AutoPrint] Pending print job already exists for order ${order.orderNumber} — skipping duplicate`);
+      return;
+    }
     // Fetch modifiers for items
     const itemMods = await fetchItemModifiers(items.map(i => i.id));
-
-    // Format and create print job
+    // Format and create print jobb
     const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
     await db.insert(printJobs).values({
       storeId,
