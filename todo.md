@@ -1959,3 +1959,5 @@
 - [x] Create "Choose Your Fillings" template (multi-select, optional): Lettuce, Red Onion, White Onion, Cheese, Coleslaw, Cucumber, Jalapeño, Mixed Peppers, Egg Mayonnaise, Bacon, Spinach, Sweetcorn — all +0.90
 - [x] Create "Create Your Own" product in Deli category (base price €0.00) and assign all 4 templates (product ID 360001)
 - [x] Upload deli sandwich image and assign to "Create Your Own" product
+- [x] Create "Create Your Own Chicken Fillet Roll" product in Deli category with deli image and 4 templates assigned (product ID 390001)
+- [x] Add quantity selector (+/−) to customer product detail modal for ordering multiples of same customized item (already implemented)
