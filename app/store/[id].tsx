@@ -28,6 +28,7 @@ export default function StoreDetailScreen() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showRecentSearches, setShowRecentSearches] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -852,10 +853,11 @@ export default function StoreDetailScreen() {
                 if (text.trim().length > 0) setShowRecentSearches(false);
               }}
               onFocus={() => {
+                setSearchFocused(true);
                 if (globalSearch.trim().length === 0 && recentSearches.length > 0) setShowRecentSearches(true);
               }}
               onBlur={() => {
-                setTimeout(() => setShowRecentSearches(false), 200);
+                setTimeout(() => { setShowRecentSearches(false); setSearchFocused(false); }, 200);
               }}
               onSubmitEditing={() => {
                 if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
@@ -888,6 +890,62 @@ export default function StoreDetailScreen() {
                     <Text style={{ fontSize: 14, color: "#9BA1A6" }}>↗</Text>
                   </TouchableOpacity>
                 ))}
+              </View>
+            )}
+            {/* Autocomplete Suggestions Dropdown */}
+            {searchFocused && globalSearch.trim().length >= 1 && (filteredCategories.length > 0 || globalSearchResults.length > 0) && (
+              <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, paddingVertical: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, maxHeight: 300 }}>
+                {/* Category suggestions (top 3) */}
+                {filteredCategories.slice(0, 3).map((cat: any) => (
+                  <TouchableOpacity
+                    key={`sug-cat-${cat.id}`}
+                    onPress={() => {
+                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
+                      setGlobalSearch("");
+                      setSelectedCategoryId(cat.id);
+                      setSearchFocused(false);
+                    }}
+                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10, borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0" }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📂</Text>
+                    <View style={{ flex: 1 }}>
+                      <HighlightText text={cat.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1} />
+                      <Text style={{ fontSize: 11, color: "#9BA1A6" }}>{cat.products?.length || 0} items</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: "#00BCD4", fontWeight: "600" }}>Category</Text>
+                  </TouchableOpacity>
+                ))}
+                {/* Product suggestions (top 5) */}
+                {globalSearchResults.slice(0, 5).map(({ product, categoryName, categorySchedule }) => (
+                  <TouchableOpacity
+                    key={`sug-prod-${product.id}`}
+                    onPress={() => {
+                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
+                      openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } });
+                      setSearchFocused(false);
+                    }}
+                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10, borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0" }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📦</Text>
+                    <View style={{ flex: 1 }}>
+                      <HighlightText text={product.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "500", color: "#11181C" }} numberOfLines={1} />
+                      <Text style={{ fontSize: 11, color: "#9BA1A6" }}>{categoryName}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(product.price).toFixed(2)}</Text>
+                  </TouchableOpacity>
+                ))}
+                {/* View all results link */}
+                {(globalSearchResults.length > 5 || filteredCategories.length > 3) && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSearchFocused(false);
+                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
+                    }}
+                    style={{ paddingHorizontal: 14, paddingVertical: 10, alignItems: "center" }}
+                  >
+                    <Text style={{ fontSize: 13, color: "#00BCD4", fontWeight: "600" }}>View all {globalSearchResults.length} results ↓</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>

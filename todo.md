@@ -1985,3 +1985,4 @@
 - [x] UX: Search results should show matching categories first, then products — fixed: moved matching categories section above products in search results, tapping a category clears search and opens that category
 - [x] FEATURE: Search highlighting — bold the matching text within category/product names in search results, using reusable HighlightText component with teal accent color
 - [x] FEATURE: Recent searches — show user's last 8 searches when tapping the search bar, persisted per-store with AsyncStorage, with Clear All option
+- [x] FEATURE: Live search suggestions/autocomplete — shows top 3 matching categories and top 5 products in a dropdown as user types, with highlighted text, tap to navigate directly
