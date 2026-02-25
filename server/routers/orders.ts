@@ -497,7 +497,7 @@ export const ordersRouter = router({
       .where(whereCondition)
       .orderBy(desc(orders.createdAt));
 
-    // Get order items for each order
+    // Get order items for each order (including modifiers)
     const ordersWithItems = await Promise.all(
       userOrders.map(async (order) => {
         const items = await db
@@ -508,10 +508,30 @@ export const ordersRouter = router({
             quantity: orderItems.quantity,
             productPrice: orderItems.productPrice,
             productName: orderItems.productName,
+            subtotal: orderItems.subtotal,
           })
           .from(orderItems)
           .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, order.id));
+
+        // Fetch modifiers for all items in this order
+        const itemIds = items.map(i => i.id);
+        let itemModsMap: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]> = {};
+        if (itemIds.length > 0) {
+          const mods = await db
+            .select({
+              orderItemId: orderItemModifiers.orderItemId,
+              groupName: orderItemModifiers.groupName,
+              modifierName: orderItemModifiers.modifierName,
+              modifierPrice: orderItemModifiers.modifierPrice,
+            })
+            .from(orderItemModifiers)
+            .where(inArray(orderItemModifiers.orderItemId, itemIds));
+          for (const m of mods) {
+            if (!itemModsMap[m.orderItemId]) itemModsMap[m.orderItemId] = [];
+            itemModsMap[m.orderItemId].push(m);
+          }
+        }
 
         // Check if there's a rating for this order
         let orderRating = null;
@@ -535,7 +555,9 @@ export const ordersRouter = router({
             productId: item.productId,
             quantity: item.quantity,
             productPrice: item.productPrice,
+            subtotal: item.subtotal,
             product: { name: item.productName },
+            modifiers: itemModsMap[item.id] || [],
           })),
         };
       })

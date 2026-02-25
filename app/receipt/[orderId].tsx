@@ -132,31 +132,58 @@ export default function ReceiptScreen() {
           {/* Items */}
           <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" }}>
             <Text style={{ color: "#687076", fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 12 }}>ORDER ITEMS</Text>
-            {order.items?.map((item: any, idx: number) => (
-              <View
-                key={item.id || idx}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  paddingVertical: 8,
-                  borderBottomWidth: idx < (order.items?.length || 0) - 1 ? 1 : 0,
-                  borderBottomColor: "#f5f5f5",
-                }}
-              >
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={{ color: "#11181C", fontSize: 14, fontWeight: "500" }}>
-                    {item.quantity}x {item.productName || item.product?.name || "Item"}
-                  </Text>
-                  {item.notes && (
-                    <Text style={{ color: "#687076", fontSize: 12, fontStyle: "italic", marginTop: 2 }}>{item.notes}</Text>
+            {order.items?.map((item: any, idx: number) => {
+              const mods = item.modifiers || [];
+              const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+              for (const m of mods) {
+                const gn = m.groupName || "Options";
+                if (!grouped[gn]) grouped[gn] = [];
+                const cleanName = m.modifierName.replace(/ \u00d7\d+$/, '');
+                const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+                if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+              }
+              return (
+                <View
+                  key={item.id || idx}
+                  style={{
+                    paddingVertical: 8,
+                    borderBottomWidth: idx < (order.items?.length || 0) - 1 ? 1 : 0,
+                    borderBottomColor: "#f5f5f5",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={{ color: "#11181C", fontSize: 14, fontWeight: "500" }}>
+                        {item.quantity}x {item.productName || item.product?.name || "Item"}
+                      </Text>
+                      {item.notes && (
+                        <Text style={{ color: "#687076", fontSize: 12, fontStyle: "italic", marginTop: 2 }}>{item.notes}</Text>
+                      )}
+                    </View>
+                    <Text style={{ color: "#11181C", fontSize: 14, fontWeight: "600" }}>
+                      €{parseFloat(item.subtotal || "0").toFixed(2)}
+                    </Text>
+                  </View>
+                  {mods.length > 0 && (
+                    <View style={{ marginLeft: 8, marginTop: 4 }}>
+                      {Object.entries(grouped).map(([groupName, options]) => (
+                        <View key={groupName} style={{ marginBottom: 2 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: "#687076" }}>{groupName}:</Text>
+                          {options.map((opt: any, oi: number) => {
+                            const extraPrice = parseFloat(opt.price) * opt.count;
+                            return (
+                              <Text key={oi} style={{ fontSize: 12, color: "#11181C", marginLeft: 8, lineHeight: 18 }}>
+                                • {opt.name}{opt.count > 1 ? ` ×${opt.count}` : ""}{extraPrice > 0 ? ` +€${extraPrice.toFixed(2)}` : ""}
+                              </Text>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
                   )}
                 </View>
-                <Text style={{ color: "#11181C", fontSize: 14, fontWeight: "600" }}>
-                  €{parseFloat(item.subtotal || "0").toFixed(2)}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
 
           {/* Price Breakdown */}

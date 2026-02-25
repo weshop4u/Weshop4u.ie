@@ -18,53 +18,126 @@ import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 function triggerLocalPrint(content: string) {
   if (typeof window === "undefined") return;
 
-  const printFrame = document.createElement("iframe");
-  printFrame.style.position = "fixed";
-  printFrame.style.right = "0";
-  printFrame.style.bottom = "0";
-  printFrame.style.width = "0";
-  printFrame.style.height = "0";
-  printFrame.style.border = "none";
-  document.body.appendChild(printFrame);
+  // Use a popup window approach — more reliable than hidden iframe on tablets/mobile
+  const printHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Receipt</title>
+      <style>
+        @page { size: 58mm auto; margin: 0; }
+        @media print {
+          .no-print { display: none !important; }
+          body { padding: 2mm; }
+        }
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          line-height: 1.3;
+          margin: 0;
+          padding: 4mm;
+          width: 50mm;
+          max-width: 58mm;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+        .no-print {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 12px;
+          background: #1a1a2e;
+          text-align: center;
+        }
+        .no-print button {
+          background: #00E5FF;
+          color: #000;
+          border: none;
+          padding: 12px 32px;
+          font-size: 16px;
+          font-weight: 700;
+          border-radius: 8px;
+          cursor: pointer;
+          margin: 0 8px;
+        }
+        .no-print button.close-btn {
+          background: #666;
+          color: #fff;
+        }
+      </style>
+    </head>
+    <body>
+      ${content.replace(/\n/g, "<br>")}
+      <div class="no-print">
+        <button onclick="window.print()">\uD83D\uDDA8 Print Receipt</button>
+        <button class="close-btn" onclick="window.close()">Close</button>
+      </div>
+      <script>
+        // Auto-trigger print dialog after a short delay
+        setTimeout(function() { window.print(); }, 500);
+      </script>
+    </body>
+    </html>
+  `;
 
-  const doc = printFrame.contentDocument || printFrame.contentWindow?.document;
-  if (doc) {
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Receipt</title>
-        <style>
-          @page { size: 58mm auto; margin: 0; }
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.3;
-            margin: 0;
-            padding: 4mm;
-            width: 50mm;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-          }
-        </style>
-      </head>
-      <body>${content.replace(/\n/g, "<br>")}</body>
-      </html>
-    `);
-    doc.close();
+  // Open a new window for printing
+  const printWindow = window.open("", "_blank", "width=400,height=700,scrollbars=yes");
+  if (printWindow) {
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+  } else {
+    // Popup blocked — fall back to iframe approach
+    console.log("[Print] Popup blocked, falling back to iframe");
+    const printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "0";
+    printFrame.style.height = "0";
+    printFrame.style.border = "none";
+    document.body.appendChild(printFrame);
 
-    setTimeout(() => {
-      try {
-        printFrame.contentWindow?.print();
-      } catch (e) {
-        console.log("[Print] iframe print failed, trying window.print");
-      }
+    const doc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Receipt</title>
+          <style>
+            @page { size: 58mm auto; margin: 0; }
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.3;
+              margin: 0;
+              padding: 4mm;
+              width: 50mm;
+              white-space: pre-wrap;
+              word-wrap: break-word;
+            }
+          </style>
+        </head>
+        <body>${content.replace(/\n/g, "<br>")}</body>
+        </html>
+      `);
+      doc.close();
+
       setTimeout(() => {
-        document.body.removeChild(printFrame);
-      }, 1000);
-    }, 300);
+        try {
+          printFrame.contentWindow?.print();
+        } catch (e) {
+          console.log("[Print] iframe print also failed");
+        }
+        setTimeout(() => {
+          document.body.removeChild(printFrame);
+        }, 2000);
+      }, 500);
+    }
   }
 }
 
@@ -470,6 +543,55 @@ export default function StoreDashboardScreen() {
           </View>
         </View>
 
+        {/* Items summary always visible (with modifiers) */}
+        <View style={{ marginBottom: 8 }}>
+          {order.items?.map((item: any, idx: number) => {
+            const mods = item.modifiers || [];
+            // Group modifiers by group name, dedup quantities
+            const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+            for (const m of mods) {
+              const gn = m.groupName || "Options";
+              if (!grouped[gn]) grouped[gn] = [];
+              const cleanName = m.modifierName.replace(/ ×\d+$/, '');
+              const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+              if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+            }
+            return (
+              <View key={item.id || idx} style={{
+                paddingVertical: 6,
+                borderBottomWidth: idx < (order.items?.length || 0) - 1 ? 1 : 0,
+                borderBottomColor: "rgba(0,0,0,0.06)",
+              }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, flex: 1 }} numberOfLines={2}>
+                    {item.quantity}x {item.product?.name || item.productName || "Item"}
+                  </Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginLeft: 8 }}>
+                    €{(parseFloat(item.subtotal || item.productPrice || "0") * (item.subtotal ? 1 : (item.quantity || 1))).toFixed(2)}
+                  </Text>
+                </View>
+                {mods.length > 0 && (
+                  <View style={{ marginLeft: 4, marginTop: 4 }}>
+                    {Object.entries(grouped).map(([groupName, options]) => (
+                      <View key={groupName} style={{ marginBottom: 2 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted }}>{groupName}:</Text>
+                        {options.map((opt: any, oi: number) => {
+                          const extraPrice = parseFloat(opt.price) * opt.count;
+                          return (
+                            <Text key={oi} style={{ fontSize: 12, color: colors.foreground, marginLeft: 8 }}>
+                              • {opt.name}{opt.count > 1 ? ` ×${opt.count}` : ""}{extraPrice > 0 ? ` +€${extraPrice.toFixed(2)}` : ""}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
         {/* Expanded Details */}
         {isExpanded && (
           <View style={{ marginTop: 8 }}>
@@ -496,39 +618,64 @@ export default function StoreDashboardScreen() {
               </View>
             ) : null}
 
-            {/* Items List */}
+            {/* Items List (detailed with modifiers) */}
             <View style={{ marginBottom: 12 }}>
-              <Text style={{ fontSize: 11, color: colors.muted, fontWeight: "600", marginBottom: 8 }}>ORDER ITEMS</Text>
-              {order.items?.map((item: any, idx: number) => (
-                <View key={item.id || idx} style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 6,
-                  borderBottomWidth: idx < (order.items?.length || 0) - 1 ? 1 : 0,
-                  borderBottomColor: "rgba(0,0,0,0.05)",
-                }}>
-                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
-                    <View style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      backgroundColor: colors.primary,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: 10,
-                    }}>
-                      <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{item.quantity}</Text>
+              <Text style={{ fontSize: 11, color: colors.muted, fontWeight: "600", marginBottom: 8 }}>ORDER ITEMS (DETAILED)</Text>
+              {order.items?.map((item: any, idx: number) => {
+                const mods = item.modifiers || [];
+                const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+                for (const m of mods) {
+                  const gn = m.groupName || "Options";
+                  if (!grouped[gn]) grouped[gn] = [];
+                  const cleanName = m.modifierName.replace(/ ×\d+$/, '');
+                  const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+                  if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+                }
+                return (
+                  <View key={item.id || idx} style={{
+                    paddingVertical: 8,
+                    borderBottomWidth: idx < (order.items?.length || 0) - 1 ? 1 : 0,
+                    borderBottomColor: "rgba(0,0,0,0.05)",
+                  }}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: colors.primary,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: 10,
+                      }}>
+                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{item.quantity}</Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, flex: 1 }} numberOfLines={2}>
+                        {item.product?.name || item.productName || "Item"}
+                      </Text>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginLeft: 8 }}>
+                        €{(parseFloat(item.subtotal || item.productPrice || "0") * (item.subtotal ? 1 : (item.quantity || 1))).toFixed(2)}
+                      </Text>
                     </View>
-                    <Text style={{ fontSize: 14, color: colors.foreground, flex: 1 }} numberOfLines={2}>
-                      {item.product?.name || item.productName || "Item"}
-                    </Text>
+                    {mods.length > 0 && (
+                      <View style={{ marginLeft: 38, marginTop: 4 }}>
+                        {Object.entries(grouped).map(([groupName, options]) => (
+                          <View key={groupName} style={{ marginBottom: 3 }}>
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>{groupName}:</Text>
+                            {options.map((opt: any, oi: number) => {
+                              const extraPrice = parseFloat(opt.price) * opt.count;
+                              return (
+                                <Text key={oi} style={{ fontSize: 13, color: colors.foreground, marginLeft: 8, lineHeight: 18 }}>
+                                  • {opt.name}{opt.count > 1 ? ` ×${opt.count}` : ""}{extraPrice > 0 ? ` +€${extraPrice.toFixed(2)}` : ""}
+                                </Text>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginLeft: 8 }}>
-                    €{(parseFloat(item.productPrice || "0") * (item.quantity || 1)).toFixed(2)}
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
           </View>

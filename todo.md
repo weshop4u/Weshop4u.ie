@@ -1973,3 +1973,7 @@
 - [x] Upload breakfast roll image and assign to "Create Your Own Breakfast Roll" product (ID 390002)
 - [x] BUG: Products with required modifiers/templates can be quick-added to cart without customization — now shows "Customise" button that opens modal instead
 - [x] BUG: Products with required modifiers/templates can be quick-added to cart without customization — now shows "Customise" button that opens modal instead
+- [x] BUG: Store dashboard order cards show only "2x Create Your Own" without modifier details (bread, meat, sauces, fillings) — fixed: added modifier fetching to getUserOrders backend, display modifiers grouped by category in both summary and expanded views
+- [x] BUG: Customer order confirmation shows only "2x Create Your Own" without modifier breakdown — fixed: added modifier display to order-confirmation screen and receipt screen
+- [x] BUG: Print button shows correct preview but doesn't actually send to printer — fixed: replaced hidden iframe with popup window approach that auto-triggers print dialog, with fallback to iframe if popup is blocked
+- [x] BUG: Deli view shows only item names without modifier details — fixed: added modifier fetching to getDeliOrders and display in deli.tsx

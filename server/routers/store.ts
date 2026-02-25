@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers } from "../../drizzle/schema";
+import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, or, like, inArray, desc } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
@@ -204,11 +204,31 @@ export const storeRouter = router({
             return null; // Skip orders with no deli items
           }
 
+          // Fetch modifiers for deli items
+          const deliItemIds = deliItems.map(item => item.order_items.id);
+          let itemModsMap: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]> = {};
+          if (deliItemIds.length > 0) {
+            const mods = await db
+              .select({
+                orderItemId: orderItemModifiers.orderItemId,
+                groupName: orderItemModifiers.groupName,
+                modifierName: orderItemModifiers.modifierName,
+                modifierPrice: orderItemModifiers.modifierPrice,
+              })
+              .from(orderItemModifiers)
+              .where(inArray(orderItemModifiers.orderItemId, deliItemIds));
+            for (const m of mods) {
+              if (!itemModsMap[m.orderItemId]) itemModsMap[m.orderItemId] = [];
+              itemModsMap[m.orderItemId].push(m);
+            }
+          }
+
           return {
             ...order,
             deliItems: deliItems.map(item => ({
               ...item.order_items,
               product: item.products,
+              modifiers: itemModsMap[item.order_items.id] || [],
             })),
             otherItemsCount: items.length - deliItems.length,
           };

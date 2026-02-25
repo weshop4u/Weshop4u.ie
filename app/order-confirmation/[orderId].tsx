@@ -185,16 +185,47 @@ export default function OrderConfirmationScreen() {
         {/* Order Items */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
-          {order.items.map((item: any) => (
-            <View key={item.id} className="flex-row justify-between mb-2">
-              <Text className="text-foreground flex-1">
-                {item.quantity}x {item.productName}
-              </Text>
-              <Text className="text-foreground">
-                €{parseFloat(item.subtotal).toFixed(2)}
-              </Text>
-            </View>
-          ))}
+          {order.items.map((item: any) => {
+            const mods = item.modifiers || [];
+            // Group modifiers by group name, dedup quantities
+            const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+            for (const m of mods) {
+              const gn = m.groupName || "Options";
+              if (!grouped[gn]) grouped[gn] = [];
+              const cleanName = m.modifierName.replace(/ ×\d+$/, '');
+              const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+              if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+            }
+            return (
+              <View key={item.id} style={{ marginBottom: 10 }}>
+                <View className="flex-row justify-between">
+                  <Text className="text-foreground flex-1 font-semibold">
+                    {item.quantity}x {item.productName}
+                  </Text>
+                  <Text className="text-foreground font-semibold">
+                    €{parseFloat(item.subtotal).toFixed(2)}
+                  </Text>
+                </View>
+                {mods.length > 0 && (
+                  <View style={{ marginLeft: 8, marginTop: 4 }}>
+                    {Object.entries(grouped).map(([groupName, options]) => (
+                      <View key={groupName} style={{ marginBottom: 2 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: colors.muted }}>{groupName}:</Text>
+                        {options.map((opt: any, oi: number) => {
+                          const extraPrice = parseFloat(opt.price) * opt.count;
+                          return (
+                            <Text key={oi} style={{ fontSize: 12, color: colors.foreground, marginLeft: 8, lineHeight: 18 }}>
+                              • {opt.name}{opt.count > 1 ? ` ×${opt.count}` : ""}{extraPrice > 0 ? ` +€${extraPrice.toFixed(2)}` : ""}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         {/* Payment Summary */}

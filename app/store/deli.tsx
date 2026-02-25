@@ -182,35 +182,63 @@ export default function DeliViewScreen() {
                   {/* Deli Items */}
                   <View className="bg-background p-3 rounded-lg mb-3">
                     <Text className="text-foreground font-bold mb-2">🥪 Deli Items:</Text>
-                    {order.deliItems?.map((item: any) => (
-                      <View key={item.id} className="mb-3">
-                        <View className="flex-row justify-between items-center">
-                          <View className="flex-1">
-                            <Text className="text-foreground font-semibold text-lg">
-                              {item.quantity}x {item.product?.name || item.productName || "Item"}
-                            </Text>
-                            {item.specialInstructions && (
-                              <Text className="text-warning text-sm italic mt-1">
-                                Note: {item.specialInstructions}
+                    {order.deliItems?.map((item: any) => {
+                      const mods = item.modifiers || [];
+                      const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+                      for (const m of mods) {
+                        const gn = m.groupName || "Options";
+                        if (!grouped[gn]) grouped[gn] = [];
+                        const cleanName = m.modifierName.replace(/ ×\d+$/, '');
+                        const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+                        if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+                      }
+                      return (
+                        <View key={item.id} className="mb-3">
+                          <View className="flex-row justify-between items-center">
+                            <View className="flex-1">
+                              <Text className="text-foreground font-semibold text-lg">
+                                {item.quantity}x {item.product?.name || item.productName || "Item"}
                               </Text>
+                              {item.specialInstructions && (
+                                <Text className="text-warning text-sm italic mt-1">
+                                  Note: {item.specialInstructions}
+                                </Text>
+                              )}
+                            </View>
+                            {isItemReady(order.id, item.id) ? (
+                              <View className="bg-success px-3 py-2 rounded-lg">
+                                <Text className="text-background font-bold">✓ READY</Text>
+                              </View>
+                            ) : (
+                              <TouchableOpacity
+                                onPress={() => handleMarkItemReady(order.id, item.id)}
+                                disabled={markDeliItemMutation.isPending}
+                                className="bg-primary px-3 py-2 rounded-lg active:opacity-70"
+                              >
+                                <Text className="text-background font-bold">Mark Ready</Text>
+                              </TouchableOpacity>
                             )}
                           </View>
-                          {isItemReady(order.id, item.id) ? (
-                            <View className="bg-success px-3 py-2 rounded-lg">
-                              <Text className="text-background font-bold">✓ READY</Text>
+                          {mods.length > 0 && (
+                            <View style={{ marginLeft: 4, marginTop: 6 }}>
+                              {Object.entries(grouped).map(([groupName, options]) => (
+                                <View key={groupName} style={{ marginBottom: 3 }}>
+                                  <Text className="text-muted" style={{ fontSize: 12, fontWeight: "600" }}>{groupName}:</Text>
+                                  {options.map((opt: any, oi: number) => {
+                                    const extraPrice = parseFloat(opt.price) * opt.count;
+                                    return (
+                                      <Text key={oi} className="text-foreground" style={{ fontSize: 13, marginLeft: 10, lineHeight: 20 }}>
+                                        • {opt.name}{opt.count > 1 ? ` ×${opt.count}` : ""}{extraPrice > 0 ? ` +€${extraPrice.toFixed(2)}` : ""}
+                                      </Text>
+                                    );
+                                  })}
+                                </View>
+                              ))}
                             </View>
-                          ) : (
-                            <TouchableOpacity
-                              onPress={() => handleMarkItemReady(order.id, item.id)}
-                              disabled={markDeliItemMutation.isPending}
-                              className="bg-primary px-3 py-2 rounded-lg active:opacity-70"
-                            >
-                              <Text className="text-background font-bold">Mark Ready</Text>
-                            </TouchableOpacity>
                           )}
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
 
                   {/* Other Items Info */}
