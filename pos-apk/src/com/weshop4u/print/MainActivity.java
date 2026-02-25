@@ -507,6 +507,26 @@ public class MainActivity extends Activity {
                 }
             }
 
+            // Reprint button inside details panel
+            addSpacer(detailsPanel, 10);
+            View reprintDivider = new View(this);
+            reprintDivider.setBackgroundColor(Color.parseColor("#444466"));
+            reprintDivider.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1));
+            detailsPanel.addView(reprintDivider);
+            addSpacer(detailsPanel, 8);
+
+            Button reprintBtn = createButton("\u2399  REPRINT RECEIPT", "#F59E0B");
+            reprintBtn.setTextSize(13);
+            reprintBtn.setPadding(16, 12, 16, 12);
+            reprintBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    reprintOrder(orderId, orderNumber);
+                }
+            });
+            detailsPanel.addView(reprintBtn);
+
             card.addView(detailsPanel);
             addSpacer(card, 10);
 
@@ -610,6 +630,51 @@ public class MainActivity extends Activity {
                             Toast.makeText(MainActivity.this, "Network error - try again",
                                 Toast.LENGTH_SHORT).show();
                             acceptedOrderIds.remove(orderId);
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    // ===== REPRINT =====
+
+    private void reprintOrder(final int orderId, final String orderNumber) {
+        appendLog("Reprinting order " + orderNumber + "...");
+        Toast.makeText(this, "Sending reprint for " + orderNumber + "...", Toast.LENGTH_SHORT).show();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                    String serverUrl = prefs.getString("server_url", "");
+                    int storeId = prefs.getInt("store_id", 1);
+
+                    ApiClient api = new ApiClient(serverUrl);
+                    final boolean success = api.reprintOrder(orderId, storeId);
+
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (success) {
+                                appendLog("Reprint job created for " + orderNumber + " - printing shortly");
+                                Toast.makeText(MainActivity.this, "Reprint sent!",
+                                    Toast.LENGTH_SHORT).show();
+                            } else {
+                                appendLog("Failed to create reprint for " + orderNumber);
+                                Toast.makeText(MainActivity.this, "Reprint failed",
+                                    Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+                } catch (final Exception e) {
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            appendLog("ERROR reprinting: " + e.getMessage());
+                            Toast.makeText(MainActivity.this, "Network error - try again",
+                                Toast.LENGTH_SHORT).show();
                         }
                     });
                 }

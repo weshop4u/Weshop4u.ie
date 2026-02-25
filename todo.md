@@ -2000,10 +2000,11 @@
 - [x] Auto-print receipt on Accept — server creates print job, POS background service picks it up and prints immediately
 - [x] Update order status to "accepted" via API call on Accept (store.acceptOrderFromPOS endpoint)
 - [x] Tap order card to expand and see full item list with quantities and prices
-- [ ] Reprint button on expanded accepted orders — deferred to next iteration
+- [x] Reprint button on expanded accepted orders — orange "REPRINT RECEIPT" button inside expanded item details, calls print.createPrintJob to queue a new print
 - [ ] Paper-out fallback: if print fails on accept, auto-expand order details on screen — deferred to next iteration
 - [x] Keep existing print job polling running in background (dashboard Print Pick List still works as backup)
 - [x] Backend: endpoint for APK to fetch pending orders by store ID (store.getPendingOrdersForPOS)
 - [x] Backend: endpoint for APK to accept an order + auto-create print job (store.acceptOrderFromPOS)
 - [x] Three-tier redundancy: POS accepts+prints (primary) → Tablet dashboard+Print Pick List (backup) → Screen-only (emergency)
 - [x] APK built and compiled: weshop4u-print-v2.apk (24K, Java 1.7 compatible)
+- [x] FEATURE: Reprint button on accepted orders in POS APK — staff can tap to reprint receipt from expanded order card

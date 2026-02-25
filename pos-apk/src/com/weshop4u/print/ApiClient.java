@@ -72,6 +72,17 @@ public class ApiClient {
     }
 
     /**
+     * Request a reprint for an order by creating a new print job on the server.
+     * The background print polling service will pick it up and print it.
+     */
+    public boolean reprintOrder(int orderId, int storeId) throws Exception {
+        String url = baseUrl + "/api/trpc/print.createPrintJob";
+        String body = "{\"json\":{\"orderId\":" + orderId + ",\"storeId\":" + storeId + "}}";
+        String response = httpPost(url, body);
+        return new JSONObject(response).has("result");
+    }
+
+    /**
      * Accept an order from the POS. Returns {success: bool, alreadyAccepted: bool}.
      * If alreadyAccepted is true, the order was already accepted by the dashboard.
      * On success, a print job is auto-created on the server for this POS to pick up.
