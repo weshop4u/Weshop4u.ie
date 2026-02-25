@@ -742,6 +742,8 @@ export const modifierTemplates = mysqlTable("modifier_templates", {
   required: boolean("required").default(false),
   minSelections: int("min_selections").default(0),
   maxSelections: int("max_selections").default(0),
+  allowOptionQuantity: boolean("allow_option_quantity").default(false), // When true, each option gets +/− stepper instead of checkbox
+  maxOptionQuantity: int("max_option_quantity").default(6), // Max quantity per individual option (e.g. max 6 sausages)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

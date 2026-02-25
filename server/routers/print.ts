@@ -136,10 +136,18 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
       }
       for (const [groupName, options] of Object.entries(grouped)) {
         lines.push(`   ${groupName}:`);
+        // Group duplicate options (e.g. Sausage ×3)
+        const deduped: { name: string; price: string; count: number }[] = [];
         for (const opt of options) {
-          const extraPrice = parseFloat(opt.price);
+          const cleanName = opt.name.replace(/ ×\d+$/, '');
+          const existing = deduped.find(d => d.name === cleanName && d.price === opt.price);
+          if (existing) { existing.count++; } else { deduped.push({ name: cleanName, price: opt.price, count: 1 }); }
+        }
+        for (const opt of deduped) {
+          const extraPrice = parseFloat(opt.price) * opt.count;
           const extraStr = extraPrice > 0 ? ` +EUR${extraPrice.toFixed(2)}` : "";
-          lines.push(`    - ${opt.name}${extraStr}`);
+          const qtyStr = opt.count > 1 ? ` ×${opt.count}` : "";
+          lines.push(`    - ${opt.name}${qtyStr}${extraStr}`);
         }
       }
     }

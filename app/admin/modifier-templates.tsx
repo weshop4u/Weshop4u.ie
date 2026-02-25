@@ -33,6 +33,8 @@ interface TemplateForm {
   required: boolean;
   minSelections: number;
   maxSelections: number;
+  allowOptionQuantity: boolean;
+  maxOptionQuantity: number;
   options: TemplateOption[];
 }
 
@@ -42,6 +44,8 @@ const EMPTY_TEMPLATE: TemplateForm = {
   required: false,
   minSelections: 0,
   maxSelections: 0,
+  allowOptionQuantity: false,
+  maxOptionQuantity: 6,
   options: [],
 };
 
@@ -85,6 +89,8 @@ function ModifierTemplatesContent() {
       required: template.required ?? false,
       minSelections: template.minSelections ?? 0,
       maxSelections: template.maxSelections ?? 0,
+      allowOptionQuantity: template.allowOptionQuantity ?? false,
+      maxOptionQuantity: template.maxOptionQuantity ?? 6,
       options: (template.options || []).map((o: any) => ({
         id: o.id,
         name: o.name,
@@ -137,6 +143,8 @@ function ModifierTemplatesContent() {
           required: editingTemplate.required,
           minSelections: editingTemplate.minSelections,
           maxSelections: editingTemplate.maxSelections,
+          allowOptionQuantity: editingTemplate.allowOptionQuantity,
+          maxOptionQuantity: editingTemplate.maxOptionQuantity,
           options: editingTemplate.options.map((o, i) => ({
             name: o.name.trim(),
             price: o.price || "0.00",
@@ -154,6 +162,8 @@ function ModifierTemplatesContent() {
           required: editingTemplate.required,
           minSelections: editingTemplate.minSelections,
           maxSelections: editingTemplate.maxSelections,
+          allowOptionQuantity: editingTemplate.allowOptionQuantity,
+          maxOptionQuantity: editingTemplate.maxOptionQuantity,
         });
 
         // Handle options: update existing, create new, delete removed
@@ -317,6 +327,35 @@ function ModifierTemplatesContent() {
                 keyboardType="numeric"
               />
             </View>
+          </View>
+        )}
+
+        {/* Allow Quantity Per Option (only for multi-select) */}
+        {editingTemplate.type === "multi" && (
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setEditingTemplate({ ...editingTemplate, allowOptionQuantity: !editingTemplate.allowOptionQuantity })}
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <View style={[s.checkbox, editingTemplate.allowOptionQuantity && s.checkboxActive]}>
+                {editingTemplate.allowOptionQuantity && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
+              </View>
+              <View>
+                <Text style={s.label}>Allow quantity per option</Text>
+                <Text style={{ color: "#687076", fontSize: 12 }}>Customers can add multiples of each option (e.g. 3 sausages)</Text>
+              </View>
+            </TouchableOpacity>
+            {editingTemplate.allowOptionQuantity && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 32 }}>
+                <Text style={s.label}>Max per option:</Text>
+                <TextInput
+                  style={[s.input, { width: 60 }]}
+                  value={String(editingTemplate.maxOptionQuantity)}
+                  onChangeText={(v) => setEditingTemplate({ ...editingTemplate, maxOptionQuantity: parseInt(v) || 1 })}
+                  keyboardType="numeric"
+                />
+              </View>
+            )}
           </View>
         )}
 

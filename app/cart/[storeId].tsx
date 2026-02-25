@@ -608,15 +608,26 @@ export default function CartScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-                {/* Modifier details */}
-                {hasMods && ci.modifiers.map((m: any, idx: number) => (
-                  <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 12, marginTop: 2 }}>
-                    <Text style={{ fontSize: 12, color: '#687076' }}>+ {m.modifierName}</Text>
-                    {parseFloat(m.modifierPrice) > 0 && (
-                      <Text style={{ fontSize: 12, color: '#00B8D4' }}>+€{parseFloat(m.modifierPrice).toFixed(2)}</Text>
-                    )}
-                  </View>
-                ))}
+                {/* Modifier details — group duplicates (e.g. Sausage ×3) */}
+                {hasMods && (() => {
+                  const grouped: { name: string; price: string; count: number }[] = [];
+                  for (const m of ci.modifiers) {
+                    const existing = grouped.find(g => g.name === m.modifierName.replace(/ ×\d+$/, '') && g.price === m.modifierPrice);
+                    if (existing) {
+                      existing.count++;
+                    } else {
+                      grouped.push({ name: m.modifierName.replace(/ ×\d+$/, ''), price: m.modifierPrice, count: 1 });
+                    }
+                  }
+                  return grouped.map((g, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 12, marginTop: 2 }}>
+                      <Text style={{ fontSize: 12, color: '#687076' }}>+ {g.name}{g.count > 1 ? ` ×${g.count}` : ''}</Text>
+                      {parseFloat(g.price) > 0 && (
+                        <Text style={{ fontSize: 12, color: '#00B8D4' }}>+€{(parseFloat(g.price) * g.count).toFixed(2)}</Text>
+                      )}
+                    </View>
+                  ));
+                })()}
                 {/* Deal badge */}
                 {hasDeal && (
                   <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4 }}>

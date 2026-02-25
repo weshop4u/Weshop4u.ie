@@ -29,6 +29,7 @@ export default function StoreDetailScreen() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({}); // "groupId_modId" -> quantity (for allowOptionQuantity groups)
   const { cart, addToCart, clearCart, getItemCount, getProductQuantity: cartGetProductQuantity } = useCart();
   
   const storeId = parseInt(id);
@@ -223,6 +224,7 @@ export default function StoreDetailScreen() {
     }
     setModalQuantity(1);
     setSelectedModifiers({});
+    setOptionQuantities({});
     setSelectedProduct(product);
   }, []);
 
@@ -258,19 +260,33 @@ export default function StoreDetailScreen() {
     const result: CartItemModifier[] = [];
     for (const group of modifierData.groups) {
       const selectedIds = selectedModifiers[group.id] || [];
+      const isQuantityGroup = group.allowOptionQuantity;
       for (const mod of group.modifiers) {
         if (selectedIds.includes(mod.id)) {
-          result.push({
-            groupName: group.name,
-            modifierId: mod.id,
-            modifierName: mod.name,
-            modifierPrice: mod.price,
-          });
+          if (isQuantityGroup) {
+            // For quantity-enabled groups, add one entry per quantity
+            const qty = optionQuantities[`${group.id}_${mod.id}`] || 1;
+            for (let i = 0; i < qty; i++) {
+              result.push({
+                groupName: group.name,
+                modifierId: mod.id,
+                modifierName: qty > 1 ? `${mod.name} ×${qty}` : mod.name,
+                modifierPrice: mod.price,
+              });
+            }
+          } else {
+            result.push({
+              groupName: group.name,
+              modifierId: mod.id,
+              modifierName: mod.name,
+              modifierPrice: mod.price,
+            });
+          }
         }
       }
     }
     return result;
-  }, [modifierData, selectedModifiers]);
+  }, [modifierData, selectedModifiers, optionQuantities]);
 
   // Calculate total price including modifiers
   const getModalTotalPrice = useCallback((): number => {
@@ -302,6 +318,30 @@ export default function StoreDetailScreen() {
     }
     return true;
   }, [modifierData, selectedModifiers]);
+
+  // Handle option quantity change for allowOptionQuantity groups
+  const changeOptionQuantity = useCallback((groupId: number, modifierId: number, delta: number, maxQty: number) => {
+    const key = `${groupId}_${modifierId}`;
+    setOptionQuantities(prev => {
+      const current = prev[key] || 0;
+      const next = Math.max(0, Math.min(maxQty, current + delta));
+      const updated = { ...prev, [key]: next };
+      // Also update selectedModifiers to keep required-check working
+      setSelectedModifiers(prevMods => {
+        const currentIds = prevMods[groupId] || [];
+        if (next > 0 && !currentIds.includes(modifierId)) {
+          return { ...prevMods, [groupId]: [...currentIds, modifierId] };
+        } else if (next === 0 && currentIds.includes(modifierId)) {
+          return { ...prevMods, [groupId]: currentIds.filter(id => id !== modifierId) };
+        }
+        return prevMods;
+      });
+      return updated;
+    });
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, []);
 
   // Handle modifier toggle
   const toggleModifier = useCallback((groupId: number, modifierId: number, groupType: string, maxSelections: number) => {
@@ -432,6 +472,67 @@ export default function StoreDetailScreen() {
                         const isSelected = selectedIds.includes(mod.id);
                         const modPrice = parseFloat(mod.price);
                         const isUnavailable = mod.available === false;
+                        const isQuantityGroup = group.allowOptionQuantity;
+                        const optQty = isQuantityGroup ? (optionQuantities[`${group.id}_${mod.id}`] || 0) : 0;
+                        const maxOptQty = group.maxOptionQuantity || 6;
+
+                        if (isQuantityGroup) {
+                          // Quantity stepper row
+                          return (
+                            <View
+                              key={mod.id}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingVertical: 10,
+                                paddingHorizontal: 12,
+                                marginBottom: 4,
+                                borderRadius: 10,
+                                borderWidth: 1.5,
+                                borderColor: isUnavailable ? "#E5E7EB" : optQty > 0 ? "#00E5FF" : "#E5E7EB",
+                                backgroundColor: isUnavailable ? "#F3F4F6" : optQty > 0 ? "#F0FDFF" : "#FFFFFF",
+                                opacity: isUnavailable ? 0.5 : 1,
+                              }}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 14, fontWeight: "500", color: isUnavailable ? "#9CA3AF" : "#11181C", textDecorationLine: isUnavailable ? "line-through" : "none" }}>{mod.name}</Text>
+                                {isUnavailable && (
+                                  <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 1 }}>Unavailable</Text>
+                                )}
+                                {!isUnavailable && optQty > 0 && modPrice > 0 && (
+                                  <Text style={{ fontSize: 11, color: "#00B8D4", fontWeight: "600", marginTop: 1 }}>€{(modPrice * optQty).toFixed(2)}</Text>
+                                )}
+                              </View>
+                              {!isUnavailable && modPrice > 0 && (
+                                <Text style={{ fontSize: 13, fontWeight: "600", color: "#00B8D4", marginRight: 10 }}>+€{modPrice.toFixed(2)}</Text>
+                              )}
+                              {!isUnavailable && modPrice === 0 && (
+                                <Text style={{ fontSize: 12, color: "#9BA1A6", marginRight: 10 }}>Free</Text>
+                              )}
+                              {!isUnavailable && (
+                                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#F5F5F5", borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB" }}>
+                                  <TouchableOpacity
+                                    onPress={() => changeOptionQuantity(group.id, mod.id, -1, maxOptQty)}
+                                    style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", opacity: optQty <= 0 ? 0.3 : 1 }}
+                                    disabled={optQty <= 0}
+                                  >
+                                    <Text style={{ fontSize: 18, fontWeight: "600", color: "#11181C" }}>−</Text>
+                                  </TouchableOpacity>
+                                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C", minWidth: 24, textAlign: "center" }}>{optQty}</Text>
+                                  <TouchableOpacity
+                                    onPress={() => changeOptionQuantity(group.id, mod.id, 1, maxOptQty)}
+                                    style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", opacity: optQty >= maxOptQty ? 0.3 : 1 }}
+                                    disabled={optQty >= maxOptQty}
+                                  >
+                                    <Text style={{ fontSize: 18, fontWeight: "600", color: "#11181C" }}>+</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        }
+
+                        // Standard checkbox/radio row
                         return (
                           <TouchableOpacity
                             key={mod.id}

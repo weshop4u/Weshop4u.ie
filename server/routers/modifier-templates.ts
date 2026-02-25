@@ -74,6 +74,8 @@ export const modifierTemplatesRouter = router({
         required: z.boolean().default(false),
         minSelections: z.number().default(0),
         maxSelections: z.number().default(0),
+        allowOptionQuantity: z.boolean().default(false),
+        maxOptionQuantity: z.number().default(6),
         options: z
           .array(
             z.object({
@@ -96,6 +98,8 @@ export const modifierTemplatesRouter = router({
         required: input.required,
         minSelections: input.minSelections,
         maxSelections: input.maxSelections,
+        allowOptionQuantity: input.allowOptionQuantity,
+        maxOptionQuantity: input.maxOptionQuantity,
       });
 
       const templateId = Number(result[0].insertId);
@@ -126,6 +130,8 @@ export const modifierTemplatesRouter = router({
         required: z.boolean().optional(),
         minSelections: z.number().optional(),
         maxSelections: z.number().optional(),
+        allowOptionQuantity: z.boolean().optional(),
+        maxOptionQuantity: z.number().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -503,6 +509,8 @@ export const modifierTemplatesRouter = router({
         required: boolean | null;
         minSelections: number | null;
         maxSelections: number | null;
+        allowOptionQuantity: boolean | null;
+        maxOptionQuantity: number | null;
         modifiers: Array<{
           id: number;
           name: string;
@@ -539,6 +547,8 @@ export const modifierTemplatesRouter = router({
             required: template.required,
             minSelections: template.minSelections,
             maxSelections: template.maxSelections,
+            allowOptionQuantity: template.allowOptionQuantity,
+            maxOptionQuantity: template.maxOptionQuantity,
             modifiers: allOptions
               .filter((o) => o.templateId === tId)
               .map((o) => ({
@@ -618,12 +628,16 @@ export const modifierTemplatesRouter = router({
           required: g.required,
           minSelections: g.minSelections,
           maxSelections: g.maxSelections,
+          allowOptionQuantity: g.allowOptionQuantity ?? false,
+          maxOptionQuantity: g.maxOptionQuantity ?? 6,
           modifiers: g.modifiers,
         })),
         ...customGroupsWithMods.map((g) => ({
           source: g.source,
           id: g.groupId, // group ID for custom groups
           name: g.name,
+          allowOptionQuantity: false,
+          maxOptionQuantity: 6,
           type: g.type,
           required: g.required,
           minSelections: g.minSelections,

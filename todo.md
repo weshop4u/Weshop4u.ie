@@ -1961,3 +1961,10 @@
 - [x] Upload deli sandwich image and assign to "Create Your Own" product
 - [x] Create "Create Your Own Chicken Fillet Roll" product in Deli category with deli image and 4 templates assigned (product ID 390001)
 - [x] Add quantity selector (+/−) to customer product detail modal for ordering multiples of same customized item (already implemented)
+- [x] Add allowOptionQuantity and maxOptionQuantity columns to modifier_templates schema
+- [x] Update backend router to support allowOptionQuantity and maxOptionQuantity fields
+- [x] Update admin Modifier Templates UI with "Allow quantity per option" toggle and max quantity input
+- [x] Update customer product modal with +/− steppers for quantity-enabled modifier templates (max 6)
+- [x] Update cart system to store and display per-modifier quantities (e.g. "Sausage × 3") — cart, driver view, receipt all updated
+- [x] Create "Breakfast Fillings" template (multi-select, required, quantity enabled, max 6): Sausage, Rashers, White Pudding, Black Pudding, Fried Egg, Hash Brown, Cheese, Red Onion, White Onion — all +€0.90
+- [x] Create "Create Your Own Breakfast Roll" product (ID 390002) in Deli category with Base + Sauces + Breakfast Fillings templates

@@ -667,11 +667,19 @@ export default function ActiveDeliveryScreen() {
                 </View>
                 {item.modifiers && item.modifiers.length > 0 && (
                   <View className="ml-4 mt-1">
-                    {item.modifiers.map((mod: any, mi: number) => (
-                      <Text key={mi} className="text-muted text-xs">
-                        • {mod.modifierName}{parseFloat(mod.modifierPrice || "0") > 0 ? ` (+€${parseFloat(mod.modifierPrice).toFixed(2)})` : ""}
-                      </Text>
-                    ))}
+                    {(() => {
+                      const grouped: { name: string; price: string; count: number }[] = [];
+                      for (const mod of item.modifiers) {
+                        const cleanName = (mod.modifierName || '').replace(/ ×\d+$/, '');
+                        const existing = grouped.find(g => g.name === cleanName && g.price === mod.modifierPrice);
+                        if (existing) { existing.count++; } else { grouped.push({ name: cleanName, price: mod.modifierPrice || '0', count: 1 }); }
+                      }
+                      return grouped.map((g, mi) => (
+                        <Text key={mi} className="text-muted text-xs">
+                          • {g.name}{g.count > 1 ? ` ×${g.count}` : ''}{parseFloat(g.price) > 0 ? ` (+€${(parseFloat(g.price) * g.count).toFixed(2)})` : ''}
+                        </Text>
+                      ));
+                    })()}
                   </View>
                 )}
               </View>
