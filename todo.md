@@ -1979,3 +1979,6 @@
 - [x] BUG: Deli view shows only item names without modifier details — fixed: added modifier fetching to getDeliOrders and display in deli.tsx
 - [x] BUG: Guest checkout popup ("Continue as Guest or Log In") not showing when non-logged-in user goes to checkout — fixed: stale React Query cache from previous login was making isGuest=false; changed user detection to only trust meData when authUser is also present
 - [x] BUG: Print Pick List button not visible on all order cards in store dashboard — fixed: removed status condition, button now shows on all orders (except cancelled) in both store/index.tsx and store-dashboard/index.tsx
+- [x] BUG: Store order screen (store/index.tsx) still shows "2x Create Your Own" without modifier details — fixed: added modifier fetching to store.getOrders backend and modifier display in store/index.tsx
+- [x] BUG: Print button stays green "Sent to Printer!" and never returns to black — fixed: removed browser popup that was freezing the screen, now just creates print job for POS to pick up
+- [x] BUG: POS printer not receiving print jobs even though POS is connected and ready — fixed: was a URL typo on the POS device, API endpoint confirmed working correctly

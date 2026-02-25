@@ -304,47 +304,9 @@ export default function StoreDashboardScreen() {
       setPrintSuccess(orderId);
       setTimeout(() => setPrintSuccess(null), 3000);
 
-      // Trigger local print via a new browser window with receipt-only content
-      if (typeof window !== "undefined" && result?.receiptContent) {
-        try {
-          const receiptHtml = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Receipt - Order #${orderId}</title>
-<style>
-  @page { size: 58mm auto; margin: 0; }
-  @media print { body { margin: 0; padding: 2mm; } }
-  body {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
-    line-height: 1.4;
-    margin: 0;
-    padding: 8px;
-    max-width: 58mm;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    background: #fff;
-    color: #000;
-  }
-</style>
-</head><body>${result.receiptContent.replace(/\n/g, "<br>")}</body></html>`;
-          const printWindow = window.open("", "_blank");
-          if (printWindow) {
-            printWindow.document.write(receiptHtml);
-            printWindow.document.close();
-            printWindow.onload = () => {
-              setTimeout(() => {
-                printWindow.print();
-                // Close the window after printing (or after cancel)
-                printWindow.onafterprint = () => printWindow.close();
-                // Fallback close after 30 seconds in case onafterprint doesn't fire
-                setTimeout(() => { try { printWindow.close(); } catch(e) {} }, 30000);
-              }, 500);
-            };
-          }
-        } catch (e) {
-          console.log("[Print] Local print attempt:", e);
-        }
-      }
+      // Print job is created in the database — POS device will pick it up automatically
+      // No browser popup needed (it was freezing the screen).
+      console.log(`[Print] Job created for order ${orderId} — POS will pick it up`);
     } catch (error: any) {
       console.error("Print error:", error);
       showAlert("Print Error", error.message || "Failed to send print job");
@@ -745,16 +707,41 @@ export default function StoreDashboardScreen() {
 
                 {/* Order Items */}
                 <View className="bg-background p-3 rounded-lg mb-3">
-                  {order.items?.map((item: any, idx: number) => (
-                    <View key={item.id || idx} className="py-2 border-b border-border" style={idx === (order.items?.length || 0) - 1 ? { borderBottomWidth: 0 } : {}}>
-                      <Text className="text-foreground font-semibold">
-                        {item.quantity}x {item.product?.name || item.productName || "Item"}
-                      </Text>
-                      {item.specialInstructions && (
-                        <Text className="text-muted text-sm italic">{item.specialInstructions}</Text>
-                      )}
-                    </View>
-                  ))}
+                  {order.items?.map((item: any, idx: number) => {
+                    const mods = item.modifiers || [];
+                    // Group modifiers by group name
+                    const grouped: Record<string, { name: string; price: string; count: number }[]> = {};
+                    for (const m of mods) {
+                      const gn = m.groupName || "Options";
+                      if (!grouped[gn]) grouped[gn] = [];
+                      const cleanName = m.modifierName.replace(/ \u00d7\d+$/, '');
+                      const existing = grouped[gn].find((d: any) => d.name === cleanName && d.price === m.modifierPrice);
+                      if (existing) { existing.count++; } else { grouped[gn].push({ name: cleanName, price: m.modifierPrice, count: 1 }); }
+                    }
+                    return (
+                      <View key={item.id || idx} className="py-2 border-b border-border" style={idx === (order.items?.length || 0) - 1 ? { borderBottomWidth: 0 } : {}}>
+                        <Text className="text-foreground font-semibold">
+                          {item.quantity}x {item.product?.name || item.productName || "Item"}
+                        </Text>
+                        {Object.keys(grouped).length > 0 && (
+                          <View style={{ marginLeft: 16, marginTop: 4 }}>
+                            {Object.entries(grouped).map(([groupName, modItems]) => (
+                              <View key={groupName} style={{ marginBottom: 2 }}>
+                                {modItems.map((mod, mi) => (
+                                  <Text key={mi} style={{ fontSize: 12, color: "#687076" }}>
+                                    + {mod.count > 1 ? `${mod.count}x ` : ""}{mod.name}{mod.price && parseFloat(mod.price) > 0 ? ` (+\u20AC${mod.price})` : ""}
+                                  </Text>
+                                ))}
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {item.specialInstructions && (
+                          <Text className="text-muted text-sm italic">{item.specialInstructions}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
 
                 {/* Payment Info */}

@@ -131,6 +131,25 @@ export const storeRouter = router({
             }
           }
 
+          // Fetch modifiers for all items in this order
+          const itemIds = items.map(i => i.order_items.id).filter(Boolean);
+          let modifiersMap: Record<number, { groupName: string | null; modifierName: string; modifierPrice: string | null }[]> = {};
+          if (itemIds.length > 0) {
+            const allMods = await db
+              .select({
+                orderItemId: orderItemModifiers.orderItemId,
+                groupName: orderItemModifiers.groupName,
+                modifierName: orderItemModifiers.modifierName,
+                modifierPrice: orderItemModifiers.modifierPrice,
+              })
+              .from(orderItemModifiers)
+              .where(inArray(orderItemModifiers.orderItemId, itemIds));
+            for (const m of allMods) {
+              if (!modifiersMap[m.orderItemId]) modifiersMap[m.orderItemId] = [];
+              modifiersMap[m.orderItemId].push({ groupName: m.groupName, modifierName: m.modifierName, modifierPrice: m.modifierPrice });
+            }
+          }
+
           return {
             ...order,
             driverName,
@@ -139,6 +158,7 @@ export const storeRouter = router({
             items: items.map(item => ({
               ...item.order_items,
               product: item.products,
+              modifiers: modifiersMap[item.order_items.id] || [],
             })),
             tracking: tracking.map(t => ({
               status: t.status,
