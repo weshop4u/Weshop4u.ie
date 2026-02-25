@@ -729,7 +729,7 @@ export default function StoreDashboardScreen() {
                               <View key={groupName} style={{ marginBottom: 2 }}>
                                 {modItems.map((mod, mi) => (
                                   <Text key={mi} style={{ fontSize: 12, color: "#687076" }}>
-                                    + {mod.count > 1 ? `${mod.count}x ` : ""}{mod.name}{mod.price && parseFloat(mod.price) > 0 ? ` (+\u20AC${mod.price})` : ""}
+                                    + {mod.count > 1 ? `${mod.count}x ` : ""}{mod.name}{mod.price && parseFloat(mod.price) > 0 ? ` (+€${mod.price})` : ""}
                                   </Text>
                                 ))}
                               </View>

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers } from "../../drizzle/schema";
-import { eq, and, or, like, inArray, desc } from "drizzle-orm";
+import { eq, and, or, like, inArray, desc, sql, gte } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
@@ -708,5 +708,82 @@ export const storeRouter = router({
       });
 
       return { id: Number(result[0].insertId), success: true };
+    }),
+
+  // Get trending products for a store based on order frequency
+  getTrendingProducts: publicProcedure
+    .input(z.object({ storeId: z.number(), limit: z.number().optional().default(10) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get the most ordered products for this store in the last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const trending = await db
+        .select({
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
+        })
+        .from(orderItems)
+        .innerJoin(orders, eq(orderItems.orderId, orders.id))
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            gte(orders.createdAt, thirtyDaysAgo),
+            sql`${orders.status} != 'cancelled'`
+          )
+        )
+        .groupBy(orderItems.productId, orderItems.productName)
+        .orderBy(sql`order_count DESC`)
+        .limit(input.limit);
+
+      // Fetch full product details for the trending items
+      if (trending.length === 0) return [];
+
+      const productIds = trending.map((t) => t.productId);
+      const productDetails = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          price: products.price,
+          images: products.images,
+          description: products.description,
+          stockStatus: products.stockStatus,
+          categoryId: products.categoryId,
+        })
+        .from(products)
+        .where(inArray(products.id, productIds));
+
+      // Get category names
+      const catIds = [...new Set(productDetails.map((p) => p.categoryId).filter(Boolean))] as number[];
+      let categoryMap: Record<number, string> = {};
+      if (catIds.length > 0) {
+        const cats = await db
+          .select({ id: productCategories.id, name: productCategories.name })
+          .from(productCategories)
+          .where(inArray(productCategories.id, catIds));
+        categoryMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+      }
+
+      const productMap = Object.fromEntries(productDetails.map((p) => [p.id, p]));
+
+      return trending
+        .filter((t) => productMap[t.productId])
+        .map((t) => {
+          const p = productMap[t.productId];
+          return {
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            images: p.images,
+            description: p.description,
+            stockStatus: p.stockStatus,
+            categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
+            orderCount: Number(t.orderCount),
+          };
+        });
     }),
 });

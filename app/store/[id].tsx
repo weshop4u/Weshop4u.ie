@@ -41,6 +41,7 @@ export default function StoreDetailScreen() {
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId, limit: 5000 });
   const products = productsData?.items || [];
+  const { data: trendingProducts } = trpc.store.getTrendingProducts.useQuery({ storeId, limit: 10 });
 
   const storeOpen = store ? isStoreOpen(store) : true;
   const todayHours = store ? getTodayHours(store) : null;
@@ -1060,6 +1061,104 @@ export default function StoreDetailScreen() {
               >
                 <Text className="text-background font-semibold">Clear Search</Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Trending Now Section */}
+          {!globalSearch.trim() && trendingProducts && trendingProducts.length > 0 && !selectedCategoryId && (
+            <View className="px-4 mb-6">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 20 }}>🔥</Text>
+                  <Text className="text-xl font-bold text-foreground">Trending Now</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Based on recent orders</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+                {trendingProducts.map((item: any, index: number) => {
+                  const itemImages = item.images ? (typeof item.images === "string" ? JSON.parse(item.images) : item.images) : [];
+                  const itemImage = itemImages.length > 0 ? itemImages[0] : null;
+                  const qty = cartGetProductQuantity(item.id);
+                  const fullProduct = products.find((p: any) => p.id === item.id);
+                  return (
+                    <TouchableOpacity
+                      key={`trending-${item.id}`}
+                      onPress={() => {
+                        if (fullProduct) {
+                          openProductDetail(fullProduct);
+                        }
+                      }}
+                      style={{
+                        width: 150,
+                        backgroundColor: "#fff",
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: "#E5E7EB",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* Rank badge */}
+                      {index < 3 && (
+                        <View style={{
+                          position: "absolute",
+                          top: 8,
+                          left: 8,
+                          zIndex: 10,
+                          backgroundColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : "#CD7F32",
+                          borderRadius: 10,
+                          width: 22,
+                          height: 22,
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}>
+                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff" }}>#{index + 1}</Text>
+                        </View>
+                      )}
+                      {/* Product Image */}
+                      <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center" }}>
+                        {itemImage ? (
+                          <Image source={{ uri: itemImage }} style={{ width: 150, height: 110 }} contentFit="cover" />
+                        ) : (
+                          <Text style={{ fontSize: 36 }}>📦</Text>
+                        )}
+                      </View>
+                      {/* Product Info */}
+                      <View style={{ padding: 10, gap: 4 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{item.name}</Text>
+                        <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                          <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>
+                            €{parseFloat(item.price).toFixed(2)}
+                          </Text>
+                          {qty > 0 ? (
+                            <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation?.();
+                                if (fullProduct?.hasModifiers) {
+                                  if (fullProduct) openProductDetail(fullProduct);
+                                } else {
+                                  handleAddToCart(item.id, item.name, item.price);
+                                }
+                              }}
+                              style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
+                            >
+                              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        {/* Order count badge */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
+                          <Text style={{ fontSize: 10, color: "#9BA1A6" }}>🔥 {item.orderCount} ordered</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
 

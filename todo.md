@@ -1986,3 +1986,5 @@
 - [x] FEATURE: Search highlighting — bold the matching text within category/product names in search results, using reusable HighlightText component with teal accent color
 - [x] FEATURE: Recent searches — show user's last 8 searches when tapping the search bar, persisted per-store with AsyncStorage, with Clear All option
 - [x] FEATURE: Live search suggestions/autocomplete — shows top 3 matching categories and top 5 products in a dropdown as user types, with highlighted text, tap to navigate directly
+- [x] FEATURE: Trending Now section on store page — show most-ordered products based on actual order data, with rank badges (#1 gold, #2 silver, #3 bronze), product images, category names, order counts, euro sign formatting, and horizontal scroll. Backend endpoint returns top 10 most-ordered products from last 30 days.
+- [x] BUG: Euro sign showing as literal \u20AC in some places — fixed: replaced all \u20AC escape sequences with literal € character across store page and store dashboard
