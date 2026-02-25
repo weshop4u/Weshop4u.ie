@@ -1199,7 +1199,10 @@ function ProductsManagementScreenContent() {
                 </TouchableOpacity>
               </View>
 
-              {/* ===== INLINE PRODUCT OPTIONS ===== */}
+              {/* ===== MODIFIER TEMPLATES (Inherited + Manual) ===== */}
+              <InlineTemplatesSection productId={editingProduct?.id} categoryId={editingProduct?._categoryId} colors={colors} />
+
+              {/* ===== INLINE PRODUCT OPTIONS (Custom per-product) ===== */}
               <InlineModifiersSection productId={editingProduct?.id} colors={colors} />
 
               {/* ===== INLINE MULTI-BUY DEALS ===== */}
@@ -1712,6 +1715,203 @@ function ProductsManagementScreenContent() {
         </View>
       </Modal>
     </ScreenContainer>
+  );
+}
+
+// ===== INLINE TEMPLATES SECTION (Category-inherited + Manually assigned) =====
+function InlineTemplatesSection({ productId, categoryId, colors }: { productId: number | undefined; categoryId: number | undefined | null; colors: any }) {
+  const [expanded, setExpanded] = useState(true);
+
+  // All available templates
+  const { data: allTemplates } = trpc.modifierTemplates.list.useQuery();
+
+  // Templates inherited from category
+  const { data: categoryTemplates } = trpc.modifierTemplates.getForCategory.useQuery(
+    { categoryId: categoryId! },
+    { enabled: !!categoryId }
+  );
+
+  // Templates manually assigned to this product
+  const { data: productTemplates, refetch: refetchProductTemplates } = trpc.modifierTemplates.getForProduct.useQuery(
+    { productId: productId! },
+    { enabled: !!productId }
+  );
+
+  // Exclusions (category templates opted out for this product)
+  const { data: exclusions, refetch: refetchExclusions } = trpc.modifierTemplates.getExclusions.useQuery(
+    { productId: productId! },
+    { enabled: !!productId }
+  );
+
+  const assignMut = trpc.modifierTemplates.assignToProduct.useMutation();
+  const removeMut = trpc.modifierTemplates.removeFromProduct.useMutation();
+  const excludeMut = trpc.modifierTemplates.excludeTemplate.useMutation();
+  const includeMut = trpc.modifierTemplates.includeTemplate.useMutation();
+
+  if (!productId) return null;
+
+  const excludedIds = new Set((exclusions || []).map((e: any) => e.templateId));
+  const productTemplateIds = new Set((productTemplates || []).map((pt: any) => pt.template?.id));
+  const categoryTemplateIds = new Set((categoryTemplates || []).map((ct: any) => ct.template?.id));
+
+  // Templates available to add (not already assigned to product, not inherited from category)
+  const availableToAdd = (allTemplates || []).filter((t: any) =>
+    !productTemplateIds.has(t.id) && !categoryTemplateIds.has(t.id)
+  );
+
+  const totalCount = (categoryTemplates?.length || 0) + (productTemplates?.length || 0);
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: "#00BCD440", borderRadius: 12, overflow: "hidden" }}>
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, backgroundColor: "#00BCD410" }}
+      >
+        <Text style={{ fontSize: 14, fontWeight: "700", color: "#00838F" }}>
+          Modifier Templates {totalCount > 0 ? `(${totalCount})` : ""}
+        </Text>
+        <Text style={{ fontSize: 16, color: "#00838F" }}>{expanded ? "\u25B2" : "\u25BC"}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ padding: 14, gap: 10 }}>
+          {/* Category-inherited templates */}
+          {categoryTemplates && categoryTemplates.length > 0 && (
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Inherited from Category
+              </Text>
+              {categoryTemplates.map((ct: any) => {
+                const isExcluded = excludedIds.has(ct.template?.id);
+                return (
+                  <View key={ct.linkId} style={{
+                    flexDirection: "row", alignItems: "center", gap: 8, padding: 10,
+                    backgroundColor: isExcluded ? "#F3F4F6" : "#E0F7FA",
+                    borderRadius: 8, borderWidth: 1, borderColor: isExcluded ? "#D1D5DB" : "#00BCD440",
+                    opacity: isExcluded ? 0.6 : 1,
+                  }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: isExcluded ? "#9CA3AF" : "#00838F", textDecorationLine: isExcluded ? "line-through" : "none" }}>
+                        {ct.template?.name}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: "#687076" }}>
+                        {ct.template?.type === "single" ? "Pick One" : "Pick Many"}
+                        {ct.template?.required ? " \u2022 Required" : ""}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        try {
+                          if (isExcluded) {
+                            await includeMut.mutateAsync({ productId: productId!, templateId: ct.template.id });
+                          } else {
+                            await excludeMut.mutateAsync({ productId: productId!, templateId: ct.template.id });
+                          }
+                          refetchExclusions();
+                        } catch (e) { /* ignore */ }
+                      }}
+                      style={{
+                        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
+                        backgroundColor: isExcluded ? "#DCFCE7" : "#FEE2E2",
+                      }}
+                    >
+                      <Text style={{ color: isExcluded ? "#16A34A" : "#EF4444", fontWeight: "700", fontSize: 11 }}>
+                        {isExcluded ? "Re-enable" : "Exclude"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Manually assigned templates */}
+          {productTemplates && productTemplates.length > 0 && (
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Manually Assigned
+              </Text>
+              {productTemplates.map((pt: any) => (
+                <View key={pt.linkId} style={{
+                  flexDirection: "row", alignItems: "center", gap: 8, padding: 10,
+                  backgroundColor: "#E0F2FE", borderRadius: 8, borderWidth: 1, borderColor: "#0EA5E940",
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#0369A1" }}>
+                      {pt.template?.name}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: "#687076" }}>
+                      {pt.template?.type === "single" ? "Pick One" : "Pick Many"}
+                      {pt.template?.required ? " \u2022 Required" : ""}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        await removeMut.mutateAsync({ linkId: pt.linkId });
+                        refetchProductTemplates();
+                      } catch (e) { /* ignore */ }
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: "#FEE2E2" }}
+                  >
+                    <Text style={{ color: "#EF4444", fontWeight: "700", fontSize: 11 }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Add template picker */}
+          {availableToAdd.length > 0 && (
+            <View style={{ gap: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Add Template
+              </Text>
+              {availableToAdd.map((t: any) => (
+                <TouchableOpacity
+                  key={t.id}
+                  onPress={async () => {
+                    try {
+                      await assignMut.mutateAsync({
+                        productId: productId!,
+                        templateId: t.id,
+                        sortOrder: (productTemplates?.length || 0),
+                      });
+                      refetchProductTemplates();
+                    } catch (e) { /* ignore */ }
+                  }}
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 8, padding: 10,
+                    backgroundColor: "#F0FDF4", borderRadius: 8, borderWidth: 1, borderColor: "#22C55E40",
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#16A34A" }}>{t.name}</Text>
+                    <Text style={{ fontSize: 11, color: "#687076" }}>
+                      {t.options?.length || 0} options \u2022 {t.type === "single" ? "Pick One" : "Pick Many"}
+                    </Text>
+                  </View>
+                  <Text style={{ color: "#22C55E", fontWeight: "700", fontSize: 20 }}>+</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Empty state */}
+          {totalCount === 0 && availableToAdd.length === 0 && (
+            <Text style={{ color: colors.muted, fontSize: 12, fontStyle: "italic", textAlign: "center", paddingVertical: 8 }}>
+              No modifier templates available. Create templates in the Modifier Templates page first.
+            </Text>
+          )}
+
+          {totalCount === 0 && availableToAdd.length === 0 && !allTemplates?.length && (
+            <Text style={{ color: colors.muted, fontSize: 12, fontStyle: "italic", textAlign: "center" }}>
+              Use the custom Product Options below for one-off modifiers.
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 

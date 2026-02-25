@@ -106,6 +106,13 @@
       "when": 1771975410290,
       "tag": "0014_conscious_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1771983247804,
+      "tag": "0015_secret_pride",
+      "breakpoints": true
     }
   ]
 }

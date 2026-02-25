@@ -732,3 +732,134 @@ export type MultiBuyDeal = typeof multiBuyDeals.$inferSelect;
 export type InsertMultiBuyDeal = typeof multiBuyDeals.$inferInsert;
 export type OrderItemModifier = typeof orderItemModifiers.$inferSelect;
 export type InsertOrderItemModifier = typeof orderItemModifiers.$inferInsert;
+
+// ===== MODIFIER TEMPLATES =====
+// Reusable modifier group templates that can be linked to categories or individual products
+export const modifierTemplates = mysqlTable("modifier_templates", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(), // e.g. "Chinese Sides", "Deli Fillings", "Dinner Sides"
+  type: mysqlEnum("type", ["single", "multi"]).notNull().default("single"),
+  required: boolean("required").default(false),
+  minSelections: int("min_selections").default(0),
+  maxSelections: int("max_selections").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const modifierTemplatesRelations = relations(modifierTemplates, ({ many }) => ({
+  options: many(modifierTemplateOptions),
+  categoryLinks: many(categoryModifierTemplates),
+  productLinks: many(productModifierTemplates),
+}));
+
+// ===== MODIFIER TEMPLATE OPTIONS =====
+// Individual options within a template, e.g. "Boiled Rice (€0.00)", "Chips (+€0.50)"
+export const modifierTemplateOptions = mysqlTable(
+  "modifier_template_options",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    templateId: int("template_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0.00"),
+    isDefault: boolean("is_default").default(false),
+    sortOrder: int("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    templateIdIdx: index("mto_template_id_idx").on(table.templateId),
+  })
+);
+
+export const modifierTemplateOptionsRelations = relations(modifierTemplateOptions, ({ one }) => ({
+  template: one(modifierTemplates, {
+    fields: [modifierTemplateOptions.templateId],
+    references: [modifierTemplates.id],
+  }),
+}));
+
+// ===== CATEGORY MODIFIER TEMPLATES =====
+// Link templates to categories — all products in the category inherit these
+export const categoryModifierTemplates = mysqlTable(
+  "category_modifier_templates",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    categoryId: int("category_id").notNull(),
+    templateId: int("template_id").notNull(),
+    sortOrder: int("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdIdx: index("cmt_category_id_idx").on(table.categoryId),
+    templateIdIdx: index("cmt_template_id_idx").on(table.templateId),
+  })
+);
+
+export const categoryModifierTemplatesRelations = relations(categoryModifierTemplates, ({ one }) => ({
+  category: one(productCategories, {
+    fields: [categoryModifierTemplates.categoryId],
+    references: [productCategories.id],
+  }),
+  template: one(modifierTemplates, {
+    fields: [categoryModifierTemplates.templateId],
+    references: [modifierTemplates.id],
+  }),
+}));
+
+// ===== PRODUCT MODIFIER TEMPLATES =====
+// Manually link templates to individual products (in addition to category-level)
+export const productModifierTemplates = mysqlTable(
+  "product_modifier_templates",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    productId: int("product_id").notNull(),
+    templateId: int("template_id").notNull(),
+    sortOrder: int("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdIdx: index("pmt_product_id_idx").on(table.productId),
+    templateIdIdx: index("pmt_template_id_idx").on(table.templateId),
+  })
+);
+
+export const productModifierTemplatesRelations = relations(productModifierTemplates, ({ one }) => ({
+  product: one(products, {
+    fields: [productModifierTemplates.productId],
+    references: [products.id],
+  }),
+  template: one(modifierTemplates, {
+    fields: [productModifierTemplates.templateId],
+    references: [modifierTemplates.id],
+  }),
+}));
+
+// ===== PRODUCT TEMPLATE EXCLUSIONS =====
+// Opt out of a category-level template for a specific product
+export const productTemplateExclusions = mysqlTable(
+  "product_template_exclusions",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    productId: int("product_id").notNull(),
+    templateId: int("template_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdIdx: index("pte_product_id_idx").on(table.productId),
+    templateIdIdx: index("pte_template_id_idx").on(table.templateId),
+  })
+);
+
+export const productTemplateExclusionsRelations = relations(productTemplateExclusions, ({ one }) => ({
+  product: one(products, {
+    fields: [productTemplateExclusions.productId],
+    references: [products.id],
+  }),
+  template: one(modifierTemplates, {
+    fields: [productTemplateExclusions.templateId],
+    references: [modifierTemplates.id],
+  }),
+}));
+
+export type ModifierTemplate = typeof modifierTemplates.$inferSelect;
+export type InsertModifierTemplate = typeof modifierTemplates.$inferInsert;
+export type ModifierTemplateOption = typeof modifierTemplateOptions.$inferSelect;
+export type InsertModifierTemplateOption = typeof modifierTemplateOptions.$inferInsert;

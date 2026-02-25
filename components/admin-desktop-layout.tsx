@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { path: "/admin/phone-order", label: "Phone Order", icon: "📞", exact: false },
   { path: "/admin/manage-stores", label: "Manage Stores", icon: "🏪", exact: false },
   { path: "/admin/products", label: "Products", icon: "📦", exact: false },
+  { path: "/admin/modifier-templates", label: "Modifier Templates", icon: "🔧", exact: false },
   { path: "/admin/import-products", label: "Import CSV", icon: "📥", exact: false },
   { path: "/admin/categories", label: "Category Images", icon: "🖼️", exact: false },
   { path: "/admin/store-logos", label: "Store Logos", icon: "🎨", exact: false },

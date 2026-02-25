@@ -1,0 +1,35 @@
+MODIFIER TEMPLATE SYSTEM PLAN
+==============================
+
+Current state:
+- modifierGroups table: linked to productId (per-product only)
+- modifiers table: linked to groupId
+- modifierGroups has: id, productId, name, type, required, minSelections, maxSelections, sortOrder
+- modifiers has: id, groupId, name, price, isDefault, isActive, sortOrder
+- productCategories table: id, name, slug, description, icon, ageRestricted, availabilitySchedule, sortOrder
+
+New tables needed:
+1. modifier_templates - standalone reusable template definitions (not linked to any product)
+   - id, name, type (single/multi), required, minSelections, maxSelections, createdAt
+   
+2. modifier_template_options - options within a template
+   - id, templateId, name, price, isDefault, sortOrder, createdAt
+
+3. category_modifier_templates - link templates to categories (auto-inherit)
+   - id, categoryId, templateId, sortOrder, createdAt
+
+4. product_modifier_templates - link templates to individual products (manual pick)
+   - id, productId, templateId, sortOrder, createdAt
+
+5. product_template_exclusions - opt out of category-level template for specific product
+   - id, productId, templateId, createdAt
+
+Approach for getForProduct:
+1. Get product's categoryId
+2. Get category-level templates (from category_modifier_templates)
+3. Get product-level templates (from product_modifier_templates)
+4. Get exclusions (from product_template_exclusions) - remove excluded category templates
+5. Get custom per-product modifier groups (existing modifierGroups table)
+6. Merge all together and return
+
+Customer sees: all modifier groups merged, doesn't know the source

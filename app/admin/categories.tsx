@@ -69,6 +69,15 @@ function CategoriesScreenContent() {
   const deleteMutation = trpc.categories.delete.useMutation();
   const mergeMutation = trpc.categories.merge.useMutation();
 
+  // Modifier template queries
+  const { data: allTemplates } = trpc.modifierTemplates.list.useQuery();
+  const { data: categoryTemplates, refetch: refetchCategoryTemplates } = trpc.modifierTemplates.getForCategory.useQuery(
+    { categoryId: selectedCategory?.id ?? 0 },
+    { enabled: !!selectedCategory && editMode === "settings" }
+  );
+  const assignTemplateMutation = trpc.modifierTemplates.assignToCategory.useMutation();
+  const removeTemplateMutation = trpc.modifierTemplates.removeFromCategory.useMutation();
+
   const openSettings = useCallback((category: any) => {
     setSelectedCategory(category);
     setEditMode("settings");
@@ -485,6 +494,94 @@ function CategoriesScreenContent() {
                   </View>
                 </View>
               ) : null}
+
+              {/* Modifier Templates */}
+              <View className="mb-4">
+                <Text className="text-sm font-semibold text-foreground mb-2">🔧 Modifier Templates</Text>
+                <Text className="text-xs text-muted mb-3">
+                  Assign modifier templates to this category. All products in this category will automatically inherit these modifiers.
+                </Text>
+
+                {/* Currently assigned templates */}
+                {categoryTemplates && categoryTemplates.length > 0 ? (
+                  <View style={{ gap: 6, marginBottom: 12 }}>
+                    {categoryTemplates.map((ct: any) => (
+                      <View key={ct.linkId} style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border, paddingVertical: 10, paddingHorizontal: 12 }]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 14 }}>{ct.template?.name}</Text>
+                          <Text style={{ color: colors.muted, fontSize: 11 }}>
+                            {ct.template?.type === "single" ? "Pick One" : "Pick Many"}
+                            {ct.template?.required ? " • Required" : " • Optional"}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            try {
+                              await removeTemplateMutation.mutateAsync({ linkId: ct.linkId });
+                              refetchCategoryTemplates();
+                            } catch (e: any) {
+                              setMessage(e.message); setMessageType("error");
+                            }
+                          }}
+                          style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                        >
+                          <Text style={{ color: "#EF4444", fontWeight: "700", fontSize: 12 }}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={{ padding: 12, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", marginBottom: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 13, textAlign: "center" }}>No modifier templates assigned yet</Text>
+                  </View>
+                )}
+
+                {/* Add template dropdown */}
+                {allTemplates && allTemplates.length > 0 ? (
+                  <View>
+                    <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 13, marginBottom: 6 }}>Add a template:</Text>
+                    <View style={{ gap: 4 }}>
+                      {allTemplates
+                        .filter((t: any) => !categoryTemplates?.some((ct: any) => ct.template?.id === t.id))
+                        .map((t: any) => (
+                          <TouchableOpacity
+                            key={t.id}
+                            onPress={async () => {
+                              try {
+                                await assignTemplateMutation.mutateAsync({
+                                  categoryId: selectedCategory!.id,
+                                  templateId: t.id,
+                                  sortOrder: (categoryTemplates?.length || 0),
+                                });
+                                refetchCategoryTemplates();
+                              } catch (e: any) {
+                                setMessage(e.message); setMessageType("error");
+                              }
+                            }}
+                            style={[styles.toggleRow, { backgroundColor: "#E0F7FA", borderColor: "#00BCD4", paddingVertical: 8, paddingHorizontal: 12 }]}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: "#00838F", fontWeight: "600", fontSize: 13 }}>{t.name}</Text>
+                              <Text style={{ color: "#687076", fontSize: 11 }}>
+                                {t.options?.length || 0} options • {t.type === "single" ? "Pick One" : "Pick Many"}
+                              </Text>
+                            </View>
+                            <Text style={{ color: "#00BCD4", fontWeight: "700", fontSize: 20 }}>+</Text>
+                          </TouchableOpacity>
+                        ))}
+                      {allTemplates.filter((t: any) => !categoryTemplates?.some((ct: any) => ct.template?.id === t.id)).length === 0 ? (
+                        <Text style={{ color: colors.muted, fontSize: 12, fontStyle: "italic", textAlign: "center", paddingVertical: 8 }}>
+                          All templates are already assigned to this category
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.muted, fontSize: 12, fontStyle: "italic" }}>
+                    No modifier templates created yet. Create them in Modifier Templates page first.
+                  </Text>
+                )}
+              </View>
 
               {/* Sort Order */}
               <View className="mb-4">

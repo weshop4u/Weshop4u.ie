@@ -1930,3 +1930,22 @@
 - [x] Save all modifier changes with dedicated Save Options button (create/update/delete in one go)
 - [x] Also include multi-buy deals inline on the same form (collapsible section)
 - [x] Replaced separate screens with inline sections in product edit modal (19 tests passing)
+
+## Modifier Template System (3-Level) — Feb 25 2026
+- [x] Database: modifier_templates table (reusable template definitions, name, type, required, min/max)
+- [x] Database: modifier_template_options table (options within a template, name, price, sort_order)
+- [x] Database: category_modifier_templates table (link templates to categories for auto-inherit)
+- [x] Database: product_modifier_templates table (link templates to individual products manually)
+- [x] Database: product_template_exclusions table (opt out of category-level template for specific product)
+- [x] Migrate schema to database
+- [x] Backend API: CRUD for modifier templates and their options
+- [x] Backend API: Assign/remove templates to categories
+- [x] Backend API: Assign/remove templates to individual products
+- [x] Backend API: Merged modifier fetch — combine category-inherited + product-assigned templates + custom per-product modifiers
+- [x] Admin: Modifier Templates management page (create/edit/delete reusable templates)
+- [x] Admin: Category edit — assign modifier templates to categories
+- [x] Admin: Product edit — show inherited (from category), pick additional templates, keep custom modifiers
+- [x] Admin: Product edit — opt-out toggle for inherited category templates
+- [x] Customer: Product detail merges all modifier sources seamlessly
+- [x] Receipt/driver view: continue showing modifiers correctly regardless of source (already compatible - uses orderItemModifiers snapshot)
+- [x] Tests for template system (20 tests passing)

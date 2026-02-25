@@ -229,8 +229,8 @@ export default function StoreDetailScreen() {
   const isWeb = Platform.OS === "web";
   const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
-  // Fetch modifiers for selected product
-  const { data: modifierData } = trpc.modifiers.getForProduct.useQuery(
+  // Fetch merged modifiers for selected product (category-inherited + product-assigned templates + custom)
+  const { data: modifierData } = trpc.modifierTemplates.getAllForProduct.useQuery(
     { productId: selectedProduct?.id ?? 0 },
     { enabled: !!selectedProduct }
   );

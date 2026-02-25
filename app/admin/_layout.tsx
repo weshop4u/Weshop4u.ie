@@ -91,6 +91,12 @@ export default function AdminLayout() {
           title: "Create Phone Order",
         }}
       />
+      <Stack.Screen
+        name="modifier-templates"
+        options={{
+          title: "Modifier Templates",
+        }}
+      />
     </Stack>
   );
 }
