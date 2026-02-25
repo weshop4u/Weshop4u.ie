@@ -1969,3 +1969,5 @@
 - [x] Create "Breakfast Fillings" template (multi-select, required, quantity enabled, max 6): Sausage, Rashers, White Pudding, Black Pudding, Fried Egg, Hash Brown, Cheese, Red Onion, White Onion — all +€0.90
 - [x] Create "Create Your Own Breakfast Roll" product (ID 390002) in Deli category with Base + Sauces + Breakfast Fillings templates
 - [x] BUG: Cart item stuck — fixed key mismatch for old cart data without cartItemKey, added Remove (✕) button per item, added "Clear Cart" link
+- [x] Upload chicken fillet roll image and assign to "Create Your Own Chicken Fillet Roll" product (ID 390001)
+- [x] Upload breakfast roll image and assign to "Create Your Own Breakfast Roll" product (ID 390002)
