@@ -832,6 +832,39 @@ export default function StoreDetailScreen() {
             />
           </View>
 
+          {/* Matching Categories (shown first when searching) */}
+          {globalSearch.trim().length > 0 && filteredCategories.length > 0 && (
+            <View className="px-4 mb-4">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <Text className="text-xl font-bold text-foreground">Matching Categories</Text>
+              </View>
+              {filteredCategories.map((cat: any) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => {
+                    setGlobalSearch("");
+                    setSelectedCategoryId(cat.id);
+                  }}
+                  className="bg-surface rounded-xl border border-border mb-2 active:opacity-70"
+                  style={{ flexDirection: "row", alignItems: "center", padding: 14, gap: 12 }}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", overflow: "hidden" }}>
+                    {cat.imageUrl ? (
+                      <Image source={{ uri: cat.imageUrl }} style={{ width: 44, height: 44 }} contentFit="cover" />
+                    ) : (
+                      <Text style={{ fontSize: 20 }}>📦</Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>{cat.name}</Text>
+                    <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 2 }}>{cat.productCount ?? cat._count?.products ?? 0} items</Text>
+                  </View>
+                  <Text style={{ fontSize: 18, color: "#00E5FF" }}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Product Search Results */}
           {globalSearch.trim().length > 0 && globalSearchResults.length > 0 && (
             <View className="px-4 mb-4">
@@ -911,11 +944,12 @@ export default function StoreDetailScreen() {
             </View>
           )}
 
-          {/* Categories */}
+          {/* Categories (hidden when search has matching categories shown at top) */}
+          {!(globalSearch.trim().length > 0 && filteredCategories.length > 0) && (
           <View className="px-4">
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <Text className="text-xl font-bold text-foreground">
-                {globalSearch.trim() && filteredCategories.length > 0 ? "Matching Categories" : "Browse by Category"}
+                Browse by Category
               </Text>
               <View style={{ flexDirection: "row", gap: 4 }}>
                 {(["popular", "az", "za"] as CategorySortOption[]).map((opt) => (
@@ -1012,6 +1046,7 @@ export default function StoreDetailScreen() {
               ) : null
             )}
           </View>
+          )}
         </ScrollView>
       {/* Product Detail Modal — also rendered in category browsing/search view */}
       {renderProductModal()}

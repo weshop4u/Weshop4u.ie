@@ -1982,3 +1982,4 @@
 - [x] BUG: Store order screen (store/index.tsx) still shows "2x Create Your Own" without modifier details — fixed: added modifier fetching to store.getOrders backend and modifier display in store/index.tsx
 - [x] BUG: Print button stays green "Sent to Printer!" and never returns to black — fixed: removed browser popup that was freezing the screen, now just creates print job for POS to pick up
 - [x] BUG: POS printer not receiving print jobs even though POS is connected and ready — fixed: was a URL typo on the POS device, API endpoint confirmed working correctly
+- [x] UX: Search results should show matching categories first, then products — fixed: moved matching categories section above products in search results, tapping a category clears search and opens that category
