@@ -217,22 +217,29 @@ export default function StoreDetailScreen() {
       );
     }
     
-    // Sort
+    // Sort — use custom sortOrder as primary, then apply user-selected secondary sort
     const sorted = [...result];
-    switch (sortBy) {
-      case "az":
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "za":
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case "price_low":
-        sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        break;
-      case "price_high":
-        sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        break;
-    }
+    sorted.sort((a, b) => {
+      const aOrder = (a as any).sortOrder ?? 999;
+      const bOrder = (b as any).sortOrder ?? 999;
+      // If both have custom sort orders (not default 999), respect them
+      if (aOrder !== 999 || bOrder !== 999) {
+        if (aOrder !== bOrder) return aOrder - bOrder;
+      }
+      // Then apply user-selected sort
+      switch (sortBy) {
+        case "az":
+          return a.name.localeCompare(b.name);
+        case "za":
+          return b.name.localeCompare(a.name);
+        case "price_low":
+          return parseFloat(a.price) - parseFloat(b.price);
+        case "price_high":
+          return parseFloat(b.price) - parseFloat(a.price);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
 
     // In Deli category, push chicken wings to the bottom
     if (selectedCategory?.name === "Deli") {

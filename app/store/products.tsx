@@ -20,6 +20,8 @@ type ProductItem = {
   sku: string | null;
   barcode: string | null;
   images: string | null;
+  isDrs: boolean | null;
+  sortOrder: number | null;
   createdAt: Date;
 };
 
@@ -87,6 +89,14 @@ export default function ProductManagementScreen() {
       setShowAddCategory(false);
     },
   });
+  const reorderMut = trpc.store.reorderProducts.useMutation({
+    onSuccess: () => {
+      utils.store.getProducts.invalidate();
+      setReorderMode(false);
+      setReorderList([]);
+      webAlert("Product order saved!");
+    },
+  });
 
   // State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -101,6 +111,8 @@ export default function ProductManagementScreen() {
   const [editCategorySearch, setEditCategorySearch] = useState("");
   const [showFormCategoryPicker, setShowFormCategoryPicker] = useState(false);
   const [formCategorySearch, setFormCategorySearch] = useState("");
+  const [reorderMode, setReorderMode] = useState(false);
+  const [reorderList, setReorderList] = useState<ProductItem[]>([]);
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -238,12 +250,50 @@ export default function ProductManagementScreen() {
             <Text style={{ color: "#0a7ea4", fontSize: 16, fontWeight: "600" }}>← Back</Text>
           </TouchableOpacity>
           <Text style={{ flex: 1, fontSize: 18, fontWeight: "700", color: "#11181C", textAlign: "center" }}>Products</Text>
-          <TouchableOpacity
-            onPress={() => setShowAddForm(!showAddForm)}
-            style={{ backgroundColor: "#22C55E", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>+ Add</Text>
-          </TouchableOpacity>
+          {reorderMode ? (
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  reorderMut.mutate({ productIds: reorderList.map(p => p.id) });
+                }}
+                style={{ backgroundColor: "#22C55E", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+                  {reorderMut.isPending ? "Saving..." : "Save Order"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setReorderMode(false); setReorderList([]); }}
+                style={{ backgroundColor: "#f5f5f5", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB" }}
+              >
+                <Text style={{ color: "#687076", fontWeight: "700", fontSize: 13 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {filterCategory !== null && (
+                <TouchableOpacity
+                  onPress={() => {
+                    // Enter reorder mode with current filtered products sorted by existing sortOrder
+                    const categoryProducts = filteredProducts
+                      .slice()
+                      .sort((a, b) => ((a as any).sortOrder ?? 999) - ((b as any).sortOrder ?? 999) || a.name.localeCompare(b.name));
+                    setReorderList(categoryProducts);
+                    setReorderMode(true);
+                  }}
+                  style={{ backgroundColor: "#f0f9ff", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: "#0a7ea4" }}
+                >
+                  <Text style={{ color: "#0a7ea4", fontWeight: "700", fontSize: 13 }}>Reorder</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setShowAddForm(!showAddForm)}
+                style={{ backgroundColor: "#22C55E", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Stats Bar - Tappable filters */}
@@ -568,8 +618,96 @@ export default function ProductManagementScreen() {
           </Text>
         </View>
 
+        {/* Reorder Mode */}
+        {reorderMode && (
+          <View style={{ paddingHorizontal: 16, gap: 4 }}>
+            <View style={{ backgroundColor: "#f0f9ff", padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: "#0a7ea4" }}>
+              <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600", textAlign: "center" }}>
+                Drag products to reorder. Tap Save Order when done.
+              </Text>
+            </View>
+            {reorderList.map((product, index) => (
+              <View
+                key={product.id}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#fff",
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  padding: 10,
+                  gap: 8,
+                }}
+              >
+                {/* Position Number */}
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: "#0a7ea4",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{index + 1}</Text>
+                </View>
+
+                {/* Product Name */}
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1}>
+                  {product.name}
+                </Text>
+
+                {/* Price */}
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#22C55E", marginRight: 4 }}>
+                  €{parseFloat(product.price).toFixed(2)}
+                </Text>
+
+                {/* Move Buttons */}
+                <View style={{ flexDirection: "column", gap: 2 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (index === 0) return;
+                      const newList = [...reorderList];
+                      [newList[index - 1], newList[index]] = [newList[index], newList[index - 1]];
+                      setReorderList(newList);
+                    }}
+                    style={{
+                      width: 32,
+                      height: 28,
+                      borderRadius: 6,
+                      backgroundColor: index === 0 ? "#f5f5f5" : "#e0f2fe",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: index === 0 ? "#ccc" : "#0a7ea4", fontWeight: "700" }}>▲</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (index === reorderList.length - 1) return;
+                      const newList = [...reorderList];
+                      [newList[index], newList[index + 1]] = [newList[index + 1], newList[index]];
+                      setReorderList(newList);
+                    }}
+                    style={{
+                      width: 32,
+                      height: 28,
+                      borderRadius: 6,
+                      backgroundColor: index === reorderList.length - 1 ? "#f5f5f5" : "#e0f2fe",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: index === reorderList.length - 1 ? "#ccc" : "#0a7ea4", fontWeight: "700" }}>▼</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Product List */}
-        {isLoading ? (
+        {!reorderMode && (isLoading ? (
           <View style={{ padding: 40, alignItems: "center" }}>
             <ActivityIndicator size="large" color="#0a7ea4" />
           </View>
@@ -806,7 +944,7 @@ export default function ProductManagementScreen() {
               );
             })}
           </View>
-        )}
+        ))}
       </ScrollView>
     </ScreenContainer>
   );

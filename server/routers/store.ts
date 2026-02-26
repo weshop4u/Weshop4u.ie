@@ -578,6 +578,7 @@ export const storeRouter = router({
           barcode: products.barcode,
           images: products.images,
           isDrs: products.isDrs,
+          sortOrder: products.sortOrder,
           createdAt: products.createdAt,
         })
         .from(products)
@@ -586,6 +587,27 @@ export const storeRouter = router({
         .orderBy(products.name);
 
       return result;
+    }),
+
+  // Reorder products within a category
+  reorderProducts: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()), // ordered list of product IDs
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Update sort_order for each product based on its position in the array
+      await Promise.all(
+        input.productIds.map((productId, index) =>
+          db.update(products)
+            .set({ sortOrder: index + 1 })
+            .where(eq(products.id, productId))
+        )
+      );
+
+      return { success: true };
     }),
 
   // Get categories for a store

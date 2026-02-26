@@ -145,6 +145,7 @@ export const storesRouter = router({
           images: products.images,
           isActive: products.isActive,
           isDrs: products.isDrs,
+          sortOrder: products.sortOrder,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {

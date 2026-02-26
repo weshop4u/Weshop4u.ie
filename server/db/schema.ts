@@ -146,6 +146,7 @@ export const products = mysqlTable(
     quantity: int("quantity").default(0),
     isActive: boolean("is_active").default(true),
     isDrs: boolean("is_drs").default(false),
+    sortOrder: int("sort_order").default(999), // Lower number = higher in category list
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
