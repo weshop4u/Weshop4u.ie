@@ -577,6 +577,7 @@ export const storeRouter = router({
           sku: products.sku,
           barcode: products.barcode,
           images: products.images,
+          isDrs: products.isDrs,
           createdAt: products.createdAt,
         })
         .from(products)

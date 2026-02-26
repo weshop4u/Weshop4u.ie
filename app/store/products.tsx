@@ -764,6 +764,20 @@ export default function ProductManagementScreen() {
                           </Text>
                         </TouchableOpacity>
 
+                        {/* DRS Badge */}
+                        {product.isDrs && (
+                          <View style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 5,
+                            borderRadius: 6,
+                            backgroundColor: "#fef3c7",
+                            borderWidth: 1,
+                            borderColor: "#fcd34d",
+                          }}>
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#b45309" }}>♻ DRS</Text>
+                          </View>
+                        )}
+
                         <View style={{ flex: 1 }} />
 
                         {/* Edit */}
