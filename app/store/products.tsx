@@ -97,6 +97,10 @@ export default function ProductManagementScreen() {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showEditCategoryPicker, setShowEditCategoryPicker] = useState(false);
+  const [editCategorySearch, setEditCategorySearch] = useState("");
+  const [showFormCategoryPicker, setShowFormCategoryPicker] = useState(false);
+  const [formCategorySearch, setFormCategorySearch] = useState("");
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -202,6 +206,19 @@ export default function ProductManagementScreen() {
       return a.name.localeCompare(b.name);
     });
   }, [categories, productsData]);
+
+  // Sorted categories for edit/add form pickers (priority order, then alphabetical)
+  const sortedCategoriesForPicker = useMemo(() => {
+    if (!categories) return [];
+    return [...categories].sort((a, b) => {
+      const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name);
+      const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [categories]);
 
   if (!storeId) {
     return (
@@ -457,25 +474,48 @@ export default function ProductManagementScreen() {
               placeholderTextColor="#9BA1A6"
             />
 
-            {/* Category picker */}
+            {/* Category picker - dropdown */}
             <Text style={{ fontSize: 12, color: "#687076", fontWeight: "600" }}>Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-              <TouchableOpacity
-                onPress={() => setFormCategory(undefined)}
-                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: formCategory === undefined ? "#0a7ea4" : "#f5f5f5" }}
-              >
-                <Text style={{ color: formCategory === undefined ? "#fff" : "#687076", fontSize: 12 }}>None</Text>
-              </TouchableOpacity>
-              {categories?.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => setFormCategory(cat.id)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: formCategory === cat.id ? "#0a7ea4" : "#f5f5f5" }}
-                >
-                  <Text style={{ color: formCategory === cat.id ? "#fff" : "#687076", fontSize: 12 }}>{cat.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <TouchableOpacity
+              onPress={() => { setShowFormCategoryPicker(!showFormCategoryPicker); setFormCategorySearch(""); }}
+              style={{ backgroundColor: "#fff", padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 14, color: formCategory ? "#11181C" : "#9BA1A6" }}>
+                {formCategory ? (categories?.find((c) => c.id === formCategory)?.name || "Unknown") : "None (no category)"}
+              </Text>
+              <Text style={{ fontSize: 12, color: "#9BA1A6" }}>{showFormCategoryPicker ? "▲" : "▼"}</Text>
+            </TouchableOpacity>
+            {showFormCategoryPicker && (
+              <View style={{ backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", maxHeight: 220, overflow: "hidden" }}>
+                <TextInput
+                  placeholder="Search categories..."
+                  value={formCategorySearch}
+                  onChangeText={setFormCategorySearch}
+                  style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", fontSize: 13, color: "#11181C" }}
+                  placeholderTextColor="#9BA1A6"
+                  autoFocus
+                />
+                <ScrollView style={{ maxHeight: 170 }} keyboardShouldPersistTaps="handled">
+                  <TouchableOpacity
+                    onPress={() => { setFormCategory(undefined); setShowFormCategoryPicker(false); }}
+                    style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#f5f5f5", backgroundColor: formCategory === undefined ? "#e0f7fa" : "#fff" }}
+                  >
+                    <Text style={{ fontSize: 13, color: formCategory === undefined ? "#0a7ea4" : "#687076", fontWeight: formCategory === undefined ? "700" : "400" }}>None (no category)</Text>
+                  </TouchableOpacity>
+                  {sortedCategoriesForPicker
+                    .filter((cat) => !formCategorySearch || cat.name.toLowerCase().includes(formCategorySearch.toLowerCase()))
+                    .map((cat) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => { setFormCategory(cat.id); setShowFormCategoryPicker(false); }}
+                        style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#f5f5f5", backgroundColor: formCategory === cat.id ? "#e0f7fa" : "#fff" }}
+                      >
+                        <Text style={{ fontSize: 13, color: formCategory === cat.id ? "#0a7ea4" : "#11181C", fontWeight: formCategory === cat.id ? "700" : "400" }}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Stock status */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -581,23 +621,48 @@ export default function ProductManagementScreen() {
                         keyboardType="decimal-pad"
                         style={{ backgroundColor: "#f5f5f5", padding: 10, borderRadius: 8, fontSize: 14, color: "#11181C" }}
                       />
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                        <TouchableOpacity
-                          onPress={() => setEditCategory(undefined)}
-                          style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: editCategory === undefined ? "#0a7ea4" : "#f5f5f5" }}
-                        >
-                          <Text style={{ color: editCategory === undefined ? "#fff" : "#687076", fontSize: 11 }}>None</Text>
-                        </TouchableOpacity>
-                        {categories?.map((cat) => (
-                          <TouchableOpacity
-                            key={cat.id}
-                            onPress={() => setEditCategory(cat.id)}
-                            style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: editCategory === cat.id ? "#0a7ea4" : "#f5f5f5" }}
-                          >
-                            <Text style={{ color: editCategory === cat.id ? "#fff" : "#687076", fontSize: 11 }}>{cat.name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                      {/* Category picker - dropdown */}
+                      <Text style={{ fontSize: 11, color: "#687076", fontWeight: "600" }}>Category</Text>
+                      <TouchableOpacity
+                        onPress={() => { setShowEditCategoryPicker(!showEditCategoryPicker); setEditCategorySearch(""); }}
+                        style={{ backgroundColor: "#f5f5f5", padding: 10, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+                      >
+                        <Text style={{ fontSize: 13, color: editCategory ? "#11181C" : "#9BA1A6" }}>
+                          {editCategory ? (categories?.find((c) => c.id === editCategory)?.name || "Unknown") : "None (no category)"}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "#9BA1A6" }}>{showEditCategoryPicker ? "▲" : "▼"}</Text>
+                      </TouchableOpacity>
+                      {showEditCategoryPicker && (
+                        <View style={{ backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", maxHeight: 220, overflow: "hidden" }}>
+                          <TextInput
+                            placeholder="Search categories..."
+                            value={editCategorySearch}
+                            onChangeText={setEditCategorySearch}
+                            style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", fontSize: 13, color: "#11181C" }}
+                            placeholderTextColor="#9BA1A6"
+                            autoFocus
+                          />
+                          <ScrollView style={{ maxHeight: 170 }} keyboardShouldPersistTaps="handled">
+                            <TouchableOpacity
+                              onPress={() => { setEditCategory(undefined); setShowEditCategoryPicker(false); }}
+                              style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#f5f5f5", backgroundColor: editCategory === undefined ? "#e0f7fa" : "#fff" }}
+                            >
+                              <Text style={{ fontSize: 13, color: editCategory === undefined ? "#0a7ea4" : "#687076", fontWeight: editCategory === undefined ? "700" : "400" }}>None (no category)</Text>
+                            </TouchableOpacity>
+                            {sortedCategoriesForPicker
+                              .filter((cat) => !editCategorySearch || cat.name.toLowerCase().includes(editCategorySearch.toLowerCase()))
+                              .map((cat) => (
+                                <TouchableOpacity
+                                  key={cat.id}
+                                  onPress={() => { setEditCategory(cat.id); setShowEditCategoryPicker(false); }}
+                                  style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: "#f5f5f5", backgroundColor: editCategory === cat.id ? "#e0f7fa" : "#fff" }}
+                                >
+                                  <Text style={{ fontSize: 13, color: editCategory === cat.id ? "#0a7ea4" : "#11181C", fontWeight: editCategory === cat.id ? "700" : "400" }}>{cat.name}</Text>
+                                </TouchableOpacity>
+                              ))}
+                          </ScrollView>
+                        </View>
+                      )}
                       <View style={{ flexDirection: "row", gap: 8 }}>
                         <TouchableOpacity
                           onPress={() => {
