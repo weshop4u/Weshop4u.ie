@@ -2015,3 +2015,4 @@
 - [x] FEATURE: Order count badge on POS title bar — red badge next to status dot shows pending order count, hides when zero
 - [x] FEATURE: Customisable alert volume slider in POS settings gear menu — 0-100% slider with speaker icon, saved to SharedPreferences, recreates ToneGenerator with new volume
 - [x] FEATURE: Change POS alert sound from ToneGenerator to device ringtone "ringtone_50" — uses RingtoneManager to scan device ringtones, plays via MediaPlayer with looping, falls back to default alarm if ringtone_50 not found, volume controlled by slider
+- [x] FEATURE: Show customer name on driver active delivery screen — shows customer name (from logged-in user or guest name) above the address in both Delivery Destination and Delivery Location sections

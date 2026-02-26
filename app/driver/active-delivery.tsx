@@ -317,6 +317,7 @@ export default function ActiveDeliveryScreen() {
   const storeLat = order.store?.latitude || null;
   const storeLng = order.store?.longitude || null;
   const customerAddress = order.deliveryAddress || "Address unavailable";
+  const customerName = (order as any).customer?.name || (order as any).guestName || "Customer";
   const customerPhone = order.guestPhone || "";
   const customerLat = order.deliveryLatitude || null;
   const customerLng = order.deliveryLongitude || null;
@@ -542,7 +543,8 @@ export default function ActiveDeliveryScreen() {
         {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
           <View className="bg-surface/50 border border-border p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Destination</Text>
-            <Text className="text-foreground text-sm mb-1">{customerAddress}</Text>
+            <Text className="text-foreground font-semibold text-base mb-1">{customerName}</Text>
+            <Text className="text-muted text-sm mb-1">{customerAddress}</Text>
             {(order as any).deliveryEircode && (
               <Text className="text-muted text-xs mb-3">Eircode: {(order as any).deliveryEircode}</Text>
             )}
@@ -559,7 +561,7 @@ export default function ActiveDeliveryScreen() {
         {deliveryStatus === "going_to_customer" && (
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Location</Text>
-            
+            <Text className="text-foreground font-semibold text-base mb-1">{customerName}</Text>
             <Text className="text-muted text-sm mb-3">{customerAddress}</Text>
 
             <View className="flex-row gap-2">
