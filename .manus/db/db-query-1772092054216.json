@@ -1,0 +1,25 @@
+{
+  "query": "SELECT s.id, s.name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name UNION ALL SELECT s.id, CONCAT(s.name, ' - active') as name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id AND p.is_active = 1 WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name UNION ALL SELECT s.id, CONCAT(s.name, ' - inactive') as name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id AND p.is_active = 0 WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT s.id, s.name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name UNION ALL SELECT s.id, CONCAT(s.name, ' - active') as name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id AND p.is_active = 1 WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name UNION ALL SELECT s.id, CONCAT(s.name, ' - inactive') as name, COUNT(p.id) as total FROM stores s LEFT JOIN products p ON p.store_id = s.id AND p.is_active = 0 WHERE s.name LIKE '%pple%' GROUP BY s.id, s.name;",
+  "rows": [
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan - inactive",
+      "total": "0"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "total": "270"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan - active",
+      "total": "270"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\ttotal\n3\tAppleGreen Balbriggan - inactive\t0\n3\tAppleGreen Balbriggan\t270\n3\tAppleGreen Balbriggan - active\t270\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

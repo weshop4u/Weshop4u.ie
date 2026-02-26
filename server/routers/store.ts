@@ -897,6 +897,28 @@ export const storeRouter = router({
       return result;
     }),
 
+  // Bulk update product prices
+  bulkUpdatePrices: publicProcedure
+    .input(z.object({
+      updates: z.array(z.object({
+        productId: z.number(),
+        price: z.string(),
+        salePrice: z.string().nullable().optional(),
+      })),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      let updated = 0;
+      for (const item of input.updates) {
+        const updateData: Record<string, any> = { price: item.price };
+        if (item.salePrice !== undefined) updateData.salePrice = item.salePrice;
+        await db.update(products).set(updateData).where(eq(products.id, item.productId));
+        updated++;
+      }
+      return { success: true, updated };
+    }),
+
   // Accept order from POS device (same as acceptOrder but returns alreadyAccepted flag)
   acceptOrderFromPOS: publicProcedure
     .input(z.object({

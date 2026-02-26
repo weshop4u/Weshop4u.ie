@@ -2031,3 +2031,4 @@
 - [x] FEATURE: Product reorder within categories on store dashboard Products page — up/down arrows to reorder, persists sort order to DB via reorderProducts endpoint, reflected on customer-facing store with sortOrder as primary sort
 - [x] CLEANUP: Deleted Gifts category (id 90049) and soft-deleted its 9 products from Spar (chargers, earbuds, speakers, smart watch)
 - [x] FEATURE: Added Category Images management page to store dashboard — upload, change, or remove images for each category, with priority sorting and search
+- [x] FEATURE: Product Prices management page in admin panel — inline editable prices, store selector, category filter, search, alphabetical default sort, price change highlighting, bulk save, sale price support. Accessible from admin sidebar, admin dashboard quick actions, and store dashboard quick actions. 15 unit tests passing.

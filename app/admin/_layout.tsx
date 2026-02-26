@@ -97,6 +97,12 @@ export default function AdminLayout() {
           title: "Modifier Templates",
         }}
       />
+      <Stack.Screen
+        name="product-prices"
+        options={{
+          title: "Product Prices",
+        }}
+      />
     </Stack>
   );
 }

@@ -197,6 +197,14 @@ function DashboardContent() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => router.push("/admin/product-prices" as any)}
+                style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>💰</Text>
+                <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Product Prices</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => router.push("/admin/driver-management" as any)}
                 style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
               >

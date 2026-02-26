@@ -547,6 +547,12 @@ export default function StoreDashboardScreen() {
           >
             <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Category Images</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/admin/product-prices" as any)}
+            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+          >
+            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Product Prices</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Navigation Tabs */}
