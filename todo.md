@@ -2020,3 +2020,6 @@
 - [ ] CLEANUP: Fix products in wrong categories in SPAR
 - [ ] CLEANUP: Tidy up product pages and images
 - [x] FEATURE: Make store dashboard product stat cards (Total, In Stock, Out of Stock) tappable to filter the product list — cards highlight when active, tap again to deselect
+- [x] FEATURE: Make stock status badge on product cards tappable to toggle in stock / out of stock directly without opening edit form
+- [x] BUG: Category tabs on store dashboard Products page not scrollable — fixed: replaced horizontal tab strip with a dropdown category picker that shows all categories with product counts, sorted by most products
+- [x] BUG: Product images not displaying on product cards — fixed: added images field to getProducts backend query, added 56x56 thumbnail on each product card with fallback icon for products without images
