@@ -2029,3 +2029,5 @@
 - [x] FEATURE: Move chicken wings products to the bottom of the Deli category on the customer-facing store page — implemented in product sort logic, works with all sort modes (A-Z, Z-A, price)
 - [x] FEATURE: Show DRS (Deposit Return Scheme) status on product cards in store dashboard Products page — added isDrs to API response, shows amber "♻ DRS" badge next to stock status on cards (695 products have DRS)
 - [x] FEATURE: Product reorder within categories on store dashboard Products page — up/down arrows to reorder, persists sort order to DB via reorderProducts endpoint, reflected on customer-facing store with sortOrder as primary sort
+- [x] CLEANUP: Deleted Gifts category (id 90049) and soft-deleted its 9 products from Spar (chargers, earbuds, speakers, smart watch)
+- [x] FEATURE: Added Category Images management page to store dashboard — upload, change, or remove images for each category, with priority sorting and search
