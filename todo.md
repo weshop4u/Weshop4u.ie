@@ -2016,3 +2016,7 @@
 - [x] FEATURE: Customisable alert volume slider in POS settings gear menu — 0-100% slider with speaker icon, saved to SharedPreferences, recreates ToneGenerator with new volume
 - [x] FEATURE: Change POS alert sound from ToneGenerator to device ringtone "ringtone_50" — uses RingtoneManager to scan device ringtones, plays via MediaPlayer with looping, falls back to default alarm if ringtone_50 not found, volume controlled by slider
 - [x] FEATURE: Show customer name on driver active delivery screen — shows customer name (from logged-in user or guest name) above the address in both Delivery Destination and Delivery Location sections
+- [x] CLEANUP: Remove all SPAR products starting with "Halloween", "Spooked", or "Trick or Treat" — 32 products deleted from database
+- [ ] CLEANUP: Fix products in wrong categories in SPAR
+- [ ] CLEANUP: Tidy up product pages and images
+- [x] FEATURE: Make store dashboard product stat cards (Total, In Stock, Out of Stock) tappable to filter the product list — cards highlight when active, tap again to deselect

@@ -79,6 +79,7 @@ export default function ProductManagementScreen() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState<number | null>(null);
+  const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "out_of_stock">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -116,6 +117,9 @@ export default function ProductManagementScreen() {
   const filteredProducts = useMemo(() => {
     if (!productsData) return [];
     let filtered = productsData.filter((p) => p.isActive !== false);
+    if (stockFilter !== "all") {
+      filtered = filtered.filter((p) => p.stockStatus === stockFilter);
+    }
     if (filterCategory !== null) {
       filtered = filtered.filter((p) => p.categoryId === filterCategory);
     }
@@ -129,7 +133,7 @@ export default function ProductManagementScreen() {
       );
     }
     return filtered;
-  }, [productsData, filterCategory, searchQuery]);
+  }, [productsData, filterCategory, searchQuery, stockFilter]);
 
   const totalProducts = productsData?.filter((p) => p.isActive !== false).length || 0;
   const inStockCount = productsData?.filter((p) => p.isActive !== false && p.stockStatus === "in_stock").length || 0;
@@ -161,20 +165,20 @@ export default function ProductManagementScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Bar */}
+        {/* Stats Bar - Tappable filters */}
         <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
-          <View style={{ flex: 1, backgroundColor: "#f0f9ff", padding: 12, borderRadius: 10, alignItems: "center" }}>
-            <Text style={{ fontSize: 20, fontWeight: "800", color: "#0a7ea4" }}>{totalProducts}</Text>
-            <Text style={{ fontSize: 11, color: "#687076" }}>Total</Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: "#f0fdf4", padding: 12, borderRadius: 10, alignItems: "center" }}>
-            <Text style={{ fontSize: 20, fontWeight: "800", color: "#22C55E" }}>{inStockCount}</Text>
-            <Text style={{ fontSize: 11, color: "#687076" }}>In Stock</Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: "#fef2f2", padding: 12, borderRadius: 10, alignItems: "center" }}>
-            <Text style={{ fontSize: 20, fontWeight: "800", color: "#EF4444" }}>{outOfStockCount}</Text>
-            <Text style={{ fontSize: 11, color: "#687076" }}>Out of Stock</Text>
-          </View>
+          <TouchableOpacity onPress={() => setStockFilter(stockFilter === "all" ? "all" : "all")} style={{ flex: 1, backgroundColor: stockFilter === "all" ? "#0a7ea4" : "#f0f9ff", padding: 12, borderRadius: 10, alignItems: "center", borderWidth: stockFilter === "all" ? 2 : 0, borderColor: "#0a7ea4" }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: stockFilter === "all" ? "#fff" : "#0a7ea4" }}>{totalProducts}</Text>
+            <Text style={{ fontSize: 11, color: stockFilter === "all" ? "#e0f0ff" : "#687076" }}>Total</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setStockFilter(stockFilter === "in_stock" ? "all" : "in_stock")} style={{ flex: 1, backgroundColor: stockFilter === "in_stock" ? "#22C55E" : "#f0fdf4", padding: 12, borderRadius: 10, alignItems: "center", borderWidth: stockFilter === "in_stock" ? 2 : 0, borderColor: "#22C55E" }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: stockFilter === "in_stock" ? "#fff" : "#22C55E" }}>{inStockCount}</Text>
+            <Text style={{ fontSize: 11, color: stockFilter === "in_stock" ? "#e0ffe0" : "#687076" }}>In Stock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setStockFilter(stockFilter === "out_of_stock" ? "all" : "out_of_stock")} style={{ flex: 1, backgroundColor: stockFilter === "out_of_stock" ? "#EF4444" : "#fef2f2", padding: 12, borderRadius: 10, alignItems: "center", borderWidth: stockFilter === "out_of_stock" ? 2 : 0, borderColor: "#EF4444" }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: stockFilter === "out_of_stock" ? "#fff" : "#EF4444" }}>{outOfStockCount}</Text>
+            <Text style={{ fontSize: 11, color: stockFilter === "out_of_stock" ? "#ffe0e0" : "#687076" }}>Out of Stock</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Search */}
