@@ -10,7 +10,11 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
 import android.media.ToneGenerator;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -73,6 +77,8 @@ public class MainActivity extends Activity {
     private Set<Integer> acceptedOrderIds = new HashSet<Integer>();
 
     private ToneGenerator toneGenerator;
+    private MediaPlayer alertPlayer;
+    private Uri alertRingtoneUri;
     private Vibrator vibrator;
     private boolean alertPlaying = false;
     private Runnable alertLoopRunnable;
@@ -114,6 +120,14 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             toneGenerator = null;
         }
+
+        // Find ringtone_50 from device ringtones
+        alertRingtoneUri = findRingtoneByName("ringtone_50");
+        if (alertRingtoneUri == null) {
+            // Fallback to default alarm sound
+            alertRingtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+        appendLog("Alert tone: " + (alertRingtoneUri != null ? "ringtone_50" : "default"));
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         ScrollView rootScroll = new ScrollView(this);
@@ -796,27 +810,72 @@ public class MainActivity extends Activity {
 
     // ===== AUDIO ALERTS =====
 
+    private Uri findRingtoneByName(String name) {
+        RingtoneManager rm = new RingtoneManager(this);
+        rm.setType(RingtoneManager.TYPE_RINGTONE | RingtoneManager.TYPE_ALARM | RingtoneManager.TYPE_NOTIFICATION);
+        Cursor cursor = rm.getCursor();
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                String title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX);
+                if (title != null && title.equalsIgnoreCase(name)) {
+                    Uri uri = rm.getRingtoneUri(cursor.getPosition());
+                    cursor.close();
+                    return uri;
+                }
+            }
+            cursor.close();
+        }
+        return null;
+    }
+
     private void startOrderAlert() {
         if (alertPlaying) return;
         alertPlaying = true;
 
-        alertLoopRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (!alertPlaying) return;
-                // Play loud alarm tone
+        // Start looping ringtone via MediaPlayer
+        try {
+            if (alertPlayer != null) {
+                alertPlayer.release();
+                alertPlayer = null;
+            }
+            if (alertRingtoneUri != null) {
+                alertPlayer = new MediaPlayer();
+                alertPlayer.setDataSource(this, alertRingtoneUri);
+                alertPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                alertPlayer.setLooping(true);
+                // Set volume based on slider (0.0 to 1.0)
+                float vol = alertVolume / 100f;
+                alertPlayer.setVolume(vol, vol);
+                alertPlayer.prepare();
+                alertPlayer.start();
+            } else {
+                // Fallback to ToneGenerator if no ringtone found
                 if (toneGenerator != null) {
                     try {
                         toneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 1500);
                     } catch (Exception e) { /* ignore */ }
                 }
-                // Vibrate pattern
+            }
+        } catch (Exception e) {
+            // Fallback to ToneGenerator
+            if (toneGenerator != null) {
+                try {
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 1500);
+                } catch (Exception e2) { /* ignore */ }
+            }
+        }
+
+        // Vibrate on loop
+        alertLoopRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!alertPlaying) return;
                 if (vibrator != null) {
-                    long[] pattern = {0, 800, 300, 800, 300, 800};
-                    vibrator.vibrate(pattern, -1);
+                    try {
+                        vibrator.vibrate(new long[]{0, 300, 200, 300}, -1);
+                    } catch (Exception e) { /* ignore */ }
                 }
-                // Repeat every 3 seconds
-                handler.postDelayed(this, 3000);
+                handler.postDelayed(alertLoopRunnable, 3000);
             }
         };
         handler.post(alertLoopRunnable);
@@ -826,6 +885,13 @@ public class MainActivity extends Activity {
         alertPlaying = false;
         if (alertLoopRunnable != null) {
             handler.removeCallbacks(alertLoopRunnable);
+        }
+        if (alertPlayer != null) {
+            try {
+                alertPlayer.stop();
+                alertPlayer.release();
+            } catch (Exception e) { /* ignore */ }
+            alertPlayer = null;
         }
         if (toneGenerator != null) {
             try { toneGenerator.stopTone(); } catch (Exception e) { /* ignore */ }
@@ -1037,6 +1103,10 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         try { unregisterReceiver(printStatusReceiver); } catch (Exception e) {}
         try { unregisterReceiver(pendingOrdersReceiver); } catch (Exception e) {}
+        if (alertPlayer != null) {
+            try { alertPlayer.release(); } catch (Exception e) {}
+            alertPlayer = null;
+        }
         if (toneGenerator != null) {
             toneGenerator.release();
             toneGenerator = null;
