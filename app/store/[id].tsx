@@ -233,9 +233,17 @@ export default function StoreDetailScreen() {
         sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
         break;
     }
+
+    // In Deli category, push chicken wings to the bottom
+    if (selectedCategory?.name === "Deli") {
+      const isWings = (name: string) => name.toLowerCase().includes("chicken wings");
+      const nonWings = sorted.filter((p) => !isWings(p.name));
+      const wings = sorted.filter((p) => isWings(p.name));
+      return [...nonWings, ...wings];
+    }
     
     return sorted;
-  }, [categoryProducts, productSearch, sortBy]);
+  }, [categoryProducts, productSearch, sortBy, selectedCategory]);
 
   // Get quantity for a product from cart (sum across all modifier variants)
   const getProductQuantity = useCallback((productId: number) => {
