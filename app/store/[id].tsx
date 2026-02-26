@@ -16,6 +16,25 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 type SortOption = "az" | "za" | "price_low" | "price_high";
 type CategorySortOption = "popular" | "az" | "za";
 
+// Custom category priority order — user-defined tiers, then rest alphabetically
+const CATEGORY_PRIORITY_ORDER = [
+  "Deli",
+  "Fizzy Drinks",
+  "Energy Drinks",
+  "Water and Flavoured Water",
+  "Chocolate Bars",
+  "Chocolates Multi packs and Boxes",
+  "Crisps and Nuts",
+  "Biscuits and Cookies",
+  "Tobacco and Cigars and Papers",
+  "Vapes and Vape Oils",
+  "Spirits",
+  "Cans and Bottles",
+  "Flavored Alcohol",
+  "Wines",
+  "Nicotine Products",
+];
+
 export default function StoreDetailScreen() {
   const { id, categoryId: categoryIdParam, productSearch: productSearchParam } = useLocalSearchParams<{ id: string; categoryId?: string; productSearch?: string }>();
   const router = useRouter();
@@ -134,7 +153,15 @@ export default function StoreDetailScreen() {
     // Sort categories
     switch (categorySortBy) {
       case "popular":
-        result.sort((a, b) => b.products.length - a.products.length);
+        // Use custom priority order: priority categories first, then rest alphabetically
+        result.sort((a, b) => {
+          const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name);
+          const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name);
+          if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+          if (aIdx !== -1) return -1;
+          if (bIdx !== -1) return 1;
+          return a.name.localeCompare(b.name);
+        });
         break;
       case "az":
         result.sort((a, b) => a.name.localeCompare(b.name));

@@ -160,14 +160,47 @@ export default function ProductManagementScreen() {
     return cat?.name || "Unknown";
   }, [filterCategory, categories]);
 
-  // Categories sorted with product count
+  // Custom category priority order — user-defined tiers, then rest alphabetically
+  const CATEGORY_PRIORITY_ORDER = [
+    "Deli",
+    "Fizzy Drinks",
+    "Energy Drinks",
+    "Water and Flavoured Water",
+    "Chocolate Bars",
+    "Chocolates Multi packs and Boxes",
+    "Crisps and Nuts",
+    "Biscuits and Cookies",
+    "Tobacco and Cigars and Papers",
+    "Vapes and Vape Oils",
+    "Spirits",
+    "Cans and Bottles",
+    "Flavored Alcohol",
+    "Wines",
+    "Nicotine Products",
+  ];
+
+  // Categories sorted with product count using custom priority
   const categoriesWithCount = useMemo(() => {
     if (!categories || !productsData) return [];
     const activeProducts = productsData.filter((p) => p.isActive !== false);
-    return categories.map((cat) => ({
+    const withCount = categories.map((cat) => ({
       ...cat,
       count: activeProducts.filter((p) => p.categoryId === cat.id).length,
-    })).filter((c) => c.count > 0).sort((a, b) => b.count - a.count);
+    })).filter((c) => c.count > 0);
+
+    // Sort: priority categories first (in specified order), then rest alphabetically
+    return withCount.sort((a, b) => {
+      const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name);
+      const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name);
+      // Both are priority categories — sort by their priority position
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      // Only a is priority — a comes first
+      if (aIdx !== -1) return -1;
+      // Only b is priority — b comes first
+      if (bIdx !== -1) return 1;
+      // Neither is priority — sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
   }, [categories, productsData]);
 
   if (!storeId) {

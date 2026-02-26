@@ -1,0 +1,545 @@
+{
+  "query": "SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id AND p.is_active = true AND p.store_id = 1 GROUP BY pc.id, pc.name ORDER BY pc.name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id AND p.is_active = true AND p.store_id = 1 GROUP BY pc.id, pc.name ORDER BY pc.name;",
+  "rows": [
+    {
+      "id": "90036",
+      "name": "Animal Food/Items",
+      "product_count": "49"
+    },
+    {
+      "id": "150003",
+      "name": "Appetizers",
+      "product_count": "0"
+    },
+    {
+      "id": "120008",
+      "name": "Baked Potatoes",
+      "product_count": "0"
+    },
+    {
+      "id": "1",
+      "name": "Beverages",
+      "product_count": "0"
+    },
+    {
+      "id": "90027",
+      "name": "Biscuits and Cookies",
+      "product_count": "131"
+    },
+    {
+      "id": "150038",
+      "name": "Black Bean Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150040",
+      "name": "Black Pepper Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90032",
+      "name": "Bread Eggs and Cakes",
+      "product_count": "83"
+    },
+    {
+      "id": "90053",
+      "name": "BreakFast Bundles",
+      "product_count": "1"
+    },
+    {
+      "id": "120007",
+      "name": "Breakfast",
+      "product_count": "0"
+    },
+    {
+      "id": "90018",
+      "name": "Breakfast Cereal",
+      "product_count": "33"
+    },
+    {
+      "id": "150031",
+      "name": "Broccoli n Oyster Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "120002",
+      "name": "Burgers",
+      "product_count": "0"
+    },
+    {
+      "id": "90003",
+      "name": "Cans and Bottles",
+      "product_count": "112"
+    },
+    {
+      "id": "150014",
+      "name": "Cantonese Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150007",
+      "name": "Chefs Recommendation",
+      "product_count": "0"
+    },
+    {
+      "id": "120001",
+      "name": "Chips and Wedges",
+      "product_count": "0"
+    },
+    {
+      "id": "90038",
+      "name": "Chocolate Bars",
+      "product_count": "97"
+    },
+    {
+      "id": "90031",
+      "name": "Chocolates Multi packs and Boxes",
+      "product_count": "49"
+    },
+    {
+      "id": "150024",
+      "name": "Chow Mein Dishes",
+      "product_count": "0"
+    },
+    {
+      "id": "150001",
+      "name": "Cooking, Pasta and Sauces",
+      "product_count": "0"
+    },
+    {
+      "id": "150030",
+      "name": "Creamy Hot Pot Dishes",
+      "product_count": "0"
+    },
+    {
+      "id": "90034",
+      "name": "Crisps and Nuts",
+      "product_count": "159"
+    },
+    {
+      "id": "150035",
+      "name": "Curry Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90013",
+      "name": "Dairy and Refrigerated Items",
+      "product_count": "76"
+    },
+    {
+      "id": "60001",
+      "name": "Deli",
+      "product_count": "9"
+    },
+    {
+      "id": "90043",
+      "name": "Desserts",
+      "product_count": "3"
+    },
+    {
+      "id": "120004",
+      "name": "Dips/Sauces",
+      "product_count": "0"
+    },
+    {
+      "id": "120009",
+      "name": "Drinks",
+      "product_count": "0"
+    },
+    {
+      "id": "90009",
+      "name": "Energy Drinks",
+      "product_count": "89"
+    },
+    {
+      "id": "90029",
+      "name": "Fish",
+      "product_count": "16"
+    },
+    {
+      "id": "90008",
+      "name": "Fizzy Drinks",
+      "product_count": "103"
+    },
+    {
+      "id": "90004",
+      "name": "Flavored Alcohol",
+      "product_count": "40"
+    },
+    {
+      "id": "4",
+      "name": "Fresh Food",
+      "product_count": "0"
+    },
+    {
+      "id": "150025",
+      "name": "Fried Rice Dishes",
+      "product_count": "0"
+    },
+    {
+      "id": "90015",
+      "name": "Frozen Fridge",
+      "product_count": "42"
+    },
+    {
+      "id": "90001",
+      "name": "Fruit n Veg",
+      "product_count": "5"
+    },
+    {
+      "id": "150005",
+      "name": "Fruity Chicken",
+      "product_count": "0"
+    },
+    {
+      "id": "150011",
+      "name": "Garlic n Chili sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90012",
+      "name": "General",
+      "product_count": "90"
+    },
+    {
+      "id": "90049",
+      "name": "Gifts",
+      "product_count": "9"
+    },
+    {
+      "id": "90052",
+      "name": "Gifts for Her",
+      "product_count": "22"
+    },
+    {
+      "id": "90051",
+      "name": "Gifts for Him",
+      "product_count": "32"
+    },
+    {
+      "id": "90050",
+      "name": "Gifts for Kids",
+      "product_count": "17"
+    },
+    {
+      "id": "150022",
+      "name": "Ginger Scallions",
+      "product_count": "0"
+    },
+    {
+      "id": "90024",
+      "name": "Gravy Herbs and Spices",
+      "product_count": "8"
+    },
+    {
+      "id": "3",
+      "name": "Groceries",
+      "product_count": "0"
+    },
+    {
+      "id": "6",
+      "name": "Household",
+      "product_count": "0"
+    },
+    {
+      "id": "90030",
+      "name": "Household Items",
+      "product_count": "54"
+    },
+    {
+      "id": "90037",
+      "name": "Ice Creams",
+      "product_count": "60"
+    },
+    {
+      "id": "120005",
+      "name": "Kids Meals",
+      "product_count": "0"
+    },
+    {
+      "id": "150039",
+      "name": "Kung Po with Cashew Nuts",
+      "product_count": "0"
+    },
+    {
+      "id": "90041",
+      "name": "Lotto Tickets",
+      "product_count": "8"
+    },
+    {
+      "id": "120011",
+      "name": "Meal Deal",
+      "product_count": "0"
+    },
+    {
+      "id": "5",
+      "name": "Meals",
+      "product_count": "0"
+    },
+    {
+      "id": "90005",
+      "name": "Medicine and Personal",
+      "product_count": "37"
+    },
+    {
+      "id": "90014",
+      "name": "Milk and Yogurts",
+      "product_count": "44"
+    },
+    {
+      "id": "150020",
+      "name": "Mixed Vegetables",
+      "product_count": "0"
+    },
+    {
+      "id": "150008",
+      "name": "Mongolian Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150019",
+      "name": "Mushroom Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90039",
+      "name": "Nicotine Products",
+      "product_count": "14"
+    },
+    {
+      "id": "150029",
+      "name": "Noodle Box",
+      "product_count": "0"
+    },
+    {
+      "id": "150023",
+      "name": "Omelette",
+      "product_count": "0"
+    },
+    {
+      "id": "90022",
+      "name": "Pasta and Sauces",
+      "product_count": "41"
+    },
+    {
+      "id": "150021",
+      "name": "Peking Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90006",
+      "name": "Protein Bars/Foods and Drinks",
+      "product_count": "41"
+    },
+    {
+      "id": "150013",
+      "name": "Rainbow",
+      "product_count": "0"
+    },
+    {
+      "id": "150028",
+      "name": "Rice Box",
+      "product_count": "0"
+    },
+    {
+      "id": "90025",
+      "name": "Rice and Noodles",
+      "product_count": "29"
+    },
+    {
+      "id": "150006",
+      "name": "Roast Duck Dishes",
+      "product_count": "0"
+    },
+    {
+      "id": "90016",
+      "name": "Rolls",
+      "product_count": "20"
+    },
+    {
+      "id": "120006",
+      "name": "Rolls and Wraps",
+      "product_count": "0"
+    },
+    {
+      "id": "150004",
+      "name": "Salt n Chili Delight",
+      "product_count": "0"
+    },
+    {
+      "id": "90040",
+      "name": "Sandwiches",
+      "product_count": "17"
+    },
+    {
+      "id": "150037",
+      "name": "Satay Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150027",
+      "name": "Set Dinner and Meal Deals",
+      "product_count": "0"
+    },
+    {
+      "id": "150026",
+      "name": "Side Orders",
+      "product_count": "0"
+    },
+    {
+      "id": "120003",
+      "name": "Sides",
+      "product_count": "0"
+    },
+    {
+      "id": "90010",
+      "name": "Smoothie Juices n Shakes",
+      "product_count": "62"
+    },
+    {
+      "id": "2",
+      "name": "Snacks",
+      "product_count": "0"
+    },
+    {
+      "id": "90021",
+      "name": "Soups Oils and Condiments",
+      "product_count": "49"
+    },
+    {
+      "id": "90042",
+      "name": "Spirits",
+      "product_count": "46"
+    },
+    {
+      "id": "90026",
+      "name": "Spreads Jam and Deserts",
+      "product_count": "22"
+    },
+    {
+      "id": "150009",
+      "name": "Stir Fry with Herbs",
+      "product_count": "0"
+    },
+    {
+      "id": "90028",
+      "name": "Sweet Bags and Pouches",
+      "product_count": "79"
+    },
+    {
+      "id": "150015",
+      "name": "Sweet Chili Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150036",
+      "name": "Sweet n Sour Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90035",
+      "name": "Sweets n Chewing Gum",
+      "product_count": "63"
+    },
+    {
+      "id": "150041",
+      "name": "Szechuan Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150033",
+      "name": "Tasty Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "90011",
+      "name": "Tea Coffee and Sugar",
+      "product_count": "79"
+    },
+    {
+      "id": "120010",
+      "name": "Tea and Coffee",
+      "product_count": "0"
+    },
+    {
+      "id": "150032",
+      "name": "Thai Red/Green Curry",
+      "product_count": "0"
+    },
+    {
+      "id": "90023",
+      "name": "Tinned Foods",
+      "product_count": "4"
+    },
+    {
+      "id": "90019",
+      "name": "Tobacco and Cigars and Papers",
+      "product_count": "117"
+    },
+    {
+      "id": "150034",
+      "name": "Tom Yam Sauce",
+      "product_count": "0"
+    },
+    {
+      "id": "150002",
+      "name": "Vape Nation",
+      "product_count": "0"
+    },
+    {
+      "id": "90020",
+      "name": "Vapes and Vape Oils",
+      "product_count": "77"
+    },
+    {
+      "id": "90007",
+      "name": "Water and Flavoured Water",
+      "product_count": "81"
+    },
+    {
+      "id": "90002",
+      "name": "Wines",
+      "product_count": "84"
+    },
+    {
+      "id": "90033",
+      "name": "Wraps",
+      "product_count": "15"
+    },
+    {
+      "id": "90017",
+      "name": "Wraps and Sambos.",
+      "product_count": "13"
+    },
+    {
+      "id": "90048",
+      "name": "XL Chocolate",
+      "product_count": "9"
+    },
+    {
+      "id": "90046",
+      "name": "XL DRINKS",
+      "product_count": "2"
+    },
+    {
+      "id": "90044",
+      "name": "XL Halloween",
+      "product_count": "7"
+    },
+    {
+      "id": "90045",
+      "name": "XL Iced Coffees",
+      "product_count": "3"
+    },
+    {
+      "id": "90047",
+      "name": "XL Treats",
+      "product_count": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tproduct_count\n90036\tAnimal Food/Items\t49\n150003\tAppetizers\t0\n120008\tBaked Potatoes\t0\n1\tBeverages\t0\n90027\tBiscuits and Cookies\t131\n150038\tBlack Bean Sauce\t0\n150040\tBlack Pepper Sauce\t0\n90032\tBread Eggs and Cakes\t83\n90053\tBreakFast Bundles\t1\n120007\tBreakfast\t0\n90018\tBreakfast Cereal\t33\n150031\tBroccoli n Oyster Sauce\t0\n120002\tBurgers\t0\n90003\tCans and Bottles\t112\n150014\tCantonese Sauce\t0\n150007\tChefs Recommendation\t0\n120001\tChips and Wedges\t0\n90038\tChocolate Bars\t97\n90031\tChocolates Multi packs and Boxes\t49\n150024\tChow Mein Dishes\t0\n150001\tCooking, Pasta and Sauces\t0\n150030\tCreamy Hot Pot Dishes\t0\n90034\tCrisps and Nuts\t159\n150035\tCurry Sauce\t0\n90013\tDairy and Refrigerated Items\t76\n60001\tDeli\t9\n90043\tDesserts\t3\n120004\tDips/Sauces\t0\n120009\tDrinks\t0\n90009\tEnergy Drinks\t89\n90029\tFish\t16\n90008\tFizzy Drinks\t103\n90004\tFlavored Alcohol\t40\n4\tFresh Food\t0\n150025\tFried Rice Dishes\t0\n90015\tFrozen Fridge\t42\n90001\tFruit n Veg\t5\n150005\tFruity Chicken\t0\n150011\tGarlic n Chili sauce\t0\n90012\tGeneral\t90\n90049\tGifts\t9\n90052\tGifts for Her\t22\n90051\tGifts for Him\t32\n90050\tGifts for Kids\t17\n150022\tGinger Scallions\t0\n90024\tGravy Herbs and Spices\t8\n3\tGroceries\t0\n6\tHousehold\t0\n90030\tHousehold Items\t54\n90037\tIce Creams\t60\n120005\tKids Meals\t0\n150039\tKung Po with Cashew Nuts\t0\n90041\tLotto Tickets\t8\n120011\tMeal Deal\t0\n5\tMeals\t0\n90005\tMedicine and Personal\t37\n90014\tMilk and Yogurts\t44\n150020\tMixed Vegetables\t0\n150008\tMongolian Sauce\t0\n150019\tMushroom Sauce\t0\n90039\tNicotine Products\t14\n150029\tNoodle Box\t0\n150023\tOmelette\t0\n90022\tPasta and Sauces\t41\n150021\tPeking Sauce\t0\n90006\tProtein Bars/Foods and Drinks\t41\n150013\tRainbow\t0\n150028\tRice Box\t0\n90025\tRice and Noodles\t29\n150006\tRoast Duck Dishes\t0\n90016\tRolls\t20\n120006\tRolls and Wraps\t0\n150004\tSalt n Chili Delight\t0\n90040\tSandwiches\t17\n150037\tSatay Sauce\t0\n150027\tSet Dinner and Meal Deals\t0\n150026\tSide Orders\t0\n120003\tSides\t0\n90010\tSmoothie Juices n Shakes\t62\n2\tSnacks\t0\n90021\tSoups Oils and Condiments\t49\n90042\tSpirits\t46\n90026\tSpreads Jam and Deserts\t22\n150009\tStir Fry with Herbs\t0\n90028\tSweet Bags and Pouches\t79\n150015\tSweet Chili Sauce\t0\n150036\tSweet n Sour Sauce\t0\n90035\tSweets n Chewing Gum\t63\n150041\tSzechuan Sauce\t0\n150033\tTasty Sauce\t0\n90011\tTea Coffee and Sugar\t79\n120010\tTea and Coffee\t0\n150032\tThai Red/Green Curry\t0\n90023\tTinned Foods\t4\n90019\tTobacco and Cigars and Papers\t117\n150034\tTom Yam Sauce\t0\n150002\tVape Nation\t0\n90020\tVapes and Vape Oils\t77\n90007\tWater and Flavoured Water\t81\n90002\tWines\t84\n90033\tWraps\t15\n90017\tWraps and Sambos.\t13\n90048\tXL Chocolate\t9\n90046\tXL DRINKS\t2\n90044\tXL Halloween\t7\n90045\tXL Iced Coffees\t3\n90047\tXL Treats\t3\n",
+  "stderr": "",
+  "execution_time_ms": 130
+}
