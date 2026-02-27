@@ -2037,3 +2037,5 @@
 - [x] FEATURE: Product Prices page — inline "Change Category" action per product row (searchable dropdown, instant update)
 - [x] FEATURE: Product Prices page — inline "Move to Store" action per product row (dropdown of stores, moves product entirely)
 - [x] FEATURE: Product Prices page — inline "Duplicate to Store" action per product row (copies product to another store, keeps same global category)
+- [x] BUG: Product Prices page — action menu popup appears off-screen when clicking ⋯ button — fixed by centering popup on screen instead of positioning at click coordinates
+- [x] FEATURE: Product Prices page — add "Out of Stock" toggle to the action menu for each product, with red row highlight and OOS tag

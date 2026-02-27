@@ -1,7 +1,7 @@
 import { Text, View, TouchableOpacity, FlatList, TextInput, StyleSheet, Platform, ActivityIndicator, Alert, Modal, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
@@ -26,15 +26,13 @@ function getFirstImageUrl(images: any): string | null {
   return null;
 }
 
-// Action menu types
 type ActionMenuState = {
   visible: boolean;
   productId: number | null;
   productName: string;
   currentCategoryId: number | null;
   currentCategoryName: string;
-  x: number;
-  y: number;
+  currentStockStatus: string;
 };
 
 type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
@@ -42,7 +40,6 @@ type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
 function ProductPricesContent() {
   const router = useRouter();
   const colors = useColors();
-  const utils = trpc.useUtils();
 
   // Store selector
   const { data: stores } = trpc.stores.getAll.useQuery();
@@ -70,7 +67,7 @@ function ProductPricesContent() {
 
   // Action menu state
   const [actionMenu, setActionMenu] = useState<ActionMenuState>({
-    visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", x: 0, y: 0,
+    visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", currentStockStatus: "in_stock",
   });
   const [subMenu, setSubMenu] = useState<SubMenuType>(null);
   const [subMenuSearch, setSubMenuSearch] = useState("");
@@ -81,10 +78,11 @@ function ProductPricesContent() {
     { enabled: !!selectedStore }
   );
 
-  // Mutations for actions
+  // Mutations
   const changeCategoryMutation = trpc.store.changeProductCategory.useMutation();
   const moveToStoreMutation = trpc.store.moveProductToStore.useMutation();
   const duplicateToStoreMutation = trpc.store.duplicateProductToStore.useMutation();
+  const toggleStockMutation = trpc.store.toggleProductStock.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -92,20 +90,15 @@ function ProductPricesContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset page when filters change
   useEffect(() => { setPage(0); }, [selectedStore, selectedCategory, debouncedSearch]);
 
-  // Auto-select first store
   useEffect(() => {
     if (stores && stores.length > 0 && !selectedStore) {
       setSelectedStore(stores[0].id);
     }
   }, [stores]);
 
-  // Clear price changes when store changes
-  useEffect(() => {
-    setPriceChanges({});
-  }, [selectedStore]);
+  useEffect(() => { setPriceChanges({}); }, [selectedStore]);
 
   // Fetch products
   const { data: productsData, isLoading, refetch } = trpc.stores.getProducts.useQuery(
@@ -124,10 +117,8 @@ function ProductPricesContent() {
   const categorySummary = productsData?.categories || [];
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Bulk update mutation
   const bulkUpdateMutation = trpc.store.bulkUpdatePrices.useMutation();
 
-  // Sort categories with priority order
   const CATEGORY_PRIORITY_ORDER = [
     "Deli", "Fizzy Drinks", "Energy Drinks", "Water and Flavoured Water",
     "Chocolate Bars", "Chocolates Multi packs and Boxes", "Crisps and Nuts",
@@ -154,17 +145,13 @@ function ProductPricesContent() {
     return sortedCategories.filter((c: any) => c.name?.toLowerCase().includes(term));
   }, [sortedCategories, categorySearch]);
 
-  // Count of changes
   const changesCount = Object.keys(priceChanges).length;
 
-  // Handle price change
   const handlePriceChange = useCallback((productId: number, field: "price" | "salePrice", value: string, originalValue: string) => {
     setPriceChanges(prev => {
       const existing = prev[productId] || {};
       const updated = { ...existing, [field]: value };
-      if (value === originalValue) {
-        delete updated[field];
-      }
+      if (value === originalValue) { delete updated[field]; }
       if (Object.keys(updated).length === 0) {
         const { [productId]: _, ...rest } = prev;
         return rest;
@@ -173,7 +160,6 @@ function ProductPricesContent() {
     });
   }, []);
 
-  // Save all changes
   const handleSaveAll = useCallback(async () => {
     if (changesCount === 0) return;
     setIsSaving(true);
@@ -198,7 +184,6 @@ function ProductPricesContent() {
     }
   }, [priceChanges, changesCount, products]);
 
-  // Discard changes
   const handleDiscardAll = useCallback(() => {
     if (changesCount === 0) return;
     if (IS_WEB) {
@@ -213,20 +198,15 @@ function ProductPricesContent() {
     }
   }, [changesCount]);
 
-  // Open action menu
-  const openActionMenu = useCallback((product: any, event?: any) => {
-    let x = 200, y = 200;
-    if (IS_WEB && event?.nativeEvent) {
-      x = event.nativeEvent.pageX || event.nativeEvent.clientX || 200;
-      y = event.nativeEvent.pageY || event.nativeEvent.clientY || 200;
-    }
+  // Open action menu — centered on screen instead of at click position
+  const openActionMenu = useCallback((product: any) => {
     setActionMenu({
       visible: true,
       productId: product.id,
       productName: product.name,
       currentCategoryId: product.categoryId || product.category?.id || null,
       currentCategoryName: product.category?.name || "Uncategorized",
-      x, y,
+      currentStockStatus: product.stockStatus || "in_stock",
     });
     setSubMenu(null);
     setSubMenuSearch("");
@@ -238,21 +218,16 @@ function ProductPricesContent() {
     setSubMenuSearch("");
   }, []);
 
-  // Show toast message
   const showToast = useCallback((msg: string, type: "success" | "error") => {
     setMessage(msg);
     setMessageType(type);
     setTimeout(() => { setMessage(""); setMessageType(""); }, 3000);
   }, []);
 
-  // Handle change category
   const handleChangeCategory = useCallback(async (categoryId: number | null, categoryName: string) => {
     if (!actionMenu.productId) return;
     try {
-      await changeCategoryMutation.mutateAsync({
-        productId: actionMenu.productId,
-        categoryId,
-      });
+      await changeCategoryMutation.mutateAsync({ productId: actionMenu.productId, categoryId });
       closeActionMenu();
       refetch();
       showToast(`"${actionMenu.productName}" moved to ${categoryName}`, "success");
@@ -261,14 +236,10 @@ function ProductPricesContent() {
     }
   }, [actionMenu]);
 
-  // Handle move to store
   const handleMoveToStore = useCallback(async (targetStoreId: number, storeName: string) => {
     if (!actionMenu.productId) return;
     try {
-      await moveToStoreMutation.mutateAsync({
-        productId: actionMenu.productId,
-        targetStoreId,
-      });
+      await moveToStoreMutation.mutateAsync({ productId: actionMenu.productId, targetStoreId });
       closeActionMenu();
       refetch();
       showToast(`"${actionMenu.productName}" moved to ${storeName}`, "success");
@@ -277,14 +248,10 @@ function ProductPricesContent() {
     }
   }, [actionMenu]);
 
-  // Handle duplicate to store
   const handleDuplicateToStore = useCallback(async (targetStoreId: number, storeName: string) => {
     if (!actionMenu.productId) return;
     try {
-      await duplicateToStoreMutation.mutateAsync({
-        productId: actionMenu.productId,
-        targetStoreId,
-      });
+      await duplicateToStoreMutation.mutateAsync({ productId: actionMenu.productId, targetStoreId });
       closeActionMenu();
       showToast(`"${actionMenu.productName}" duplicated to ${storeName}`, "success");
     } catch (err) {
@@ -292,7 +259,22 @@ function ProductPricesContent() {
     }
   }, [actionMenu]);
 
-  // Filtered categories for sub-menu
+  const handleToggleStock = useCallback(async () => {
+    if (!actionMenu.productId) return;
+    const newStatus = actionMenu.currentStockStatus === "out_of_stock" ? "in_stock" : "out_of_stock";
+    try {
+      await toggleStockMutation.mutateAsync({ productId: actionMenu.productId, stockStatus: newStatus });
+      closeActionMenu();
+      refetch();
+      showToast(
+        `"${actionMenu.productName}" marked as ${newStatus === "out_of_stock" ? "Out of Stock" : "In Stock"}`,
+        "success"
+      );
+    } catch (err) {
+      showToast("Failed to update stock status", "error");
+    }
+  }, [actionMenu]);
+
   const filteredAllCategories = useMemo(() => {
     if (!allCategories) return [];
     const sorted = [...allCategories].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -301,7 +283,6 @@ function ProductPricesContent() {
     return sorted.filter(c => c.name?.toLowerCase().includes(term));
   }, [allCategories, subMenuSearch]);
 
-  // Other stores (exclude current)
   const otherStores = useMemo(() => {
     if (!stores) return [];
     return stores.filter(s => s.id !== selectedStore);
@@ -315,13 +296,13 @@ function ProductPricesContent() {
     const currentSalePrice = changes?.salePrice ?? item.salePrice ?? "";
     const priceChanged = changes?.price !== undefined;
     const salePriceChanged = changes?.salePrice !== undefined;
+    const isOutOfStock = item.stockStatus === "out_of_stock";
 
     return (
-      <View style={[styles.row, (priceChanged || salePriceChanged) && styles.rowChanged]}>
-        {/* Image */}
+      <View style={[styles.row, (priceChanged || salePriceChanged) && styles.rowChanged, isOutOfStock && styles.rowOutOfStock]}>
         <View style={styles.imageCell}>
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.productImage} contentFit="cover" />
+            <Image source={{ uri: imageUrl }} style={[styles.productImage, isOutOfStock && { opacity: 0.4 }]} contentFit="cover" />
           ) : (
             <View style={[styles.productImage, styles.noImage]}>
               <Text style={{ fontSize: 16 }}>📦</Text>
@@ -329,17 +310,22 @@ function ProductPricesContent() {
           )}
         </View>
 
-        {/* Product Name + Category */}
         <View style={styles.nameCell}>
-          <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={2}>
+          <Text style={[styles.productName, { color: isOutOfStock ? "#999" : colors.foreground }]} numberOfLines={2}>
             {item.name}
           </Text>
-          <Text style={[styles.categoryLabel, { color: colors.muted }]} numberOfLines={1}>
-            {item.category?.name || "Uncategorized"}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+            <Text style={[styles.categoryLabel, { color: colors.muted }]} numberOfLines={1}>
+              {item.category?.name || "Uncategorized"}
+            </Text>
+            {isOutOfStock && (
+              <View style={styles.oosTag}>
+                <Text style={styles.oosTagText}>OOS</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Current Price (read-only) */}
         <View style={styles.priceCell}>
           <Text style={[styles.priceLabel, { color: colors.muted }]}>Current</Text>
           <Text style={[styles.currentPrice, { color: colors.foreground }]}>
@@ -347,7 +333,6 @@ function ProductPricesContent() {
           </Text>
         </View>
 
-        {/* New Price (editable) */}
         <View style={styles.priceCell}>
           <Text style={[styles.priceLabel, { color: colors.muted }]}>Price</Text>
           <View style={[styles.priceInputWrapper, priceChanged && styles.priceInputChanged]}>
@@ -363,7 +348,6 @@ function ProductPricesContent() {
           </View>
         </View>
 
-        {/* Sale Price (editable) */}
         <View style={styles.priceCell}>
           <Text style={[styles.priceLabel, { color: colors.muted }]}>Sale</Text>
           <View style={[styles.priceInputWrapper, salePriceChanged && styles.priceInputChanged]}>
@@ -379,9 +363,8 @@ function ProductPricesContent() {
           </View>
         </View>
 
-        {/* Action Button */}
         <TouchableOpacity
-          onPress={(e) => openActionMenu(item, e)}
+          onPress={() => openActionMenu(item)}
           style={styles.actionBtn}
         >
           <Text style={styles.actionBtnText}>⋯</Text>
@@ -390,7 +373,6 @@ function ProductPricesContent() {
     );
   }, [priceChanges, colors, handlePriceChange, openActionMenu]);
 
-  // Header
   const ListHeader = useMemo(() => (
     <View style={styles.tableHeader}>
       <View style={styles.imageCell}>
@@ -418,13 +400,14 @@ function ProductPricesContent() {
     ? "All Categories"
     : sortedCategories.find((c: any) => c.id === selectedCategory)?.name || "Unknown";
 
-  // Render the action popup (web: absolute positioned, mobile: modal)
+  // Render the action popup — always centered on screen
   const renderActionPopup = () => {
     if (!actionMenu.visible) return null;
 
+    const isOOS = actionMenu.currentStockStatus === "out_of_stock";
+
     const popupContent = (
-      <View style={[styles.popupContainer, IS_WEB && { position: "fixed" as any, left: Math.min(actionMenu.x, (typeof window !== "undefined" ? window.innerWidth - 280 : 500)), top: Math.min(actionMenu.y, (typeof window !== "undefined" ? window.innerHeight - 400 : 500)), zIndex: 9999 }]}>
-        {/* Product name header */}
+      <View style={styles.popupContainer}>
         <View style={styles.popupHeader}>
           <Text style={styles.popupProductName} numberOfLines={1}>{actionMenu.productName}</Text>
           <TouchableOpacity onPress={closeActionMenu} style={styles.popupClose}>
@@ -434,6 +417,19 @@ function ProductPricesContent() {
 
         {!subMenu && (
           <View>
+            {/* Out of Stock toggle */}
+            <TouchableOpacity onPress={handleToggleStock} style={styles.popupAction}>
+              <Text style={styles.popupActionIcon}>{isOOS ? "✅" : "🚫"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.popupActionText}>
+                  {isOOS ? "Mark In Stock" : "Mark Out of Stock"}
+                </Text>
+                <Text style={styles.popupActionSub}>
+                  {isOOS ? "Currently: Out of Stock" : "Currently: In Stock"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={() => { setSubMenu("category"); setSubMenuSearch(""); }} style={styles.popupAction}>
               <Text style={styles.popupActionIcon}>📂</Text>
               <View style={{ flex: 1 }}>
@@ -463,7 +459,6 @@ function ProductPricesContent() {
           </View>
         )}
 
-        {/* Change Category sub-menu */}
         {subMenu === "category" && (
           <View>
             <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
@@ -499,7 +494,6 @@ function ProductPricesContent() {
           </View>
         )}
 
-        {/* Move to Store sub-menu */}
         {subMenu === "moveStore" && (
           <View>
             <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
@@ -521,7 +515,6 @@ function ProductPricesContent() {
           </View>
         )}
 
-        {/* Duplicate to Store sub-menu */}
         {subMenu === "duplicateStore" && (
           <View>
             <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
@@ -544,17 +537,15 @@ function ProductPricesContent() {
       </View>
     );
 
+    // Use a centered overlay for both web and mobile
     if (IS_WEB) {
       return (
-        <>
-          {/* Backdrop */}
-          <TouchableOpacity
-            onPress={closeActionMenu}
-            style={styles.webBackdrop as any}
-            activeOpacity={1}
-          />
-          {popupContent}
-        </>
+        <View style={styles.webOverlay as any}>
+          <TouchableOpacity onPress={closeActionMenu} style={styles.webOverlayBackdrop as any} activeOpacity={1} />
+          <View style={styles.webOverlayContent}>
+            {popupContent}
+          </View>
+        </View>
       );
     }
 
@@ -572,7 +563,6 @@ function ProductPricesContent() {
   return (
     <ScreenContainer>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Text style={{ color: "#0a7ea4", fontSize: 16 }}>← Back</Text>
@@ -581,28 +571,20 @@ function ProductPricesContent() {
           <View style={{ width: 60 }} />
         </View>
 
-        {/* Store Selector */}
         <View style={styles.storeSelector}>
           {stores?.map((store) => (
             <TouchableOpacity
               key={store.id}
               onPress={() => { setSelectedStore(store.id); setSelectedCategory("all"); setSearchQuery(""); setPage(0); }}
-              style={[
-                styles.storeTab,
-                selectedStore === store.id && styles.storeTabActive,
-              ]}
+              style={[styles.storeTab, selectedStore === store.id && styles.storeTabActive]}
             >
-              <Text style={[
-                styles.storeTabText,
-                selectedStore === store.id && styles.storeTabTextActive,
-              ]}>
+              <Text style={[styles.storeTabText, selectedStore === store.id && styles.storeTabTextActive]}>
                 {store.name}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Search Bar */}
         <View style={styles.searchRow}>
           <TextInput
             style={[styles.searchInput, { color: colors.foreground, borderColor: colors.border }]}
@@ -613,7 +595,6 @@ function ProductPricesContent() {
           />
         </View>
 
-        {/* Category Dropdown */}
         <View style={styles.categoryRow}>
           <TouchableOpacity
             onPress={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
@@ -622,32 +603,23 @@ function ProductPricesContent() {
             <Text style={[styles.categoryDropdownText, { color: colors.foreground }]} numberOfLines={1}>
               {selectedCategoryName}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>
-              {totalCount} products
-            </Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{totalCount} products</Text>
             <Text style={{ color: colors.muted }}>▼</Text>
           </TouchableOpacity>
 
           {changesCount > 0 && (
             <View style={styles.changesBar}>
-              <Text style={styles.changesText}>
-                {changesCount} change{changesCount > 1 ? "s" : ""}
-              </Text>
+              <Text style={styles.changesText}>{changesCount} change{changesCount > 1 ? "s" : ""}</Text>
               <TouchableOpacity onPress={handleDiscardAll} style={styles.discardBtn}>
                 <Text style={styles.discardBtnText}>Discard</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveAll} style={styles.saveBtn} disabled={isSaving}>
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save All</Text>
-                )}
+                {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save All</Text>}
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Category Dropdown List */}
         {categoryDropdownOpen && (
           <View style={[styles.dropdownList, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <TextInput
@@ -670,11 +642,7 @@ function ProductPricesContent() {
             {filteredCategoriesForDropdown.map((cat: any) => (
               <TouchableOpacity
                 key={cat.id || "uncategorized"}
-                onPress={() => {
-                  setSelectedCategory(cat.id || "all");
-                  setCategoryDropdownOpen(false);
-                  setCategorySearch("");
-                }}
+                onPress={() => { setSelectedCategory(cat.id || "all"); setCategoryDropdownOpen(false); setCategorySearch(""); }}
                 style={[styles.dropdownItem, selectedCategory === cat.id && styles.dropdownItemActive]}
               >
                 <Text style={[styles.dropdownItemText, { color: colors.foreground }]} numberOfLines={1}>
@@ -686,19 +654,16 @@ function ProductPricesContent() {
           </View>
         )}
 
-        {/* Success/Error Message */}
         {message !== "" && (
           <View style={[styles.messageBar, messageType === "success" ? styles.messageSuccess : styles.messageError]}>
             <Text style={styles.messageText}>{message}</Text>
           </View>
         )}
 
-        {/* Product Count */}
         <Text style={[styles.countText, { color: colors.muted }]}>
           Showing {products.length} of {totalCount} products (page {page + 1}/{Math.max(totalPages, 1)})
         </Text>
 
-        {/* Table */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -715,7 +680,6 @@ function ProductPricesContent() {
           />
         )}
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <View style={styles.pagination}>
             <TouchableOpacity
@@ -725,9 +689,7 @@ function ProductPricesContent() {
             >
               <Text style={[styles.pageBtnText, page === 0 && { color: "#999" }]}>← Prev</Text>
             </TouchableOpacity>
-            <Text style={[styles.pageInfo, { color: colors.foreground }]}>
-              Page {page + 1} of {totalPages}
-            </Text>
+            <Text style={[styles.pageInfo, { color: colors.foreground }]}>Page {page + 1} of {totalPages}</Text>
             <TouchableOpacity
               onPress={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
@@ -738,26 +700,18 @@ function ProductPricesContent() {
           </View>
         )}
 
-        {/* Floating Save Bar */}
         {changesCount > 0 && (
           <View style={styles.floatingSaveBar}>
-            <Text style={styles.floatingText}>
-              {changesCount} unsaved change{changesCount > 1 ? "s" : ""}
-            </Text>
+            <Text style={styles.floatingText}>{changesCount} unsaved change{changesCount > 1 ? "s" : ""}</Text>
             <TouchableOpacity onPress={handleDiscardAll} style={styles.floatingDiscard}>
               <Text style={styles.floatingDiscardText}>Discard</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSaveAll} style={styles.floatingSave} disabled={isSaving}>
-              {isSaving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.floatingSaveText}>Save All Prices</Text>
-              )}
+              {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.floatingSaveText}>Save All Prices</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Action Menu Popup */}
         {renderActionPopup()}
       </View>
     </ScreenContainer>
@@ -778,7 +732,6 @@ const styles = StyleSheet.create({
   backBtn: { width: 60 },
   title: { fontSize: 20, fontWeight: "700", textAlign: "center" },
 
-  // Store selector
   storeSelector: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
   storeTab: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
@@ -788,14 +741,11 @@ const styles = StyleSheet.create({
   storeTabText: { fontSize: 13, fontWeight: "600", color: "#666" },
   storeTabTextActive: { color: "#fff" },
 
-  // Search
   searchRow: { marginBottom: 10 },
   searchInput: {
-    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14,
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
   },
 
-  // Category dropdown
   categoryRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" },
   categoryDropdown: {
     flex: 1, minWidth: 200, flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -817,7 +767,6 @@ const styles = StyleSheet.create({
   dropdownItemText: { fontSize: 14, flex: 1 },
   dropdownItemCount: { fontSize: 12, marginLeft: 8, fontWeight: "600" },
 
-  // Changes bar
   changesBar: { flexDirection: "row", alignItems: "center", gap: 8 },
   changesText: { fontSize: 13, fontWeight: "600", color: "#F59E0B" },
   discardBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: "#f0f0f0" },
@@ -825,16 +774,13 @@ const styles = StyleSheet.create({
   saveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 6, backgroundColor: "#22C55E" },
   saveBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
 
-  // Messages
   messageBar: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 8 },
   messageSuccess: { backgroundColor: "#dcfce7" },
   messageError: { backgroundColor: "#fee2e2" },
   messageText: { fontSize: 13, fontWeight: "600" },
 
-  // Count
   countText: { fontSize: 12, marginBottom: 6 },
 
-  // Table header
   tableHeader: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8,
     paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: "#e0e0e0",
@@ -842,25 +788,29 @@ const styles = StyleSheet.create({
   },
   headerText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
 
-  // Table row
   row: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8,
     paddingHorizontal: 4, borderBottomWidth: 0.5, borderBottomColor: "#eee",
   },
   rowChanged: { backgroundColor: "#FFFBEB" },
+  rowOutOfStock: { backgroundColor: "#FEF2F2" },
 
-  // Cells
   imageCell: { width: 44, marginRight: 8 },
   productImage: { width: 40, height: 40, borderRadius: 6 },
   noImage: { backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center" },
   nameCell: { flex: 1, marginRight: 8 },
   productName: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  categoryLabel: { fontSize: 11, marginTop: 2 },
+  categoryLabel: { fontSize: 11 },
   priceCell: { width: 90, alignItems: "center" },
   priceLabel: { fontSize: 9, marginBottom: 2 },
   currentPrice: { fontSize: 14, fontWeight: "700" },
 
-  // Price input
+  // Out of stock tag
+  oosTag: {
+    backgroundColor: "#EF4444", borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1,
+  },
+  oosTagText: { fontSize: 8, fontWeight: "800", color: "#fff", letterSpacing: 0.5 },
+
   priceInputWrapper: {
     flexDirection: "row", alignItems: "center",
     borderWidth: 1, borderColor: "#ddd", borderRadius: 6,
@@ -870,7 +820,6 @@ const styles = StyleSheet.create({
   euroSign: { fontSize: 13, color: "#666", marginRight: 2 },
   priceInput: { fontSize: 13, fontWeight: "600", width: 55, textAlign: "right", padding: 0 },
 
-  // Action button
   actionBtn: {
     width: 32, height: 32, borderRadius: 16,
     alignItems: "center", justifyContent: "center",
@@ -879,13 +828,9 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 18, fontWeight: "700", color: "#888", letterSpacing: 2 },
   actionCol: { width: 36 },
 
-  // Loading
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 40 },
-
-  // List
   list: { flex: 1 },
 
-  // Pagination
   pagination: {
     flexDirection: "row", justifyContent: "center", alignItems: "center",
     gap: 16, paddingVertical: 12,
@@ -895,7 +840,6 @@ const styles = StyleSheet.create({
   pageBtnText: { fontSize: 13, fontWeight: "600", color: "#fff" },
   pageInfo: { fontSize: 13, fontWeight: "600" },
 
-  // Floating save bar
   floatingSaveBar: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     flexDirection: "row", alignItems: "center", justifyContent: "center",
@@ -909,13 +853,24 @@ const styles = StyleSheet.create({
   floatingSave: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, backgroundColor: "#22C55E" },
   floatingSaveText: { fontSize: 13, fontWeight: "700", color: "#fff" },
 
-  // Action popup
-  webBackdrop: {
+  // Centered overlay for web
+  webOverlay: {
     position: "fixed" as any,
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.15)",
     zIndex: 9998,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
+  webOverlayBackdrop: {
+    position: "absolute" as any,
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  } as any,
+  webOverlayContent: {
+    zIndex: 9999,
+  },
+
   modalBackdrop: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center", alignItems: "center",
@@ -924,7 +879,7 @@ const styles = StyleSheet.create({
     width: "90%", maxWidth: 320,
   },
   popupContainer: {
-    width: 260, backgroundColor: "#fff", borderRadius: 12,
+    width: 280, backgroundColor: "#fff", borderRadius: 12,
     ...(IS_WEB ? { boxShadow: "0 8px 32px rgba(0,0,0,0.18)" } : {}),
     borderWidth: IS_WEB ? 0 : 1, borderColor: "#e0e0e0",
     overflow: "hidden",
