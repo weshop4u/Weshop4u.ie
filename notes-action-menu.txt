@@ -1,0 +1,28 @@
+Key findings for action menu implementation:
+
+1. Categories are GLOBAL (no storeId on productCategories table) - all stores share the same categories
+   - This means "Change Category" just needs to update products.categoryId
+   - "Move to Store" just updates products.storeId (category stays the same since categories are global)
+   - "Duplicate to Store" creates a new product with the target storeId (same categoryId works)
+
+2. The backend endpoints we added for moveProductToStore and duplicateProductToStore 
+   try to match categories by name across stores - but since categories are GLOBAL, 
+   we can simplify: just keep the same categoryId!
+
+3. Existing endpoints:
+   - store.updateProduct: can update categoryId (for Change Category)
+   - store.getCategories: returns ALL categories (for the category picker)
+   - stores.getAll: returns all stores (for the store picker)
+   - NEW: store.moveProductToStore: moves product to another store
+   - NEW: store.duplicateProductToStore: copies product to another store
+   - NEW: store.changeProductCategory: changes product category
+
+4. Since categories are global, moveProductToStore just needs to update storeId.
+   The category matching logic in the new endpoints is unnecessary but harmless.
+
+5. Product data from getProducts includes: category: { id, name, slug, icon, ... }
+
+6. For the UI: each row gets a "⋯" button that opens an action popup with:
+   - Change Category (searchable dropdown of all categories)
+   - Move to Store (dropdown of other stores)
+   - Duplicate to Store (dropdown of other stores)

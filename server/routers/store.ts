@@ -986,4 +986,66 @@ export const storeRouter = router({
 
       return { success: true, alreadyAccepted: false };
     }),
+
+  // Move a product to a different store (categories are global, so just update storeId)
+  moveProductToStore: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      targetStoreId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const product = await db.select().from(products).where(eq(products.id, input.productId)).limit(1);
+      if (product.length === 0) throw new Error("Product not found");
+      await db.update(products).set({
+        storeId: input.targetStoreId,
+      }).where(eq(products.id, input.productId));
+      return { success: true };
+    }),
+
+  // Duplicate a product to another store (categories are global, so same categoryId works)
+  duplicateProductToStore: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      targetStoreId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const product = await db.select().from(products).where(eq(products.id, input.productId)).limit(1);
+      if (product.length === 0) throw new Error("Product not found");
+      const p = product[0];
+      const result = await db.insert(products).values({
+        storeId: input.targetStoreId,
+        categoryId: p.categoryId,
+        name: p.name,
+        description: p.description,
+        sku: p.sku,
+        barcode: p.barcode,
+        price: p.price,
+        salePrice: p.salePrice,
+        images: p.images,
+        stockStatus: p.stockStatus,
+        quantity: p.quantity,
+        isActive: p.isActive,
+        isDrs: p.isDrs,
+        weight: p.weight,
+        dimensions: p.dimensions,
+      });
+      return { success: true, newProductId: Number(result[0].insertId) };
+    }),
+
+  // Change a product's category
+  changeProductCategory: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      categoryId: z.number().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.update(products).set({ categoryId: input.categoryId }).where(eq(products.id, input.productId));
+      return { success: true };
+    }),
 });

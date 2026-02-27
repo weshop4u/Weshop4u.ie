@@ -1,4 +1,4 @@
-import { Text, View, TouchableOpacity, FlatList, TextInput, StyleSheet, Platform, ActivityIndicator, Alert } from "react-native";
+import { Text, View, TouchableOpacity, FlatList, TextInput, StyleSheet, Platform, ActivityIndicator, Alert, Modal, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
@@ -12,11 +12,9 @@ const PAGE_SIZE = 50;
 
 function getFirstImageUrl(images: any): string | null {
   if (!images) return null;
-  // API already parses images JSON to arrays
   if (Array.isArray(images) && images.length > 0 && typeof images[0] === "string") {
     return images[0];
   }
-  // Fallback: try parsing if it's a string
   if (typeof images === "string") {
     try {
       const arr = JSON.parse(images);
@@ -28,9 +26,23 @@ function getFirstImageUrl(images: any): string | null {
   return null;
 }
 
+// Action menu types
+type ActionMenuState = {
+  visible: boolean;
+  productId: number | null;
+  productName: string;
+  currentCategoryId: number | null;
+  currentCategoryName: string;
+  x: number;
+  y: number;
+};
+
+type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
+
 function ProductPricesContent() {
   const router = useRouter();
   const colors = useColors();
+  const utils = trpc.useUtils();
 
   // Store selector
   const { data: stores } = trpc.stores.getAll.useQuery();
@@ -48,13 +60,31 @@ function ProductPricesContent() {
   // Pagination
   const [page, setPage] = useState(0);
 
-  // Price changes tracking: { [productId]: { price: string, salePrice: string } }
+  // Price changes tracking
   const [priceChanges, setPriceChanges] = useState<Record<number, { price?: string; salePrice?: string }>>({});
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+
+  // Action menu state
+  const [actionMenu, setActionMenu] = useState<ActionMenuState>({
+    visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", x: 0, y: 0,
+  });
+  const [subMenu, setSubMenu] = useState<SubMenuType>(null);
+  const [subMenuSearch, setSubMenuSearch] = useState("");
+
+  // Fetch all categories for the category picker
+  const { data: allCategories } = trpc.store.getCategories.useQuery(
+    { storeId: selectedStore! },
+    { enabled: !!selectedStore }
+  );
+
+  // Mutations for actions
+  const changeCategoryMutation = trpc.store.changeProductCategory.useMutation();
+  const moveToStoreMutation = trpc.store.moveProductToStore.useMutation();
+  const duplicateToStoreMutation = trpc.store.duplicateProductToStore.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -132,18 +162,13 @@ function ProductPricesContent() {
     setPriceChanges(prev => {
       const existing = prev[productId] || {};
       const updated = { ...existing, [field]: value };
-
-      // If value matches original, remove that field from changes
       if (value === originalValue) {
         delete updated[field];
       }
-
-      // If no changes left for this product, remove the product entry
       if (Object.keys(updated).length === 0) {
         const { [productId]: _, ...rest } = prev;
         return rest;
       }
-
       return { ...prev, [productId]: updated };
     });
   }, []);
@@ -151,7 +176,6 @@ function ProductPricesContent() {
   // Save all changes
   const handleSaveAll = useCallback(async () => {
     if (changesCount === 0) return;
-
     setIsSaving(true);
     try {
       const updates = Object.entries(priceChanges).map(([id, changes]) => ({
@@ -159,7 +183,6 @@ function ProductPricesContent() {
         price: changes.price || products.find((p: any) => p.id === parseInt(id))?.price || "0",
         salePrice: changes.salePrice !== undefined ? changes.salePrice : undefined,
       }));
-
       await bulkUpdateMutation.mutateAsync({ updates });
       setPriceChanges({});
       refetch();
@@ -189,6 +212,100 @@ function ProductPricesContent() {
       ]);
     }
   }, [changesCount]);
+
+  // Open action menu
+  const openActionMenu = useCallback((product: any, event?: any) => {
+    let x = 200, y = 200;
+    if (IS_WEB && event?.nativeEvent) {
+      x = event.nativeEvent.pageX || event.nativeEvent.clientX || 200;
+      y = event.nativeEvent.pageY || event.nativeEvent.clientY || 200;
+    }
+    setActionMenu({
+      visible: true,
+      productId: product.id,
+      productName: product.name,
+      currentCategoryId: product.categoryId || product.category?.id || null,
+      currentCategoryName: product.category?.name || "Uncategorized",
+      x, y,
+    });
+    setSubMenu(null);
+    setSubMenuSearch("");
+  }, []);
+
+  const closeActionMenu = useCallback(() => {
+    setActionMenu(prev => ({ ...prev, visible: false, productId: null }));
+    setSubMenu(null);
+    setSubMenuSearch("");
+  }, []);
+
+  // Show toast message
+  const showToast = useCallback((msg: string, type: "success" | "error") => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => { setMessage(""); setMessageType(""); }, 3000);
+  }, []);
+
+  // Handle change category
+  const handleChangeCategory = useCallback(async (categoryId: number | null, categoryName: string) => {
+    if (!actionMenu.productId) return;
+    try {
+      await changeCategoryMutation.mutateAsync({
+        productId: actionMenu.productId,
+        categoryId,
+      });
+      closeActionMenu();
+      refetch();
+      showToast(`"${actionMenu.productName}" moved to ${categoryName}`, "success");
+    } catch (err) {
+      showToast("Failed to change category", "error");
+    }
+  }, [actionMenu]);
+
+  // Handle move to store
+  const handleMoveToStore = useCallback(async (targetStoreId: number, storeName: string) => {
+    if (!actionMenu.productId) return;
+    try {
+      await moveToStoreMutation.mutateAsync({
+        productId: actionMenu.productId,
+        targetStoreId,
+      });
+      closeActionMenu();
+      refetch();
+      showToast(`"${actionMenu.productName}" moved to ${storeName}`, "success");
+    } catch (err) {
+      showToast("Failed to move product", "error");
+    }
+  }, [actionMenu]);
+
+  // Handle duplicate to store
+  const handleDuplicateToStore = useCallback(async (targetStoreId: number, storeName: string) => {
+    if (!actionMenu.productId) return;
+    try {
+      await duplicateToStoreMutation.mutateAsync({
+        productId: actionMenu.productId,
+        targetStoreId,
+      });
+      closeActionMenu();
+      showToast(`"${actionMenu.productName}" duplicated to ${storeName}`, "success");
+    } catch (err) {
+      showToast("Failed to duplicate product", "error");
+    }
+  }, [actionMenu]);
+
+  // Filtered categories for sub-menu
+  const filteredAllCategories = useMemo(() => {
+    if (!allCategories) return [];
+    const sorted = [...allCategories].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (!subMenuSearch.trim()) return sorted;
+    const term = subMenuSearch.toLowerCase();
+    return sorted.filter(c => c.name?.toLowerCase().includes(term));
+  }, [allCategories, subMenuSearch]);
+
+  // Other stores (exclude current)
+  const otherStores = useMemo(() => {
+    if (!stores) return [];
+    return stores.filter(s => s.id !== selectedStore);
+  }, [stores, selectedStore]);
 
   // Render product row
   const renderProduct = useCallback(({ item }: { item: any }) => {
@@ -261,9 +378,17 @@ function ProductPricesContent() {
             />
           </View>
         </View>
+
+        {/* Action Button */}
+        <TouchableOpacity
+          onPress={(e) => openActionMenu(item, e)}
+          style={styles.actionBtn}
+        >
+          <Text style={styles.actionBtnText}>⋯</Text>
+        </TouchableOpacity>
       </View>
     );
-  }, [priceChanges, colors, handlePriceChange]);
+  }, [priceChanges, colors, handlePriceChange, openActionMenu]);
 
   // Header
   const ListHeader = useMemo(() => (
@@ -283,12 +408,166 @@ function ProductPricesContent() {
       <View style={styles.priceCell}>
         <Text style={[styles.headerText, { color: colors.muted }]}>SALE</Text>
       </View>
+      <View style={styles.actionCol}>
+        <Text style={[styles.headerText, { color: colors.muted }]}></Text>
+      </View>
     </View>
   ), [colors]);
 
   const selectedCategoryName = selectedCategory === "all"
     ? "All Categories"
     : sortedCategories.find((c: any) => c.id === selectedCategory)?.name || "Unknown";
+
+  // Render the action popup (web: absolute positioned, mobile: modal)
+  const renderActionPopup = () => {
+    if (!actionMenu.visible) return null;
+
+    const popupContent = (
+      <View style={[styles.popupContainer, IS_WEB && { position: "fixed" as any, left: Math.min(actionMenu.x, (typeof window !== "undefined" ? window.innerWidth - 280 : 500)), top: Math.min(actionMenu.y, (typeof window !== "undefined" ? window.innerHeight - 400 : 500)), zIndex: 9999 }]}>
+        {/* Product name header */}
+        <View style={styles.popupHeader}>
+          <Text style={styles.popupProductName} numberOfLines={1}>{actionMenu.productName}</Text>
+          <TouchableOpacity onPress={closeActionMenu} style={styles.popupClose}>
+            <Text style={styles.popupCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {!subMenu && (
+          <View>
+            <TouchableOpacity onPress={() => { setSubMenu("category"); setSubMenuSearch(""); }} style={styles.popupAction}>
+              <Text style={styles.popupActionIcon}>📂</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.popupActionText}>Change Category</Text>
+                <Text style={styles.popupActionSub}>Currently: {actionMenu.currentCategoryName}</Text>
+              </View>
+              <Text style={styles.popupChevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { setSubMenu("moveStore"); setSubMenuSearch(""); }} style={styles.popupAction}>
+              <Text style={styles.popupActionIcon}>📦</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.popupActionText}>Move to Store</Text>
+                <Text style={styles.popupActionSub}>Remove from current store</Text>
+              </View>
+              <Text style={styles.popupChevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { setSubMenu("duplicateStore"); setSubMenuSearch(""); }} style={styles.popupAction}>
+              <Text style={styles.popupActionIcon}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.popupActionText}>Duplicate to Store</Text>
+                <Text style={styles.popupActionSub}>Copy to another store</Text>
+              </View>
+              <Text style={styles.popupChevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Change Category sub-menu */}
+        {subMenu === "category" && (
+          <View>
+            <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
+              <Text style={styles.popupBackText}>← Back</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.popupSearchInput}
+              placeholder="Search categories..."
+              placeholderTextColor="#999"
+              value={subMenuSearch}
+              onChangeText={setSubMenuSearch}
+              autoFocus
+            />
+            <ScrollView style={styles.popupScrollList}>
+              {filteredAllCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => handleChangeCategory(cat.id, cat.name)}
+                  style={[styles.popupListItem, cat.id === actionMenu.currentCategoryId && styles.popupListItemActive]}
+                >
+                  <Text style={[styles.popupListItemText, cat.id === actionMenu.currentCategoryId && styles.popupListItemTextActive]} numberOfLines={1}>
+                    {cat.name}
+                  </Text>
+                  {cat.id === actionMenu.currentCategoryId && (
+                    <Text style={styles.popupCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+              {filteredAllCategories.length === 0 && (
+                <Text style={styles.popupEmpty}>No categories found</Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Move to Store sub-menu */}
+        {subMenu === "moveStore" && (
+          <View>
+            <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
+              <Text style={styles.popupBackText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.popupSubTitle}>Move to which store?</Text>
+            {otherStores.map((store) => (
+              <TouchableOpacity
+                key={store.id}
+                onPress={() => handleMoveToStore(store.id, store.name)}
+                style={styles.popupListItem}
+              >
+                <Text style={styles.popupListItemText}>{store.name}</Text>
+              </TouchableOpacity>
+            ))}
+            {otherStores.length === 0 && (
+              <Text style={styles.popupEmpty}>No other stores available</Text>
+            )}
+          </View>
+        )}
+
+        {/* Duplicate to Store sub-menu */}
+        {subMenu === "duplicateStore" && (
+          <View>
+            <TouchableOpacity onPress={() => setSubMenu(null)} style={styles.popupBackBtn}>
+              <Text style={styles.popupBackText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.popupSubTitle}>Duplicate to which store?</Text>
+            {(stores || []).map((store) => (
+              <TouchableOpacity
+                key={store.id}
+                onPress={() => handleDuplicateToStore(store.id, store.name)}
+                style={[styles.popupListItem, store.id === selectedStore && styles.popupListItemActive]}
+              >
+                <Text style={[styles.popupListItemText, store.id === selectedStore && { color: "#999" }]}>
+                  {store.name}{store.id === selectedStore ? " (current)" : ""}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+
+    if (IS_WEB) {
+      return (
+        <>
+          {/* Backdrop */}
+          <TouchableOpacity
+            onPress={closeActionMenu}
+            style={styles.webBackdrop as any}
+            activeOpacity={1}
+          />
+          {popupContent}
+        </>
+      );
+    }
+
+    return (
+      <Modal visible={actionMenu.visible} transparent animationType="fade" onRequestClose={closeActionMenu}>
+        <TouchableOpacity onPress={closeActionMenu} style={styles.modalBackdrop} activeOpacity={1}>
+          <View style={styles.modalContent}>
+            {popupContent}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
 
   return (
     <ScreenContainer>
@@ -344,12 +623,11 @@ function ProductPricesContent() {
               {selectedCategoryName}
             </Text>
             <Text style={{ color: colors.muted, fontSize: 12 }}>
-              {selectedCategory === "all" ? `${totalCount} products` : `${totalCount} products`}
+              {totalCount} products
             </Text>
             <Text style={{ color: colors.muted }}>▼</Text>
           </TouchableOpacity>
 
-          {/* Changes indicator + Save/Discard */}
           {changesCount > 0 && (
             <View style={styles.changesBar}>
               <Text style={styles.changesText}>
@@ -478,6 +756,9 @@ function ProductPricesContent() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Action Menu Popup */}
+        {renderActionPopup()}
       </View>
     </ScreenContainer>
   );
@@ -589,6 +870,15 @@ const styles = StyleSheet.create({
   euroSign: { fontSize: 13, color: "#666", marginRight: 2 },
   priceInput: { fontSize: 13, fontWeight: "600", width: 55, textAlign: "right", padding: 0 },
 
+  // Action button
+  actionBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: "center", justifyContent: "center",
+    marginLeft: 4,
+  },
+  actionBtnText: { fontSize: 18, fontWeight: "700", color: "#888", letterSpacing: 2 },
+  actionCol: { width: 36 },
+
   // Loading
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 40 },
 
@@ -618,4 +908,66 @@ const styles = StyleSheet.create({
   floatingDiscardText: { fontSize: 13, fontWeight: "600", color: "#666" },
   floatingSave: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, backgroundColor: "#22C55E" },
   floatingSaveText: { fontSize: 13, fontWeight: "700", color: "#fff" },
+
+  // Action popup
+  webBackdrop: {
+    position: "fixed" as any,
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    zIndex: 9998,
+  } as any,
+  modalBackdrop: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center", alignItems: "center",
+  },
+  modalContent: {
+    width: "90%", maxWidth: 320,
+  },
+  popupContainer: {
+    width: 260, backgroundColor: "#fff", borderRadius: 12,
+    ...(IS_WEB ? { boxShadow: "0 8px 32px rgba(0,0,0,0.18)" } : {}),
+    borderWidth: IS_WEB ? 0 : 1, borderColor: "#e0e0e0",
+    overflow: "hidden",
+  } as any,
+  popupHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
+    backgroundColor: "#fafafa",
+  },
+  popupProductName: { fontSize: 13, fontWeight: "700", color: "#333", flex: 1, marginRight: 8 },
+  popupClose: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#f0f0f0" },
+  popupCloseText: { fontSize: 12, color: "#666", fontWeight: "700" },
+
+  popupAction: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0",
+  },
+  popupActionIcon: { fontSize: 16, width: 24, textAlign: "center" },
+  popupActionText: { fontSize: 13, fontWeight: "600", color: "#333" },
+  popupActionSub: { fontSize: 11, color: "#999", marginTop: 1 },
+  popupChevron: { fontSize: 18, color: "#ccc", fontWeight: "300" },
+
+  popupBackBtn: { paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0" },
+  popupBackText: { fontSize: 13, color: "#0a7ea4", fontWeight: "600" },
+
+  popupSubTitle: { fontSize: 12, color: "#666", fontWeight: "600", paddingHorizontal: 14, paddingVertical: 8 },
+
+  popupSearchInput: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    fontSize: 13, borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
+    color: "#333",
+  },
+  popupScrollList: { maxHeight: 250 },
+  popupListItem: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 0.5, borderBottomColor: "#f5f5f5",
+  },
+  popupListItemActive: { backgroundColor: "rgba(10, 126, 164, 0.08)" },
+  popupListItemText: { fontSize: 13, color: "#333", flex: 1 },
+  popupListItemTextActive: { color: "#0a7ea4", fontWeight: "600" },
+  popupCheckmark: { fontSize: 14, color: "#0a7ea4", fontWeight: "700", marginLeft: 8 },
+  popupEmpty: { fontSize: 13, color: "#999", textAlign: "center", paddingVertical: 16 },
 });
