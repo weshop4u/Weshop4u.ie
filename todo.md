@@ -2032,3 +2032,4 @@
 - [x] CLEANUP: Deleted Gifts category (id 90049) and soft-deleted its 9 products from Spar (chargers, earbuds, speakers, smart watch)
 - [x] FEATURE: Added Category Images management page to store dashboard — upload, change, or remove images for each category, with priority sorting and search
 - [x] FEATURE: Product Prices management page in admin panel — inline editable prices, store selector, category filter, search, alphabetical default sort, price change highlighting, bulk save, sale price support. Accessible from admin sidebar, admin dashboard quick actions, and store dashboard quick actions. 15 unit tests passing.
+- [x] CLEANUP: Move slushie drink products from Spar to Applegreen — moved 8 Slushee drinks (Blue Raspberry, Cola, Lime, Strawberry in Large/Regular sizes), kept 2 Slush Puppie sweets in Spar

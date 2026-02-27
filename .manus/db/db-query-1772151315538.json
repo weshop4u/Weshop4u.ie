@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, name, store_id, category_id, price, is_active FROM products WHERE store_id = 1 AND (name LIKE '%slush%' OR name LIKE '%Slush%' OR name LIKE '%SLUSH%') AND is_active = 1 ORDER BY name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, store_id, category_id, price, is_active FROM products WHERE store_id = 1 AND (name LIKE '%slush%' OR name LIKE '%Slush%' OR name LIKE '%SLUSH%') AND is_active = 1 ORDER BY name;",
+  "rows": [
+    {
+      "id": "62607",
+      "name": "Blue Raspberry Slushee Large 16oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "4.00",
+      "is_active": "1"
+    },
+    {
+      "id": "62608",
+      "name": "Blue Raspberry Slushee Regular 12oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "3.50",
+      "is_active": "1"
+    },
+    {
+      "id": "62605",
+      "name": "Cola Slushee Large 16oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "4.00",
+      "is_active": "1"
+    },
+    {
+      "id": "62604",
+      "name": "Cola Slushee Regular 12oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "3.50",
+      "is_active": "1"
+    },
+    {
+      "id": "62606",
+      "name": "Lime Slushee Large 16oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "3.50",
+      "is_active": "1"
+    },
+    {
+      "id": "62603",
+      "name": "Lime Slushee Regular 12oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "3.50",
+      "is_active": "1"
+    },
+    {
+      "id": "61343",
+      "name": "Slush Puppie Roller Licker 60ml",
+      "store_id": "1",
+      "category_id": "90035",
+      "price": "2.19",
+      "is_active": "1"
+    },
+    {
+      "id": "61344",
+      "name": "Slush Puppie Squeeze Can 60g",
+      "store_id": "1",
+      "category_id": "90035",
+      "price": "2.29",
+      "is_active": "1"
+    },
+    {
+      "id": "62610",
+      "name": "Strawberry Slushee Large 16oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "4.00",
+      "is_active": "1"
+    },
+    {
+      "id": "62609",
+      "name": "Strawberry Slushee Regular 12oz",
+      "store_id": "1",
+      "category_id": "90010",
+      "price": "3.50",
+      "is_active": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tstore_id\tcategory_id\tprice\tis_active\n62607\tBlue Raspberry Slushee Large 16oz\t1\t90010\t4.00\t1\n62608\tBlue Raspberry Slushee Regular 12oz\t1\t90010\t3.50\t1\n62605\tCola Slushee Large 16oz\t1\t90010\t4.00\t1\n62604\tCola Slushee Regular 12oz\t1\t90010\t3.50\t1\n62606\tLime Slushee Large 16oz\t1\t90010\t3.50\t1\n62603\tLime Slushee Regular 12oz\t1\t90010\t3.50\t1\n61343\tSlush Puppie Roller Licker 60ml\t1\t90035\t2.19\t1\n61344\tSlush Puppie Squeeze Can 60g\t1\t90035\t2.29\t1\n62610\tStrawberry Slushee Large 16oz\t1\t90010\t4.00\t1\n62609\tStrawberry Slushee Regular 12oz\t1\t90010\t3.50\t1\n",
+  "stderr": "",
+  "execution_time_ms": 86
+}

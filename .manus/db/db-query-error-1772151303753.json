@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, name, store_id, category_id FROM products WHERE store_id = 1 AND (name LIKE '%slush%' OR name LIKE '%Slush%' OR name LIKE '%SLUSH%') AND deleted_at IS NULL ORDER BY name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, store_id, category_id FROM products WHERE store_id = 1 AND (name LIKE '%slush%' OR name LIKE '%Slush%' OR name LIKE '%SLUSH%') AND deleted_at IS NULL ORDER BY name;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'deleted_at' in 'where clause'"
+  ]
+}
