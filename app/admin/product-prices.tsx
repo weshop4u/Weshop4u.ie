@@ -54,6 +54,9 @@ function ProductPricesContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // Out of Stock filter
+  const [showOOSOnly, setShowOOSOnly] = useState(false);
+
   // Pagination
   const [page, setPage] = useState(0);
 
@@ -90,7 +93,7 @@ function ProductPricesContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => { setPage(0); }, [selectedStore, selectedCategory, debouncedSearch]);
+  useEffect(() => { setPage(0); }, [selectedStore, selectedCategory, debouncedSearch, showOOSOnly]);
 
   useEffect(() => {
     if (stores && stores.length > 0 && !selectedStore) {
@@ -106,6 +109,7 @@ function ProductPricesContent() {
       storeId: selectedStore!,
       search: debouncedSearch || undefined,
       categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      filter: showOOSOnly ? "out_of_stock" as const : undefined,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     },
@@ -595,6 +599,23 @@ function ProductPricesContent() {
           />
         </View>
 
+        {/* Out of Stock filter toggle */}
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            onPress={() => setShowOOSOnly(!showOOSOnly)}
+            style={[styles.oosFilterBtn, showOOSOnly && styles.oosFilterBtnActive]}
+          >
+            <Text style={[styles.oosFilterText, showOOSOnly && styles.oosFilterTextActive]}>
+              🚫 Out of Stock Only
+            </Text>
+          </TouchableOpacity>
+          {showOOSOnly && (
+            <TouchableOpacity onPress={() => setShowOOSOnly(false)}>
+              <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600" }}>Show All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <View style={styles.categoryRow}>
           <TouchableOpacity
             onPress={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
@@ -778,6 +799,16 @@ const styles = StyleSheet.create({
   messageSuccess: { backgroundColor: "#dcfce7" },
   messageError: { backgroundColor: "#fee2e2" },
   messageText: { fontSize: 13, fontWeight: "600" },
+
+  // OOS filter
+  filterRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  oosFilterBtn: {
+    flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 16, borderWidth: 1, borderColor: "#e0e0e0", backgroundColor: "#f8f8f8",
+  },
+  oosFilterBtnActive: { borderColor: "#EF4444", backgroundColor: "#FEF2F2" },
+  oosFilterText: { fontSize: 12, fontWeight: "600", color: "#888" },
+  oosFilterTextActive: { color: "#EF4444" },
 
   countText: { fontSize: 12, marginBottom: 6 },
 

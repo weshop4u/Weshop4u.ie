@@ -2039,3 +2039,4 @@
 - [x] FEATURE: Product Prices page — inline "Duplicate to Store" action per product row (copies product to another store, keeps same global category)
 - [x] BUG: Product Prices page — action menu popup appears off-screen when clicking ⋯ button — fixed by centering popup on screen instead of positioning at click coordinates
 - [x] FEATURE: Product Prices page — add "Out of Stock" toggle to the action menu for each product, with red row highlight and OOS tag
+- [x] FEATURE: Product Prices page — add "Out of Stock only" filter toggle to quickly view all OOS items across a store
