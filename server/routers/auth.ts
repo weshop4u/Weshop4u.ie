@@ -475,4 +475,63 @@ export const authRouter = router({
 
     return user;
   }),
+
+  // Reset password using phone number (after OTP verification)
+  resetPasswordByPhone: publicProcedure
+    .input(
+      z.object({
+        phone: z.string().min(7, "Phone number is required"),
+        newPassword: z.string().min(6, "Password must be at least 6 characters"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Normalize phone for matching
+      const cleanPhone = input.phone.replace(/[\s\-\(\)]/g, "");
+
+      // Try to find user by phone with various formats
+      let userResult = await db
+        .select({ id: users.id, phone: users.phone })
+        .from(users)
+        .where(eq(users.phone, cleanPhone))
+        .limit(1);
+
+      // Try domestic format: +353... -> 0...
+      if (userResult.length === 0 && cleanPhone.startsWith("+353")) {
+        const domesticPhone = "0" + cleanPhone.substring(4);
+        userResult = await db
+          .select({ id: users.id, phone: users.phone })
+          .from(users)
+          .where(eq(users.phone, domesticPhone))
+          .limit(1);
+      }
+      // Try international format: 0... -> +353...
+      if (userResult.length === 0 && cleanPhone.startsWith("0")) {
+        const intlPhone = "+353" + cleanPhone.substring(1);
+        userResult = await db
+          .select({ id: users.id, phone: users.phone })
+          .from(users)
+          .where(eq(users.phone, intlPhone))
+          .limit(1);
+      }
+
+      if (userResult.length === 0) {
+        throw new Error("No account found with this phone number");
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(input.newPassword, 10);
+
+      // Update password
+      await db
+        .update(users)
+        .set({ passwordHash: newPasswordHash })
+        .where(eq(users.id, userResult[0].id));
+
+      return { success: true, userId: userResult[0].id };
+    }),
 });

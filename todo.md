@@ -2041,3 +2041,4 @@
 - [x] FEATURE: Product Prices page — add "Out of Stock" toggle to the action menu for each product, with red row highlight and OOS tag
 - [x] FEATURE: Product Prices page — add "Out of Stock only" filter toggle to quickly view all OOS items across a store
 - [x] FEATURE: Customer sign-up with phone verification (SMS OTP via Twilio) — phone number required, 6-digit code, verify before account creation. 3-step flow: details → OTP → success. 19 tests passing.
+- [x] FEATURE: Forgot password flow with SMS OTP — enter phone, receive code, verify, set new password, redirect to login. 4-step flow: phone → OTP → new password → success. 17 tests passing.
