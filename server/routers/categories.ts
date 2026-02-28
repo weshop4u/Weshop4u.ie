@@ -63,10 +63,17 @@ export const categoriesRouter = router({
       const counts = await countQuery;
       const countMap = new Map(counts.map((c) => [c.categoryId, c.count]));
 
-      return categories.map((cat) => ({
+      const result = categories.map((cat) => ({
         ...cat,
         productCount: countMap.get(cat.id) || 0,
       }));
+
+      // When filtering by store, only return categories that have at least one product in that store
+      if (input?.storeId) {
+        return result.filter((cat) => cat.productCount > 0);
+      }
+
+      return result;
     }),
 
   // Rename a category

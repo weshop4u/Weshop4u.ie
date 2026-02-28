@@ -2055,3 +2055,10 @@
 - [x] FEATURE: Admin Discount Codes management page — create/edit/disable codes, view usage stats, flash sale support with expiry
 - [x] FEATURE: Checkout discount code input — "Have a discount code?" box, apply/validate, show discount on order total
 - [x] FEATURE: Admin sidebar link and dashboard quick action for Discount Codes
+- [x] Create discount code SPAR10 — 10% off at Spar, one-time per customer
+- [x] Create discount code TREASURE10 — 10% off at Treasure Ball, one-time per customer
+- [x] Create discount code APPLEGREEN10 — 10% off at Apple Green, one-time per customer
+- [x] Create discount code HAMLET10 (was CROSSALLSTARS10) — 10% off at Cross All Stars/Hamlet, one-time per customer
+- [x] Create discount code OPENALLOURS10 — 10% off at Open All Ours, one-time per customer
+- [x] Remove duplicate categories from Spar that were copied from Treasure Bowl and have zero products (resolved via API filtering — categories with 0 products for a store are now hidden)
+- [x] Filter store categories API to only return categories with at least one product for that store (hide empty Treasure Bowl categories from Spar etc.)
