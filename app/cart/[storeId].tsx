@@ -174,6 +174,20 @@ export default function CartScreen() {
   const [customTip, setCustomTip] = useState("");
   const [showCustomTip, setShowCustomTip] = useState(false);
   
+  // Discount code state
+  const [discountInput, setDiscountInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    id: number;
+    code: string;
+    discountType: string;
+    discountValue: number;
+    description: string | null;
+    discountAmount: number;
+    isFreeDelivery: boolean;
+  } | null>(null);
+  const [discountError, setDiscountError] = useState("");
+  const [discountLoading, setDiscountLoading] = useState(false);
+  
   const storeIdNum = parseInt(storeId);
   const { data: store } = trpc.stores.getById.useQuery({ id: storeIdNum });
   const { data: productsData } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum, limit: 5000 });
@@ -181,6 +195,49 @@ export default function CartScreen() {
   
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
+  const trpcUtils = trpc.useUtils();
+  
+  const handleApplyDiscount = async () => {
+    const code = discountInput.trim().toUpperCase();
+    if (!code) {
+      setDiscountError("Please enter a discount code");
+      return;
+    }
+    setDiscountLoading(true);
+    setDiscountError("");
+    try {
+      const result = await trpcUtils.discounts.validate.fetch({
+        code,
+        storeId: storeIdNum,
+        orderTotal: subtotal,
+        customerId: user?.id || 0,
+      });
+      if (result.valid && result.discountCode) {
+        setAppliedDiscount({
+          id: result.discountCode.id,
+          code: result.discountCode.code,
+          discountType: result.discountCode.discountType,
+          discountValue: result.discountCode.discountValue,
+          description: result.discountCode.description,
+          discountAmount: result.discountAmount || 0,
+          isFreeDelivery: result.isFreeDelivery || false,
+        });
+        setDiscountError("");
+      } else {
+        setDiscountError(result.error || "Invalid discount code");
+      }
+    } catch (err: any) {
+      setDiscountError(err.message || "Failed to validate code");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+  
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountInput("");
+    setDiscountError("");
+  };
 
   useEffect(() => {
     if (cartContext.storeId !== null && cartContext.storeId !== storeIdNum) {
@@ -247,7 +304,9 @@ export default function CartScreen() {
   const deliveryLatitude = calculateDeliveryFeeMutation.data?.deliveryLatitude || 0;
   const deliveryLongitude = calculateDeliveryFeeMutation.data?.deliveryLongitude || 0;
   const tipValue = showCustomTip ? (parseFloat(customTip) || 0) : tipAmount;
-  const total = subtotal + serviceFee + deliveryFee + (paymentMethod === "card" ? tipValue : 0);
+  const discountAmt = appliedDiscount?.discountAmount || 0;
+  const effectiveDeliveryFee = appliedDiscount?.isFreeDelivery ? 0 : deliveryFee;
+  const total = Math.max(0, subtotal + serviceFee + effectiveDeliveryFee + (paymentMethod === "card" ? tipValue : 0) - discountAmt);
   
   // Check if guest cash limit is exceeded
   const guestCashLimitExceeded = isGuest && paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT;
@@ -319,6 +378,11 @@ export default function CartScreen() {
         guestName: isGuest ? guestName.trim() : undefined,
         guestPhone: isGuest ? guestPhone.trim() : undefined,
         guestEmail: isGuest ? guestEmail.trim() || undefined : undefined,
+        // Discount code
+        discountCodeId: appliedDiscount?.id || undefined,
+        discountCodeName: appliedDiscount?.code || undefined,
+        discountAmount: discountAmt || undefined,
+        isFreeDelivery: appliedDiscount?.isFreeDelivery || undefined,
       });
 
       clearCart();
@@ -1003,10 +1067,19 @@ export default function CartScreen() {
           </View>
           
           <View className="flex-row justify-between mb-2">
-            <Text className="text-muted">Delivery Fee</Text>
-            <Text className={deliveryFee >= 10 ? "" : "text-foreground"} style={deliveryFee >= 10 ? { color: '#F59E0B', fontWeight: '600' } : undefined}>
-              {deliveryFeeCalculated ? `€${deliveryFee.toFixed(2)}` : "Calculate above"}
-            </Text>
+            <Text className="text-muted">{appliedDiscount?.isFreeDelivery ? 'Delivery Fee' : 'Delivery Fee'}</Text>
+            {appliedDiscount?.isFreeDelivery ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: colors.muted, textDecorationLine: 'line-through', fontSize: 13 }}>
+                  €{deliveryFee.toFixed(2)}
+                </Text>
+                <Text style={{ color: '#22C55E', fontWeight: '700' }}>FREE</Text>
+              </View>
+            ) : (
+              <Text className={deliveryFee >= 10 ? "" : "text-foreground"} style={deliveryFee >= 10 ? { color: '#F59E0B', fontWeight: '600' } : undefined}>
+                {deliveryFeeCalculated ? `€${deliveryFee.toFixed(2)}` : "Calculate above"}
+              </Text>
+            )}
           </View>
           
           {paymentMethod === "card" && tipValue > 0 && (
@@ -1016,12 +1089,97 @@ export default function CartScreen() {
             </View>
           )}
           
+          {/* Discount line */}
+          {appliedDiscount && discountAmt > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text style={{ color: '#22C55E', fontWeight: '600' }}>Discount ({appliedDiscount.code})</Text>
+              <Text style={{ color: '#22C55E', fontWeight: '700' }}>-€{discountAmt.toFixed(2)}</Text>
+            </View>
+          )}
+          
           <View className="mb-3 pb-3 border-b border-border" />
           
           <View className="flex-row justify-between">
             <Text className="text-foreground font-bold text-lg">Total</Text>
             <Text className="text-primary font-bold text-lg">€{total.toFixed(2)}</Text>
           </View>
+        </View>
+
+        {/* Discount Code Input */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: appliedDiscount ? '#22C55E' : colors.border }}>
+          <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 15, marginBottom: 8 }}>
+            {appliedDiscount ? '🎉 Discount Applied' : '🏷️ Have a discount code?'}
+          </Text>
+          {appliedDiscount ? (
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ backgroundColor: '#22C55E20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 14, letterSpacing: 1 }}>{appliedDiscount.code}</Text>
+                  </View>
+                  <Text style={{ color: '#22C55E', fontSize: 13, fontWeight: '600' }}>
+                    {appliedDiscount.discountType === 'percentage' ? `${appliedDiscount.discountValue}% off` :
+                     appliedDiscount.discountType === 'free_delivery' ? 'Free Delivery' :
+                     `€${appliedDiscount.discountValue.toFixed(2)} off`}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleRemoveDiscount} activeOpacity={0.7}>
+                  <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: '600' }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+              {appliedDiscount.description && (
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>{appliedDiscount.description}</Text>
+              )}
+            </View>
+          ) : (
+            <View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  value={discountInput}
+                  onChangeText={(t) => { setDiscountInput(t.toUpperCase()); setDiscountError(''); }}
+                  placeholder="Enter code"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="characters"
+                  returnKeyType="done"
+                  onSubmitEditing={handleApplyDiscount}
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.background,
+                    borderWidth: 1,
+                    borderColor: discountError ? '#EF4444' : colors.border,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    letterSpacing: 1,
+                    color: colors.foreground,
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={handleApplyDiscount}
+                  disabled={discountLoading}
+                  activeOpacity={0.7}
+                  style={{
+                    backgroundColor: discountLoading ? colors.surface : colors.primary,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  {discountLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Apply</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              {discountError ? (
+                <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 6, fontWeight: '500' }}>{discountError}</Text>
+              ) : null}
+            </View>
+          )}
         </View>
 
         {/* Phone Verification — Guest Only, placed right above Place Order */}

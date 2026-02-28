@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS } from "../sms";
@@ -144,6 +144,11 @@ export const ordersRouter = router({
         guestName: z.string().optional(),
         guestPhone: z.string().optional(),
         guestEmail: z.string().optional(),
+        // Discount code
+        discountCodeId: z.number().optional(),
+        discountCodeName: z.string().optional(),
+        discountAmount: z.number().optional(),
+        isFreeDelivery: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -214,7 +219,11 @@ export const ordersRouter = router({
       // Calculate service fee (10% of subtotal)
       const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
       const tipAmount = input.paymentMethod === "card" ? (input.tipAmount || 0) : 0;
-      const total = Math.round((subtotal + serviceFee + deliveryFee + tipAmount) * 100) / 100;
+      
+      // Apply discount
+      const discountAmt = input.discountAmount || 0;
+      const effectiveDeliveryFee = input.isFreeDelivery ? 0 : deliveryFee;
+      const total = Math.round((subtotal + serviceFee + effectiveDeliveryFee + tipAmount - discountAmt) * 100) / 100;
 
       // Generate sequential order number per store
       const orderNumber = await generateOrderNumber(input.storeId);
@@ -229,8 +238,12 @@ export const ordersRouter = router({
         paymentStatus: input.paymentMethod === "card" ? "completed" : "pending",
         subtotal: subtotal.toFixed(2),
         serviceFee: serviceFee.toFixed(2),
-        deliveryFee: deliveryFee.toFixed(2),
+        deliveryFee: input.isFreeDelivery ? "0.00" : deliveryFee.toFixed(2),
         tipAmount: tipAmount.toFixed(2),
+        discountCodeId: input.discountCodeId || null,
+        discountCodeName: input.discountCodeName || null,
+        discountAmount: discountAmt.toFixed(2),
+        isFreeDelivery: input.isFreeDelivery || false,
         total: total.toFixed(2),
         deliveryAddress: input.deliveryAddress,
         deliveryLatitude: input.deliveryLatitude.toString(),
@@ -266,6 +279,26 @@ export const ordersRouter = router({
               groupName: mod.groupName || "",
             });
           }
+        }
+      }
+
+      // Record discount usage if a discount code was applied
+      if (input.discountCodeId && input.customerId) {
+        try {
+          await db.insert(discountUsage).values({
+            discountCodeId: input.discountCodeId,
+            customerId: input.customerId,
+            orderId: Number(orderId),
+            discountAmount: (input.discountAmount || 0).toFixed(2),
+          });
+          // Increment total usage count
+          await db
+            .update(discountCodes)
+            .set({ currentUsesTotal: sql`${discountCodes.currentUsesTotal} + 1` })
+            .where(eq(discountCodes.id, input.discountCodeId));
+          console.log(`[Discount] Recorded usage of code ${input.discountCodeName} for order ${orderId}`);
+        } catch (discountError) {
+          console.error(`[Discount] Failed to record usage:`, discountError);
         }
       }
 
@@ -341,7 +374,8 @@ export const ordersRouter = router({
         orderNumber,
         subtotal,
         serviceFee,
-        deliveryFee,
+        deliveryFee: input.isFreeDelivery ? 0 : deliveryFee,
+        discountAmount: discountAmt,
         total,
         distance,
       };

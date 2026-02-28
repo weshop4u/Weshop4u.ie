@@ -232,6 +232,14 @@ function DashboardContent() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => router.push("/admin/discount-codes" as any)}
+                style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>🏷️</Text>
+                <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Discount Codes</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => router.push("/admin/messages" as any)}
                 style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
               >

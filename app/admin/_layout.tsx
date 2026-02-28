@@ -109,6 +109,12 @@ export default function AdminLayout() {
           title: "Product Prices",
         }}
       />
+      <Stack.Screen
+        name="discount-codes"
+        options={{
+          title: "Discount Codes",
+        }}
+      />
     </Stack>
   );
 }

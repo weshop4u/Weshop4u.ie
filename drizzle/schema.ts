@@ -272,6 +272,11 @@ export const orders = mysqlTable(
     serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // 10% of subtotal
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
     tipAmount: decimal("tip_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
+    // Discount code applied to this order
+    discountCodeId: int("discount_code_id"),
+    discountCodeName: varchar("discount_code_name", { length: 50 }),
+    discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
+    isFreeDelivery: boolean("is_free_delivery").default(false),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
     deliveryAddress: text("delivery_address").notNull(),
     deliveryLatitude: decimal("delivery_latitude", { precision: 10, scale: 7 }),
@@ -871,3 +876,79 @@ export type ModifierTemplate = typeof modifierTemplates.$inferSelect;
 export type InsertModifierTemplate = typeof modifierTemplates.$inferInsert;
 export type ModifierTemplateOption = typeof modifierTemplateOptions.$inferSelect;
 export type InsertModifierTemplateOption = typeof modifierTemplateOptions.$inferInsert;
+
+
+// ===== DISCOUNT CODES =====
+export const discountCodes = mysqlTable(
+  "discount_codes",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    code: varchar("code", { length: 50 }).notNull().unique(),
+    description: varchar("description", { length: 255 }),
+    // Type: percentage, fixed_amount, free_delivery
+    discountType: mysqlEnum("discount_type", ["percentage", "fixed_amount", "free_delivery"]).notNull(),
+    // Value: percentage (e.g. 10 for 10%) or fixed amount (e.g. 5 for €5). Ignored for free_delivery.
+    discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0"),
+    // Minimum order value required to use this code
+    minOrderValue: decimal("min_order_value", { precision: 10, scale: 2 }).default("0"),
+    // Maximum discount amount (cap for percentage discounts)
+    maxDiscountAmount: decimal("max_discount_amount", { precision: 10, scale: 2 }),
+    // Store-specific: null means all stores
+    storeId: int("store_id"),
+    // Usage limits
+    maxUsesTotal: int("max_uses_total"), // null = unlimited
+    maxUsesPerCustomer: int("max_uses_per_customer").default(1), // default 1 use per customer
+    currentUsesTotal: int("current_uses_total").default(0),
+    // Validity period
+    startsAt: timestamp("starts_at"),
+    expiresAt: timestamp("expires_at"),
+    // Status
+    isActive: boolean("is_active").default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    codeIdx: index("dc_code_idx").on(table.code),
+    activeIdx: index("dc_active_idx").on(table.isActive),
+  })
+);
+
+export const discountUsage = mysqlTable(
+  "discount_usage",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    discountCodeId: int("discount_code_id").notNull(),
+    customerId: int("customer_id").notNull(),
+    orderId: int("order_id"),
+    discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
+    usedAt: timestamp("used_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    codeIdIdx: index("du_code_id_idx").on(table.discountCodeId),
+    customerIdIdx: index("du_customer_id_idx").on(table.customerId),
+  })
+);
+
+export const discountCodesRelations = relations(discountCodes, ({ many, one }) => ({
+  usage: many(discountUsage),
+  store: one(stores, {
+    fields: [discountCodes.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export const discountUsageRelations = relations(discountUsage, ({ one }) => ({
+  discountCode: one(discountCodes, {
+    fields: [discountUsage.discountCodeId],
+    references: [discountCodes.id],
+  }),
+  customer: one(users, {
+    fields: [discountUsage.customerId],
+    references: [users.id],
+  }),
+}));
+
+export type DiscountCode = typeof discountCodes.$inferSelect;
+export type InsertDiscountCode = typeof discountCodes.$inferInsert;
+export type DiscountUsage = typeof discountUsage.$inferSelect;
+export type InsertDiscountUsage = typeof discountUsage.$inferInsert;

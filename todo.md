@@ -2050,3 +2050,8 @@
 - [x] FEATURE: Pin to Trending — add pinnedToTrending field to products, toggle on add/edit forms, pinned items show first in trending section
 - [x] FEATURE: Pin icon on product list to indicate pinned products (amber ★ PIN badge)
 - [x] FEATURE: Pin to Trending toggle in Product Prices page action menu with ★ PIN badge on product rows. 35 tests passing.
+- [x] FEATURE: Discount codes database tables — discount_codes (code, type, value, min order, max discount, expiry, usage limits, store-specific) and discount_usage (tracking per customer)
+- [x] FEATURE: Discount codes backend — CRUD endpoints, validate code at checkout, apply discount, track usage
+- [x] FEATURE: Admin Discount Codes management page — create/edit/disable codes, view usage stats, flash sale support with expiry
+- [x] FEATURE: Checkout discount code input — "Have a discount code?" box, apply/validate, show discount on order total
+- [x] FEATURE: Admin sidebar link and dashboard quick action for Discount Codes
