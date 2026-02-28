@@ -33,6 +33,7 @@ type ActionMenuState = {
   currentCategoryId: number | null;
   currentCategoryName: string;
   currentStockStatus: string;
+  isPinned: boolean;
 };
 
 type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
@@ -70,7 +71,7 @@ function ProductPricesContent() {
 
   // Action menu state
   const [actionMenu, setActionMenu] = useState<ActionMenuState>({
-    visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", currentStockStatus: "in_stock",
+    visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", currentStockStatus: "in_stock", isPinned: false,
   });
   const [subMenu, setSubMenu] = useState<SubMenuType>(null);
   const [subMenuSearch, setSubMenuSearch] = useState("");
@@ -86,6 +87,7 @@ function ProductPricesContent() {
   const moveToStoreMutation = trpc.store.moveProductToStore.useMutation();
   const duplicateToStoreMutation = trpc.store.duplicateProductToStore.useMutation();
   const toggleStockMutation = trpc.store.toggleProductStock.useMutation();
+  const updateProductMutation = trpc.stores.updateProduct.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -211,6 +213,7 @@ function ProductPricesContent() {
       currentCategoryId: product.categoryId || product.category?.id || null,
       currentCategoryName: product.category?.name || "Uncategorized",
       currentStockStatus: product.stockStatus || "in_stock",
+      isPinned: product.pinnedToTrending ?? false,
     });
     setSubMenu(null);
     setSubMenuSearch("");
@@ -260,6 +263,19 @@ function ProductPricesContent() {
       showToast(`"${actionMenu.productName}" duplicated to ${storeName}`, "success");
     } catch (err) {
       showToast("Failed to duplicate product", "error");
+    }
+  }, [actionMenu]);
+
+  const handleTogglePin = useCallback(async () => {
+    if (!actionMenu.productId) return;
+    const newPinned = !actionMenu.isPinned;
+    try {
+      await updateProductMutation.mutateAsync({ id: actionMenu.productId, pinnedToTrending: newPinned });
+      closeActionMenu();
+      refetch();
+      showToast(newPinned ? `"${actionMenu.productName}" pinned to trending` : `"${actionMenu.productName}" unpinned from trending`, "success");
+    } catch (err) {
+      showToast("Failed to update pin status", "error");
     }
   }, [actionMenu]);
 
@@ -325,6 +341,11 @@ function ProductPricesContent() {
             {isOutOfStock && (
               <View style={styles.oosTag}>
                 <Text style={styles.oosTagText}>OOS</Text>
+              </View>
+            )}
+            {item.pinnedToTrending && (
+              <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                <Text style={{ color: "#F59E0B", fontSize: 9, fontWeight: "700" }}>★ PIN</Text>
               </View>
             )}
           </View>
@@ -430,6 +451,18 @@ function ProductPricesContent() {
                 </Text>
                 <Text style={styles.popupActionSub}>
                   {isOOS ? "Currently: Out of Stock" : "Currently: In Stock"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleTogglePin} style={styles.popupAction}>
+              <Text style={styles.popupActionIcon}>{actionMenu.isPinned ? "⭐" : "☆"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.popupActionText}>
+                  {actionMenu.isPinned ? "Unpin from Trending" : "Pin to Trending"}
+                </Text>
+                <Text style={styles.popupActionSub}>
+                  {actionMenu.isPinned ? "Currently: Pinned ★" : "Not pinned — ranked by sales only"}
                 </Text>
               </View>
             </TouchableOpacity>

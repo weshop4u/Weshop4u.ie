@@ -2047,3 +2047,6 @@
 - [x] FEATURE: Admin driver applications page — view pending drivers, approve or reject with one tap, accessible from sidebar and dashboard
 - [x] FEATURE: Notification to admin when new driver signs up (amber badge with count in admin dashboard and sidebar)
 - [x] FEATURE: Pending/rejected approval screens for drivers who log in before being approved. 21 tests passing.
+- [x] FEATURE: Pin to Trending — add pinnedToTrending field to products, toggle on add/edit forms, pinned items show first in trending section
+- [x] FEATURE: Pin icon on product list to indicate pinned products (amber ★ PIN badge)
+- [x] FEATURE: Pin to Trending toggle in Product Prices page action menu with ★ PIN badge on product rows. 35 tests passing.

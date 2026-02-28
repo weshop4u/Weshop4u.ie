@@ -141,6 +141,13 @@
       "when": 1772261429696,
       "tag": "0019_nifty_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1772264252046,
+      "tag": "0020_nervous_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `pinned_to_trending` boolean DEFAULT false;

@@ -145,6 +145,7 @@ export const storesRouter = router({
           images: products.images,
           isActive: products.isActive,
           isDrs: products.isDrs,
+          pinnedToTrending: products.pinnedToTrending,
           sortOrder: products.sortOrder,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
@@ -276,6 +277,7 @@ export const storesRouter = router({
           storeId: products.storeId,
           categoryId: products.categoryId,
           isDrs: products.isDrs,
+          pinnedToTrending: products.pinnedToTrending,
           storeName: stores.name,
           storeLogo: stores.logo,
           storeCategory: stores.category,
@@ -372,6 +374,7 @@ export const storesRouter = router({
         stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
         categoryId: z.number().nullable().optional(),
         isDrs: z.boolean().optional(),
+        pinnedToTrending: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -416,6 +419,7 @@ export const storesRouter = router({
       if (input.stockStatus !== undefined) updateData.stockStatus = input.stockStatus;
       if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
       if (input.isDrs !== undefined) updateData.isDrs = input.isDrs;
+      if (input.pinnedToTrending !== undefined) updateData.pinnedToTrending = input.pinnedToTrending;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 
@@ -610,6 +614,7 @@ export const storesRouter = router({
       isActive: z.boolean().optional(),
       imageUrl: z.string().optional(),
       isDrs: z.boolean().optional(),
+      pinnedToTrending: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -633,6 +638,7 @@ export const storesRouter = router({
           isActive: input.isActive ?? true,
           images: input.imageUrl ? JSON.stringify([input.imageUrl]) : null,
           isDrs: input.isDrs ?? false,
+          pinnedToTrending: input.pinnedToTrending ?? false,
         });
 
         createdIds.push(Number(result[0].insertId));

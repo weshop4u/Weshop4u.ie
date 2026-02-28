@@ -54,6 +54,7 @@ function ProductsManagementScreenContent() {
     categoryId: null as number | null,
     stockStatus: "in_stock" as StockStatus,
     isDrs: false,
+    pinnedToTrending: false,
     storeIds: [] as number[],
   });
   const [addImageBase64, setAddImageBase64] = useState<string | null>(null);
@@ -224,6 +225,7 @@ function ProductsManagementScreenContent() {
         stockStatus: editingProduct._stockStatus,
         categoryId: editingProduct._categoryId,
         isDrs: editingProduct.isDrs ?? false,
+        pinnedToTrending: editingProduct.pinnedToTrending ?? false,
       };
 
       if (pendingImageBase64) {
@@ -273,10 +275,10 @@ function ProductsManagementScreenContent() {
         price: addForm.price.trim(),
         categoryId: addForm.categoryId || undefined,
         stockStatus: addForm.stockStatus,
-        isDrs: addForm.isDrs,
+         isDrs: addForm.isDrs,
+        pinnedToTrending: addForm.pinnedToTrending,
         imageUrl,
       });
-
       const storeCount = addForm.storeIds.length;
       setMessage(`Product added to ${storeCount} store${storeCount > 1 ? "s" : ""} successfully!`);
       setMessageType("success");
@@ -299,6 +301,7 @@ function ProductsManagementScreenContent() {
       categoryId: null,
       stockStatus: "in_stock",
       isDrs: false,
+      pinnedToTrending: false,
       storeIds: selectedStore ? [selectedStore] : [],
     });
     setAddImageBase64(null);
@@ -438,6 +441,13 @@ function ProductsManagementScreenContent() {
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
                 <View style={{ backgroundColor: "#0EA5E920", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
                   <Text style={{ color: "#0EA5E9", fontSize: 10, fontWeight: "700" }}>DRS</Text>
+                </View>
+              </View>
+            )}
+            {product.pinnedToTrending && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ color: "#F59E0B", fontSize: 10, fontWeight: "700" }}>★ PINNED</Text>
                 </View>
               </View>
             )}
@@ -702,6 +712,7 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { flex: 1, minWidth: 120 }]}>Category</Text>
                 <Text style={[tableStyles.headerCell, { width: 70 }]}>SKU</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
@@ -759,6 +770,15 @@ function ProductsManagementScreenContent() {
                       {product.isDrs ? (
                         <View style={{ backgroundColor: "#0EA5E920", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                           <Text style={{ color: "#0EA5E9", fontSize: 10, fontWeight: "700" }}>DRS</Text>
+                        </View>
+                      ) : (
+                        <Text style={{ color: colors.border, fontSize: 11 }}>—</Text>
+                      )}
+                    </View>
+                    <View style={[tableStyles.cell, { width: 50 }]}>
+                      {product.pinnedToTrending ? (
+                        <View style={{ backgroundColor: "#F59E0B20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: "#F59E0B", fontSize: 10, fontWeight: "700" }}>★</Text>
                         </View>
                       ) : (
                         <Text style={{ color: colors.border, fontSize: 11 }}>—</Text>
@@ -1199,6 +1219,41 @@ function ProductsManagementScreenContent() {
                 </TouchableOpacity>
               </View>
 
+              {/* Pin to Trending Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Pin to Trending</Text>
+                <TouchableOpacity
+                  onPress={() => setEditingProduct({ ...editingProduct, pinnedToTrending: !editingProduct?.pinnedToTrending })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: editingProduct?.pinnedToTrending ? "#F59E0B15" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: editingProduct?.pinnedToTrending ? "#F59E0B" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: editingProduct?.pinnedToTrending ? "#F59E0B" : colors.muted,
+                    backgroundColor: editingProduct?.pinnedToTrending ? "#F59E0B" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {editingProduct?.pinnedToTrending && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>★</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {editingProduct?.pinnedToTrending ? "Pinned — always shows in trending section" : "Not pinned — ranked by sales only"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* ===== MODIFIER TEMPLATES (Inherited + Manual) ===== */}
               <InlineTemplatesSection productId={editingProduct?.id} categoryId={editingProduct?._categoryId} colors={colors} />
 
@@ -1505,6 +1560,41 @@ function ProductsManagementScreenContent() {
                   </View>
                   <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
                     {addForm.isDrs ? "DRS deposit included" : "No DRS deposit"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Pin to Trending Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Pin to Trending</Text>
+                <TouchableOpacity
+                  onPress={() => setAddForm({ ...addForm, pinnedToTrending: !addForm.pinnedToTrending })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: addForm.pinnedToTrending ? "#F59E0B15" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: addForm.pinnedToTrending ? "#F59E0B" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: addForm.pinnedToTrending ? "#F59E0B" : colors.muted,
+                    backgroundColor: addForm.pinnedToTrending ? "#F59E0B" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {addForm.pinnedToTrending && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>★</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {addForm.pinnedToTrending ? "Pinned — always shows in trending" : "Not pinned — ranked by sales only"}
                   </Text>
                 </TouchableOpacity>
               </View>

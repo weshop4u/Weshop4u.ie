@@ -637,6 +637,7 @@ export const storeRouter = router({
       categoryId: z.number().optional(),
       stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
       isActive: z.boolean().optional(),
+      pinnedToTrending: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -650,6 +651,7 @@ export const storeRouter = router({
         categoryId: input.categoryId || null,
         stockStatus: input.stockStatus || "in_stock",
         isActive: input.isActive ?? true,
+        pinnedToTrending: input.pinnedToTrending ?? false,
       });
 
       return { id: Number(result[0].insertId), success: true };
@@ -665,6 +667,7 @@ export const storeRouter = router({
       categoryId: z.number().nullable().optional(),
       stockStatus: z.enum(["in_stock", "out_of_stock", "low_stock"]).optional(),
       isActive: z.boolean().optional(),
+      pinnedToTrending: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -677,6 +680,7 @@ export const storeRouter = router({
       if (input.categoryId !== undefined) updates.categoryId = input.categoryId;
       if (input.stockStatus !== undefined) updates.stockStatus = input.stockStatus;
       if (input.isActive !== undefined) updates.isActive = input.isActive;
+      if (input.pinnedToTrending !== undefined) updates.pinnedToTrending = input.pinnedToTrending;
 
       await db.update(products).set(updates).where(eq(products.id, input.productId));
 
@@ -742,34 +746,8 @@ export const storeRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      // Get the most ordered products for this store in the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const trending = await db
-        .select({
-          productId: orderItems.productId,
-          productName: orderItems.productName,
-          orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
-        })
-        .from(orderItems)
-        .innerJoin(orders, eq(orderItems.orderId, orders.id))
-        .where(
-          and(
-            eq(orders.storeId, input.storeId),
-            gte(orders.createdAt, thirtyDaysAgo),
-            sql`${orders.status} != 'cancelled'`
-          )
-        )
-        .groupBy(orderItems.productId, orderItems.productName)
-        .orderBy(sql`order_count DESC`)
-        .limit(input.limit);
-
-      // Fetch full product details for the trending items
-      if (trending.length === 0) return [];
-
-      const productIds = trending.map((t) => t.productId);
-      const productDetails = await db
+      // 1. Get pinned products for this store (always shown first)
+      const pinnedProducts = await db
         .select({
           id: products.id,
           name: products.name,
@@ -778,12 +756,85 @@ export const storeRouter = router({
           description: products.description,
           stockStatus: products.stockStatus,
           categoryId: products.categoryId,
+          pinnedToTrending: products.pinnedToTrending,
         })
         .from(products)
-        .where(inArray(products.id, productIds));
+        .where(
+          and(
+            eq(products.storeId, input.storeId),
+            eq(products.pinnedToTrending, true),
+            eq(products.isActive, true),
+            sql`${products.stockStatus} != 'out_of_stock'`
+          )
+        );
 
-      // Get category names
-      const catIds = [...new Set(productDetails.map((p) => p.categoryId).filter(Boolean))] as number[];
+      const pinnedIds = pinnedProducts.map((p) => p.id);
+      const remainingSlots = Math.max(0, input.limit - pinnedProducts.length);
+
+      // 2. Get auto-trending products (by order frequency, excluding pinned ones)
+      let autoTrending: Array<{ id: number; name: string; price: string; images: string | null; description: string | null; stockStatus: string; categoryId: number | null; orderCount: number }> = [];
+
+      if (remainingSlots > 0) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const trending = await db
+          .select({
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .where(
+            and(
+              eq(orders.storeId, input.storeId),
+              gte(orders.createdAt, thirtyDaysAgo),
+              sql`${orders.status} != 'cancelled'`
+            )
+          )
+          .groupBy(orderItems.productId, orderItems.productName)
+          .orderBy(sql`order_count DESC`)
+          .limit(remainingSlots + pinnedIds.length); // fetch extra to filter out pinned
+
+        if (trending.length > 0) {
+          // Filter out pinned products from auto-trending
+          const filteredTrending = trending.filter((t) => !pinnedIds.includes(t.productId)).slice(0, remainingSlots);
+          const trendingProductIds = filteredTrending.map((t) => t.productId);
+
+          if (trendingProductIds.length > 0) {
+            const trendingDetails = await db
+              .select({
+                id: products.id,
+                name: products.name,
+                price: products.price,
+                images: products.images,
+                description: products.description,
+                stockStatus: products.stockStatus,
+                categoryId: products.categoryId,
+              })
+              .from(products)
+              .where(inArray(products.id, trendingProductIds));
+
+            const detailMap = Object.fromEntries(trendingDetails.map((p) => [p.id, p]));
+            autoTrending = filteredTrending
+              .filter((t) => detailMap[t.productId])
+              .map((t) => {
+                const p = detailMap[t.productId];
+                return { ...p, orderCount: Number(t.orderCount) };
+              });
+          }
+        }
+      }
+
+      // 3. Combine: pinned first, then auto-trending
+      const allProducts = [
+        ...pinnedProducts.map((p) => ({ ...p, orderCount: 0, isPinned: true })),
+        ...autoTrending.map((p) => ({ ...p, isPinned: false })),
+      ];
+
+      // Get category names for all products
+      const catIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
       let categoryMap: Record<number, string> = {};
       if (catIds.length > 0) {
         const cats = await db
@@ -793,23 +844,17 @@ export const storeRouter = router({
         categoryMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
       }
 
-      const productMap = Object.fromEntries(productDetails.map((p) => [p.id, p]));
-
-      return trending
-        .filter((t) => productMap[t.productId])
-        .map((t) => {
-          const p = productMap[t.productId];
-          return {
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            images: p.images,
-            description: p.description,
-            stockStatus: p.stockStatus,
-            categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
-            orderCount: Number(t.orderCount),
-          };
-        });
+      return allProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        images: p.images,
+        description: p.description,
+        stockStatus: p.stockStatus,
+        categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
+        orderCount: p.orderCount,
+        isPinned: "isPinned" in p ? p.isPinned : false,
+      }));
     }),
 
   // Get pending orders for POS device (lightweight summary for small screens)

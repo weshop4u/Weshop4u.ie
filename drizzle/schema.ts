@@ -155,6 +155,7 @@ export const products = mysqlTable(
     isActive: boolean("is_active").default(true),
     isDrs: boolean("is_drs").default(false),
     sortOrder: int("sort_order").default(999), // Lower number = higher in category list
+    pinnedToTrending: boolean("pinned_to_trending").default(false), // Manually pin to trending section
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
