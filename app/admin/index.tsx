@@ -56,6 +56,12 @@ function DashboardContent() {
   });
   const unreadCount = unreadData?.count ?? 0;
 
+  // Pending driver applications count
+  const { data: pendingDriverData } = trpc.admin.getPendingDriverCount.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const pendingDriverCount = pendingDriverData?.count ?? 0;
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -210,6 +216,19 @@ function DashboardContent() {
               >
                 <Text style={{ fontSize: 16 }}>🚗</Text>
                 <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Driver Management</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push("/admin/driver-applications" as any)}
+                style={{ backgroundColor: pendingDriverCount > 0 ? "#FEF3C7" : "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: pendingDriverCount > 0 ? "#F59E0B" : "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>📝</Text>
+                <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Driver Applications</Text>
+                {pendingDriverCount > 0 && (
+                  <View style={{ backgroundColor: "#F59E0B", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{pendingDriverCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity

@@ -2042,3 +2042,8 @@
 - [x] FEATURE: Product Prices page — add "Out of Stock only" filter toggle to quickly view all OOS items across a store
 - [x] FEATURE: Customer sign-up with phone verification (SMS OTP via Twilio) — phone number required, 6-digit code, verify before account creation. 3-step flow: details → OTP → success. 19 tests passing.
 - [x] FEATURE: Forgot password flow with SMS OTP — enter phone, receive code, verify, set new password, redirect to login. 4-step flow: phone → OTP → new password → success. 17 tests passing.
+- [x] FEATURE: Driver sign-up pending approval — new drivers get "pending" status, can't accept deliveries until approved
+- [x] FEATURE: Add "town/area" and address fields to driver registration form
+- [x] FEATURE: Admin driver applications page — view pending drivers, approve or reject with one tap, accessible from sidebar and dashboard
+- [x] FEATURE: Notification to admin when new driver signs up (amber badge with count in admin dashboard and sidebar)
+- [x] FEATURE: Pending/rejected approval screens for drivers who log in before being approved. 21 tests passing.

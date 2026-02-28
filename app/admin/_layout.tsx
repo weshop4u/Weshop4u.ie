@@ -38,6 +38,12 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
+        name="driver-applications"
+        options={{
+          title: "Driver Applications",
+        }}
+      />
+      <Stack.Screen
         name="create-driver"
         options={{
           title: "Create Driver Account",

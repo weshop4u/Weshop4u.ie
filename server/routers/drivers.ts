@@ -727,6 +727,13 @@ export const driversRouter = router({
         0
       );
 
+      // Get driver approval status
+      const [driverProfile] = await db
+        .select({ approvalStatus: drivers.approvalStatus })
+        .from(drivers)
+        .where(eq(drivers.userId, input.driverId))
+        .limit(1);
+
       return {
         todayEarnings,
         todayTips,
@@ -737,6 +744,7 @@ export const driversRouter = router({
         totalEarnings,
         totalTips,
         totalDeliveries: completedOrders.length,
+        approvalStatus: driverProfile?.approvalStatus || "approved",
       };
     }),
 

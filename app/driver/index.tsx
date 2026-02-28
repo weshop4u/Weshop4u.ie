@@ -465,6 +465,46 @@ export default function DriverHomeScreen() {
     return null;
   }
 
+  // Show pending approval screen if driver is not yet approved
+  if (stats?.approvalStatus === "pending") {
+    return (
+      <ScreenContainer>
+        <View className="flex-1 items-center justify-center p-6">
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <Text style={{ fontSize: 36 }}>⏳</Text>
+          </View>
+          <Text className="text-2xl font-bold text-foreground mb-3 text-center">Application Under Review</Text>
+          <Text className="text-base text-muted text-center mb-6" style={{ lineHeight: 22 }}>
+            Thanks for signing up to drive with WESHOP4U! Your application is being reviewed by our team. We'll notify you once you've been approved.
+          </Text>
+          <View style={{ backgroundColor: '#F0F9FF', borderRadius: 12, padding: 16, width: '100%', maxWidth: 360, borderWidth: 1, borderColor: '#BAE6FD' }}>
+            <Text style={{ fontWeight: '600', color: '#0369A1', marginBottom: 8, fontSize: 15 }}>What happens next?</Text>
+            <Text style={{ color: '#0C4A6E', fontSize: 14, lineHeight: 20 }}>1. Our team reviews your details</Text>
+            <Text style={{ color: '#0C4A6E', fontSize: 14, lineHeight: 20 }}>2. You'll receive a notification when approved</Text>
+            <Text style={{ color: '#0C4A6E', fontSize: 14, lineHeight: 20 }}>3. Once approved, you can go online and start accepting deliveries</Text>
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Show rejected screen
+  if (stats?.approvalStatus === "rejected") {
+    return (
+      <ScreenContainer>
+        <View className="flex-1 items-center justify-center p-6">
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <Text style={{ fontSize: 36 }}>❌</Text>
+          </View>
+          <Text className="text-2xl font-bold text-foreground mb-3 text-center">Application Not Approved</Text>
+          <Text className="text-base text-muted text-center" style={{ lineHeight: 22 }}>
+            Unfortunately your driver application was not approved at this time. If you believe this is an error, please contact us.
+          </Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   const hasOffer = offerData?.hasOffer && offerData.offer && countdown > 0;
 
   return (

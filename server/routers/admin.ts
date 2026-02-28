@@ -1063,4 +1063,76 @@ export const adminRouter = router({
         message: `Driver deleted successfully.${driver.displayNumber ? ` Display number #${String(driver.displayNumber).padStart(2, '0')} is now available.` : ''}` 
       };
     }),
+
+  // Get pending driver applications
+  getPendingDrivers: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const pendingDrivers = await db
+      .select({
+        driverId: drivers.id,
+        userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
+        vehicleType: drivers.vehicleType,
+        vehicleNumber: drivers.vehicleNumber,
+        licenseNumber: drivers.licenseNumber,
+        town: drivers.town,
+        address: drivers.address,
+        approvalStatus: drivers.approvalStatus,
+        createdAt: drivers.createdAt,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+      })
+      .from(drivers)
+      .innerJoin(users, eq(drivers.userId, users.id))
+      .where(eq(drivers.approvalStatus, "pending"))
+      .orderBy(drivers.createdAt);
+
+    return pendingDrivers;
+  }),
+
+  // Get count of pending driver applications (for badge)
+  getPendingDriverCount: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const result = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(drivers)
+      .where(eq(drivers.approvalStatus, "pending"));
+
+    return { count: result[0]?.count || 0 };
+  }),
+
+  // Approve a driver
+  approveDriver: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(drivers)
+        .set({ approvalStatus: "approved" })
+        .where(eq(drivers.id, input.driverId));
+
+      return { success: true };
+    }),
+
+  // Reject a driver
+  rejectDriver: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(drivers)
+        .set({ approvalStatus: "rejected" })
+        .where(eq(drivers.id, input.driverId));
+
+      return { success: true };
+    }),
 });

@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { path: "/admin/store-logos", label: "Store Logos", icon: "🎨", exact: false },
   { path: "/admin/batch-category-images", label: "Batch Images", icon: "🗂️", exact: false },
   { path: "/admin/driver-management", label: "Drivers", icon: "🚗", exact: false },
+  { path: "/admin/driver-applications", label: "Driver Applications", icon: "📝", exact: false, hasBadge: true },
   { path: "/admin/create-driver", label: "New Driver", icon: "➕", exact: false },
   { path: "/admin/messages", label: "Messages", icon: "💬", exact: false, hasBadge: true },
 ];

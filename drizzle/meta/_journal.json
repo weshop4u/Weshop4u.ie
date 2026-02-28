@@ -134,6 +134,13 @@
       "when": 1772075863770,
       "tag": "0018_clean_hedge_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772261429696,
+      "tag": "0019_nifty_jack_murdock",
+      "breakpoints": true
     }
   ]
 }

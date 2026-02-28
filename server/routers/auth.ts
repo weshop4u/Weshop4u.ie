@@ -62,6 +62,8 @@ export const authRouter = router({
         password: z.string().min(6),
         name: z.string().min(2),
         phone: z.string(),
+        town: z.string().optional(),
+        address: z.string().optional(),
         vehicleType: z.string(),
         vehicleNumber: z.string(),
         licenseNumber: z.string().optional(),
@@ -118,13 +120,16 @@ export const authRouter = router({
       }
       const displayNumber = String(nextNumber).padStart(2, "0");
 
-      // Create driver profile with auto-assigned display number
+      // Create driver profile with auto-assigned display number (pending approval)
       await db.insert(drivers).values({
         userId,
         displayNumber,
         vehicleType: input.vehicleType,
         vehicleNumber: input.vehicleNumber,
         licenseNumber: input.licenseNumber || null,
+        town: input.town || null,
+        address: input.address || null,
+        approvalStatus: "pending",
         isOnline: false,
         isAvailable: false,
       });
@@ -134,6 +139,7 @@ export const authRouter = router({
         userId,
         displayNumber,
         role: "driver" as const,
+        approvalStatus: "pending" as const,
       };
     }),
 
