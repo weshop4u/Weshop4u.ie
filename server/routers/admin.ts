@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings } from "../../drizzle/schema";
 import { eq, and, desc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -1695,4 +1695,109 @@ export const adminRouter = router({
 
     return { drivers: driverStats, totals };
   }),
+
+  // Get all driver ratings/feedback for admin view
+  getDriverFeedback: publicProcedure
+    .input(z.object({
+      driverId: z.number().optional(),
+      limit: z.number().min(1).max(200).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const params = input || { limit: 50, offset: 0 };
+
+      // Build conditions
+      const conditions = [];
+      if (params.driverId) {
+        conditions.push(eq(driverRatings.driverId, params.driverId));
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      // Get ratings
+      const ratings = await db
+        .select({
+          id: driverRatings.id,
+          orderId: driverRatings.orderId,
+          driverId: driverRatings.driverId,
+          customerId: driverRatings.customerId,
+          rating: driverRatings.rating,
+          comment: driverRatings.comment,
+          createdAt: driverRatings.createdAt,
+          orderNumber: orders.orderNumber,
+        })
+        .from(driverRatings)
+        .leftJoin(orders, eq(driverRatings.orderId, orders.id))
+        .where(whereClause)
+        .orderBy(desc(driverRatings.createdAt))
+        .limit(params.limit)
+        .offset(params.offset);
+
+      // Get user names for drivers and customers
+      const allUserIds = [...new Set([...ratings.map(r => r.driverId), ...ratings.map(r => r.customerId)])];
+      let userMap: Record<number, string> = {};
+      if (allUserIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(sql`${users.id} IN (${sql.join(allUserIds.map(id => sql`${id}`), sql`, `)})`);
+        userMap = Object.fromEntries(userRows.map(u => [u.id, u.name || "Unknown"]));
+      }
+
+      // Get driver display numbers
+      const driverIds = [...new Set(ratings.map(r => r.driverId))];
+      let driverMap: Record<number, string> = {};
+      if (driverIds.length > 0) {
+        const driverRows = await db
+          .select({ userId: drivers.userId, displayNumber: drivers.displayNumber })
+          .from(drivers)
+          .where(sql`${drivers.userId} IN (${sql.join(driverIds.map(id => sql`${id}`), sql`, `)})`);
+        driverMap = Object.fromEntries(driverRows.map(d => [d.userId, d.displayNumber || "?"]));
+      }
+
+      // Get total count
+      const [countResult] = await db
+        .select({ total: count() })
+        .from(driverRatings)
+        .where(whereClause);
+
+      // Get overall stats
+      const allRatingsForStats = await db
+        .select({ rating: driverRatings.rating })
+        .from(driverRatings)
+        .where(whereClause);
+
+      const totalRatings = allRatingsForStats.length;
+      const avgRating = totalRatings > 0
+        ? Math.round((allRatingsForStats.reduce((s, r) => s + r.rating, 0) / totalRatings) * 100) / 100
+        : 0;
+      const ratingDistribution = [1, 2, 3, 4, 5].map(star => ({
+        star,
+        count: allRatingsForStats.filter(r => r.rating === star).length,
+      }));
+
+      return {
+        ratings: ratings.map(r => ({
+          id: r.id,
+          orderId: r.orderId,
+          orderNumber: r.orderNumber || "Unknown",
+          driverId: r.driverId,
+          driverName: userMap[r.driverId] || "Unknown",
+          driverNumber: driverMap[r.driverId] || "?",
+          customerName: userMap[r.customerId] || "Unknown",
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+        })),
+        total: countResult?.total || 0,
+        stats: {
+          totalRatings,
+          avgRating,
+          ratingDistribution,
+        },
+      };
+    }),
 });

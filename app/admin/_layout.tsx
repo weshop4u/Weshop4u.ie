@@ -139,6 +139,12 @@ export default function AdminLayout() {
           title: "Driver Performance",
         }}
       />
+      <Stack.Screen
+        name="driver-feedback"
+        options={{
+          title: "Driver Feedback",
+        }}
+      />
     </Stack>
   );
 }

@@ -863,8 +863,21 @@ export default function DriverHomeScreen() {
               <Text className="text-foreground font-semibold">{totalDeliveries}</Text>
             </View>
             <View className="flex-row justify-between py-2">
-              <Text className="text-muted">Rating</Text>
-              <Text className="text-foreground font-semibold">⭐ 4.9</Text>
+              <Text className="text-muted">Your Rating</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                {driverProfile?.rating ? (
+                  <>
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Text key={star} style={{ fontSize: 16, opacity: star <= Math.round(parseFloat(driverProfile.rating!)) ? 1 : 0.2 }}>
+                        {"\u2B50"}
+                      </Text>
+                    ))}
+                    <Text className="text-foreground font-semibold ml-1">{parseFloat(driverProfile.rating).toFixed(1)}</Text>
+                  </>
+                ) : (
+                  <Text className="text-muted text-sm">No ratings yet</Text>
+                )}
+              </View>
             </View>
           </View>
         </View>

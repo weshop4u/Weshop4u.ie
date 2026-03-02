@@ -2107,3 +2107,8 @@
 - [x] Add delivery route lines on driver map showing path from driver to customer address
 - [x] Add push notification alert when driver goes offline during an active delivery
 - [x] Add driver performance dashboard with delivery times, completed orders, and earnings per driver
+- [x] Database schema: delivery_ratings table (orderId, driverId, customerId, rating 1-5, comment, createdAt) — already existed
+- [x] Backend endpoints: submit rating (existed), get ratings for admin (new getDriverFeedback), get driver average rating
+- [x] Customer UI: star rating prompt after delivery with optional comment — already existed
+- [x] Admin UI: feedback section showing all ratings, comments, driver names, order numbers (new driver-feedback page)
+- [x] Driver UI: show average star rating on driver home screen (no comments visible)
