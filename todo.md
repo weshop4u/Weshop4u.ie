@@ -2123,3 +2123,4 @@
 - [x] Max 5 orders per batch, same-store only for auto-batching, multi-store admin-only
 - [x] Add sound and vibration alert for batch offers so drivers don't miss them while driving
 - [x] Add "driver is nearby" push notification to customer when driver is within 500m of delivery address
+- [x] Fix Spar Balbriggan store coordinates — update to correct GPS for eircode K32PP52

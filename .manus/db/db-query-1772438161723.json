@@ -1,0 +1,52 @@
+{
+  "query": "SELECT id, name, latitude, longitude, eircode FROM stores ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, latitude, longitude, eircode FROM stores ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Spar Balbriggan",
+      "latitude": "53.6103307",
+      "longitude": "-6.1845065",
+      "eircode": "K32PP52"
+    },
+    {
+      "id": "2",
+      "name": "Open All Ours",
+      "latitude": "53.6101049",
+      "longitude": "-6.1841258",
+      "eircode": "K32x381"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "latitude": "53.6076227",
+      "longitude": "-6.1991969",
+      "eircode": "K32 Y180"
+    },
+    {
+      "id": "4",
+      "name": "The Hamlet Bar",
+      "latitude": "53.6120000",
+      "longitude": "-6.1840000",
+      "eircode": ""
+    },
+    {
+      "id": "5",
+      "name": "Millfield Groceries",
+      "latitude": "53.6100000",
+      "longitude": "-6.1820000",
+      "eircode": "NULL"
+    },
+    {
+      "id": "30001",
+      "name": "Treasure Bowl Balbriggan",
+      "latitude": "53.6134271",
+      "longitude": "-6.2058850",
+      "eircode": "K32 Y198"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tlatitude\tlongitude\teircode\n1\tSpar Balbriggan\t53.6103307\t-6.1845065\tK32PP52\n2\tOpen All Ours\t53.6101049\t-6.1841258\tK32x381\n3\tAppleGreen Balbriggan\t53.6076227\t-6.1991969\tK32 Y180\n4\tThe Hamlet Bar\t53.6120000\t-6.1840000\t\n5\tMillfield Groceries\t53.6100000\t-6.1820000\tNULL\n30001\tTreasure Bowl Balbriggan\t53.6134271\t-6.2058850\tK32 Y198\n",
+  "stderr": "",
+  "execution_time_ms": 347
+}
