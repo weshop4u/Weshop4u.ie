@@ -329,7 +329,7 @@ function DriverMapContent() {
 
         {/* Auto-refresh notice */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Auto-refreshes every 10 seconds • Drivers report GPS every 30 seconds when online</Text>
+          <Text style={styles.footerText}>Auto-refreshes every 10 seconds • Drivers report GPS every 10 seconds when online</Text>
         </View>
       </ScrollView>
     </ScreenContainer>

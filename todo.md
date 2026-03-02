@@ -2098,3 +2098,4 @@
 - [x] Admin driver location map — show all online drivers on a map with real-time GPS positions
 - [x] Driver app auto-reports GPS location when logged in (periodic updates)
 - [x] Backend endpoint to fetch all driver locations for admin map view
+- [x] Reduce driver GPS reporting interval from 30s to 10s for near real-time tracking (driver home + active delivery)

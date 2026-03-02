@@ -71,7 +71,7 @@ export default function ActiveDeliveryScreen() {
     }
   }, [order?.status]);
 
-  // Location tracking - send updates every 15 seconds during active delivery
+  // Location tracking - send updates every 10 seconds during active delivery
   useEffect(() => {
     if (!user?.id || !orderId || deliveryStatus === "delivered") return;
     if (Platform.OS === "web") {
@@ -94,7 +94,7 @@ export default function ActiveDeliveryScreen() {
       };
 
       sendLocation(); // Send immediately
-      const locationInterval = setInterval(sendLocation, 15000);
+      const locationInterval = setInterval(sendLocation, 10000);
       return () => clearInterval(locationInterval);
     } else {
       // Native: use expo-location
@@ -108,8 +108,8 @@ export default function ActiveDeliveryScreen() {
           locationSub = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.High,
-              timeInterval: 15000,
-              distanceInterval: 20,
+              timeInterval: 10000,
+              distanceInterval: 10,
             },
             (loc) => {
               updateLocationMutation.mutate({

@@ -355,7 +355,7 @@ export default function DriverHomeScreen() {
     };
   }, [offerData?.offer?.offerId, offerData?.hasOffer]);
 
-  // GPS location reporting when driver is online (every 30 seconds)
+  // GPS location reporting when driver is online (every 10 seconds)
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationSubRef = useRef<any>(null);
 
@@ -390,7 +390,7 @@ export default function DriverHomeScreen() {
         );
       };
       sendLocation(); // Send immediately
-      locationIntervalRef.current = setInterval(sendLocation, 30000);
+      locationIntervalRef.current = setInterval(sendLocation, 10000);
     } else {
       // Native: use expo-location
       (async () => {
@@ -404,8 +404,8 @@ export default function DriverHomeScreen() {
           locationSubRef.current = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.Balanced,
-              timeInterval: 30000,
-              distanceInterval: 50,
+              timeInterval: 10000,
+              distanceInterval: 10,
             },
             (loc) => {
               updateLocationMutation.mutate({
