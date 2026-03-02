@@ -2089,3 +2089,5 @@
 - [x] Add "Paid" / "Pending Payment" badge to admin orders view for card payment orders
 - [x] Add payment retry mechanism — allow customers to restart payment from order page if session expired or payment failed
 - [x] Move Popular Stores section above the coupon banner on the home page
+- [x] Add image upload button to store logo tab in admin Manage Stores page (alongside existing URL field)
+- [x] Fix store name text wrapping/layout in the right panel of admin Manage Stores page

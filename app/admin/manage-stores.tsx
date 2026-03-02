@@ -4,6 +4,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
@@ -87,9 +89,94 @@ function ManageStoresScreenContent() {
   const toggleActiveMutation = trpc.admin.toggleStoreActive.useMutation();
   const toggleFeaturedMutation = trpc.admin.toggleStoreFeatured.useMutation();
   const updateLogoMutation = trpc.admin.updateStoreLogo.useMutation();
+  const uploadLogoMutation = trpc.stores.uploadLogo.useMutation();
   const createStoreMutation = trpc.admin.createStore.useMutation();
   const deleteStoreMutation = trpc.admin.deleteStore.useMutation();
   const duplicateStoreMutation = trpc.admin.duplicateStore.useMutation();
+
+  // Logo upload state
+  const [logoPreviewUri, setLogoPreviewUri] = useState<string | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const readImageAsBase64 = async (uri: string): Promise<{ base64: string; mimeType: string }> => {
+    if (Platform.OS === "web") {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const mimeType = blob.type || "image/jpeg";
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          const base64 = dataUrl.split(",")[1];
+          resolve({ base64, mimeType });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } else {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const ext = uri.split(".").pop()?.toLowerCase() || "jpg";
+      const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+      const mimeType = mimeMap[ext] || "image/jpeg";
+      return { base64, mimeType };
+    }
+  };
+
+  const handlePickLogo = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setLogoPreviewUri(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      setMessage(error.message || "Failed to pick image");
+      setMessageType("error");
+    }
+  };
+
+  const handleUploadLogo = async () => {
+    if (!selectedStoreId || !logoPreviewUri) return;
+    setIsUploadingLogo(true);
+    setMessage("");
+    try {
+      const { base64, mimeType } = await readImageAsBase64(logoPreviewUri);
+      const response = await uploadLogoMutation.mutateAsync({ base64, mimeType });
+      await updateLogoMutation.mutateAsync({ storeId: selectedStoreId, logoUrl: response.url });
+      setMessage("Logo uploaded successfully!");
+      setMessageType("success");
+      setLogoPreviewUri(null);
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to upload logo");
+      setMessageType("error");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleSaveLogoUrl = async (url: string) => {
+    if (!selectedStoreId || !url.trim()) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await updateLogoMutation.mutateAsync({ storeId: selectedStoreId, logoUrl: url.trim() });
+      setMessage("Logo URL saved successfully!");
+      setMessageType("success");
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to save logo URL");
+      setMessageType("error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -618,8 +705,11 @@ function ManageStoresScreenContent() {
     </View>
   );
 
+  const [logoUrlInput, setLogoUrlInput] = useState("");
+
   const renderLogoTab = () => (
     <View className="p-4 gap-4">
+      {/* Current Logo */}
       <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, alignItems: "center", padding: 20 }]}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 12 }}>Current Logo</Text>
         {selectedStore?.logo ? (
@@ -631,18 +721,63 @@ function ManageStoresScreenContent() {
           </View>
         )}
       </View>
-      <View>
-        <Text style={styles.label}>Logo URL</Text>
+
+      {/* Upload Image */}
+      <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, padding: 20 }]}>
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 12 }}>Upload Image</Text>
+        {logoPreviewUri ? (
+          <View style={{ alignItems: "center", gap: 12 }}>
+            <Image source={{ uri: logoPreviewUri }} style={{ width: 120, height: 120, borderRadius: 16 }} contentFit="cover" />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={handleUploadLogo}
+                disabled={isUploadingLogo}
+                style={{ backgroundColor: "#22C55E", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, opacity: isUploadingLogo ? 0.5 : 1 }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+                  {isUploadingLogo ? "Uploading..." : "Save Logo"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLogoPreviewUri(null)}
+                disabled={isUploadingLogo}
+                style={{ backgroundColor: colors.border, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 13 }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handlePickLogo}
+            style={{ backgroundColor: "#00E5FF", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, alignItems: "center" }}
+          >
+            <Text style={{ color: "#0F172A", fontWeight: "700", fontSize: 14 }}>Choose Image from Device</Text>
+          </TouchableOpacity>
+        )}
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 8 }}>Select a square image for best results (JPG, PNG)</Text>
+      </View>
+
+      {/* Logo URL (manual) */}
+      <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, padding: 20 }]}>
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 12 }}>Logo URL</Text>
         <TextInput
-          value={selectedStore?.logo || ""}
-          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.muted }]}
-          editable={false}
-          placeholder="No logo URL set"
+          value={logoUrlInput}
+          onChangeText={setLogoUrlInput}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
+          placeholder={selectedStore?.logo || "Paste logo URL here..."}
           placeholderTextColor={colors.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
-          To upload a new logo, use the "Upload Store Logos" tool from the dashboard
-        </Text>
+        <TouchableOpacity
+          onPress={() => handleSaveLogoUrl(logoUrlInput)}
+          disabled={saving || !logoUrlInput.trim()}
+          style={{ backgroundColor: "#0284C7", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, alignSelf: "flex-start", marginTop: 10, opacity: saving || !logoUrlInput.trim() ? 0.5 : 1 }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{saving ? "Saving..." : "Save URL"}</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 11, color: colors.muted, marginTop: 6 }}>Or paste a direct URL to an image hosted elsewhere</Text>
       </View>
     </View>
   );
@@ -713,22 +848,26 @@ function ManageStoresScreenContent() {
           ) : selectedStoreId && selectedStore ? (
             <View>
               {/* Store Header */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 }}>
-                {selectedStore.logo ? (
-                  <Image source={{ uri: selectedStore.logo }} style={{ width: 56, height: 56, borderRadius: 12 }} contentFit="cover" />
-                ) : (
-                  <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
-                    <Text style={{ fontSize: 24 }}>🏪</Text>
+              <View style={{ marginBottom: 20 }}>
+                {/* Top row: logo + name */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 12 }}>
+                  {selectedStore.logo ? (
+                    <Image source={{ uri: selectedStore.logo }} style={{ width: 56, height: 56, borderRadius: 12 }} contentFit="cover" />
+                  ) : (
+                    <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: "#E0F7FA", justifyContent: "center", alignItems: "center" }}>
+                      <Text style={{ fontSize: 24 }}>🏪</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>{selectedStore.name}</Text>
+                    <Text style={{ fontSize: 13, color: colors.muted }}>
+                      {selectedStore.category.charAt(0).toUpperCase() + selectedStore.category.slice(1)}
+                      {selectedStore.isActive ? " \u00b7 Active" : " \u00b7 Inactive"}
+                    </Text>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground }}>{selectedStore.name}</Text>
-                  <Text style={{ fontSize: 13, color: colors.muted }}>
-                    {selectedStore.category.charAt(0).toUpperCase() + selectedStore.category.slice(1)}
-                    {selectedStore.isActive ? " \u00b7 Active" : " \u00b7 Inactive"}
-                  </Text>
                 </View>
-                <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                {/* Controls row: toggles + buttons */}
+                <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ fontSize: 12, color: colors.muted }}>Active</Text>
                     <Switch
