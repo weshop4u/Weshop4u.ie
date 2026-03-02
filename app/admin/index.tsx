@@ -150,6 +150,14 @@ function DashboardContent() {
                   <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
                 </View>
               </View>
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <TouchableOpacity onPress={() => router.push("/admin/customers" as any)} style={{ opacity: 1 }}>
+                    <StatCard label="Total Customers" value={stats?.customers.total ?? 0} subValue={stats?.customers.today ? `+${stats.customers.today} today` : undefined} color="#EC4899" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1 }} />
+              </View>
             </View>
           </View>
         </View>
@@ -240,6 +248,14 @@ function DashboardContent() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                onPress={() => router.push("/admin/customers" as any)}
+                style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>👥</Text>
+                <Text style={{ color: "#0F172A", fontWeight: "600", fontSize: 15 }}>Customers</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 onPress={() => router.push("/admin/messages" as any)}
                 style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
               >
@@ -321,6 +337,12 @@ function DashboardContent() {
           <View className="flex-row gap-3">
             <StatCard label="Total Drivers" value={stats?.drivers.total ?? 0} color="#00E5FF" />
             <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
+          </View>
+          <View className="flex-row gap-3 mt-3">
+            <TouchableOpacity onPress={() => router.push("/admin/customers" as any)} style={{ flex: 1 }}>
+              <StatCard label="Total Customers" value={stats?.customers.total ?? 0} subValue={stats?.customers.today ? `+${stats.customers.today} today` : undefined} color="#EC4899" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
           </View>
         </View>
 

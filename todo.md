@@ -2062,3 +2062,10 @@
 - [x] Create discount code OPENALLOURS10 — 10% off at Open All Ours, one-time per customer
 - [x] Remove duplicate categories from Spar that were copied from Treasure Bowl and have zero products (resolved via API filtering — categories with 0 products for a store are now hidden)
 - [x] Filter store categories API to only return categories with at least one product for that store (hide empty Treasure Bowl categories from Spar etc.)
+- [x] Delete all products from Wraps and Wraps and Sambos categories in Spar (replaced by Deli Create Your Own) — 25 products removed
+- [x] Create WELCOME10 discount code — 10% off all stores, one-time per customer, for re-engagement email campaign
+- [x] Save Elavon Converge credentials securely (Processor ID, Public Key, Secret Key, Merchant Alias)
+- [ ] Integrate Elavon Converge payment gateway into checkout flow
+- [x] Add Customers count card to admin dashboard
+- [x] Build Customers admin list page (name, email, sign-up date, order count)
+- [x] Add Customers link to admin sidebar navigation

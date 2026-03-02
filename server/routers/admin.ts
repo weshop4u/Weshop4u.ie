@@ -119,7 +119,21 @@ export const adminRouter = router({
     const allStores = await db.select().from(stores);
     const activeStores = allStores.filter(s => s.isActive);
 
+    // Get customer count
+    const allCustomers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role, "customer"));
+    const todayCustomers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`${users.role} = 'customer' AND ${users.createdAt} >= ${todayStart}`);
+
     return {
+      customers: {
+        total: allCustomers.length,
+        today: todayCustomers.length,
+      },
       orders: {
         today: {
           count: todayOrders.length,
@@ -157,6 +171,75 @@ export const adminRouter = router({
       },
     };
   }),
+
+  // Get all customers for admin view
+  getCustomers: publicProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+        limit: z.number().optional().default(50),
+        offset: z.number().optional().default(0),
+      }).optional()
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const limit = input?.limit ?? 50;
+      const offset = input?.offset ?? 0;
+      const search = input?.search?.trim();
+
+      let conditions: any[] = [eq(users.role, "customer")];
+      if (search) {
+        conditions.push(
+          sql`(${users.name} LIKE ${`%${search}%`} OR ${users.email} LIKE ${`%${search}%`} OR ${users.phone} LIKE ${`%${search}%`})`
+        );
+      }
+
+      const customersList = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          phone: users.phone,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .where(sql`${sql.join(conditions, sql` AND `)}`);
+
+      // Get order counts per customer
+      const customerIds = customersList.map(c => c.id);
+      let orderCounts: Record<number, { count: number; totalSpent: number }> = {};
+      if (customerIds.length > 0) {
+        const orderStats = await db
+          .select({
+            customerId: orders.customerId,
+            count: sql<number>`COUNT(*)`,
+            totalSpent: sql<number>`COALESCE(SUM(CAST(${orders.total} AS DECIMAL(10,2))), 0)`,
+          })
+          .from(orders)
+          .where(sql`${orders.customerId} IN (${sql.join(customerIds.map(id => sql`${id}`), sql`, `)})`)
+          .groupBy(orders.customerId);
+
+        orderCounts = Object.fromEntries(
+          orderStats.map(s => [s.customerId!, { count: Number(s.count), totalSpent: Number(s.totalSpent) }])
+        );
+      }
+
+      const customers = customersList
+        .map(c => ({
+          ...c,
+          orderCount: orderCounts[c.id]?.count ?? 0,
+          totalSpent: Math.round((orderCounts[c.id]?.totalSpent ?? 0) * 100) / 100,
+        }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(offset, offset + limit);
+
+      return {
+        customers,
+        total: customersList.length,
+      };
+    }),
 
   // Get all orders with details for admin view
   getAllOrders: publicProcedure
