@@ -195,15 +195,39 @@ function DriverMapContent() {
     }
   };
 
+  // Reset map to show all drivers
+  const showAllDrivers = () => {
+    if (!mapRef.current) return;
+    setSelectedDriver(null);
+    // Close any open popups
+    mapRef.current.closePopup();
+    const L = (window as any).L;
+    if (!L) return;
+    const allWithLocation = allDrivers.filter(d => d.latitude && d.longitude);
+    if (allWithLocation.length > 0) {
+      const bounds = L.latLngBounds(allWithLocation.map((d: any) => [d.latitude, d.longitude]));
+      mapRef.current.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 });
+    } else {
+      mapRef.current.flyTo([BALBRIGGAN_LAT, BALBRIGGAN_LNG], 14, { duration: 0.8 });
+    }
+  };
+
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Driver Locations</Text>
-          <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn} activeOpacity={0.7}>
-            <Text style={styles.refreshText}>🔄 Refresh</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {selectedDriver !== null && (
+              <TouchableOpacity onPress={showAllDrivers} style={styles.showAllBtn} activeOpacity={0.7}>
+                <Text style={styles.showAllText}>🗺️ Show All</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn} activeOpacity={0.7}>
+              <Text style={styles.refreshText}>🔄 Refresh</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats bar */}
@@ -406,6 +430,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#334155",
+  },
+  showAllBtn: {
+    backgroundColor: "#E0F2FE",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  showAllText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0369A1",
   },
   statsRow: {
     flexDirection: "row",

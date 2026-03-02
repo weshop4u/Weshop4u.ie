@@ -2100,3 +2100,4 @@
 - [x] Backend endpoint to fetch all driver locations for admin map view
 - [x] Reduce driver GPS reporting interval from 30s to 10s for near real-time tracking (driver home + active delivery)
 - [x] Click driver row in admin map to center/zoom map on that driver's location
+- [x] Add "Show All" button to admin driver map to reset view back to all drivers after zooming into one
