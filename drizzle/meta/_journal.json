@@ -162,6 +162,13 @@
       "when": 1772415710541,
       "tag": "0023_curly_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1772420765696,
+      "tag": "0024_red_hemingway",
+      "breakpoints": true
     }
   ]
 }

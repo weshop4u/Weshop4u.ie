@@ -389,7 +389,13 @@ export default function CartScreen() {
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
       setErrorMessage("");
-      router.push(`/order-confirmation/${result.orderId}`);
+
+      // For card payments, redirect to Elavon payment page
+      if (paymentMethod === "card") {
+        router.push(`/payment/${result.orderId}`);
+      } else {
+        router.push(`/order-confirmation/${result.orderId}`);
+      }
     } catch (error: any) {
       console.error("[Checkout] Error placing order:", error);
       setErrorMessage(error.message || "Failed to place order. Please try again.");

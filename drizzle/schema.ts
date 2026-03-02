@@ -277,6 +277,10 @@ export const orders = mysqlTable(
     discountCodeName: varchar("discount_code_name", { length: 50 }),
     discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0.00"),
     isFreeDelivery: boolean("is_free_delivery").default(false),
+    // Elavon payment fields
+    elavonOrderId: varchar("elavon_order_id", { length: 100 }),
+    elavonSessionId: varchar("elavon_session_id", { length: 100 }),
+    elavonTransactionId: varchar("elavon_transaction_id", { length: 100 }),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
     deliveryAddress: text("delivery_address").notNull(),
     deliveryLatitude: decimal("delivery_latitude", { precision: 10, scale: 7 }),

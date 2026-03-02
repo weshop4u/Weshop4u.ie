@@ -75,12 +75,12 @@
 - [ ] 15-second job offer timeout
 
 ## Payment Integration
-- [ ] Elavon payment gateway integration
-- [ ] Card payment processing
+- [x] Elavon payment gateway integration
+- [x] Card payment processing
 - [x] Cash on Delivery support
 - [x] 10% service fee calculation
 - [x] Distance-based delivery fee calculation
-- [ ] Payment status tracking
+- [x] Payment status tracking
 
 ## Additional Features
 - [ ] Multi-store support
@@ -2065,7 +2065,7 @@
 - [x] Delete all products from Wraps and Wraps and Sambos categories in Spar (replaced by Deli Create Your Own) — 25 products removed
 - [x] Create WELCOME10 discount code — 10% off all stores, one-time per customer, for re-engagement email campaign
 - [x] Save Elavon Converge credentials securely (Processor ID, Public Key, Secret Key, Merchant Alias)
-- [ ] Integrate Elavon Converge payment gateway into checkout flow
+- [x] Integrate Elavon Converge payment gateway into checkout flow — payment-related columns added to orders table (elavonOrderId, elavonSessionId, elavonTransactionId, paymentStatus), server-side payments router with createPaymentSession/checkPaymentStatus/cancelPayment endpoints, checkout redirects card orders to /payment page which creates Elavon session and redirects to hosted payment page, payment-result page verifies payment on return, payment-cancel page handles cancellation. 28 tests passing.
 - [x] Add Customers count card to admin dashboard
 - [x] Build Customers admin list page (name, email, sign-up date, order count)
 - [x] Add Customers link to admin sidebar navigation
