@@ -725,7 +725,7 @@ function AdminOrdersScreenContent() {
                           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: statusColor }} />
                           <View>
                             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
-                              {item.displayNumber ? `Driver ${item.displayNumber}` : item.name}
+                              {item.displayNumber ? `Driver ${item.displayNumber}` : "Driver"}{item.name && item.name !== "Unknown" ? ` — ${item.name}` : ""}
                             </Text>
                             <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusLabel}</Text>
                           </View>

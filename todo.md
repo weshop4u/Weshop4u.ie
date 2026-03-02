@@ -2094,3 +2094,4 @@
 - [x] Add distance display to web home page store cards (already working on mobile app but missing on web)
 - [x] Improve sort position visibility and editing in admin Manage Stores panel
 - [x] Add tooltips to admin orders action icons (delivery truck, receipt, cancel) so purpose is clear on hover — 🚗 = Assign Driver, 📋 = Update Status, ✕ = Cancel Order
+- [x] Show driver's real name alongside driver number in admin orders (assign modal + driver column), e.g. "Driver 01 — Tony"

@@ -325,8 +325,21 @@ export const adminRouter = router({
           .from(drivers)
           .where(sql`${drivers.userId} IN (${sql.join(uniqueDriverUserIds.map(id => sql`${id}`), sql`, `)})`);
 
+        // Fetch real names from users table
+        const driverUserRows = await db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(sql`${users.id} IN (${sql.join(uniqueDriverUserIds.map(id => sql`${id}`), sql`, `)})`);
+        const driverUserNameMap: Record<number, string> = Object.fromEntries(
+          driverUserRows.map(u => [u.id, u.name || ""])
+        );
+
         driverMap = Object.fromEntries(
-          driverRows.map(d => [d.userId, d.displayNumber ? `Driver ${d.displayNumber}` : "Driver"])
+          driverRows.map(d => {
+            const label = d.displayNumber ? `Driver ${d.displayNumber}` : "Driver";
+            const realName = driverUserNameMap[d.userId];
+            return [d.userId, realName ? `${label} \u2014 ${realName}` : label];
+          })
         );
       }
 
