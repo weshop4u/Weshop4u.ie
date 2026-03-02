@@ -11,6 +11,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
 import { useColors } from "@/hooks/use-colors";
+import { useLocation, calculateDistance } from "@/hooks/use-location";
+
+function formatDistance(km: number): string {
+  if (km < 1) {
+    return `${Math.round(km * 1000)}m`;
+  }
+  return `${km.toFixed(1)}km`;
+}
 
 type StoreCategory = "convenience" | "restaurant" | "hardware" | "electrical" | "clothing" | "grocery" | "pharmacy" | "other";
 
@@ -46,6 +54,7 @@ export default function WebHome() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const { location } = useLocation();
   const screenWidth = Dimensions.get("window").width;
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,9 +106,25 @@ export default function WebHome() {
     return stores;
   }, [stores]);
 
-  // Sort: open first, then by position
+  // Calculate distances for each store
+  const storesWithDistance = useMemo(() => {
+    return filteredStores.map((store) => {
+      let distance: number | null = null;
+      if (location && (store as any).latitude && (store as any).longitude) {
+        distance = calculateDistance(
+          location.latitude,
+          location.longitude,
+          parseFloat((store as any).latitude),
+          parseFloat((store as any).longitude)
+        );
+      }
+      return { ...store, distance };
+    });
+  }, [filteredStores, location]);
+
+  // Sort: by position first, then open/closed
   const sortedStores = useMemo(() => {
-    return [...filteredStores].sort((a, b) => {
+    return [...storesWithDistance].sort((a, b) => {
       const aPos = (a as any).sortPosition ?? 999;
       const bPos = (b as any).sortPosition ?? 999;
       if (aPos !== bPos) return aPos - bPos;
@@ -107,7 +132,7 @@ export default function WebHome() {
       const bOpen = isStoreOpen(b) ? 0 : 1;
       return aOpen - bOpen;
     });
-  }, [filteredStores]);
+  }, [storesWithDistance]);
 
   // Responsive columns
   const numColumns = screenWidth > 900 ? 3 : screenWidth > 600 ? 2 : 1;
@@ -254,6 +279,15 @@ export default function WebHome() {
           <View style={popularStyles.cardsRow}>
             {featuredStores.slice(0, 2).map((store) => {
               const open = isStoreOpen(store);
+              let storeDistance: number | null = null;
+              if (location && (store as any).latitude && (store as any).longitude) {
+                storeDistance = calculateDistance(
+                  location.latitude,
+                  location.longitude,
+                  parseFloat((store as any).latitude),
+                  parseFloat((store as any).longitude)
+                );
+              }
               const todayHours = getTodayHours(store);
               return (
                 <TouchableOpacity
@@ -292,6 +326,11 @@ export default function WebHome() {
                     {todayHours && (
                       <Text style={[popularStyles.cardHours, { color: open ? "#687076" : "#DC2626" }]}>
                         🕐 {todayHours}
+                      </Text>
+                    )}
+                    {storeDistance !== null && (
+                      <Text style={{ fontSize: 12, color: "#0284C7", marginTop: 2 }}>
+                        📍 {formatDistance(storeDistance)} away
                       </Text>
                     )}
                     <View style={[popularStyles.cardButton, !open && popularStyles.cardButtonClosed]}>
@@ -459,6 +498,11 @@ export default function WebHome() {
                     {store.description && (
                       <Text style={styles.storeDescription} numberOfLines={2}>
                         {store.description}
+                      </Text>
+                    )}
+                    {(store as any).distance !== null && (store as any).distance !== undefined && (
+                      <Text style={{ fontSize: 12, color: "#0284C7", marginTop: 4 }}>
+                        📍 {formatDistance((store as any).distance)} away
                       </Text>
                     )}
                   </View>

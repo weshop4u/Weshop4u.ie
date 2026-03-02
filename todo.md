@@ -2091,3 +2091,5 @@
 - [x] Move Popular Stores section above the coupon banner on the home page
 - [x] Add image upload button to store logo tab in admin Manage Stores page (alongside existing URL field)
 - [x] Fix store name text wrapping/layout in the right panel of admin Manage Stores page
+- [x] Add distance display to web home page store cards (already working on mobile app but missing on web)
+- [x] Improve sort position visibility and editing in admin Manage Stores panel

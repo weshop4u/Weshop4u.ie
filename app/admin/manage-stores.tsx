@@ -828,7 +828,12 @@ function ManageStoresScreenContent() {
                   <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }} numberOfLines={1}>{store.name}</Text>
                   <Text style={{ fontSize: 11, color: colors.muted }}>{store.category} {store.isActive ? "\u00b7 Active" : "\u00b7 Inactive"}</Text>
                 </View>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: store.isActive ? "#22C55E" : "#EF4444" }} />
+                <View style={{ alignItems: "center", gap: 2 }}>
+                  <View style={{ backgroundColor: "#E0F2FE", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, minWidth: 24, alignItems: "center" }}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: "#0284C7" }}>#{(store as any).sortPosition ?? 999}</Text>
+                  </View>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: store.isActive ? "#22C55E" : "#EF4444" }} />
+                </View>
               </TouchableOpacity>
             ))}
           </View>
