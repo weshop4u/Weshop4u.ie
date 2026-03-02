@@ -246,66 +246,6 @@ export default function WebHome() {
         </View>
       </View>
 
-      {/* Promotional Banners from Database */}
-      {!searchQuery && activeBanners && activeBanners.length > 0 && (
-        <View style={{ maxWidth: 900, width: "100%", alignSelf: "center", paddingHorizontal: 24, marginBottom: 8, gap: 12 }}>
-          {activeBanners.map((banner: any) => {
-            const bg = banner.backgroundColor || "#0F172A";
-            const accent = banner.accentColor || "#00E5FF";
-            return (
-              <View key={banner.id} style={{
-                borderRadius: 16,
-                overflow: "hidden",
-                backgroundColor: bg,
-                padding: 24,
-                position: "relative",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 16,
-              }}>
-                <View style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  backgroundColor: accent,
-                }} />
-                <View style={{ flex: 1, minWidth: 250 }}>
-                  <Text style={{ fontSize: 19, fontWeight: "800", color: accent, marginBottom: 6, letterSpacing: 0.3 }}>
-                    {banner.title}
-                  </Text>
-                  {banner.subtitle && (
-                    <Text style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 20 }}>
-                      {banner.subtitle}
-                    </Text>
-                  )}
-                </View>
-                {banner.discountCode && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View style={{
-                      backgroundColor: `${accent}20`,
-                      borderWidth: 1.5,
-                      borderColor: accent,
-                      borderStyle: "dashed",
-                      borderRadius: 10,
-                      paddingHorizontal: 20,
-                      paddingVertical: 10,
-                    }}>
-                      <Text style={{ fontSize: 20, fontWeight: "900", color: accent, letterSpacing: 2 }}>
-                        {banner.discountCode}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      )}
-
       {/* Popular Stores Section */}
       {featuredStores && featuredStores.length > 0 && !searchQuery && (
         <View style={popularStyles.section}>
@@ -364,6 +304,66 @@ export default function WebHome() {
               );
             })}
           </View>
+        </View>
+      )}
+
+      {/* Promotional Banners from Database */}
+      {!searchQuery && activeBanners && activeBanners.length > 0 && (
+        <View style={{ maxWidth: 900, width: "100%", alignSelf: "center", paddingHorizontal: 24, marginBottom: 8, marginTop: 8, gap: 12 }}>
+          {activeBanners.map((banner: any) => {
+            const bg = banner.backgroundColor || "#0F172A";
+            const accent = banner.accentColor || "#00E5FF";
+            return (
+              <View key={banner.id} style={{
+                borderRadius: 16,
+                overflow: "hidden",
+                backgroundColor: bg,
+                padding: 24,
+                position: "relative",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 16,
+              }}>
+                <View style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  backgroundColor: accent,
+                }} />
+                <View style={{ flex: 1, minWidth: 250 }}>
+                  <Text style={{ fontSize: 19, fontWeight: "800", color: accent, marginBottom: 6, letterSpacing: 0.3 }}>
+                    {banner.title}
+                  </Text>
+                  {banner.subtitle && (
+                    <Text style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 20 }}>
+                      {banner.subtitle}
+                    </Text>
+                  )}
+                </View>
+                {banner.discountCode && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{
+                      backgroundColor: `${accent}20`,
+                      borderWidth: 1.5,
+                      borderColor: accent,
+                      borderStyle: "dashed",
+                      borderRadius: 10,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                    }}>
+                      <Text style={{ fontSize: 20, fontWeight: "900", color: accent, letterSpacing: 2 }}>
+                        {banner.discountCode}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 
