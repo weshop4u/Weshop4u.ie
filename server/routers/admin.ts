@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals } from "../../drizzle/schema";
 import { eq, and, desc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -1282,6 +1282,160 @@ export const adminRouter = router({
       });
 
       return { success: true, storeId: Number(result[0].insertId) };
+    }),
+
+  // Duplicate a store with all its products, modifier groups, modifiers, and multi-buy deals
+  duplicateStore: publicProcedure
+    .input(z.object({
+      sourceStoreId: z.number(),
+      newName: z.string().min(1),
+      newAddress: z.string().min(1),
+      newEircode: z.string().optional(),
+      newShortCode: z.string().optional(),
+      newPhone: z.string().optional(),
+      newEmail: z.string().optional(),
+      copyProducts: z.boolean().default(true),
+      copyModifiers: z.boolean().default(true),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get source store
+      const [sourceStore] = await db.select().from(stores).where(eq(stores.id, input.sourceStoreId));
+      if (!sourceStore) throw new Error("Source store not found");
+
+      // Generate slug
+      const slug = input.newName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      // Check slug uniqueness
+      const existingSlugs = await db.select({ slug: stores.slug }).from(stores).where(eq(stores.slug, slug));
+      const finalSlug = existingSlugs.length > 0 ? `${slug}-${Date.now()}` : slug;
+
+      // Geocode new address
+      let latitude: string | undefined;
+      let longitude: string | undefined;
+      try {
+        const coords = await geocodeAddress(input.newAddress + (input.newEircode ? " " + input.newEircode : ""));
+        if (coords) {
+          latitude = String(coords.latitude);
+          longitude = String(coords.longitude);
+        }
+      } catch (e) {
+        // Geocoding is optional
+      }
+
+      // Create new store (copy settings from source)
+      const [newStoreResult] = await db.insert(stores).values({
+        name: input.newName,
+        slug: finalSlug,
+        description: sourceStore.description,
+        category: sourceStore.category,
+        logo: sourceStore.logo,
+        address: input.newAddress,
+        eircode: input.newEircode || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        phone: input.newPhone || sourceStore.phone,
+        email: input.newEmail || sourceStore.email,
+        isOpen247: sourceStore.isOpen247,
+        openingHours: sourceStore.openingHours,
+        isActive: false, // Start inactive so admin can review before going live
+        shortCode: input.newShortCode || null,
+        orderCounter: 0,
+        sortPosition: 999,
+        isFeatured: false,
+      });
+
+      const newStoreId = Number(newStoreResult.insertId);
+      let productsCopied = 0;
+      let modifiersCopied = 0;
+      let dealsCopied = 0;
+
+      if (input.copyProducts) {
+        // Get all products from source store
+        const sourceProducts = await db.select().from(products).where(eq(products.storeId, input.sourceStoreId));
+
+        for (const product of sourceProducts) {
+          // Create new product with new storeId
+          const [newProductResult] = await db.insert(products).values({
+            storeId: newStoreId,
+            categoryId: product.categoryId,
+            name: product.name,
+            description: product.description,
+            sku: product.sku,
+            barcode: product.barcode,
+            price: product.price,
+            salePrice: product.salePrice,
+            images: product.images,
+            stockStatus: product.stockStatus,
+            quantity: product.quantity,
+            isActive: product.isActive,
+            isDrs: product.isDrs,
+            sortOrder: product.sortOrder,
+            pinnedToTrending: false,
+            weight: product.weight,
+            dimensions: product.dimensions,
+          });
+          const newProductId = Number(newProductResult.insertId);
+          productsCopied++;
+
+          if (input.copyModifiers) {
+            // Copy modifier groups and their modifiers
+            const sourceGroups = await db.select().from(modifierGroups).where(eq(modifierGroups.productId, product.id));
+
+            for (const group of sourceGroups) {
+              const [newGroupResult] = await db.insert(modifierGroups).values({
+                productId: newProductId,
+                name: group.name,
+                type: group.type,
+                required: group.required,
+                minSelections: group.minSelections,
+                maxSelections: group.maxSelections,
+                sortOrder: group.sortOrder,
+              });
+              const newGroupId = Number(newGroupResult.insertId);
+
+              // Copy modifiers (options) within the group
+              const sourceModifiers = await db.select().from(modifiers).where(eq(modifiers.groupId, group.id));
+              for (const mod of sourceModifiers) {
+                await db.insert(modifiers).values({
+                  groupId: newGroupId,
+                  name: mod.name,
+                  price: mod.price,
+                  isDefault: mod.isDefault,
+                  isActive: mod.isActive,
+                  sortOrder: mod.sortOrder,
+                });
+                modifiersCopied++;
+              }
+            }
+
+            // Copy multi-buy deals
+            const sourceDeals = await db.select().from(multiBuyDeals).where(eq(multiBuyDeals.productId, product.id));
+            for (const deal of sourceDeals) {
+              await db.insert(multiBuyDeals).values({
+                productId: newProductId,
+                quantity: deal.quantity,
+                dealPrice: deal.dealPrice,
+                label: deal.label,
+                isActive: deal.isActive,
+              });
+              dealsCopied++;
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        storeId: newStoreId,
+        stats: {
+          productsCopied,
+          modifiersCopied,
+          dealsCopied,
+        },
+      };
     }),
 
   // Delete a store (only if it has no orders)

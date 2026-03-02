@@ -2079,3 +2079,5 @@
 - [x] Add "Add New Store" functionality to Manage Stores page
 - [x] Add "Edit Store" functionality (name, category, address, hours, delivery settings, active/inactive) — already existed
 - [x] Add "Delete Store" functionality with confirmation (blocks deletion if store has orders)
+- [x] Add "Duplicate Store" backend endpoint to clone store with products, categories, modifiers
+- [x] Add "Duplicate Store" button and form to admin Manage Stores page

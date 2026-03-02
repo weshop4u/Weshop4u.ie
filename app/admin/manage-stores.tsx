@@ -69,6 +69,18 @@ function ManageStoresScreenContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Duplicate store state
+  const [showDuplicateForm, setShowDuplicateForm] = useState(false);
+  const [dupName, setDupName] = useState("");
+  const [dupAddress, setDupAddress] = useState("");
+  const [dupEircode, setDupEircode] = useState("");
+  const [dupShortCode, setDupShortCode] = useState("");
+  const [dupPhone, setDupPhone] = useState("");
+  const [dupEmail, setDupEmail] = useState("");
+  const [dupCopyProducts, setDupCopyProducts] = useState(true);
+  const [dupCopyModifiers, setDupCopyModifiers] = useState(true);
+  const [duplicating, setDuplicating] = useState(false);
+
   const { data: storesList, isLoading, refetch } = trpc.admin.getAllStoresAdmin.useQuery();
   const updateStoreMutation = trpc.admin.updateStore.useMutation();
   const updateHoursMutation = trpc.admin.updateStoreHours.useMutation();
@@ -77,6 +89,7 @@ function ManageStoresScreenContent() {
   const updateLogoMutation = trpc.admin.updateStoreLogo.useMutation();
   const createStoreMutation = trpc.admin.createStore.useMutation();
   const deleteStoreMutation = trpc.admin.deleteStore.useMutation();
+  const duplicateStoreMutation = trpc.admin.duplicateStore.useMutation();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -217,6 +230,101 @@ function ManageStoresScreenContent() {
       setSaving(false);
     }
   };
+
+  const handleDuplicateStore = async () => {
+    if (!selectedStoreId || !dupName.trim() || !dupAddress.trim()) return;
+    setDuplicating(true);
+    setMessage("");
+    try {
+      const result = await duplicateStoreMutation.mutateAsync({
+        sourceStoreId: selectedStoreId,
+        newName: dupName.trim(),
+        newAddress: dupAddress.trim(),
+        newEircode: dupEircode.trim() || undefined,
+        newShortCode: dupShortCode.trim() || undefined,
+        newPhone: dupPhone.trim() || undefined,
+        newEmail: dupEmail.trim() || undefined,
+        copyProducts: dupCopyProducts,
+        copyModifiers: dupCopyModifiers,
+      });
+      const stats = result.stats;
+      setMessage(`Store duplicated! ${stats.productsCopied} products, ${stats.modifiersCopied} modifiers, ${stats.dealsCopied} deals copied. New store is set to Inactive — activate it when ready.`);
+      setMessageType("success");
+      setShowDuplicateForm(false);
+      setDupName(""); setDupAddress(""); setDupEircode(""); setDupShortCode(""); setDupPhone(""); setDupEmail("");
+      await refetch();
+      setSelectedStoreId(result.storeId);
+    } catch (error: any) {
+      setMessage(error.message || "Failed to duplicate store");
+      setMessageType("error");
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  // ─── Duplicate Store Form ───
+  const renderDuplicateForm = () => (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 100 }}>
+      <ScrollView style={{ maxHeight: "80%", width: "90%", maxWidth: 500 }} contentContainerStyle={{ flexGrow: 0 }}>
+        <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 24, gap: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Duplicate Store</Text>
+            <TouchableOpacity onPress={() => setShowDuplicateForm(false)}>
+              <Text style={{ fontSize: 14, color: colors.muted }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ backgroundColor: "#E0F7FA", borderRadius: 10, padding: 12 }}>
+            <Text style={{ fontSize: 13, color: "#00838F", lineHeight: 18 }}>Cloning from: <Text style={{ fontWeight: "700" }}>{selectedStore?.name}</Text>. This will copy the store settings, opening hours{dupCopyProducts ? ", all products" : ""}{dupCopyModifiers ? ", modifiers & deals" : ""} to a new store.</Text>
+          </View>
+          <View>
+            <Text style={styles.label}>New Store Name *</Text>
+            <TextInput value={dupName} onChangeText={setDupName} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder={`e.g. ${selectedStore?.name?.replace(/Balbriggan/i, "Swords") || "Store Name"}`} placeholderTextColor={colors.muted} />
+          </View>
+          <View>
+            <Text style={styles.label}>New Address *</Text>
+            <TextInput value={dupAddress} onChangeText={setDupAddress} style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Full address of new location" placeholderTextColor={colors.muted} multiline numberOfLines={2} />
+          </View>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Eircode</Text>
+              <TextInput value={dupEircode} onChangeText={setDupEircode} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="e.g. K67 D868" placeholderTextColor={colors.muted} autoCapitalize="characters" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Short Code</Text>
+              <TextInput value={dupShortCode} onChangeText={setDupShortCode} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="e.g. SPS" placeholderTextColor={colors.muted} autoCapitalize="characters" maxLength={5} />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Phone</Text>
+              <TextInput value={dupPhone} onChangeText={setDupPhone} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Phone" placeholderTextColor={colors.muted} keyboardType="phone-pad" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput value={dupEmail} onChangeText={setDupEmail} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Email" placeholderTextColor={colors.muted} keyboardType="email-address" autoCapitalize="none" />
+            </View>
+          </View>
+          <View style={{ gap: 10, paddingTop: 4 }}>
+            <TouchableOpacity onPress={() => setDupCopyProducts(!dupCopyProducts)} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: dupCopyProducts ? colors.primary : colors.border, backgroundColor: dupCopyProducts ? colors.primary : "transparent", justifyContent: "center", alignItems: "center" }}>
+                {dupCopyProducts && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+              </View>
+              <Text style={{ fontSize: 14, color: colors.foreground }}>Copy all products</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setDupCopyModifiers(!dupCopyModifiers)} style={{ flexDirection: "row", alignItems: "center", gap: 10, opacity: dupCopyProducts ? 1 : 0.4 }} disabled={!dupCopyProducts}>
+              <View style={{ width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: dupCopyModifiers && dupCopyProducts ? colors.primary : colors.border, backgroundColor: dupCopyModifiers && dupCopyProducts ? colors.primary : "transparent", justifyContent: "center", alignItems: "center" }}>
+                {dupCopyModifiers && dupCopyProducts && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+              </View>
+              <Text style={{ fontSize: 14, color: colors.foreground }}>Copy modifiers & multi-buy deals</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={handleDuplicateStore} disabled={duplicating || !dupName.trim() || !dupAddress.trim()} style={[styles.saveButton, { backgroundColor: colors.primary, opacity: duplicating || !dupName.trim() || !dupAddress.trim() ? 0.5 : 1, marginTop: 4 }]}>
+            {duplicating ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Duplicate Store</Text>}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
 
   const handleDeleteStore = async () => {
     if (!selectedStoreId) return;
@@ -553,6 +661,7 @@ function ManageStoresScreenContent() {
     return (
       <View style={{ flex: 1, flexDirection: "row" }}>
         {showDeleteConfirm && renderDeleteConfirm()}
+        {showDuplicateForm && renderDuplicateForm()}
         {/* Left: Store List */}
         <ScrollView style={{ width: 340, borderRightWidth: 1, borderRightColor: colors.border, backgroundColor: colors.surface }}>
           <View style={{ padding: 16 }}>
@@ -638,6 +747,9 @@ function ManageStoresScreenContent() {
                       thumbColor={(selectedStore as any).isFeatured ? "#00E5FF" : "#9CA3AF"}
                     />
                   </View>
+                  <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#BAE6FD" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}>
                     <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
                   </TouchableOpacity>
@@ -805,11 +917,15 @@ function ManageStoresScreenContent() {
               {selectedStore?.isActive ? " · Active" : " · Inactive"}
             </Text>
           </View>
+          <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
           </TouchableOpacity>
         </View>
         {showDeleteConfirm && renderDeleteConfirm()}
+        {showDuplicateForm && renderDuplicateForm()}
 
         {/* Tab Bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
