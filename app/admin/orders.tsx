@@ -1,7 +1,8 @@
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
@@ -40,7 +41,8 @@ function AdminOrdersScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 900;
 
-  const [statusFilter, setStatusFilter] = useState("all");
+  const params = useLocalSearchParams<{ status?: string }>();
+  const [statusFilter, setStatusFilter] = useState(params.status || "all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [assignModalOrderId, setAssignModalOrderId] = useState<number | null>(null);

@@ -1470,15 +1470,15 @@ export const adminRouter = router({
       })
       .from(drivers);
 
-    // Get user names
+    // Get user names and phone numbers
     const userIds = driversList.map(d => d.userId);
-    let userMap: Record<number, string> = {};
+    let userMap: Record<number, { name: string; phone: string }> = {};
     if (userIds.length > 0) {
       const userRows = await db
-        .select({ id: users.id, name: users.name })
+        .select({ id: users.id, name: users.name, phone: users.phone })
         .from(users)
         .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
-      userMap = Object.fromEntries(userRows.map(u => [u.id, u.name || "Unknown"]));
+      userMap = Object.fromEntries(userRows.map(u => [u.id, { name: u.name || "Unknown", phone: u.phone || "" }]));
     }
 
     // Get active orders for each driver (to show what they're delivering)
@@ -1511,12 +1511,14 @@ export const adminRouter = router({
 
     return driversList.map(driver => {
       const label = driver.displayNumber ? `Driver ${driver.displayNumber}` : "Driver";
-      const realName = userMap[driver.userId] || "Unknown";
+      const realName = userMap[driver.userId]?.name || "Unknown";
+      const phone = userMap[driver.userId]?.phone || "";
       return {
         id: driver.id,
         userId: driver.userId,
         label: realName ? `${label} — ${realName}` : label,
         name: realName,
+        phone,
         displayNumber: driver.displayNumber,
         isOnline: driver.isOnline,
         isAvailable: driver.isAvailable,

@@ -1,8 +1,9 @@
-import { View, Text, ScrollView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Platform, StyleSheet, TouchableOpacity, ActivityIndicator, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+import { useRouter } from "expo-router";
 
 // Balbriggan center coordinates
 const BALBRIGGAN_LAT = 53.6108;
@@ -24,10 +25,12 @@ function DriverMapContent() {
     refetchInterval: 10000, // Refresh every 10 seconds
   });
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
+  const [showOffline, setShowOffline] = useState(true);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Record<number, any>>({});
   const [mapReady, setMapReady] = useState(false);
+  const router = useRouter();
 
   // Initialize Leaflet map (web only)
   useEffect(() => {
@@ -74,7 +77,7 @@ function DriverMapContent() {
     markersRef.current = {};
 
     const onlineWithLocation = driverLocations.filter(d => d.isOnline && d.latitude && d.longitude);
-    const offlineWithLocation = driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude);
+    const offlineWithLocation = showOffline ? driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude) : [];
 
     // Add online driver markers (green)
     onlineWithLocation.forEach(driver => {
@@ -111,6 +114,7 @@ function DriverMapContent() {
           <div style="min-width: 180px; font-family: system-ui, sans-serif;">
             <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">${driver.label}</div>
             <div style="color: ${color}; font-weight: 600; font-size: 13px; margin-bottom: 6px;">${statusText}</div>
+            ${driver.phone ? `<div style="color: #334155; font-size: 12px; margin-bottom: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1; text-decoration: none;">${driver.phone}</a></div>` : ""}
             ${driver.vehicleType ? `<div style="color: #64748B; font-size: 12px;">Vehicle: ${driver.vehicleType}</div>` : ""}
             <div style="color: #64748B; font-size: 12px;">Last update: ${timeAgo(driver.lastLocationUpdate)}</div>
             ${driver.activeOrders.length > 0 ? driver.activeOrders.map(o =>
@@ -154,6 +158,7 @@ function DriverMapContent() {
           <div style="min-width: 160px; font-family: system-ui, sans-serif;">
             <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">${driver.label}</div>
             <div style="color: #94A3B8; font-weight: 600; font-size: 13px;">Offline</div>
+            ${driver.phone ? `<div style="color: #334155; font-size: 12px; margin-top: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1; text-decoration: none;">${driver.phone}</a></div>` : ""}
             <div style="color: #64748B; font-size: 12px;">Last seen: ${timeAgo(driver.lastLocationUpdate)}</div>
           </div>
         `);
@@ -167,7 +172,7 @@ function DriverMapContent() {
       // Add some padding
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
-  }, [driverLocations, mapReady]);
+  }, [driverLocations, mapReady, showOffline]);
 
   if (isLoading) {
     return (
@@ -230,24 +235,44 @@ function DriverMapContent() {
           </View>
         </View>
 
-        {/* Stats bar */}
+        {/* Stats bar — clickable badges */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { borderLeftColor: "#22C55E" }]}>
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: "#22C55E" }]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/admin/orders?status=accepted" as any)}
+          >
             <Text style={styles.statNumber}>{onlineDrivers.length}</Text>
             <Text style={styles.statLabel}>Online</Text>
-          </View>
-          <View style={[styles.statCard, { borderLeftColor: "#F59E0B" }]}>
+            <Text style={styles.statBadgeHint}>View active orders →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: "#F59E0B" }]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/admin/orders?status=on_the_way" as any)}
+          >
             <Text style={styles.statNumber}>{deliveringDrivers.length}</Text>
             <Text style={styles.statLabel}>Delivering</Text>
-          </View>
-          <View style={[styles.statCard, { borderLeftColor: "#94A3B8" }]}>
+            <Text style={styles.statBadgeHint}>View in-transit →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: "#94A3B8" }]}
+            activeOpacity={0.7}
+            onPress={() => setShowOffline(!showOffline)}
+          >
             <Text style={styles.statNumber}>{offlineDrivers.length}</Text>
             <Text style={styles.statLabel}>Offline</Text>
-          </View>
-          <View style={[styles.statCard, { borderLeftColor: "#0EA5E9" }]}>
+            <Text style={styles.statBadgeHint}>{showOffline ? "Tap to hide" : "Tap to show"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: "#0EA5E9" }]}
+            activeOpacity={0.7}
+            onPress={() => router.push("/admin/orders?status=pending" as any)}
+          >
             <Text style={styles.statNumber}>{driversWithLocation.length}</Text>
             <Text style={styles.statLabel}>With GPS</Text>
-          </View>
+            <Text style={styles.statBadgeHint}>View pending orders →</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Map (web only) */}
@@ -296,6 +321,11 @@ function DriverMapContent() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.driverName}>{driver.label}</Text>
+                    {driver.phone ? (
+                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
+                        <Text style={styles.driverPhone}>📞 {driver.phone}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
                       {driver.latitude ? (
                         <Text style={styles.driverMeta}>📍 {driver.latitude.toFixed(4)}, {driver.longitude?.toFixed(4)}</Text>
@@ -338,7 +368,7 @@ function DriverMapContent() {
           )}
 
           {/* Offline drivers */}
-          {offlineDrivers.length > 0 && (
+          {showOffline && offlineDrivers.length > 0 && (
             <View>
               <Text style={styles.groupLabel}>⚫ Offline ({offlineDrivers.length})</Text>
               {offlineDrivers.map(driver => (
@@ -358,6 +388,11 @@ function DriverMapContent() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.driverName, { color: "#64748B" }]}>{driver.label}</Text>
+                    {driver.phone ? (
+                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
+                        <Text style={[styles.driverPhone, { color: "#64748B" }]}>📞 {driver.phone}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
                       {driver.latitude ? (
                         <Text style={styles.driverMeta}>Last: {driver.latitude.toFixed(4)}, {driver.longitude?.toFixed(4)}</Text>
@@ -471,6 +506,12 @@ const styles = StyleSheet.create({
     color: "#64748B",
     marginTop: 2,
   },
+  statBadgeHint: {
+    fontSize: 10,
+    color: "#0EA5E9",
+    fontWeight: "500",
+    marginTop: 4,
+  },
   mapWrapper: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
@@ -565,6 +606,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#0F172A",
+  },
+  driverPhone: {
+    fontSize: 12,
+    color: "#0369A1",
+    fontWeight: "500",
+    marginTop: 1,
   },
   driverMeta: {
     fontSize: 12,

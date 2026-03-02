@@ -2101,3 +2101,6 @@
 - [x] Reduce driver GPS reporting interval from 30s to 10s for near real-time tracking (driver home + active delivery)
 - [x] Click driver row in admin map to center/zoom map on that driver's location
 - [x] Add "Show All" button to admin driver map to reset view back to all drivers after zooming into one
+- [x] Add filter toggle to show/hide offline drivers on admin driver map
+- [x] Add driver phone number to map popup so staff can quickly call drivers
+- [x] Add order count badges on stats bar linking to orders page
