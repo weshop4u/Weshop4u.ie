@@ -1451,6 +1451,84 @@ export const adminRouter = router({
       };
     }),
 
+  // Get all driver locations for admin map view
+  getDriverLocations: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const driversList = await db
+      .select({
+        id: drivers.id,
+        userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
+        isOnline: drivers.isOnline,
+        isAvailable: drivers.isAvailable,
+        currentLatitude: drivers.currentLatitude,
+        currentLongitude: drivers.currentLongitude,
+        lastLocationUpdate: drivers.lastLocationUpdate,
+        vehicleType: drivers.vehicleType,
+      })
+      .from(drivers);
+
+    // Get user names
+    const userIds = driversList.map(d => d.userId);
+    let userMap: Record<number, string> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
+      userMap = Object.fromEntries(userRows.map(u => [u.id, u.name || "Unknown"]));
+    }
+
+    // Get active orders for each driver (to show what they're delivering)
+    const activeOrders = await db
+      .select({
+        driverId: orders.driverId,
+        orderNumber: orders.orderNumber,
+        status: orders.status,
+        deliveryAddress: orders.deliveryAddress,
+      })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.driverId} IS NOT NULL`,
+          sql`${orders.status} IN ('picked_up', 'on_the_way', 'accepted', 'preparing', 'ready_for_pickup')`
+        )
+      );
+
+    const driverOrderMap: Record<number, { orderNumber: string; status: string; deliveryAddress: string }[]> = {};
+    activeOrders.forEach(o => {
+      if (o.driverId) {
+        if (!driverOrderMap[o.driverId]) driverOrderMap[o.driverId] = [];
+        driverOrderMap[o.driverId].push({
+          orderNumber: o.orderNumber,
+          status: o.status,
+          deliveryAddress: o.deliveryAddress,
+        });
+      }
+    });
+
+    return driversList.map(driver => {
+      const label = driver.displayNumber ? `Driver ${driver.displayNumber}` : "Driver";
+      const realName = userMap[driver.userId] || "Unknown";
+      return {
+        id: driver.id,
+        userId: driver.userId,
+        label: realName ? `${label} — ${realName}` : label,
+        name: realName,
+        displayNumber: driver.displayNumber,
+        isOnline: driver.isOnline,
+        isAvailable: driver.isAvailable,
+        latitude: driver.currentLatitude ? parseFloat(driver.currentLatitude) : null,
+        longitude: driver.currentLongitude ? parseFloat(driver.currentLongitude) : null,
+        lastLocationUpdate: driver.lastLocationUpdate?.toISOString() || null,
+        vehicleType: driver.vehicleType,
+        activeOrders: driverOrderMap[driver.userId] || [],
+      };
+    });
+  }),
+
   // Delete a store (only if it has no orders)
   deleteStore: publicProcedure
     .input(z.object({ storeId: z.number() }))

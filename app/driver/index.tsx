@@ -100,6 +100,7 @@ export default function DriverHomeScreen() {
   const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
   const acceptOfferMutation = trpc.drivers.acceptOffer.useMutation();
   const declineOfferMutation = trpc.drivers.declineOffer.useMutation();
+  const updateLocationMutation = trpc.drivers.updateLocation.useMutation();
 
   // Queue position query
   const { data: queueData, refetch: refetchQueue } = trpc.drivers.getQueuePosition.useQuery(
@@ -354,6 +355,84 @@ export default function DriverHomeScreen() {
     };
   }, [offerData?.offer?.offerId, offerData?.hasOffer]);
 
+  // GPS location reporting when driver is online (every 30 seconds)
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationSubRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Clean up previous location tracking
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    if (locationSubRef.current) {
+      locationSubRef.current.remove();
+      locationSubRef.current = null;
+    }
+
+    if (!isOnline || !user?.id) return;
+
+    console.log('[Driver] Starting GPS location reporting (online)');
+
+    if (Platform.OS === "web") {
+      if (!navigator.geolocation) return;
+      const sendLocation = () => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            updateLocationMutation.mutate({
+              driverId: user!.id,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+          (err) => console.log("[Driver] Geolocation error:", err.message),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      };
+      sendLocation(); // Send immediately
+      locationIntervalRef.current = setInterval(sendLocation, 30000);
+    } else {
+      // Native: use expo-location
+      (async () => {
+        try {
+          const Location = await import("expo-location");
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted") {
+            console.log("[Driver] Location permission denied");
+            return;
+          }
+          locationSubRef.current = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 30000,
+              distanceInterval: 50,
+            },
+            (loc) => {
+              updateLocationMutation.mutate({
+                driverId: user!.id,
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            }
+          );
+        } catch (e) {
+          console.log("[Driver] Location tracking not available:", e);
+        }
+      })();
+    }
+
+    return () => {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+      if (locationSubRef.current) {
+        locationSubRef.current.remove();
+        locationSubRef.current = null;
+      }
+    };
+  }, [isOnline, user?.id]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -361,6 +440,8 @@ export default function DriverHomeScreen() {
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
       if (vibrationIntervalRef.current) clearInterval(vibrationIntervalRef.current);
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+      if (locationSubRef.current) locationSubRef.current.remove();
       stopWebAlarm();
     };
   }, []);

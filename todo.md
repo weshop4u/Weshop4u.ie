@@ -2095,3 +2095,6 @@
 - [x] Improve sort position visibility and editing in admin Manage Stores panel
 - [x] Add tooltips to admin orders action icons (delivery truck, receipt, cancel) so purpose is clear on hover — 🚗 = Assign Driver, 📋 = Update Status, ✕ = Cancel Order
 - [x] Show driver's real name alongside driver number in admin orders (assign modal + driver column), e.g. "Driver 01 — Tony"
+- [x] Admin driver location map — show all online drivers on a map with real-time GPS positions
+- [x] Driver app auto-reports GPS location when logged in (periodic updates)
+- [x] Backend endpoint to fetch all driver locations for admin map view

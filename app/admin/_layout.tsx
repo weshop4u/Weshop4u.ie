@@ -127,6 +127,12 @@ export default function AdminLayout() {
           title: "Promotional Banners",
         }}
       />
+      <Stack.Screen
+        name="driver-map"
+        options={{
+          title: "Driver Locations",
+        }}
+      />
     </Stack>
   );
 }
