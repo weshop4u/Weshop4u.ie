@@ -26,7 +26,7 @@ function DriverMapContent() {
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const markersRef = useRef<Record<number, any>>({});
   const [mapReady, setMapReady] = useState(false);
 
   // Initialize Leaflet map (web only)
@@ -70,8 +70,8 @@ function DriverMapContent() {
     if (!L) return;
 
     // Clear existing markers
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
+    Object.values(markersRef.current).forEach(m => m.remove());
+    markersRef.current = {};
 
     const onlineWithLocation = driverLocations.filter(d => d.isOnline && d.latitude && d.longitude);
     const offlineWithLocation = driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude);
@@ -122,7 +122,7 @@ function DriverMapContent() {
           </div>
         `);
 
-      markersRef.current.push(marker);
+      markersRef.current[driver.id] = marker;
     });
 
     // Add offline driver markers (grey, smaller)
@@ -158,7 +158,7 @@ function DriverMapContent() {
           </div>
         `);
 
-      markersRef.current.push(marker);
+      markersRef.current[driver.id] = marker;
     });
 
     // If we have online drivers, fit bounds to show them all
@@ -182,6 +182,18 @@ function DriverMapContent() {
   const offlineDrivers = allDrivers.filter(d => !d.isOnline);
   const driversWithLocation = allDrivers.filter(d => d.latitude && d.longitude);
   const deliveringDrivers = onlineDrivers.filter(d => d.activeOrders.length > 0);
+
+  // Center map on a specific driver and open their popup
+  const centerOnDriver = (driverId: number, lat: number | null, lng: number | null) => {
+    if (!mapRef.current || !lat || !lng) return;
+    setSelectedDriver(driverId);
+    mapRef.current.flyTo([lat, lng], 17, { duration: 0.8 });
+    // Open the marker popup
+    const marker = markersRef.current[driverId];
+    if (marker) {
+      setTimeout(() => marker.openPopup(), 400);
+    }
+  };
 
   return (
     <ScreenContainer>
@@ -244,7 +256,17 @@ function DriverMapContent() {
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.groupLabel}>🟢 Online ({onlineDrivers.length})</Text>
               {onlineDrivers.map(driver => (
-                <View key={driver.id} style={[styles.driverRow, styles.driverRowOnline]}>
+                <TouchableOpacity
+                  key={driver.id}
+                  style={[
+                    styles.driverRow,
+                    styles.driverRowOnline,
+                    selectedDriver === driver.id && styles.driverRowSelected,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => centerOnDriver(driver.id, driver.latitude, driver.longitude)}
+                  disabled={!driver.latitude || !driver.longitude}
+                >
                   <View style={[styles.driverBadge, { backgroundColor: driver.activeOrders.length > 0 ? "#F59E0B" : "#22C55E" }]}>
                     <Text style={styles.driverBadgeText}>{driver.displayNumber || "?"}</Text>
                   </View>
@@ -268,7 +290,7 @@ function DriverMapContent() {
                       </View>
                     )}
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
                     {driver.activeOrders.length > 0 ? (
                       <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
                         <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>Delivering</Text>
@@ -282,8 +304,11 @@ function DriverMapContent() {
                         <Text style={{ color: "#0369A1", fontSize: 11, fontWeight: "600" }}>Busy</Text>
                       </View>
                     )}
+                    {driver.latitude && driver.longitude && (
+                      <Text style={styles.locateHint}>Tap to locate</Text>
+                    )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -293,7 +318,17 @@ function DriverMapContent() {
             <View>
               <Text style={styles.groupLabel}>⚫ Offline ({offlineDrivers.length})</Text>
               {offlineDrivers.map(driver => (
-                <View key={driver.id} style={[styles.driverRow, styles.driverRowOffline]}>
+                <TouchableOpacity
+                  key={driver.id}
+                  style={[
+                    styles.driverRow,
+                    styles.driverRowOffline,
+                    selectedDriver === driver.id && styles.driverRowSelected,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => centerOnDriver(driver.id, driver.latitude, driver.longitude)}
+                  disabled={!driver.latitude || !driver.longitude}
+                >
                   <View style={[styles.driverBadge, { backgroundColor: "#94A3B8" }]}>
                     <Text style={styles.driverBadgeText}>{driver.displayNumber || "?"}</Text>
                   </View>
@@ -310,10 +345,15 @@ function DriverMapContent() {
                       )}
                     </View>
                   </View>
-                  <View style={[styles.statusPill, { backgroundColor: "#F1F5F9" }]}>
-                    <Text style={{ color: "#64748B", fontSize: 11, fontWeight: "600" }}>Offline</Text>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <View style={[styles.statusPill, { backgroundColor: "#F1F5F9" }]}>
+                      <Text style={{ color: "#64748B", fontSize: 11, fontWeight: "600" }}>Offline</Text>
+                    </View>
+                    {driver.latitude && driver.longitude && (
+                      <Text style={styles.locateHint}>Tap to locate</Text>
+                    )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -469,6 +509,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F1F5F9",
   },
+  driverRowSelected: {
+    borderColor: "#0EA5E9",
+    borderWidth: 2,
+    backgroundColor: "#F0F9FF",
+  },
   driverBadge: {
     width: 40,
     height: 40,
@@ -516,6 +561,11 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: "center",
     paddingVertical: 12,
+  },
+  locateHint: {
+    fontSize: 10,
+    color: "#0EA5E9",
+    fontWeight: "500",
   },
   footerText: {
     fontSize: 12,
