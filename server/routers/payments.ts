@@ -111,9 +111,9 @@ export const paymentsRouter = router({
         })
         .where(eq(orders.id, input.orderId));
 
-      // The hosted payment page URL (HPP domain is different from API domain)
-      const ELAVON_HPP_BASE = "https://hpp.eu.convergepay.com";
-      const paymentPageUrl = `${ELAVON_HPP_BASE}/hosted-payments/${sessionId}`;
+      // Use the 'url' field from the payment session response directly
+      // Format: https://hpp.eu.convergepay.com?sessionId={sessionId}
+      const paymentPageUrl = paymentSession.url || `https://hpp.eu.convergepay.com?sessionId=${sessionId}`;
 
       return {
         paymentUrl: paymentPageUrl,
