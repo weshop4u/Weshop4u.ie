@@ -33,8 +33,8 @@ function buildPaymentSessionPayload(
   };
 }
 
-function buildPaymentPageUrl(apiBase: string, sessionId: string): string {
-  return `${apiBase}/hosted-payments/${sessionId}`;
+function buildPaymentPageUrl(hppBase: string, sessionId: string): string {
+  return `${hppBase}/hosted-payments/${sessionId}`;
 }
 
 function extractTransactionId(transactionRef: string | { href?: string; id?: string }): string | null {
@@ -130,14 +130,15 @@ describe("Elavon Payment Integration", () => {
   });
 
   describe("Payment Page URL", () => {
-    it("should build correct hosted payment page URL for production EU", () => {
-      const url = buildPaymentPageUrl("https://api.eu.convergepay.com", "session-abc-123");
-      expect(url).toBe("https://api.eu.convergepay.com/hosted-payments/session-abc-123");
+    it("should build correct hosted payment page URL for production EU HPP domain", () => {
+      const url = buildPaymentPageUrl("https://hpp.eu.convergepay.com", "session-abc-123");
+      expect(url).toBe("https://hpp.eu.convergepay.com/hosted-payments/session-abc-123");
     });
 
-    it("should build correct URL for sandbox", () => {
-      const url = buildPaymentPageUrl("https://uat.api.converge.eu.elavonaws.com", "test-session");
-      expect(url).toBe("https://uat.api.converge.eu.elavonaws.com/hosted-payments/test-session");
+    it("should use HPP domain not API domain for hosted payments", () => {
+      const url = buildPaymentPageUrl("https://hpp.eu.convergepay.com", "test-session");
+      expect(url).not.toContain("api.eu.convergepay.com");
+      expect(url).toContain("hpp.eu.convergepay.com");
     });
   });
 

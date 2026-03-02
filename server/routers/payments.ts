@@ -86,6 +86,7 @@ export const paymentsRouter = router({
         shopperEmailAddress: order.guestEmail || undefined,
       });
 
+      console.log("[Elavon] Order response:", JSON.stringify(elavonOrder, null, 2));
       const elavonOrderId = elavonOrder.id;
       const elavonOrderHref = elavonOrder.href;
 
@@ -98,6 +99,7 @@ export const paymentsRouter = router({
         hppType: "fullPageRedirect",
       });
 
+      console.log("[Elavon] Payment session response:", JSON.stringify(paymentSession, null, 2));
       const sessionId = paymentSession.id;
 
       // Save Elavon IDs to the order
@@ -109,8 +111,9 @@ export const paymentsRouter = router({
         })
         .where(eq(orders.id, input.orderId));
 
-      // The hosted payment page URL
-      const paymentPageUrl = `${ELAVON_API_BASE}/hosted-payments/${sessionId}`;
+      // The hosted payment page URL (HPP domain is different from API domain)
+      const ELAVON_HPP_BASE = "https://hpp.eu.convergepay.com";
+      const paymentPageUrl = `${ELAVON_HPP_BASE}/hosted-payments/${sessionId}`;
 
       return {
         paymentUrl: paymentPageUrl,
