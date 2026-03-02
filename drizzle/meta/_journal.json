@@ -155,6 +155,13 @@
       "when": 1772265417209,
       "tag": "0022_eager_shooting_star",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1772415710541,
+      "tag": "0023_curly_photon",
+      "breakpoints": true
     }
   ]
 }

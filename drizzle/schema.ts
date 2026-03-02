@@ -952,3 +952,22 @@ export type DiscountCode = typeof discountCodes.$inferSelect;
 export type InsertDiscountCode = typeof discountCodes.$inferInsert;
 export type DiscountUsage = typeof discountUsage.$inferSelect;
 export type InsertDiscountUsage = typeof discountUsage.$inferInsert;
+
+
+// ===== PROMOTIONAL BANNERS =====
+export const promotionalBanners = mysqlTable("promotional_banners", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 255 }).notNull(),
+  subtitle: varchar("subtitle", { length: 500 }),
+  discountCode: varchar("discount_code", { length: 100 }),
+  backgroundColor: varchar("background_color", { length: 50 }).default("#0F172A"),
+  accentColor: varchar("accent_color", { length: 50 }).default("#00E5FF"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortPosition: int("sort_position").default(0).notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type PromotionalBanner = typeof promotionalBanners.$inferSelect;
+export type InsertPromotionalBanner = typeof promotionalBanners.$inferInsert;

@@ -42,6 +42,7 @@ export default function HomeScreen() {
 
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
+  const { data: activeBanners } = trpc.banners.getActive.useQuery();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const { location, loading: locationLoading, permissionDenied } = useLocation();
@@ -140,51 +141,64 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Promotional Banner */}
-        <View className="px-4 mb-4">
-          <View style={{
-            borderRadius: 16,
-            overflow: "hidden",
-            backgroundColor: "#0F172A",
-            padding: 20,
-            position: "relative",
-          }}>
-            {/* Decorative gradient accent */}
-            <View style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 4,
-              backgroundColor: "#00E5FF",
-            }} />
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <Text style={{ fontSize: 22 }}>🎉</Text>
-              <Text style={{ fontSize: 18, fontWeight: "800", color: "#00E5FF" }}>10% OFF Your First Order!</Text>
-            </View>
-            <Text style={{ fontSize: 14, color: "#CBD5E1", marginBottom: 12, lineHeight: 20 }}>
-              Use code at checkout and save on your first delivery from any store.
-            </Text>
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-            }}>
-              <View style={{
-                backgroundColor: "rgba(0, 229, 255, 0.15)",
-                borderWidth: 1.5,
-                borderColor: "#00E5FF",
-                borderStyle: "dashed",
-                borderRadius: 10,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-              }}>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: "#00E5FF", letterSpacing: 2 }}>WELCOME10</Text>
-              </View>
-              <Text style={{ fontSize: 12, color: "#64748B" }}>One-time use per customer</Text>
-            </View>
+        {/* Promotional Banners from Database */}
+        {activeBanners && activeBanners.length > 0 && (
+          <View className="px-4 mb-4" style={{ gap: 12 }}>
+            {activeBanners.map((banner: any) => {
+              const bg = banner.backgroundColor || "#0F172A";
+              const accent = banner.accentColor || "#00E5FF";
+              return (
+                <View key={banner.id} style={{
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  backgroundColor: bg,
+                  padding: 20,
+                  position: "relative",
+                }}>
+                  <View style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    backgroundColor: accent,
+                  }} />
+                  <Text style={{
+                    fontSize: 17,
+                    fontWeight: "800",
+                    color: accent,
+                    marginBottom: banner.subtitle ? 6 : 0,
+                    letterSpacing: 0.3,
+                  }}>
+                    {banner.title}
+                  </Text>
+                  {banner.subtitle && (
+                    <Text style={{ fontSize: 13, color: "#CBD5E1", marginBottom: 10, lineHeight: 18 }}>
+                      {banner.subtitle}
+                    </Text>
+                  )}
+                  {banner.discountCode && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 }}>
+                      <View style={{
+                        backgroundColor: `${accent}20`,
+                        borderWidth: 1.5,
+                        borderColor: accent,
+                        borderStyle: "dashed",
+                        borderRadius: 8,
+                        paddingHorizontal: 14,
+                        paddingVertical: 6,
+                      }}>
+                        <Text style={{ fontSize: 16, fontWeight: "900", color: accent, letterSpacing: 2 }}>
+                          {banner.discountCode}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
-        </View>
+        )}
 
         {/* Stores Grid */}
         <View className="px-4">

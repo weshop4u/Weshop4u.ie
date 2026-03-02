@@ -2071,3 +2071,8 @@
 - [x] Add Customers link to admin sidebar navigation
 - [x] Fix empty Actions column on admin orders page — added expand/collapse button that always shows for all orders, plus assign/status/cancel for active orders
 - [x] Add promotional banner on home screen to advertise WELCOME10 discount code (mobile + web)
+- [x] Create promotional_banners database table (title, subtitle, code, bg color, active, position)
+- [x] Build backend CRUD endpoints for promotional banners
+- [x] Build admin Promotional Banners management page
+- [x] Update home screen banner to pull from database instead of hardcoded
+- [x] Improve banner design to look classier and update wording to encourage sign-ups

@@ -121,6 +121,12 @@ export default function AdminLayout() {
           title: "Customers",
         }}
       />
+      <Stack.Screen
+        name="promotional-banners"
+        options={{
+          title: "Promotional Banners",
+        }}
+      />
     </Stack>
   );
 }

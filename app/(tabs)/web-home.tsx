@@ -40,6 +40,7 @@ export default function WebHome() {
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { data: featuredStores } = trpc.stores.getFeatured.useQuery();
+  const { data: activeBanners } = trpc.banners.getActive.useQuery();
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -245,53 +246,63 @@ export default function WebHome() {
         </View>
       </View>
 
-      {/* Promotional Banner */}
-      {!searchQuery && (
-        <View style={{ maxWidth: 900, width: "100%", alignSelf: "center", paddingHorizontal: 24, marginBottom: 8 }}>
-          <View style={{
-            borderRadius: 16,
-            overflow: "hidden",
-            backgroundColor: "#0F172A",
-            padding: 24,
-            position: "relative",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 16,
-          }}>
-            <View style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 4,
-              backgroundColor: "#00E5FF",
-            }} />
-            <View style={{ flex: 1, minWidth: 250 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <Text style={{ fontSize: 22 }}>🎉</Text>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: "#00E5FF" }}>10% OFF Your First Order!</Text>
-              </View>
-              <Text style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 20 }}>
-                Use code at checkout and save on your first delivery from any store.
-              </Text>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View style={{
-                backgroundColor: "rgba(0, 229, 255, 0.15)",
-                borderWidth: 1.5,
-                borderColor: "#00E5FF",
-                borderStyle: "dashed",
-                borderRadius: 10,
-                paddingHorizontal: 20,
-                paddingVertical: 10,
+      {/* Promotional Banners from Database */}
+      {!searchQuery && activeBanners && activeBanners.length > 0 && (
+        <View style={{ maxWidth: 900, width: "100%", alignSelf: "center", paddingHorizontal: 24, marginBottom: 8, gap: 12 }}>
+          {activeBanners.map((banner: any) => {
+            const bg = banner.backgroundColor || "#0F172A";
+            const accent = banner.accentColor || "#00E5FF";
+            return (
+              <View key={banner.id} style={{
+                borderRadius: 16,
+                overflow: "hidden",
+                backgroundColor: bg,
+                padding: 24,
+                position: "relative",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 16,
               }}>
-                <Text style={{ fontSize: 20, fontWeight: "900", color: "#00E5FF", letterSpacing: 2 }}>WELCOME10</Text>
+                <View style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  backgroundColor: accent,
+                }} />
+                <View style={{ flex: 1, minWidth: 250 }}>
+                  <Text style={{ fontSize: 19, fontWeight: "800", color: accent, marginBottom: 6, letterSpacing: 0.3 }}>
+                    {banner.title}
+                  </Text>
+                  {banner.subtitle && (
+                    <Text style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 20 }}>
+                      {banner.subtitle}
+                    </Text>
+                  )}
+                </View>
+                {banner.discountCode && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{
+                      backgroundColor: `${accent}20`,
+                      borderWidth: 1.5,
+                      borderColor: accent,
+                      borderStyle: "dashed",
+                      borderRadius: 10,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                    }}>
+                      <Text style={{ fontSize: 20, fontWeight: "900", color: accent, letterSpacing: 2 }}>
+                        {banner.discountCode}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
-              <Text style={{ fontSize: 12, color: "#64748B" }}>One-time use{"\n"}per customer</Text>
-            </View>
-          </View>
+            );
+          })}
         </View>
       )}
 

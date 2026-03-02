@@ -22,6 +22,7 @@ import { otpRouter } from "./routers/otp";
 import { modifiersRouter } from "./routers/modifiers";
 import { modifierTemplatesRouter } from "./routers/modifier-templates";
 import { discountsRouter } from "./routers/discounts";
+import { bannersRouter } from "./routers/banners";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -48,6 +49,7 @@ export const appRouter = router({
   modifiers: modifiersRouter,
   modifierTemplates: modifierTemplatesRouter,
   discounts: discountsRouter,
+  banners: bannersRouter,
 });
 
 export type AppRouter = typeof appRouter;
