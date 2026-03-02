@@ -134,6 +134,124 @@ async function offerOldestOrderToDriver(driverId: number) {
   console.log(`[FIFO] No eligible orders for driver ${driverId}`);
 }
 
+// Check if a driver already heading to the same store can take an extra order (batch)
+const MAX_BATCH_SIZE = 5;
+
+async function tryBatchOfferToEnRouteDriver(orderId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  // Get the store for this order
+  const orderResult = await db
+    .select({ storeId: orders.storeId })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (orderResult.length === 0) return false;
+  const storeId = orderResult[0].storeId;
+
+  // Find drivers currently assigned to orders from the SAME store
+  // that are in pre-delivery statuses (heading to store / at store / picking up)
+  const driversAtSameStore = await db
+    .select({
+      driverId: orders.driverId,
+      orderId: orders.id,
+      status: orders.status,
+      batchId: orders.batchId,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.storeId, storeId),
+        sql`${orders.driverId} IS NOT NULL`,
+        // Only drivers who haven't left the store yet
+        inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up"])
+      )
+    );
+
+  if (driversAtSameStore.length === 0) return false;
+
+  // Group by driver and count their current batch size
+  const driverBatchCounts = new Map<number, { count: number; batchId: string | null; hasLeftStore: boolean }>();
+  for (const row of driversAtSameStore) {
+    if (!row.driverId) continue;
+    const existing = driverBatchCounts.get(row.driverId);
+    // Check if any order in their batch is already on_the_way — means they've left the store
+    const hasLeft = row.status === "on_the_way";
+    if (existing) {
+      existing.count++;
+      if (!existing.batchId && row.batchId) existing.batchId = row.batchId;
+      if (hasLeft) existing.hasLeftStore = true;
+    } else {
+      driverBatchCounts.set(row.driverId, { count: 1, batchId: row.batchId, hasLeftStore: hasLeft });
+    }
+  }
+
+  // Find an eligible driver (under max batch, hasn't left store)
+  for (const [driverId, info] of driverBatchCounts) {
+    if (info.hasLeftStore) continue; // Already delivering, don't add more
+    if (info.count >= MAX_BATCH_SIZE) continue; // At max batch size
+
+    // Check if this driver already has a pending batch offer (don't spam)
+    const existingBatchOffer = await db
+      .select({ id: orderOffers.id })
+      .from(orderOffers)
+      .where(
+        and(
+          eq(orderOffers.driverId, driverId),
+          eq(orderOffers.status, "pending"),
+          eq(orderOffers.isBatchOffer, true),
+          gte(orderOffers.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+    if (existingBatchOffer.length > 0) continue; // Already has a pending batch offer
+
+    // Create a batch offer with 30-second expiry (longer than normal since they're already busy)
+    const expiresAt = new Date(Date.now() + 30 * 1000);
+    await db.insert(orderOffers).values({
+      orderId,
+      driverId,
+      status: "pending",
+      offeredAt: new Date(),
+      expiresAt,
+      isBatchOffer: true,
+    });
+
+    console.log(`[Batch] Offered order ${orderId} as batch add-on to driver ${driverId} (current batch: ${info.count}), expires at ${expiresAt.toISOString()}`);
+
+    // Send push notification
+    try {
+      const driverUser = await db
+        .select({ pushToken: users.pushToken })
+        .from(users)
+        .where(eq(users.id, driverId))
+        .limit(1);
+      if (driverUser.length > 0 && driverUser[0].pushToken) {
+        const storeInfo = await db
+          .select({ name: stores.name })
+          .from(stores)
+          .where(eq(stores.id, storeId))
+          .limit(1);
+        const storeName = storeInfo.length > 0 ? storeInfo[0].name : "Store";
+        const totalInBatch = info.count + 1;
+        await sendPushNotification(driverUser[0].pushToken, {
+          title: `📦 ${totalInBatch} jobs now waiting in ${storeName}`,
+          body: `Another order is ready at ${storeName}. Accept to add to your batch.`,
+          data: { type: "batch_offer", orderId, driverId },
+          channelId: "orders",
+        });
+      }
+    } catch (pushError) {
+      console.error(`[Batch] Failed to send batch offer notification:`, pushError);
+    }
+
+    return true; // Successfully offered as batch
+  }
+
+  return false; // No eligible driver found for batch
+}
+
 // Offer an order to the next available driver in queue
 async function offerToNextDriver(orderId: number) {
   const db = await getDb();
@@ -152,12 +270,30 @@ async function offerToNextDriver(orderId: number) {
     .from(driverQueue)
     .orderBy(asc(driverQueue.position));
 
-  // Find next driver who hasn't been offered yet
-  const nextDriver = queue.find(q => !offeredDriverIds.includes(q.driverId));
+  // Find next AVAILABLE driver who hasn't been offered yet
+  // Available means: in queue AND isAvailable=true (not currently on a delivery)
+  let nextDriver = null;
+  for (const q of queue) {
+    if (offeredDriverIds.includes(q.driverId)) continue;
+    // Check if driver is actually available
+    const driverCheck = await db
+      .select({ isAvailable: drivers.isAvailable })
+      .from(drivers)
+      .where(eq(drivers.userId, q.driverId))
+      .limit(1);
+    if (driverCheck.length > 0 && driverCheck[0].isAvailable) {
+      nextDriver = q;
+      break;
+    }
+  }
 
   if (!nextDriver) {
-    // No more drivers to offer to - order stays in available jobs for manual pickup
-    console.log(`[Queue] No more drivers available for order ${orderId}`);
+    // No available drivers in queue — try batch offer to a driver already at the same store
+    console.log(`[Queue] No available drivers for order ${orderId}, trying batch offer...`);
+    const batchOffered = await tryBatchOfferToEnRouteDriver(orderId);
+    if (!batchOffered) {
+      console.log(`[Queue] No batch opportunity either for order ${orderId}`);
+    }
     return;
   }
 
@@ -206,6 +342,77 @@ async function offerToNextDriver(orderId: number) {
   } catch (pushError) {
     console.error(`[Push] Failed to send job offer notification to driver ${nextDriver.driverId}:`, pushError);
   }
+}
+
+// Haversine distance in km
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Auto-sort batch delivery sequence by closest customer (greedy nearest-neighbour from store)
+async function autoSortBatchSequence(batchId: string) {
+  const db = await getDb();
+  if (!db) return;
+
+  const batchOrders = await db
+    .select({
+      id: orders.id,
+      deliveryLatitude: orders.deliveryLatitude,
+      deliveryLongitude: orders.deliveryLongitude,
+      storeId: orders.storeId,
+    })
+    .from(orders)
+    .where(eq(orders.batchId, batchId))
+    .orderBy(asc(orders.batchSequence));
+
+  if (batchOrders.length <= 1) return;
+
+  // Get store location as starting point
+  const storeResult = await db
+    .select({ latitude: stores.latitude, longitude: stores.longitude })
+    .from(stores)
+    .where(eq(stores.id, batchOrders[0].storeId))
+    .limit(1);
+
+  let currentLat = storeResult.length > 0 ? parseFloat(storeResult[0].latitude || "0") : 0;
+  let currentLng = storeResult.length > 0 ? parseFloat(storeResult[0].longitude || "0") : 0;
+
+  // Greedy nearest-neighbour sort
+  const remaining = [...batchOrders];
+  const sorted: typeof batchOrders = [];
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const lat = parseFloat(remaining[i].deliveryLatitude || "0");
+      const lng = parseFloat(remaining[i].deliveryLongitude || "0");
+      if (lat === 0 && lng === 0) continue;
+      const dist = haversineKm(currentLat, currentLng, lat, lng);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    const next = remaining.splice(bestIdx, 1)[0];
+    sorted.push(next);
+    currentLat = parseFloat(next.deliveryLatitude || "0");
+    currentLng = parseFloat(next.deliveryLongitude || "0");
+  }
+
+  // Update sequence numbers
+  for (let i = 0; i < sorted.length; i++) {
+    await db
+      .update(orders)
+      .set({ batchSequence: i + 1 })
+      .where(eq(orders.id, sorted[i].id));
+  }
+
+  console.log(`[Batch] Auto-sorted batch ${batchId}: ${sorted.map((o, i) => `#${o.id}→${i + 1}`).join(", ")}`);
 }
 
 // Called when a new order is placed - start the offer cascade
@@ -660,7 +867,7 @@ export const driversRouter = router({
         }
       }
 
-      // If delivered, mark driver as available again
+      // If delivered, check if this is part of a batch
       if (input.status === "delivered") {
         const orderResult = await db
           .select()
@@ -669,6 +876,7 @@ export const driversRouter = router({
           .limit(1);
 
         if (orderResult.length > 0 && orderResult[0].driverId) {
+          // Increment delivery count
           const currentDriver = await db
             .select()
             .from(drivers)
@@ -679,16 +887,48 @@ export const driversRouter = router({
             await db
               .update(drivers)
               .set({
-                isAvailable: true,
                 totalDeliveries: (currentDriver[0].totalDeliveries || 0) + 1,
                 updatedAt: new Date(),
               })
               .where(eq(drivers.id, orderResult[0].driverId));
           }
+
+          // Check if there are remaining undelivered orders in the same batch
+          const batchId = orderResult[0].batchId;
+          if (batchId) {
+            const remainingInBatch = await db
+              .select({ id: orders.id })
+              .from(orders)
+              .where(
+                and(
+                  eq(orders.batchId, batchId),
+                  sql`${orders.status} != 'delivered'`,
+                  sql`${orders.status} != 'cancelled'`
+                )
+              );
+
+            if (remainingInBatch.length > 0) {
+              // Still more orders to deliver in this batch
+              console.log(`[Batch] Order ${input.orderId} delivered, ${remainingInBatch.length} remaining in batch ${batchId}`);
+              return { success: true, batchComplete: false, remainingInBatch: remainingInBatch.length };
+            }
+          }
+
+          // All batch orders delivered (or single order) — mark driver available
+          if (currentDriver.length > 0) {
+            await db
+              .update(drivers)
+              .set({
+                isAvailable: true,
+                updatedAt: new Date(),
+              })
+              .where(eq(drivers.id, orderResult[0].driverId));
+          }
+          console.log(`[Batch] All orders in batch delivered. Driver ${orderResult[0].driverId} is now available.`);
         }
       }
 
-      return { success: true };
+      return { success: true, batchComplete: true };
     }),
 
   // Get driver stats for dashboard
@@ -966,7 +1206,7 @@ export const driversRouter = router({
       };
     }),
 
-  // Accept an order offer
+  // Accept an order offer (regular or batch)
   acceptOffer: publicProcedure
     .input(z.object({ offerId: z.number(), driverId: z.number() }))
     .mutation(async ({ input }) => {
@@ -987,38 +1227,105 @@ export const driversRouter = router({
       if (offer.driverId !== input.driverId) throw new Error("This offer is not for you");
       if (new Date() > offer.expiresAt) throw new Error("Offer has expired");
 
+      const isBatch = offer.isBatchOffer === true;
+
       // Accept the offer
       await db
         .update(orderOffers)
         .set({ status: "accepted", respondedAt: new Date() })
         .where(eq(orderOffers.id, input.offerId));
 
-      // Assign driver to order
-      await db
-        .update(orders)
-        .set({ driverId: input.driverId, driverAssignedAt: new Date() })
-        .where(eq(orders.id, offer.orderId));
+      if (isBatch) {
+        // BATCH OFFER: Add this order to the driver's existing batch
+        // Find the driver's current batch
+        const existingBatchOrders = await db
+          .select({ id: orders.id, batchId: orders.batchId, batchSequence: orders.batchSequence })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.driverId, input.driverId),
+              sql`${orders.status} IN ('pending', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up')`
+            )
+          )
+          .orderBy(asc(orders.batchSequence));
 
-      // Move driver to back of queue
-      const maxPos = await db
-        .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
-        .from(driverQueue);
-      const newPosition = (maxPos[0]?.maxPosition || 0) + 1;
+        // Determine batch ID — use existing or create new
+        let batchId = existingBatchOrders.find(o => o.batchId)?.batchId;
+        if (!batchId) {
+          batchId = `BATCH-${input.driverId}-${Date.now()}`;
+          // Assign batchId and sequence 1 to existing order(s)
+          for (let i = 0; i < existingBatchOrders.length; i++) {
+            await db
+              .update(orders)
+              .set({ batchId, batchSequence: i + 1 })
+              .where(eq(orders.id, existingBatchOrders[i].id));
+          }
+        }
 
-      await db
-        .update(driverQueue)
-        .set({ position: newPosition, lastCompletedAt: new Date() })
-        .where(eq(driverQueue.driverId, input.driverId));
+        const nextSequence = existingBatchOrders.length + 1;
 
-      return { success: true, orderId: offer.orderId };
+        // Assign driver and batch info to the new order
+        await db
+          .update(orders)
+          .set({
+            driverId: input.driverId,
+            driverAssignedAt: new Date(),
+            batchId,
+            batchSequence: nextSequence,
+          })
+          .where(eq(orders.id, offer.orderId));
+
+        // Auto-sort batch by closest customer (Haversine)
+        await autoSortBatchSequence(batchId);
+
+        console.log(`[Batch] Driver ${input.driverId} accepted batch offer for order ${offer.orderId} (batch: ${batchId}, position: ${nextSequence})`);
+
+        return { success: true, orderId: offer.orderId, isBatch: true, batchId };
+      } else {
+        // REGULAR OFFER: Standard single-order acceptance
+        // Generate a batch ID even for single orders (makes it easy to add more later)
+        const batchId = `BATCH-${input.driverId}-${Date.now()}`;
+
+        await db
+          .update(orders)
+          .set({
+            driverId: input.driverId,
+            driverAssignedAt: new Date(),
+            batchId,
+            batchSequence: 1,
+          })
+          .where(eq(orders.id, offer.orderId));
+
+        // Move driver to back of queue
+        const maxPos = await db
+          .select({ maxPosition: sql<number>`COALESCE(MAX(${driverQueue.position}), 0)` })
+          .from(driverQueue);
+        const newPosition = (maxPos[0]?.maxPosition || 0) + 1;
+
+        await db
+          .update(driverQueue)
+          .set({ position: newPosition, lastCompletedAt: new Date() })
+          .where(eq(driverQueue.driverId, input.driverId));
+
+        return { success: true, orderId: offer.orderId, isBatch: false, batchId };
+      }
     }),
 
-  // Decline an order offer
+  // Decline an order offer (regular or batch)
   declineOffer: publicProcedure
     .input(z.object({ offerId: z.number(), driverId: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
+
+      // Get the offer to check if it's a batch offer
+      const offerCheck = await db
+        .select({ isBatchOffer: orderOffers.isBatchOffer, orderId: orderOffers.orderId })
+        .from(orderOffers)
+        .where(eq(orderOffers.id, input.offerId))
+        .limit(1);
+
+      const isBatch = offerCheck.length > 0 && offerCheck[0].isBatchOffer === true;
 
       // Mark offer as declined
       await db
@@ -1031,33 +1338,37 @@ export const driversRouter = router({
           )
         );
 
-      // Auto-toggle driver OFFLINE after declining
-      await db
-        .update(drivers)
-        .set({
-          isOnline: false,
-          isAvailable: false,
-          updatedAt: new Date(),
-        })
-        .where(eq(drivers.userId, input.driverId));
+      if (isBatch) {
+        // BATCH DECLINE: Don't take driver offline, just decline the extra order
+        // The order goes back to the queue for another driver
+        console.log(`[Batch] Driver ${input.driverId} declined batch offer ${input.offerId}`);
+        if (offerCheck.length > 0) {
+          await offerToNextDriver(offerCheck[0].orderId);
+        }
+        return { success: true, wentOffline: false };
+      } else {
+        // REGULAR DECLINE: Auto-toggle driver OFFLINE
+        await db
+          .update(drivers)
+          .set({
+            isOnline: false,
+            isAvailable: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(drivers.userId, input.driverId));
 
-      // Remove from driver queue
-      await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
+        // Remove from driver queue
+        await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
 
-      console.log(`[Decline] Driver ${input.driverId} declined offer ${input.offerId}, auto-toggled offline`);
+        console.log(`[Decline] Driver ${input.driverId} declined offer ${input.offerId}, auto-toggled offline`);
 
-      // Trigger cascade to next driver in queue for this order
-      const offer = await db
-        .select()
-        .from(orderOffers)
-        .where(eq(orderOffers.id, input.offerId))
-        .limit(1);
+        // Trigger cascade to next driver in queue for this order
+        if (offerCheck.length > 0) {
+          await offerToNextDriver(offerCheck[0].orderId);
+        }
 
-      if (offer.length > 0) {
-        await offerToNextDriver(offer[0].orderId);
+        return { success: true, wentOffline: true };
       }
-
-      return { success: true, wentOffline: true };
     }),
 
   // Get today's return count for a driver
@@ -1348,6 +1659,110 @@ export const driversRouter = router({
           latitude: order.deliveryLatitude ? parseFloat(order.deliveryLatitude) : null,
           longitude: order.deliveryLongitude ? parseFloat(order.deliveryLongitude) : null,
         },
+      };
+    }),
+
+  // Get all active orders in a driver's current batch
+  getActiveBatch: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get all non-delivered orders assigned to this driver
+      const activeOrders = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .leftJoin(users, eq(orders.customerId, users.id))
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+          )
+        )
+        .orderBy(asc(orders.batchSequence));
+
+      if (activeOrders.length === 0) return { orders: [], batchId: null };
+
+      // Get items for each order
+      const ordersWithItems = await Promise.all(
+        activeOrders.map(async (row) => {
+          const items = await db
+            .select()
+            .from(orderItems)
+            .where(eq(orderItems.orderId, row.orders.id));
+          return {
+            ...row.orders,
+            store: row.stores,
+            customer: row.users,
+            items,
+          };
+        })
+      );
+
+      return {
+        orders: ordersWithItems,
+        batchId: ordersWithItems[0]?.batchId || null,
+        batchSize: ordersWithItems.length,
+      };
+    }),
+
+  // Get pending batch offer for a driver (extra same-store order)
+  getBatchOffer: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const pendingBatchOffer = await db
+        .select()
+        .from(orderOffers)
+        .where(
+          and(
+            eq(orderOffers.driverId, input.driverId),
+            eq(orderOffers.status, "pending"),
+            eq(orderOffers.isBatchOffer, true),
+            gte(orderOffers.expiresAt, new Date())
+          )
+        )
+        .orderBy(desc(orderOffers.offeredAt))
+        .limit(1);
+
+      if (pendingBatchOffer.length === 0) return null;
+
+      const offer = pendingBatchOffer[0];
+
+      // Get order details
+      const orderResult = await db
+        .select()
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .where(eq(orders.id, offer.orderId))
+        .limit(1);
+
+      if (orderResult.length === 0) return null;
+
+      // Count current batch size
+      const currentBatch = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up"])
+          )
+        );
+
+      return {
+        offerId: offer.id,
+        orderId: offer.orderId,
+        storeName: orderResult[0].stores?.name || "Store",
+        orderNumber: orderResult[0].orders.orderNumber,
+        deliveryAddress: orderResult[0].orders.deliveryAddress,
+        expiresAt: offer.expiresAt.toISOString(),
+        currentBatchSize: Number(currentBatch[0]?.count || 0),
+        newBatchSize: Number(currentBatch[0]?.count || 0) + 1,
       };
     }),
 

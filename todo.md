@@ -2112,3 +2112,12 @@
 - [x] Customer UI: star rating prompt after delivery with optional comment — already existed
 - [x] Admin UI: feedback section showing all ratings, comments, driver names, order numbers (new driver-feedback page)
 - [x] Driver UI: show average star rating on driver home screen (no comments visible)
+- [x] Backend: batch order offer logic — when no other drivers available, offer extra same-store orders to en-route driver
+- [x] Backend: batch delivery sequence auto-sort by closest customer first
+- [x] Backend: admin endpoint to reorder delivery sequence and assign multi-store orders
+- [x] Driver UI: batch offer notification ("X jobs now waiting in Store — Accept / Decline")
+- [x] Driver UI: multi-order pickup and delivery flow (pick up all, then deliver in sequence)
+- [x] Admin UI: batch management view — see driver's batch, drag-to-reorder delivery sequence
+- [x] Admin UI: ability to manually assign order from different store to a driver's batch
+- [x] Customer UI: show batch delivery position ("Your driver has X deliveries — yours is next/2nd")
+- [x] Max 5 orders per batch, same-store only for auto-batching, multi-store admin-only

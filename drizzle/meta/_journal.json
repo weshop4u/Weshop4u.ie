@@ -169,6 +169,20 @@
       "when": 1772420765696,
       "tag": "0024_red_hemingway",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1772435559088,
+      "tag": "0025_loud_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1772435707188,
+      "tag": "0026_bitter_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

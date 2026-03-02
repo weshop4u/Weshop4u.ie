@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ChatPanel } from "@/components/chat-panel";
+import { BatchOfferBanner } from "@/components/batch-offer-banner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ActiveDeliveryScreen() {
@@ -42,6 +43,16 @@ export default function ActiveDeliveryScreen() {
     { enabled: !!user?.id }
   );
   
+  // Batch delivery support
+  const { data: batchData } = trpc.drivers.getActiveBatch.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id, refetchInterval: 5000 }
+  );
+  const batchOrders = batchData?.orders || [];
+  const currentBatchIndex = batchOrders.findIndex((o: any) => o.id === orderId);
+  const totalBatchOrders = batchOrders.length;
+  const hasMoreBatchOrders = batchOrders.some((o: any) => o.id !== orderId && o.status !== "delivered");
+
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
   const [chatExpanded, setChatExpanded] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
@@ -434,6 +445,33 @@ export default function ActiveDeliveryScreen() {
           </View>
         )}
 
+        {/* Batch Offer Banner - shows when extra orders available at same store */}
+        {user?.id && (deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
+          <BatchOfferBanner driverId={user.id} />
+        )}
+
+        {/* Batch Progress Indicator */}
+        {totalBatchOrders > 1 && (
+          <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 18, marginRight: 8 }}>📦</Text>
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
+                  Batch Delivery: {currentBatchIndex + 1} of {totalBatchOrders}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#3B82F6' }}>
+                  {batchOrders.filter((o: any) => o.status === 'delivered').length} delivered, {batchOrders.filter((o: any) => o.status !== 'delivered').length} remaining
+                </Text>
+              </View>
+            </View>
+            {batchOrders.filter((o: any) => o.status !== 'delivered').length > 1 && (
+              <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ fontSize: 11, color: '#1E40AF', fontWeight: '600' }}>Multi-drop</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Status Header */}
         <View className="bg-primary/10 border-2 border-primary p-4 rounded-lg mb-6">
           <View className="flex-row items-center justify-between">
@@ -636,13 +674,37 @@ export default function ActiveDeliveryScreen() {
               </View>
             </View>
 
-            {/* Back to Dashboard Button */}
-            <TouchableOpacity
-              onPress={() => router.replace("/driver")}
-              style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' }}
-            >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Back to Dashboard</Text>
-            </TouchableOpacity>
+            {/* Next Delivery or Back to Dashboard */}
+            {hasMoreBatchOrders ? (
+              <View style={{ gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const nextOrder = batchOrders.find((o: any) => o.id !== orderId && o.status !== 'delivered');
+                    if (nextOrder) {
+                      router.replace(`/driver/active-delivery?orderId=${nextOrder.id}`);
+                    }
+                  }}
+                  style={{ backgroundColor: '#22C55E', padding: 16, borderRadius: 12, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+                    ➡️ Next Delivery ({batchOrders.filter((o: any) => o.id !== orderId && o.status !== 'delivered').length} remaining)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.replace("/driver")}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, borderRadius: 12, alignItems: 'center' }}
+                >
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>Back to Dashboard</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.replace("/driver")}
+                style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Back to Dashboard</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

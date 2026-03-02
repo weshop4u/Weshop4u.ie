@@ -515,6 +515,20 @@ export default function OrderHistoryScreen() {
                     </View>
                   )}
 
+                  {/* Batch delivery position */}
+                  {(order as any).batchId && (order as any).batchSequence && (
+                    <View style={{ backgroundColor: '#EFF6FF', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#93C5FD' }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{(order as any).batchSequence}</Text>
+                      </View>
+                      <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
+                        {(order as any).batchSequence === 1
+                          ? "Your driver has multiple deliveries — yours is next!"
+                          : `Your driver has multiple deliveries — yours is #${(order as any).batchSequence} in queue`}
+                      </Text>
+                    </View>
+                  )}
+
                   <StatusTimeline order={order} colors={colors} />
 
                   {order.driverId && ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) && (

@@ -145,6 +145,12 @@ export default function AdminLayout() {
           title: "Driver Feedback",
         }}
       />
+      <Stack.Screen
+        name="batch-management"
+        options={{
+          title: "Batch Deliveries",
+        }}
+      />
     </Stack>
   );
 }

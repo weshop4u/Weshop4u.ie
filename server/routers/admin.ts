@@ -1797,7 +1797,161 @@ export const adminRouter = router({
           totalRatings,
           avgRating,
           ratingDistribution,
-        },
+     },
+       };
+     }),
+
+  // Reorder batch delivery sequence (admin override)
+  reorderBatch: publicProcedure
+    .input(
+      z.object({
+        batchId: z.string(),
+        orderSequence: z.array(z.object({ orderId: z.number(), sequence: z.number() })),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      for (const item of input.orderSequence) {
+        await db
+          .update(orders)
+          .set({ batchSequence: item.sequence })
+          .where(and(eq(orders.id, item.orderId), eq(orders.batchId, input.batchId)));
+      }
+
+      console.log(`[Admin] Reordered batch ${input.batchId}: ${input.orderSequence.map(o => `#${o.orderId}→${o.sequence}`).join(", ")}`);
+      return { success: true };
+    }),
+
+  // Admin assign order to a specific driver (for cross-store batching)
+  assignOrderToDriver: publicProcedure
+    .input(
+      z.object({
+        orderId: z.number(),
+        driverId: z.number(), // user ID of the driver
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Check if driver already has an active batch
+      const existingOrders = await db
+        .select({ id: orders.id, batchId: orders.batchId, batchSequence: orders.batchSequence })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+          )
+        );
+
+      // Check batch size limit
+      if (existingOrders.length >= 5) {
+        throw new Error("Driver already has 5 orders in their batch (maximum)");
+      }
+
+      let batchId = existingOrders.find(o => o.batchId)?.batchId;
+      if (!batchId) {
+        batchId = `BATCH-${input.driverId}-${Date.now()}`;
+        // Assign batchId to existing orders
+        for (let i = 0; i < existingOrders.length; i++) {
+          await db
+            .update(orders)
+            .set({ batchId, batchSequence: i + 1 })
+            .where(eq(orders.id, existingOrders[i].id));
+        }
+      }
+
+      const nextSequence = existingOrders.length + 1;
+
+      // Assign the order to the driver
+      await db
+        .update(orders)
+        .set({
+          driverId: input.driverId,
+          driverAssignedAt: new Date(),
+          batchId,
+          batchSequence: nextSequence,
+        })
+        .where(eq(orders.id, input.orderId));
+
+      // Expire any pending offers for this order
+      await db
+        .update(orderOffers)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(orderOffers.orderId, input.orderId),
+            eq(orderOffers.status, "pending")
+          )
+        );
+
+      // Send push notification to driver
+      const driverUser = await db
+        .select({ pushToken: users.pushToken })
+        .from(users)
+        .where(eq(users.id, input.driverId))
+        .limit(1);
+
+      if (driverUser.length > 0 && driverUser[0].pushToken) {
+        const orderInfo = await db
+          .select({ orderNumber: orders.orderNumber })
+          .from(orders)
+          .where(eq(orders.id, input.orderId))
+          .limit(1);
+
+        await sendPushNotification(driverUser[0].pushToken, {
+          title: "📦 New Order Assigned by Admin",
+          body: `Order ${orderInfo[0]?.orderNumber || `#${input.orderId}`} has been added to your batch.`,
+          data: { type: "batch_assigned", orderId: input.orderId },
+          channelId: "orders",
+        });
+      }
+
+      console.log(`[Admin] Assigned order ${input.orderId} to driver ${input.driverId} (batch: ${batchId}, seq: ${nextSequence})`);
+      return { success: true, batchId, batchSequence: nextSequence };
+    }),
+
+  // Get batch details for admin view
+  getDriverBatch: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const batchOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          status: orders.status,
+          batchId: orders.batchId,
+          batchSequence: orders.batchSequence,
+          deliveryAddress: orders.deliveryAddress,
+          deliveryLatitude: orders.deliveryLatitude,
+          deliveryLongitude: orders.deliveryLongitude,
+          storeName: stores.name,
+          storeId: orders.storeId,
+          customerName: users.name,
+          total: orders.total,
+          paymentMethod: orders.paymentMethod,
+        })
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .leftJoin(users, eq(orders.customerId, users.id))
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+          )
+        )
+        .orderBy(sql`${orders.batchSequence} ASC`);
+
+      return {
+        orders: batchOrders,
+        batchId: batchOrders[0]?.batchId || null,
+        batchSize: batchOrders.length,
       };
     }),
 });

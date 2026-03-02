@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { path: "/admin/driver-map", label: "Driver Map", icon: "📍", exact: false },
   { path: "/admin/driver-performance", label: "Driver Performance", icon: "📈", exact: false },
   { path: "/admin/driver-feedback", label: "Driver Feedback", icon: "⭐", exact: false },
+  { path: "/admin/batch-management", label: "Batch Deliveries", icon: "📦", exact: false },
   { path: "/admin/driver-applications", label: "Driver Applications", icon: "📝", exact: false, hasBadge: true },
   { path: "/admin/create-driver", label: "New Driver", icon: "➕", exact: false },
   { path: "/admin/discount-codes", label: "Discount Codes", icon: "🏷️", exact: false },

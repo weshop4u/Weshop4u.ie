@@ -288,6 +288,8 @@ export const orders = mysqlTable(
     deliveryDistance: decimal("delivery_distance", { precision: 10, scale: 2 }), // in km
     customerNotes: text("customer_notes"),
     allowSubstitution: boolean("allow_substitution").default(false), // "Get something similar if out of stock"
+    batchId: varchar("batch_id", { length: 50 }), // Groups multiple orders for same driver batch delivery
+    batchSequence: int("batch_sequence"), // Delivery order within the batch (1 = first delivery)
     driverAssignedAt: timestamp("driver_assigned_at"),
     acceptedAt: timestamp("accepted_at"),
     pickedUpAt: timestamp("picked_up_at"),
@@ -465,6 +467,7 @@ export const orderOffers = mysqlTable(
     offeredAt: timestamp("offered_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     respondedAt: timestamp("responded_at"),
+    isBatchOffer: boolean("is_batch_offer").default(false), // true when offering extra same-store order to en-route driver
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({

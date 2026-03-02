@@ -480,6 +480,41 @@ export default function OrderTrackingScreen() {
           </View>
         )}
 
+        {/* Batch Delivery Position Banner */}
+        {order.batchId && order.batchSequence && !isCancelled && !isDelivered && (
+          <View style={{
+            marginHorizontal: 16,
+            marginTop: 16,
+            backgroundColor: '#EFF6FF',
+            borderRadius: 12,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: '#93C5FD',
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}>
+            <View style={{
+              width: 40, height: 40, borderRadius: 20,
+              backgroundColor: '#3B82F6',
+              alignItems: 'center', justifyContent: 'center', marginRight: 12,
+            }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                {order.batchSequence}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
+                Your driver has multiple deliveries
+              </Text>
+              <Text style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
+                {order.batchSequence === 1
+                  ? "Your order is next to be delivered!"
+                  : `Your delivery is #${order.batchSequence} in the queue`}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Status Timeline */}
         {!isCancelled && (
           <View style={{
