@@ -1204,17 +1204,109 @@ export const adminRouter = router({
       return { success: true };
     }),
 
-  // Reject a driver
+    // Reject a driver
   rejectDriver: publicProcedure
     .input(z.object({ driverId: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
-
       await db
         .update(drivers)
         .set({ approvalStatus: "rejected" })
         .where(eq(drivers.id, input.driverId));
+      return { success: true };
+    }),
+
+  // Create a new store
+  createStore: publicProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      category: z.enum(["convenience", "restaurant", "hardware", "electrical", "clothing", "grocery", "pharmacy", "other"]),
+      address: z.string().min(1),
+      eircode: z.string().optional(),
+      phone: z.string().optional(),
+      email: z.string().optional(),
+      shortCode: z.string().optional(),
+      sortPosition: z.number().optional(),
+      isFeatured: z.boolean().optional(),
+      isOpen247: z.boolean().optional(),
+      openingHours: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Generate slug from name
+      const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+      // Check for duplicate slug
+      const existing = await db.select({ id: stores.id }).from(stores).where(eq(stores.slug, slug)).limit(1);
+      if (existing.length > 0) {
+        throw new Error("A store with a similar name already exists. Please choose a different name.");
+      }
+
+      // Generate short code if not provided
+      const shortCode = input.shortCode || input.name.substring(0, 3).toUpperCase();
+
+      // Geocode the address
+      let latitude: string | undefined;
+      let longitude: string | undefined;
+      try {
+        const coords = await geocodeAddress(input.address + (input.eircode ? " " + input.eircode : ""));
+        if (coords) {
+          latitude = String(coords.latitude);
+          longitude = String(coords.longitude);
+        }
+      } catch (e) {
+        // Geocoding is optional, continue without coordinates
+      }
+
+      const result = await db.insert(stores).values({
+        name: input.name,
+        slug,
+        description: input.description || null,
+        category: input.category,
+        address: input.address,
+        eircode: input.eircode || null,
+        phone: input.phone || null,
+        email: input.email || null,
+        shortCode,
+        sortPosition: input.sortPosition ?? 999,
+        isFeatured: input.isFeatured ?? false,
+        isOpen247: input.isOpen247 ?? false,
+        openingHours: input.openingHours || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        isActive: true,
+      });
+
+      return { success: true, storeId: Number(result[0].insertId) };
+    }),
+
+  // Delete a store (only if it has no orders)
+  deleteStore: publicProcedure
+    .input(z.object({ storeId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Check if store has any orders
+      const storeOrders = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(eq(orders.storeId, input.storeId))
+        .limit(1);
+
+      if (storeOrders.length > 0) {
+        throw new Error("Cannot delete a store that has orders. You can deactivate it instead.");
+      }
+
+      // Delete products first
+      await db.delete(products).where(eq(products.storeId, input.storeId));
+
+      // Delete the store
+      await db.delete(stores).where(eq(stores.id, input.storeId));
 
       return { success: true };
     }),

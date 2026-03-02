@@ -56,12 +56,27 @@ function ManageStoresScreenContent() {
   const [isOpen247, setIsOpen247] = useState(false);
   const [weekHours, setWeekHours] = useState<WeekHours>(DEFAULT_HOURS);
 
+  // Add new store state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newCategory, setNewCategory] = useState<string>("convenience");
+  const [newAddress, setNewAddress] = useState("");
+  const [newEircode, setNewEircode] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newShortCode, setNewShortCode] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const { data: storesList, isLoading, refetch } = trpc.admin.getAllStoresAdmin.useQuery();
   const updateStoreMutation = trpc.admin.updateStore.useMutation();
   const updateHoursMutation = trpc.admin.updateStoreHours.useMutation();
   const toggleActiveMutation = trpc.admin.toggleStoreActive.useMutation();
   const toggleFeaturedMutation = trpc.admin.toggleStoreFeatured.useMutation();
   const updateLogoMutation = trpc.admin.updateStoreLogo.useMutation();
+  const createStoreMutation = trpc.admin.createStore.useMutation();
+  const deleteStoreMutation = trpc.admin.deleteStore.useMutation();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -161,6 +176,144 @@ function ManageStoresScreenContent() {
   };
 
   const selectedStore = storesList?.find(s => s.id === selectedStoreId);
+
+  const resetAddForm = () => {
+    setNewName("");
+    setNewDescription("");
+    setNewCategory("convenience");
+    setNewAddress("");
+    setNewEircode("");
+    setNewPhone("");
+    setNewEmail("");
+    setNewShortCode("");
+  };
+
+  const handleCreateStore = async () => {
+    if (!newName.trim() || !newAddress.trim()) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const result = await createStoreMutation.mutateAsync({
+        name: newName.trim(),
+        description: newDescription.trim() || undefined,
+        category: newCategory as any,
+        address: newAddress.trim(),
+        eircode: newEircode.trim() || undefined,
+        phone: newPhone.trim() || undefined,
+        email: newEmail.trim() || undefined,
+        shortCode: newShortCode.trim() || undefined,
+      });
+      setMessage(`Store "${newName.trim()}" created successfully!`);
+      setMessageType("success");
+      resetAddForm();
+      setShowAddForm(false);
+      await refetch();
+      // Select the new store
+      setSelectedStoreId(result.storeId);
+    } catch (error: any) {
+      setMessage(error.message || "Failed to create store");
+      setMessageType("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteStore = async () => {
+    if (!selectedStoreId) return;
+    setDeleting(true);
+    setMessage("");
+    try {
+      await deleteStoreMutation.mutateAsync({ storeId: selectedStoreId });
+      setMessage("Store deleted successfully.");
+      setMessageType("success");
+      setSelectedStoreId(null);
+      setShowDeleteConfirm(false);
+      refetch();
+    } catch (error: any) {
+      setMessage(error.message || "Failed to delete store");
+      setMessageType("error");
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ─── Add New Store Form ───
+  const renderAddStoreForm = () => (
+    <View style={{ padding: 16, gap: 12 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>Add New Store</Text>
+        <TouchableOpacity onPress={() => { setShowAddForm(false); resetAddForm(); setMessage(""); }}>
+          <Text style={{ fontSize: 14, color: colors.muted }}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+      <View>
+        <Text style={styles.label}>Store Name *</Text>
+        <TextInput value={newName} onChangeText={setNewName} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="e.g. Spar Swords" placeholderTextColor={colors.muted} />
+      </View>
+      <View>
+        <Text style={styles.label}>Description</Text>
+        <TextInput value={newDescription} onChangeText={setNewDescription} style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Brief store description" placeholderTextColor={colors.muted} multiline numberOfLines={2} />
+      </View>
+      <View>
+        <Text style={styles.label}>Category *</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {CATEGORIES.map(cat => (
+            <TouchableOpacity key={cat} onPress={() => setNewCategory(cat)} style={[styles.categoryChip, { borderColor: newCategory === cat ? colors.primary : colors.border, backgroundColor: newCategory === cat ? "#E0F7FA" : colors.surface }]}>
+              <Text style={{ fontSize: 13, fontWeight: newCategory === cat ? "700" : "500", color: newCategory === cat ? colors.primary : colors.foreground }}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View>
+        <Text style={styles.label}>Address *</Text>
+        <TextInput value={newAddress} onChangeText={setNewAddress} style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Full address" placeholderTextColor={colors.muted} multiline numberOfLines={2} />
+      </View>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Eircode</Text>
+          <TextInput value={newEircode} onChangeText={setNewEircode} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="e.g. K32 D868" placeholderTextColor={colors.muted} autoCapitalize="characters" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Short Code</Text>
+          <TextInput value={newShortCode} onChangeText={setNewShortCode} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="e.g. SPR" placeholderTextColor={colors.muted} autoCapitalize="characters" maxLength={5} />
+          <Text style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>Used in order numbers</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Phone</Text>
+          <TextInput value={newPhone} onChangeText={setNewPhone} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Phone number" placeholderTextColor={colors.muted} keyboardType="phone-pad" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput value={newEmail} onChangeText={setNewEmail} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]} placeholder="Email" placeholderTextColor={colors.muted} keyboardType="email-address" autoCapitalize="none" />
+        </View>
+      </View>
+      <TouchableOpacity onPress={handleCreateStore} disabled={saving || !newName.trim() || !newAddress.trim()} style={[styles.saveButton, { backgroundColor: "#22C55E", opacity: saving || !newName.trim() || !newAddress.trim() ? 0.5 : 1 }]}>
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Create Store</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ─── Delete Confirmation Modal ───
+  const renderDeleteConfirm = () => (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 100 }}>
+      <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 24, maxWidth: 400, width: "90%", gap: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Delete Store?</Text>
+        <Text style={{ fontSize: 14, color: colors.muted, lineHeight: 20 }}>Are you sure you want to delete "{selectedStore?.name}"? This will also delete all products in this store. This action cannot be undone.</Text>
+        <Text style={{ fontSize: 13, color: colors.error, fontWeight: "600" }}>Note: Stores with existing orders cannot be deleted — they can only be deactivated.</Text>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity onPress={() => setShowDeleteConfirm(false)} style={{ flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground }}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDeleteStore} disabled={deleting} style={{ flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: "#EF4444", alignItems: "center", opacity: deleting ? 0.5 : 1 }}>
+            {deleting ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Delete</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   // ─── Shared render functions for tab content (used by both desktop and mobile) ───
   const renderDetailsTab = () => (
@@ -399,10 +552,16 @@ function ManageStoresScreenContent() {
   if (isDesktop) {
     return (
       <View style={{ flex: 1, flexDirection: "row" }}>
+        {showDeleteConfirm && renderDeleteConfirm()}
         {/* Left: Store List */}
         <ScrollView style={{ width: 340, borderRightWidth: 1, borderRightColor: colors.border, backgroundColor: colors.surface }}>
           <View style={{ padding: 16 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>Stores</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Stores</Text>
+              <TouchableOpacity onPress={() => { setShowAddForm(true); setSelectedStoreId(null); resetAddForm(); setMessage(""); }} style={{ backgroundColor: "#22C55E", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 16 }}>{storesList?.length || 0} registered</Text>
             {storesList?.map((store) => (
               <TouchableOpacity
@@ -433,7 +592,16 @@ function ManageStoresScreenContent() {
 
         {/* Right: Edit Panel */}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
-          {selectedStoreId && selectedStore ? (
+          {showAddForm ? (
+            <View>
+              {message ? (
+                <View style={[styles.messageBox, { borderColor: messageType === "error" ? colors.error : "#22C55E", backgroundColor: messageType === "error" ? "#FEE2E2" : "#DCFCE7", marginBottom: 16 }]}>
+                  <Text style={{ color: messageType === "error" ? colors.error : "#16A34A", fontWeight: "600" }}>{message}</Text>
+                </View>
+              ) : null}
+              {renderAddStoreForm()}
+            </View>
+          ) : selectedStoreId && selectedStore ? (
             <View>
               {/* Store Header */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 }}>
@@ -451,7 +619,7 @@ function ManageStoresScreenContent() {
                     {selectedStore.isActive ? " \u00b7 Active" : " \u00b7 Inactive"}
                   </Text>
                 </View>
-                <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ fontSize: 12, color: colors.muted }}>Active</Text>
                     <Switch
@@ -470,6 +638,9 @@ function ManageStoresScreenContent() {
                       thumbColor={(selectedStore as any).isFeatured ? "#00E5FF" : "#9CA3AF"}
                     />
                   </View>
+                  <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -522,8 +693,19 @@ function ManageStoresScreenContent() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" />}
         >
           <View className="p-4">
-            <Text className="text-2xl font-bold text-foreground mb-1">Manage Stores</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <Text className="text-2xl font-bold text-foreground">Manage Stores</Text>
+              <TouchableOpacity onPress={() => { setShowAddForm(true); resetAddForm(); setMessage(""); }} style={{ backgroundColor: "#22C55E", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>+ Add Store</Text>
+              </TouchableOpacity>
+            </View>
             <Text className="text-sm text-muted mb-4">{storesList?.length || 0} stores registered</Text>
+
+            {showAddForm && (
+              <View style={[styles.storeCard, { backgroundColor: colors.surface, borderColor: colors.primary, marginBottom: 16 }]}>
+                {renderAddStoreForm()}
+              </View>
+            )}
 
             {message ? (
               <View style={[styles.messageBox, { borderColor: messageType === "error" ? colors.error : "#22C55E", backgroundColor: messageType === "error" ? "#FEE2E2" : "#DCFCE7" }]}>
@@ -623,7 +805,11 @@ function ManageStoresScreenContent() {
               {selectedStore?.isActive ? " · Active" : " · Inactive"}
             </Text>
           </View>
+          <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
+          </TouchableOpacity>
         </View>
+        {showDeleteConfirm && renderDeleteConfirm()}
 
         {/* Tab Bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>

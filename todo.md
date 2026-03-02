@@ -2076,3 +2076,6 @@
 - [x] Build admin Promotional Banners management page
 - [x] Update home screen banner to pull from database instead of hardcoded
 - [x] Improve banner design to look classier and update wording to encourage sign-ups
+- [x] Add "Add New Store" functionality to Manage Stores page
+- [x] Add "Edit Store" functionality (name, category, address, hours, delivery settings, active/inactive) — already existed
+- [x] Add "Delete Store" functionality with confirmation (blocks deletion if store has orders)
