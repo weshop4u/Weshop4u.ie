@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { orders } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { offerOrderToQueue } from "./drivers";
 
 // Elavon EPG API base URL (production EU)
 const ELAVON_API_BASE = "https://api.eu.convergepay.com";
@@ -180,6 +181,14 @@ export const paymentsRouter = router({
               elavonTransactionId: transactionId || null,
             })
             .where(eq(orders.id, input.orderId));
+
+          // Dispatch order to driver queue now that payment is confirmed
+          try {
+            await offerOrderToQueue(input.orderId);
+            console.log(`[Payment] Order ${input.orderId} dispatched to driver queue after card payment confirmed`);
+          } catch (e) {
+            console.error(`[Payment] Failed to dispatch order ${input.orderId} to driver queue:`, e);
+          }
 
           return {
             status: "completed" as const,

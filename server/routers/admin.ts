@@ -769,7 +769,7 @@ export const adminRouter = router({
         storeId: input.storeId,
         status: "pending",
         paymentMethod: input.paymentMethod,
-        paymentStatus: input.paymentMethod === "card" ? "completed" : "pending",
+        paymentStatus: "pending",
         subtotal: subtotal.toFixed(2),
         serviceFee: serviceFee.toFixed(2),
         deliveryFee: deliveryFee.toFixed(2),
@@ -809,11 +809,14 @@ export const adminRouter = router({
         console.error(`[Push] Failed to notify store staff for phone order ${orderId}:`, e);
       }
 
-      // Offer to driver queue
-      try {
-        await offerOrderToQueue(Number(orderId));
-      } catch (e) {
-        console.error(`[Queue] Failed to offer phone order ${orderId} to queue:`, e);
+      // For cash orders, offer to driver queue immediately
+      // For card orders, wait until payment is confirmed before dispatching
+      if (input.paymentMethod !== "card") {
+        try {
+          await offerOrderToQueue(Number(orderId));
+        } catch (e) {
+          console.error(`[Queue] Failed to offer phone order ${orderId} to queue:`, e);
+        }
       }
 
       console.log(`[Admin] Phone order ${orderId} (#${orderNumber}) created for ${input.customerName}`);

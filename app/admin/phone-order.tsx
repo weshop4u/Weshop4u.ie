@@ -94,7 +94,7 @@ function PhoneOrderScreenContent() {
   // Submitting
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [orderResult, setOrderResult] = useState<{ orderNumber: string; total: number; distance: number; serviceFee: number; deliveryFee: number; subtotal: number } | null>(null);
+  const [orderResult, setOrderResult] = useState<{ orderId: number; orderNumber: string; total: number; distance: number; serviceFee: number; deliveryFee: number; subtotal: number; paymentMethod: string } | null>(null);
   const [submitError, setSubmitError] = useState("");
 
   // Queries
@@ -238,13 +238,32 @@ function PhoneOrderScreenContent() {
         allowSubstitution,
       });
 
+      // For card payments, redirect to Elavon payment page
+      if (paymentMethod === "card") {
+        setOrderResult({
+          orderId: data.orderId,
+          orderNumber: data.orderNumber,
+          total: data.total,
+          distance: data.distance,
+          serviceFee: data.serviceFee,
+          deliveryFee: data.deliveryFee,
+          subtotal: data.subtotal,
+          paymentMethod: "card",
+        });
+        // Navigate to Elavon payment page
+        router.push(`/payment/${data.orderId}`);
+        return;
+      }
+
       setOrderResult({
+        orderId: data.orderId,
         orderNumber: data.orderNumber,
         total: data.total,
         distance: data.distance,
         serviceFee: data.serviceFee,
         deliveryFee: data.deliveryFee,
         subtotal: data.subtotal,
+        paymentMethod: "cash_on_delivery",
       });
     } catch (e: any) {
       setSubmitting(false);
