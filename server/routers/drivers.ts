@@ -3,7 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns, orderTracking } from "../../drizzle/schema";
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
-import { sendOrderStatusNotification, sendJobOfferNotification } from "../services/notifications";
+import { sendOrderStatusNotification, sendJobOfferNotification, sendPushNotification } from "../services/notifications";
 import { sendDriverAtStoreSMS } from "../sms";
 
 // Directly offer the oldest eligible unassigned order to a specific driver.
@@ -285,6 +285,50 @@ export const driversRouter = router({
               eq(orderOffers.status, "pending")
             )
           );
+
+        // Check if driver has active deliveries — notify admin staff if so
+        try {
+          const activeDeliveries = await db
+            .select({ id: orders.id, orderNumber: orders.orderNumber })
+            .from(orders)
+            .where(
+              and(
+                eq(orders.driverId, input.driverId),
+                sql`${orders.status} IN ('picked_up', 'on_the_way', 'accepted', 'preparing', 'ready_for_pickup')`
+              )
+            );
+
+          if (activeDeliveries.length > 0) {
+            // Get driver name
+            const [driverUser] = await db
+              .select({ name: users.name })
+              .from(users)
+              .where(eq(users.id, input.driverId))
+              .limit(1);
+            const driverName = driverUser?.name || "Unknown driver";
+            const orderNumbers = activeDeliveries.map(o => `#${o.orderNumber}`).join(", ");
+
+            // Find all admin users with push tokens
+            const adminUsers = await db
+              .select({ pushToken: users.pushToken, name: users.name })
+              .from(users)
+              .where(and(eq(users.role, "admin"), sql`${users.pushToken} IS NOT NULL AND ${users.pushToken} != ''`));
+
+            for (const admin of adminUsers) {
+              if (admin.pushToken) {
+                await sendPushNotification(admin.pushToken, {
+                  title: "\u26a0\ufe0f Driver Went Offline During Delivery",
+                  body: `${driverName} went offline with ${activeDeliveries.length} active order(s): ${orderNumbers}`,
+                  data: { type: "driver_offline_alert", driverId: input.driverId },
+                  channelId: "orders",
+                });
+              }
+            }
+            console.log(`[Alert] Driver ${input.driverId} (${driverName}) went offline with active deliveries: ${orderNumbers}`);
+          }
+        } catch (e) {
+          console.error(`[Alert] Failed to check/notify for driver offline during delivery:`, e);
+        }
       }
 
       return { success: true, isOnline: input.isOnline };

@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { path: "/admin/batch-category-images", label: "Batch Images", icon: "🗂️", exact: false },
   { path: "/admin/driver-management", label: "Drivers", icon: "🚗", exact: false },
   { path: "/admin/driver-map", label: "Driver Map", icon: "📍", exact: false },
+  { path: "/admin/driver-performance", label: "Driver Performance", icon: "📈", exact: false },
   { path: "/admin/driver-applications", label: "Driver Applications", icon: "📝", exact: false, hasBadge: true },
   { path: "/admin/create-driver", label: "New Driver", icon: "➕", exact: false },
   { path: "/admin/discount-codes", label: "Discount Codes", icon: "🏷️", exact: false },

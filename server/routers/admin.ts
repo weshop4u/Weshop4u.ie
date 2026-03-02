@@ -1488,6 +1488,8 @@ export const adminRouter = router({
         orderNumber: orders.orderNumber,
         status: orders.status,
         deliveryAddress: orders.deliveryAddress,
+        deliveryLatitude: orders.deliveryLatitude,
+        deliveryLongitude: orders.deliveryLongitude,
       })
       .from(orders)
       .where(
@@ -1497,7 +1499,7 @@ export const adminRouter = router({
         )
       );
 
-    const driverOrderMap: Record<number, { orderNumber: string; status: string; deliveryAddress: string }[]> = {};
+    const driverOrderMap: Record<number, { orderNumber: string; status: string; deliveryAddress: string; deliveryLatitude: number | null; deliveryLongitude: number | null }[]> = {};
     activeOrders.forEach(o => {
       if (o.driverId) {
         if (!driverOrderMap[o.driverId]) driverOrderMap[o.driverId] = [];
@@ -1505,6 +1507,8 @@ export const adminRouter = router({
           orderNumber: o.orderNumber,
           status: o.status,
           deliveryAddress: o.deliveryAddress,
+          deliveryLatitude: o.deliveryLatitude ? parseFloat(o.deliveryLatitude) : null,
+          deliveryLongitude: o.deliveryLongitude ? parseFloat(o.deliveryLongitude) : null,
         });
       }
     });
@@ -1557,4 +1561,138 @@ export const adminRouter = router({
 
       return { success: true };
     }),
+
+  // Get driver performance stats for dashboard
+  getDriverPerformance: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const driversList = await db
+      .select({
+        id: drivers.id,
+        userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
+        vehicleType: drivers.vehicleType,
+        isOnline: drivers.isOnline,
+        totalDeliveries: drivers.totalDeliveries,
+        totalReturns: drivers.totalReturns,
+        rating: drivers.rating,
+        createdAt: drivers.createdAt,
+      })
+      .from(drivers);
+
+    const userIds = driversList.map(d => d.userId);
+    let userMap: Record<number, { name: string; phone: string }> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, name: users.name, phone: users.phone })
+        .from(users)
+        .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
+      userMap = Object.fromEntries(userRows.map(u => [u.id, { name: u.name || "Unknown", phone: u.phone || "" }]));
+    }
+
+    // Get all delivered orders for the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+    const deliveredOrders = await db
+      .select({
+        id: orders.id,
+        driverId: orders.driverId,
+        deliveryFee: orders.deliveryFee,
+        tipAmount: orders.tipAmount,
+        deliveredAt: orders.deliveredAt,
+        createdAt: orders.createdAt,
+        status: orders.status,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.status, "delivered"),
+          gte(orders.deliveredAt, thirtyDaysAgo)
+        )
+      );
+
+    // Build per-driver stats
+    const driverStats = driversList.map(driver => {
+      const driverOrders = deliveredOrders.filter(o => o.driverId === driver.userId);
+      const todayOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
+      const weekOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
+
+      const totalEarnings30d = driverOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+
+      // Average delivery time (from order created to delivered)
+      const deliveryTimes = driverOrders
+        .filter(o => o.deliveredAt && o.createdAt)
+        .map(o => {
+          const created = new Date(o.createdAt!).getTime();
+          const delivered = new Date(o.deliveredAt!).getTime();
+          return (delivered - created) / 60000; // minutes
+        })
+        .filter(t => t > 0 && t < 300); // filter unreasonable times
+
+      const avgDeliveryTime = deliveryTimes.length > 0
+        ? Math.round(deliveryTimes.reduce((s, t) => s + t, 0) / deliveryTimes.length)
+        : null;
+
+      // Daily breakdown for last 7 days
+      const dailyBreakdown: { date: string; deliveries: number; earnings: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        const dayOrders = driverOrders.filter(o => {
+          const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
+          return oDate === dateStr;
+        });
+        dailyBreakdown.push({
+          date: dateStr,
+          deliveries: dayOrders.length,
+          earnings: Math.round(dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+        });
+      }
+
+      return {
+        id: driver.id,
+        userId: driver.userId,
+        displayNumber: driver.displayNumber,
+        name: userMap[driver.userId]?.name || "Unknown",
+        phone: userMap[driver.userId]?.phone || "",
+        vehicleType: driver.vehicleType,
+        isOnline: driver.isOnline,
+        totalDeliveries: driver.totalDeliveries || 0,
+        totalReturns: driver.totalReturns || 0,
+        rating: driver.rating ? parseFloat(driver.rating) : null,
+        deliveries30d: driverOrders.length,
+        deliveriesToday: todayOrders.length,
+        deliveriesThisWeek: weekOrders.length,
+        earnings30d: Math.round(totalEarnings30d * 100) / 100,
+        earningsToday: Math.round(todayEarnings * 100) / 100,
+        earningsThisWeek: Math.round(weekEarnings * 100) / 100,
+        avgDeliveryTime,
+        dailyBreakdown,
+        joinedAt: driver.createdAt,
+      };
+    });
+
+    // Sort by total deliveries descending
+    driverStats.sort((a, b) => b.deliveries30d - a.deliveries30d);
+
+    // Aggregate totals
+    const totals = {
+      totalDrivers: driversList.length,
+      onlineNow: driversList.filter(d => d.isOnline).length,
+      totalDeliveries30d: deliveredOrders.length,
+      totalEarnings30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+    };
+
+    return { drivers: driverStats, totals };
+  }),
 });

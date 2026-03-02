@@ -29,6 +29,7 @@ function DriverMapContent() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Record<number, any>>({});
+  const routeLinesRef = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const router = useRouter();
 
@@ -72,9 +73,11 @@ function DriverMapContent() {
     const L = (window as any).L;
     if (!L) return;
 
-    // Clear existing markers
+    // Clear existing markers and route lines
     Object.values(markersRef.current).forEach(m => m.remove());
     markersRef.current = {};
+    routeLinesRef.current.forEach(l => l.remove());
+    routeLinesRef.current = [];
 
     const onlineWithLocation = driverLocations.filter(d => d.isOnline && d.latitude && d.longitude);
     const offlineWithLocation = showOffline ? driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude) : [];
@@ -164,6 +167,51 @@ function DriverMapContent() {
         `);
 
       markersRef.current[driver.id] = marker;
+    });
+
+    // Draw delivery route lines from driver to customer
+    onlineWithLocation.forEach(driver => {
+      if (!driver.activeOrders || driver.activeOrders.length === 0) return;
+      driver.activeOrders.forEach((order: any) => {
+        if (order.deliveryLatitude && order.deliveryLongitude) {
+          // Dashed line from driver to delivery address
+          const routeLine = L.polyline(
+            [[driver.latitude, driver.longitude], [order.deliveryLatitude, order.deliveryLongitude]],
+            { color: "#F59E0B", weight: 3, opacity: 0.7, dashArray: "8, 8" }
+          ).addTo(mapRef.current);
+          routeLinesRef.current.push(routeLine);
+
+          // Small destination marker (pin icon)
+          const destIcon = L.divIcon({
+            className: "custom-dest-marker",
+            html: `<div style="
+              background: #EF4444;
+              color: white;
+              border: 2px solid white;
+              border-radius: 50%;
+              width: 20px;
+              height: 20px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            ">🏠</div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+          });
+          const destMarker = L.marker([order.deliveryLatitude, order.deliveryLongitude], { icon: destIcon })
+            .addTo(mapRef.current)
+            .bindPopup(`
+              <div style="font-family: system-ui, sans-serif; min-width: 140px;">
+                <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">📦 ${order.orderNumber}</div>
+                <div style="font-size: 12px; color: #64748B;">${order.deliveryAddress}</div>
+                <div style="font-size: 11px; color: #F59E0B; font-weight: 600; margin-top: 4px;">Driver ${driver.displayNumber || "?"} en route</div>
+              </div>
+            `);
+          routeLinesRef.current.push(destMarker);
+        }
+      });
     });
 
     // If we have online drivers, fit bounds to show them all

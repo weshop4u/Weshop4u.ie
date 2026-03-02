@@ -133,6 +133,12 @@ export default function AdminLayout() {
           title: "Driver Locations",
         }}
       />
+      <Stack.Screen
+        name="driver-performance"
+        options={{
+          title: "Driver Performance",
+        }}
+      />
     </Stack>
   );
 }

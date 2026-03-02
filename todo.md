@@ -2104,3 +2104,6 @@
 - [x] Add filter toggle to show/hide offline drivers on admin driver map
 - [x] Add driver phone number to map popup so staff can quickly call drivers
 - [x] Add order count badges on stats bar linking to orders page
+- [x] Add delivery route lines on driver map showing path from driver to customer address
+- [x] Add push notification alert when driver goes offline during an active delivery
+- [x] Add driver performance dashboard with delivery times, completed orders, and earnings per driver
