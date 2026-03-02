@@ -140,6 +140,52 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Promotional Banner */}
+        <View className="px-4 mb-4">
+          <View style={{
+            borderRadius: 16,
+            overflow: "hidden",
+            backgroundColor: "#0F172A",
+            padding: 20,
+            position: "relative",
+          }}>
+            {/* Decorative gradient accent */}
+            <View style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              backgroundColor: "#00E5FF",
+            }} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <Text style={{ fontSize: 22 }}>🎉</Text>
+              <Text style={{ fontSize: 18, fontWeight: "800", color: "#00E5FF" }}>10% OFF Your First Order!</Text>
+            </View>
+            <Text style={{ fontSize: 14, color: "#CBD5E1", marginBottom: 12, lineHeight: 20 }}>
+              Use code at checkout and save on your first delivery from any store.
+            </Text>
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+            }}>
+              <View style={{
+                backgroundColor: "rgba(0, 229, 255, 0.15)",
+                borderWidth: 1.5,
+                borderColor: "#00E5FF",
+                borderStyle: "dashed",
+                borderRadius: 10,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}>
+                <Text style={{ fontSize: 18, fontWeight: "900", color: "#00E5FF", letterSpacing: 2 }}>WELCOME10</Text>
+              </View>
+              <Text style={{ fontSize: 12, color: "#64748B" }}>One-time use per customer</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Stores Grid */}
         <View className="px-4">
           <View className="flex-row items-center justify-between mb-4">

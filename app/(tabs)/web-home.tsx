@@ -245,6 +245,56 @@ export default function WebHome() {
         </View>
       </View>
 
+      {/* Promotional Banner */}
+      {!searchQuery && (
+        <View style={{ maxWidth: 900, width: "100%", alignSelf: "center", paddingHorizontal: 24, marginBottom: 8 }}>
+          <View style={{
+            borderRadius: 16,
+            overflow: "hidden",
+            backgroundColor: "#0F172A",
+            padding: 24,
+            position: "relative",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+          }}>
+            <View style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              backgroundColor: "#00E5FF",
+            }} />
+            <View style={{ flex: 1, minWidth: 250 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <Text style={{ fontSize: 22 }}>🎉</Text>
+                <Text style={{ fontSize: 20, fontWeight: "800", color: "#00E5FF" }}>10% OFF Your First Order!</Text>
+              </View>
+              <Text style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 20 }}>
+                Use code at checkout and save on your first delivery from any store.
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{
+                backgroundColor: "rgba(0, 229, 255, 0.15)",
+                borderWidth: 1.5,
+                borderColor: "#00E5FF",
+                borderStyle: "dashed",
+                borderRadius: 10,
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+              }}>
+                <Text style={{ fontSize: 20, fontWeight: "900", color: "#00E5FF", letterSpacing: 2 }}>WELCOME10</Text>
+              </View>
+              <Text style={{ fontSize: 12, color: "#64748B" }}>One-time use{"\n"}per customer</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Popular Stores Section */}
       {featuredStores && featuredStores.length > 0 && !searchQuery && (
         <View style={popularStyles.section}>
