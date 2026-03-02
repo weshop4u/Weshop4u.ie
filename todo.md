@@ -2088,3 +2088,4 @@
 - [x] BUG: Elavon HPP page shows "Page not found" — fixed: was using path format (hpp.eu.convergepay.com/hosted-payments/{id}) but the correct format from Elavon API response is query parameter format (hpp.eu.convergepay.com?sessionId={id}). Now using the 'url' field directly from the payment session API response.
 - [x] Add "Paid" / "Pending Payment" badge to admin orders view for card payment orders
 - [x] Add payment retry mechanism — allow customers to restart payment from order page if session expired or payment failed
+- [x] Move Popular Stores section above the coupon banner on the home page

@@ -141,65 +141,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Promotional Banners from Database */}
-        {activeBanners && activeBanners.length > 0 && (
-          <View className="px-4 mb-4" style={{ gap: 12 }}>
-            {activeBanners.map((banner: any) => {
-              const bg = banner.backgroundColor || "#0F172A";
-              const accent = banner.accentColor || "#00E5FF";
-              return (
-                <View key={banner.id} style={{
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  backgroundColor: bg,
-                  padding: 20,
-                  position: "relative",
-                }}>
-                  <View style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 3,
-                    backgroundColor: accent,
-                  }} />
-                  <Text style={{
-                    fontSize: 17,
-                    fontWeight: "800",
-                    color: accent,
-                    marginBottom: banner.subtitle ? 6 : 0,
-                    letterSpacing: 0.3,
-                  }}>
-                    {banner.title}
-                  </Text>
-                  {banner.subtitle && (
-                    <Text style={{ fontSize: 13, color: "#CBD5E1", marginBottom: 10, lineHeight: 18 }}>
-                      {banner.subtitle}
-                    </Text>
-                  )}
-                  {banner.discountCode && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 }}>
-                      <View style={{
-                        backgroundColor: `${accent}20`,
-                        borderWidth: 1.5,
-                        borderColor: accent,
-                        borderStyle: "dashed",
-                        borderRadius: 8,
-                        paddingHorizontal: 14,
-                        paddingVertical: 6,
-                      }}>
-                        <Text style={{ fontSize: 16, fontWeight: "900", color: accent, letterSpacing: 2 }}>
-                          {banner.discountCode}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        )}
-
         {/* Stores Grid */}
         <View className="px-4">
           <View className="flex-row items-center justify-between mb-4">
@@ -328,6 +269,65 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {/* Promotional Banners from Database */}
+        {activeBanners && activeBanners.length > 0 && (
+          <View className="px-4 mb-4 mt-4" style={{ gap: 12 }}>
+            {activeBanners.map((banner: any) => {
+              const bg = banner.backgroundColor || "#0F172A";
+              const accent = banner.accentColor || "#00E5FF";
+              return (
+                <View key={banner.id} style={{
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  backgroundColor: bg,
+                  padding: 20,
+                  position: "relative",
+                }}>
+                  <View style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    backgroundColor: accent,
+                  }} />
+                  <Text style={{
+                    fontSize: 17,
+                    fontWeight: "800",
+                    color: accent,
+                    marginBottom: banner.subtitle ? 6 : 0,
+                    letterSpacing: 0.3,
+                  }}>
+                    {banner.title}
+                  </Text>
+                  {banner.subtitle && (
+                    <Text style={{ fontSize: 13, color: "#CBD5E1", marginBottom: 10, lineHeight: 18 }}>
+                      {banner.subtitle}
+                    </Text>
+                  )}
+                  {banner.discountCode && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 }}>
+                      <View style={{
+                        backgroundColor: `${accent}20`,
+                        borderWidth: 1.5,
+                        borderColor: accent,
+                        borderStyle: "dashed",
+                        borderRadius: 8,
+                        paddingHorizontal: 14,
+                        paddingVertical: 6,
+                      }}>
+                        <Text style={{ fontSize: 16, fontWeight: "900", color: accent, letterSpacing: 2 }}>
+                          {banner.discountCode}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
