@@ -326,18 +326,21 @@ function AdminOrdersScreenContent() {
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); setAssignModalOrderId(order.id); }}
                             style={dtStyles.actionBtn}
+                            {...({ title: "Assign Driver" } as any)}
                           >
                             <Text style={dtStyles.actionBtnText}>🚗</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); setStatusModalOrderId(order.id); }}
                             style={[dtStyles.actionBtn, { backgroundColor: "#E0E7FF" }]}
+                            {...({ title: "Update Status" } as any)}
                           >
                             <Text style={dtStyles.actionBtnText}>📋</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); handleUpdateStatus(order.id, "cancelled"); }}
                             style={[dtStyles.actionBtn, { backgroundColor: "#FEE2E2" }]}
+                            {...({ title: "Cancel Order" } as any)}
                           >
                             <Text style={dtStyles.actionBtnText}>✕</Text>
                           </TouchableOpacity>
