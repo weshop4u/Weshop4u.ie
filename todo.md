@@ -2121,3 +2121,4 @@
 - [x] Admin UI: ability to manually assign order from different store to a driver's batch
 - [x] Customer UI: show batch delivery position ("Your driver has X deliveries — yours is next/2nd")
 - [x] Max 5 orders per batch, same-store only for auto-batching, multi-store admin-only
+- [x] Add sound and vibration alert for batch offers so drivers don't miss them while driving
