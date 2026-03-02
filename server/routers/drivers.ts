@@ -1549,6 +1549,103 @@ export const driversRouter = router({
         });
       }
 
+      // --- "Driver is nearby" proximity notification ---
+      // Check all active orders for this driver that are picked_up or on_the_way
+      try {
+        const activeOrders = await db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            customerId: orders.customerId,
+            deliveryLatitude: orders.deliveryLatitude,
+            deliveryLongitude: orders.deliveryLongitude,
+            status: orders.status,
+          })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.driverId, input.driverId),
+              inArray(orders.status, ["picked_up", "on_the_way"])
+            )
+          );
+
+        for (const order of activeOrders) {
+          if (!order.deliveryLatitude || !order.deliveryLongitude) continue;
+
+          const delLat = parseFloat(order.deliveryLatitude);
+          const delLng = parseFloat(order.deliveryLongitude);
+          if (isNaN(delLat) || isNaN(delLng)) continue;
+
+          // Haversine distance calculation
+          const R = 6371000; // Earth radius in metres
+          const dLat = ((delLat - input.latitude) * Math.PI) / 180;
+          const dLng = ((delLng - input.longitude) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((input.latitude * Math.PI) / 180) *
+              Math.cos((delLat * Math.PI) / 180) *
+              Math.sin(dLng / 2) *
+              Math.sin(dLng / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distanceMetres = R * c;
+
+          // If within 500m, check if we already sent this notification
+          if (distanceMetres <= 500) {
+            // Check if we already sent a nearby notification for this order
+            const existingNotif = await db
+              .select({ id: orderTracking.id })
+              .from(orderTracking)
+              .where(
+                and(
+                  eq(orderTracking.orderId, order.id),
+                  eq(orderTracking.status, "driver_nearby_notified")
+                )
+              )
+              .limit(1);
+
+            if (existingNotif.length === 0) {
+              // Mark as notified so we don't send again
+              await db.insert(orderTracking).values({
+                orderId: order.id,
+                status: "driver_nearby_notified",
+                latitude: String(input.latitude),
+                longitude: String(input.longitude),
+              });
+
+              // Get customer push token
+              if (order.customerId) {
+                const [customer] = await db
+                  .select({ pushToken: users.pushToken, name: users.name })
+                  .from(users)
+                  .where(eq(users.id, order.customerId))
+                  .limit(1);
+
+                if (customer?.pushToken) {
+                  const distanceDisplay = distanceMetres < 100
+                    ? "less than 100m"
+                    : `about ${Math.round(distanceMetres / 100) * 100}m`;
+
+                  await sendPushNotification(customer.pushToken, {
+                    title: "🚗 Your driver is nearby!",
+                    body: `Your driver is ${distanceDisplay} away. Get ready for your delivery!`,
+                    data: {
+                      type: "driver_nearby",
+                      orderId: order.id,
+                      orderNumber: order.orderNumber || `#${order.id}`,
+                    },
+                    channelId: "orders",
+                  });
+                  console.log(`[Proximity] Sent nearby notification for order ${order.id} (${Math.round(distanceMetres)}m)`);
+                }
+              }
+            }
+          }
+        }
+      } catch (proximityError) {
+        // Don't fail the location update if proximity check fails
+        console.error("[Proximity] Error checking driver proximity:", proximityError);
+      }
+
       return { success: true };
     }),
 
