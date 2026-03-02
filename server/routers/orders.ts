@@ -514,6 +514,7 @@ export const ordersRouter = router({
         deliveryLatitude: orders.deliveryLatitude,
         deliveryLongitude: orders.deliveryLongitude,
         paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
         customerNotes: orders.customerNotes,
         createdAt: orders.createdAt,
         acceptedAt: orders.acceptedAt,

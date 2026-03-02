@@ -2086,3 +2086,5 @@
 - [x] BUG: Card payment shows "Payment already completed" error when trying to pay — fixed: order creation was setting paymentStatus to 'completed' for card orders before payment actually happened (legacy from pre-Elavon). Now all orders start as 'pending' and only get set to 'completed' after Elavon confirms payment.
 - [x] BUG: Elavon hosted payment page returns 404 "resource does not exist" — fixed: was using api.eu.convergepay.com for the hosted payment page URL, but the correct domain is hpp.eu.convergepay.com (API domain is for API calls, HPP domain is for the customer-facing payment page)
 - [x] BUG: Elavon HPP page shows "Page not found" — fixed: was using path format (hpp.eu.convergepay.com/hosted-payments/{id}) but the correct format from Elavon API response is query parameter format (hpp.eu.convergepay.com?sessionId={id}). Now using the 'url' field directly from the payment session API response.
+- [x] Add "Paid" / "Pending Payment" badge to admin orders view for card payment orders
+- [x] Add payment retry mechanism — allow customers to restart payment from order page if session expired or payment failed

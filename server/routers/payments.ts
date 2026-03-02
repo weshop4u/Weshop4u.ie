@@ -73,6 +73,14 @@ export const paymentsRouter = router({
         throw new Error("Payment already completed");
       }
 
+      // Reset payment status to pending on retry (e.g. after a failed/expired session)
+      if (order.paymentStatus === "failed") {
+        await db
+          .update(orders)
+          .set({ paymentStatus: "pending" })
+          .where(eq(orders.id, input.orderId));
+      }
+
       const totalAmount = parseFloat(order.total);
 
       // Step 1: Create an Elavon Order

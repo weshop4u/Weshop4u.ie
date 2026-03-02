@@ -297,8 +297,18 @@ function AdminOrdersScreenContent() {
                         <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#D97706" }}>CASH</Text>
                         </View>
+                      ) : order.paymentStatus === "completed" ? (
+                        <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>PAID</Text>
+                        </View>
+                      ) : order.paymentStatus === "failed" ? (
+                        <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>FAILED</Text>
+                        </View>
                       ) : (
-                        <Text style={{ fontSize: 12, color: "#64748B" }}>Card</Text>
+                        <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#D97706" }}>PENDING</Text>
+                        </View>
                       )}
                     </View>
                     <View style={[dtStyles.td, { minWidth: 90 }]}>

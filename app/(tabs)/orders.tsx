@@ -573,12 +573,35 @@ export default function OrderHistoryScreen() {
                       </View>
                     )}
 
+                    {/* Retry Payment button for card orders with pending payment */}
+                    {order.paymentMethod === "card" && order.paymentStatus !== "completed" && order.status === "pending" && (
+                      <TouchableOpacity
+                        onPress={() => router.push(`/payment/${order.id}` as any)}
+                        style={{
+                          marginTop: 16,
+                          backgroundColor: '#00E5FF' + '15',
+                          borderWidth: 1,
+                          borderColor: '#00E5FF',
+                          borderRadius: 10,
+                          padding: 12,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: '#00B8D4', fontWeight: "bold", fontSize: 14 }}>
+                          Retry Payment
+                        </Text>
+                        <Text style={{ color: '#00B8D4', fontSize: 11, marginTop: 2, opacity: 0.7 }}>
+                          Complete your card payment
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
                     {order.status === "pending" && (
                       <TouchableOpacity
                         onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
                         disabled={cancelOrderMutation.isPending}
                         style={{
-                          marginTop: 16,
+                          marginTop: 8,
                           backgroundColor: colors.error + '10',
                           borderWidth: 1,
                           borderColor: colors.error,
