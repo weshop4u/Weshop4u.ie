@@ -235,7 +235,7 @@ export const ordersRouter = router({
         storeId: input.storeId,
         status: "pending",
         paymentMethod: input.paymentMethod,
-        paymentStatus: input.paymentMethod === "card" ? "completed" : "pending",
+        paymentStatus: "pending",
         subtotal: subtotal.toFixed(2),
         serviceFee: serviceFee.toFixed(2),
         deliveryFee: input.isFreeDelivery ? "0.00" : deliveryFee.toFixed(2),

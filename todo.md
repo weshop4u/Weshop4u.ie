@@ -2081,3 +2081,6 @@
 - [x] Add "Delete Store" functionality with confirmation (blocks deletion if store has orders)
 - [x] Add "Duplicate Store" backend endpoint to clone store with products, categories, modifiers
 - [x] Add "Duplicate Store" button and form to admin Manage Stores page
+- [x] Create FREE100 discount code — free delivery on any order, all stores, one-time per customer
+- [x] Update FREE100 discount code to unlimited uses per customer (for card payment testing)
+- [x] BUG: Card payment shows "Payment already completed" error when trying to pay — fixed: order creation was setting paymentStatus to 'completed' for card orders before payment actually happened (legacy from pre-Elavon). Now all orders start as 'pending' and only get set to 'completed' after Elavon confirms payment.
