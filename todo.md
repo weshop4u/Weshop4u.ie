@@ -2069,3 +2069,4 @@
 - [x] Add Customers count card to admin dashboard
 - [x] Build Customers admin list page (name, email, sign-up date, order count)
 - [x] Add Customers link to admin sidebar navigation
+- [x] Fix empty Actions column on admin orders page — added expand/collapse button that always shows for all orders, plus assign/status/cancel for active orders

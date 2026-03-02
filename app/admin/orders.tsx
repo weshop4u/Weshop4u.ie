@@ -304,7 +304,13 @@ function AdminOrdersScreenContent() {
                     <View style={[dtStyles.td, { minWidth: 90 }]}>
                       <Text style={{ fontSize: 14, fontWeight: "800", color: "#00E5FF" }}>€{parseFloat(order.total).toFixed(2)}</Text>
                     </View>
-                    <View style={[dtStyles.td, { minWidth: 160, flexDirection: "row", gap: 6 }]}>
+                    <View style={[dtStyles.td, { minWidth: 160, flexDirection: "row", gap: 6, flexWrap: "wrap" }]}>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation?.(); setExpandedId(expanded ? null : order.id); }}
+                        style={[dtStyles.actionBtn, { backgroundColor: "#F0F9FF" }]}
+                      >
+                        <Text style={[dtStyles.actionBtnText, { fontSize: 11 }]}>{expanded ? "▲" : "▼"}</Text>
+                      </TouchableOpacity>
                       {isActive && (
                         <>
                           <TouchableOpacity
