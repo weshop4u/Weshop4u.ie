@@ -2244,3 +2244,6 @@
 - [x] Create "Choose Sauce" modifier template (id=90001) for Thai Red/Green Curry with Thai Red Curry / Thai Green Curry options
 - [x] Create "Choose Your Side" template (id=90002) for Set Dinner and Meal Deals with Boiled Rice, Chips, Fried Rice all at €0.00
 - [x] Verify all 26 category-template links created correctly
+
+## Ginger Scallions Category Fix
+- [x] Remove time/availability restriction from Ginger Scallions category (id=150022) — cleared availabilitySchedule and ageRestricted
