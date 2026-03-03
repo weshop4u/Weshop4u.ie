@@ -2192,3 +2192,19 @@
 - [x] Today's Overview cards pressable → navigate to All Orders
 - [x] Order Breakdown rows pressable → navigate to All Orders
 - [x] Hover cursor (pointer) on all pressable cards/rows on desktop
+
+## Revenue Summary Pressable Rows
+- [x] This Week row → navigate to All Orders
+- [x] This Month row → navigate to All Orders
+- [x] All Time row → navigate to All Orders
+- [x] Pointer cursor on hover for desktop
+
+## Recent Orders Preview on Dashboard
+- [x] Show last 5 orders inline on dashboard (both desktop and mobile)
+- [x] Show order number, customer, status, total, and time
+- [x] "View All →" link at top right
+- [x] Auto-refresh with existing polling
+
+## Dashboard Notification Badges
+- [x] Red badge on Active Orders card when pending orders > 0
+- [x] Show pending count in the badge (both desktop and mobile)

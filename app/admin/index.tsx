@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 function StatCard({ label, value, subValue, color }: { label: string; value: string | number; subValue?: string; color?: string }) {
   return (
@@ -73,6 +73,18 @@ function DashboardContent() {
   });
   const pendingDriverCount = pendingDriverData?.count ?? 0;
 
+  // Recent orders for preview
+  const { data: recentOrders } = trpc.admin.getAllOrders.useQuery(
+    { limit: 5, offset: 0 },
+    { refetchInterval: 30000 }
+  );
+
+  // Pending orders count for notification badge
+  const pendingOrderCount = useMemo(() => {
+    if (!stats?.orders.statusBreakdown) return 0;
+    return (stats.orders.statusBreakdown as any).pending ?? 0;
+  }, [stats]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -117,27 +129,27 @@ function DashboardContent() {
           <View style={{ flex: 1, minWidth: 300 }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Revenue Summary</Text>
             <View className="bg-surface rounded-xl p-4 border border-border">
-              <View className="flex-row justify-between py-2 border-b border-border">
-                <Text className="text-muted">This Week</Text>
-                <View className="items-end">
-                  <Text className="text-foreground font-bold">€{(stats?.orders.thisWeek.revenue ?? 0).toFixed(2)}</Text>
-                  <Text className="text-xs text-muted">{stats?.orders.thisWeek.count ?? 0} orders</Text>
+              <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ ...webCursor, flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                <Text style={{ color: "#687076" }}>This Week</Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: "#0F172A", fontWeight: "700" }}>€{(stats?.orders.thisWeek.revenue ?? 0).toFixed(2)}</Text>
+                  <Text style={{ fontSize: 12, color: "#687076" }}>{stats?.orders.thisWeek.count ?? 0} orders</Text>
                 </View>
-              </View>
-              <View className="flex-row justify-between py-2 border-b border-border">
-                <Text className="text-muted">This Month</Text>
-                <View className="items-end">
-                  <Text className="text-foreground font-bold">€{(stats?.orders.thisMonth.revenue ?? 0).toFixed(2)}</Text>
-                  <Text className="text-xs text-muted">{stats?.orders.thisMonth.count ?? 0} orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ ...webCursor, flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                <Text style={{ color: "#687076" }}>This Month</Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: "#0F172A", fontWeight: "700" }}>€{(stats?.orders.thisMonth.revenue ?? 0).toFixed(2)}</Text>
+                  <Text style={{ fontSize: 12, color: "#687076" }}>{stats?.orders.thisMonth.count ?? 0} orders</Text>
                 </View>
-              </View>
-              <View className="flex-row justify-between py-2">
-                <Text className="text-muted">All Time</Text>
-                <View className="items-end">
-                  <Text className="text-foreground font-bold">€{(stats?.orders.allTime.revenue ?? 0).toFixed(2)}</Text>
-                  <Text className="text-xs text-muted">{stats?.orders.allTime.count ?? 0} orders</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ ...webCursor, flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 }}>
+                <Text style={{ color: "#687076" }}>All Time</Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: "#0F172A", fontWeight: "700" }}>€{(stats?.orders.allTime.revenue ?? 0).toFixed(2)}</Text>
+                  <Text style={{ fontSize: 12, color: "#687076" }}>{stats?.orders.allTime.count ?? 0} orders</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -146,8 +158,13 @@ function DashboardContent() {
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Live Status</Text>
             <View style={{ gap: 12 }}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
+                <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor, position: "relative" }}>
                   <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
+                  {pendingOrderCount > 0 && (
+                    <View style={{ position: "absolute", top: -4, right: -4, backgroundColor: "#EF4444", borderRadius: 12, minWidth: 24, height: 24, alignItems: "center", justifyContent: "center", paddingHorizontal: 6, borderWidth: 2, borderColor: "#fff" }}>
+                      <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{pendingOrderCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
                   <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
@@ -281,11 +298,80 @@ function DashboardContent() {
             </View>
           </View>
         </View>
+
+        {/* Recent Orders Preview */}
+        <View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A" }}>Recent Orders</Text>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={webCursor}>
+              <Text style={{ fontSize: 14, color: "#0a7ea4", fontWeight: "600" }}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <View className="bg-surface rounded-xl border border-border" style={{ overflow: "hidden" }}>
+            {/* Table Header */}
+            <View style={{ flexDirection: "row", paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "#F8FAFC", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+              <Text style={{ flex: 1.2, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Order</Text>
+              <Text style={{ flex: 1.5, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Customer</Text>
+              <Text style={{ flex: 1, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Status</Text>
+              <Text style={{ flex: 0.8, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Payment</Text>
+              <Text style={{ flex: 0.6, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "right" }}>Total</Text>
+            </View>
+            {/* Rows */}
+            {recentOrders && recentOrders.length > 0 ? recentOrders.slice(0, 5).map((order: any, idx: number) => {
+              const statusColors: Record<string, { bg: string; text: string }> = {
+                pending: { bg: "#FEF3C7", text: "#D97706" },
+                accepted: { bg: "#DBEAFE", text: "#2563EB" },
+                preparing: { bg: "#E0E7FF", text: "#4F46E5" },
+                ready_for_pickup: { bg: "#D1FAE5", text: "#059669" },
+                picked_up: { bg: "#CFFAFE", text: "#0891B2" },
+                on_the_way: { bg: "#CCFBF1", text: "#0D9488" },
+                delivered: { bg: "#DCFCE7", text: "#16A34A" },
+                cancelled: { bg: "#FEE2E2", text: "#DC2626" },
+              };
+              const sc = statusColors[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
+              const statusLabel = order.status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+              const paymentLabel = order.paymentMethod === "cash" ? "Cash" : "Card";
+              const paymentStatusLabel = order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "pending" ? "Pending" : order.paymentStatus;
+              const paymentColor = order.paymentStatus === "paid" ? "#16A34A" : "#D97706";
+              const timeAgo = order.createdAt ? (() => {
+                const diff = Date.now() - new Date(order.createdAt).getTime();
+                const mins = Math.floor(diff / 60000);
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `${hrs}h ago`;
+                return `${Math.floor(hrs / 24)}d ago`;
+              })() : "";
+              return (
+                <TouchableOpacity key={order.id} onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ ...webCursor, flexDirection: "row", paddingVertical: 10, paddingHorizontal: 16, alignItems: "center", backgroundColor: idx % 2 === 0 ? "#fff" : "#FAFBFC", borderBottomWidth: idx < 4 ? 1 : 0, borderBottomColor: "#F1F5F9" }}>
+                  <View style={{ flex: 1.2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>{order.orderNumber}</Text>
+                    <Text style={{ fontSize: 11, color: "#94A3B8" }}>{timeAgo}</Text>
+                  </View>
+                  <Text style={{ flex: 1.5, fontSize: 13, color: "#334155" }} numberOfLines={1}>{order.customerName}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ backgroundColor: sc.bg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: sc.text }}>{statusLabel}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flex: 0.8 }}>
+                    <Text style={{ fontSize: 12, color: "#334155" }}>{paymentLabel}</Text>
+                    <Text style={{ fontSize: 11, color: paymentColor, fontWeight: "600" }}>{paymentStatusLabel}</Text>
+                  </View>
+                  <Text style={{ flex: 0.6, fontSize: 13, fontWeight: "700", color: "#0F172A", textAlign: "right" }}>€{Number(order.total).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            }) : (
+              <View style={{ padding: 24, alignItems: "center" }}>
+                <Text style={{ color: "#94A3B8", fontSize: 14 }}>No recent orders</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </View>
     );
   }
 
-  // Mobile layout (unchanged)
+  // Mobile layout
   return (
     <ScreenContainer className="bg-background">
       <ScrollView
@@ -323,35 +409,40 @@ function DashboardContent() {
         <View className="px-4 pt-6">
           <Text className="text-lg font-bold text-foreground mb-3">Revenue Summary</Text>
           <View className="bg-surface rounded-xl p-4 border border-border">
-            <View className="flex-row justify-between py-2 border-b border-border">
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
               <Text className="text-muted">This Week</Text>
               <View className="items-end">
                 <Text className="text-foreground font-bold">€{(stats?.orders.thisWeek.revenue ?? 0).toFixed(2)}</Text>
                 <Text className="text-xs text-muted">{stats?.orders.thisWeek.count ?? 0} orders</Text>
               </View>
-            </View>
-            <View className="flex-row justify-between py-2 border-b border-border">
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
               <Text className="text-muted">This Month</Text>
               <View className="items-end">
                 <Text className="text-foreground font-bold">€{(stats?.orders.thisMonth.revenue ?? 0).toFixed(2)}</Text>
                 <Text className="text-xs text-muted">{stats?.orders.thisMonth.count ?? 0} orders</Text>
               </View>
-            </View>
-            <View className="flex-row justify-between py-2">
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 }}>
               <Text className="text-muted">All Time</Text>
               <View className="items-end">
                 <Text className="text-foreground font-bold">€{(stats?.orders.allTime.revenue ?? 0).toFixed(2)}</Text>
                 <Text className="text-xs text-muted">{stats?.orders.allTime.count ?? 0} orders</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
         <View className="px-4 pt-6">
           <Text className="text-lg font-bold text-foreground mb-3">Live Status</Text>
           <View className="flex-row gap-3 mb-3">
-            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1, position: "relative" }}>
               <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
+              {pendingOrderCount > 0 && (
+                <View style={{ position: "absolute", top: -4, right: -4, backgroundColor: "#EF4444", borderRadius: 12, minWidth: 22, height: 22, alignItems: "center", justifyContent: "center", paddingHorizontal: 5, borderWidth: 2, borderColor: "#fff" }}>
+                  <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{pendingOrderCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
               <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
@@ -379,6 +470,58 @@ function DashboardContent() {
             {stats?.orders.statusBreakdown && Object.entries(stats.orders.statusBreakdown).map(([status, count]) => (
               <StatusBadge key={status} status={status} count={count} onPress={() => router.push("/admin/orders" as any)} />
             ))}
+          </View>
+        </View>
+
+        {/* Recent Orders Preview - Mobile */}
+        <View className="px-4 pt-6">
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text className="text-lg font-bold text-foreground">Recent Orders</Text>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)}>
+              <Text style={{ fontSize: 14, color: "#0a7ea4", fontWeight: "600" }}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <View className="bg-surface rounded-xl border border-border" style={{ overflow: "hidden" }}>
+            {recentOrders && recentOrders.length > 0 ? recentOrders.slice(0, 5).map((order: any, idx: number) => {
+              const statusColors: Record<string, { bg: string; text: string }> = {
+                pending: { bg: "#FEF3C7", text: "#D97706" },
+                accepted: { bg: "#DBEAFE", text: "#2563EB" },
+                preparing: { bg: "#E0E7FF", text: "#4F46E5" },
+                ready_for_pickup: { bg: "#D1FAE5", text: "#059669" },
+                picked_up: { bg: "#CFFAFE", text: "#0891B2" },
+                on_the_way: { bg: "#CCFBF1", text: "#0D9488" },
+                delivered: { bg: "#DCFCE7", text: "#16A34A" },
+                cancelled: { bg: "#FEE2E2", text: "#DC2626" },
+              };
+              const sc = statusColors[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
+              const statusLabel = order.status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+              const timeAgo = order.createdAt ? (() => {
+                const diff = Date.now() - new Date(order.createdAt).getTime();
+                const mins = Math.floor(diff / 60000);
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `${hrs}h ago`;
+                return `${Math.floor(hrs / 24)}d ago`;
+              })() : "";
+              return (
+                <TouchableOpacity key={order.id} onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.6} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, backgroundColor: idx % 2 === 0 ? "#fff" : "#FAFBFC", borderBottomWidth: idx < 4 ? 1 : 0, borderBottomColor: "#F1F5F9" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>{order.orderNumber}</Text>
+                    <Text style={{ fontSize: 11, color: "#94A3B8" }}>{order.customerName} · {timeAgo}</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <View style={{ backgroundColor: sc.bg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: sc.text }}>{statusLabel}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{Number(order.total).toFixed(2)}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }) : (
+              <View style={{ padding: 24, alignItems: "center" }}>
+                <Text style={{ color: "#94A3B8", fontSize: 14 }}>No recent orders</Text>
+              </View>
+            )}
           </View>
         </View>
 
