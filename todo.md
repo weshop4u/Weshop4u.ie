@@ -2269,3 +2269,9 @@
 - [x] Make this work automatically for future stores (store_staff table + store.category drives everything)
 - [x] Fix all Back buttons on store sub-pages to go to /store instead of router.back()
 - [x] 23 unit tests passing for access control, deli visibility, storeId resolution, future compatibility
+
+## Fix Stale Store ID References (30001 → 6)
+- [x] Check store_staff table — already correct (points to store 6)
+- [x] Fix products table — updated 233 products from store_id=30001 to store_id=6
+- [x] Check product_categories — no store_id column (linked via products)
+- [x] Check orders, category_modifier_templates — no stale references found
