@@ -130,7 +130,7 @@ export default function DeliViewScreen() {
         {/* Header */}
         <View className="bg-primary p-4">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/store" as any)}
             className="mb-2 active:opacity-70"
           >
             <Text className="text-background text-sm">← Back to Main Dashboard</Text>

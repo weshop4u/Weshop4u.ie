@@ -1,10 +1,47 @@
-import { Stack } from "expo-router";
-import { Platform, useWindowDimensions } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { Platform, useWindowDimensions, View, Text, ActivityIndicator } from "react-native";
+import { useEffect } from "react";
+import { trpc } from "@/lib/trpc";
 
 export default function AdminLayout() {
   const { width } = useWindowDimensions();
+  const router = useRouter();
   // On web with desktop sidebar (>900px), hide the Stack header since sidebar provides navigation
   const isDesktopWeb = Platform.OS === "web" && width >= 900;
+
+  // Check user role — redirect store_staff away from admin
+  const { data: user, isLoading } = trpc.auth.me.useQuery();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      if (user.role === "store_staff") {
+        // Store staff should not access admin routes — redirect to store dashboard
+        if (Platform.OS === "web") {
+          window.location.href = "/store";
+        } else {
+          router.replace("/store" as any);
+        }
+      }
+    }
+  }, [user, isLoading]);
+
+  // Show loading while checking role
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+        <ActivityIndicator size="large" color="#0a7ea4" />
+      </View>
+    );
+  }
+
+  // Block rendering for store_staff (redirect is in progress)
+  if (user?.role === "store_staff") {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+        <Text style={{ color: "#687076", fontSize: 14 }}>Redirecting to store dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <Stack

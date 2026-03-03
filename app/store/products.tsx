@@ -246,7 +246,7 @@ export default function ProductManagementScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+          <TouchableOpacity onPress={() => router.replace("/store" as any)} style={{ marginRight: 12 }}>
             <Text style={{ color: "#0a7ea4", fontSize: 16, fontWeight: "600" }}>← Back</Text>
           </TouchableOpacity>
           <Text style={{ flex: 1, fontSize: 18, fontWeight: "700", color: "#11181C", textAlign: "center" }}>Products</Text>

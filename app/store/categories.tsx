@@ -189,7 +189,7 @@ export default function CategoriesManagementScreen() {
             borderBottomColor: colors.border,
           }}
         >
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.replace("/store" as any)}>
             <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>
               ← Back
             </Text>

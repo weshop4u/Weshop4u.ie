@@ -47,6 +47,7 @@ export const storeRouter = router({
       return {
         storeId: store[0].id,
         storeName: store[0].name,
+        storeCategory: store[0].category,
         staffRole: staffLink[0].role,
       };
     }),

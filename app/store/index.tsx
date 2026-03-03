@@ -465,6 +465,8 @@ export default function StoreDashboardScreen() {
   }
 
   const storeName = myStore?.storeName || "Store Dashboard";
+  const storeCategory = myStore?.storeCategory || "convenience";
+  const showDeliView = storeCategory === "convenience" || storeCategory === "grocery";
 
   // For completed tab: show last 24 hours by default, with option to view older
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -538,38 +540,42 @@ export default function StoreDashboardScreen() {
         )}
 
         {/* Quick Actions Bar */}
-        <View style={{ flexDirection: "row", backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, gap: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexGrow: 0, flexShrink: 0 }}>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: "/store/hours", params: { storeId: String(storeId) } })}
-            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Store Hours</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: "/store/deli", params: { storeId: String(storeId) } })}
-            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Deli View</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/store/products")}
-            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Products</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/store/categories")}
-            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Category Images</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/admin/product-prices" as any)}
-            style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
-          >
-            <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Product Prices</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: "rgba(10,126,164,0.05)", paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", flexGrow: 0, flexShrink: 0 }}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: "/store/hours", params: { storeId: String(storeId) } })}
+              style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+            >
+              <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Store Hours</Text>
+            </TouchableOpacity>
+            {showDeliView && (
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: "/store/deli", params: { storeId: String(storeId) } })}
+                style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+              >
+                <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Deli View</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => router.push("/store/products")}
+              style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+            >
+              <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Products</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/store/categories")}
+              style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+            >
+              <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Category Images</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/store/products")}
+              style={{ backgroundColor: "#fff", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#E5E7EB" }}
+            >
+              <Text style={{ color: "#0a7ea4", fontWeight: "600", fontSize: 13 }}>Product Prices</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
 
         {/* Navigation Tabs */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: "#E5E7EB", backgroundColor: "#f5f5f5", flexGrow: 0, flexShrink: 0 }}>

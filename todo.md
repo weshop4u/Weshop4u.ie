@@ -2257,3 +2257,15 @@
 
 ## Store Dashboard Hooks Error Fix
 - [x] Fix "Rendered more hooks than during the previous render" error in app/store/index.tsx — moved useAuth, trpc.useUtils, and useMemo hooks above early returns
+
+## Store Dashboard Scoping & Access Fixes
+- [x] Fix Products page to scope by store staff's storeId (uses getMyStore, fixed Back button)
+- [x] Fix Category Images page to scope by store staff's storeId (uses getMyStore, fixed Back button)
+- [x] Fix Product Prices tab — now routes to /store/products instead of /admin/product-prices
+- [x] Fix Store Hours tab — passes storeId param from dashboard
+- [x] Hide "Deli View" tab for non-deli stores (only shows for convenience/grocery, uses store.category)
+- [x] Prevent store_staff from accessing /admin routes (admin _layout.tsx role guard with redirect)
+- [x] Ensure all store sub-pages use storeId from store_staff link automatically (getMyStore returns storeCategory)
+- [x] Make this work automatically for future stores (store_staff table + store.category drives everything)
+- [x] Fix all Back buttons on store sub-pages to go to /store instead of router.back()
+- [x] 23 unit tests passing for access control, deli visibility, storeId resolution, future compatibility

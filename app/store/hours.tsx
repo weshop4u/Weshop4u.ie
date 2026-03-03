@@ -158,7 +158,7 @@ export default function StoreHoursScreen() {
         {/* Header */}
         <View style={{ backgroundColor: "#0a7ea4", padding: 16 }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/store" as any)}
             style={{ marginBottom: 8 }}
           >
             <Text style={{ color: "#fff", fontSize: 14 }}>{"\u2190"} Back to Dashboard</Text>
