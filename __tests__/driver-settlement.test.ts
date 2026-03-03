@@ -232,6 +232,82 @@ describe("Net Owed Display Logic", () => {
 });
 
 // ============================================================
+// Settlement Notification Message Tests
+// ============================================================
+
+function buildSettlementNotificationBody(netOwed: number, shiftCount?: number): string {
+  const amountStr = `\u20AC${Math.abs(netOwed).toFixed(2)}`;
+
+  if (shiftCount !== undefined) {
+    // markAllSettled style
+    const plural = shiftCount !== 1 ? "s" : "";
+    if (netOwed > 0) {
+      return `All ${shiftCount} shift${plural} settled. ${amountStr} cash returned to store. Thanks!`;
+    } else if (netOwed < 0) {
+      return `All ${shiftCount} shift${plural} settled. ${amountStr} owed to you has been processed. Thanks!`;
+    } else {
+      return `All ${shiftCount} shift${plural} settled. No balance outstanding. Thanks!`;
+    }
+  } else {
+    // markSettled style (single shift)
+    if (netOwed > 0) {
+      return `Your shift has been settled. ${amountStr} cash returned to store. Thanks!`;
+    } else if (netOwed < 0) {
+      return `Your shift has been settled. ${amountStr} owed to you has been processed. Thanks!`;
+    } else {
+      return `Your shift has been settled. No balance outstanding. Thanks!`;
+    }
+  }
+}
+
+describe("Settlement Notification Messages - Single Shift", () => {
+  it("should generate correct message when driver owes (positive netOwed)", () => {
+    const body = buildSettlementNotificationBody(22.00);
+    expect(body).toContain("\u20AC22.00");
+    expect(body).toContain("cash returned to store");
+  });
+
+  it("should generate correct message when admin owes driver (negative netOwed)", () => {
+    const body = buildSettlementNotificationBody(-5.50);
+    expect(body).toContain("\u20AC5.50");
+    expect(body).toContain("owed to you has been processed");
+  });
+
+  it("should generate correct message for zero balance", () => {
+    const body = buildSettlementNotificationBody(0);
+    expect(body).toContain("No balance outstanding");
+  });
+});
+
+describe("Settlement Notification Messages - All Shifts", () => {
+  it("should include shift count (plural) when driver owes", () => {
+    const body = buildSettlementNotificationBody(33.00, 3);
+    expect(body).toContain("All 3 shifts settled");
+    expect(body).toContain("\u20AC33.00");
+    expect(body).toContain("cash returned to store");
+  });
+
+  it("should use singular for 1 shift", () => {
+    const body = buildSettlementNotificationBody(10.00, 1);
+    expect(body).toContain("All 1 shift settled");
+    expect(body).not.toContain("shifts");
+  });
+
+  it("should handle admin owes driver for multiple shifts", () => {
+    const body = buildSettlementNotificationBody(-20.50, 2);
+    expect(body).toContain("All 2 shifts settled");
+    expect(body).toContain("\u20AC20.50");
+    expect(body).toContain("owed to you has been processed");
+  });
+
+  it("should handle zero balance for multiple shifts", () => {
+    const body = buildSettlementNotificationBody(0, 4);
+    expect(body).toContain("All 4 shifts settled");
+    expect(body).toContain("No balance outstanding");
+  });
+});
+
+// ============================================================
 // Admin Settlement Summary Tests
 // ============================================================
 

@@ -2107,6 +2107,38 @@ export const adminRouter = router({
 
       console.log(`[Settlement] Shift ${input.shiftId} for driver ${shift.driverId} marked as settled by admin ${input.adminUserId}`);
 
+      // Send push notification to driver
+      try {
+        const [driverUser] = await db
+          .select({ pushToken: users.pushToken, name: users.name })
+          .from(users)
+          .where(eq(users.id, shift.driverId))
+          .limit(1);
+
+        if (driverUser?.pushToken) {
+          const netOwed = parseFloat(shift.netOwed || "0");
+          const amountStr = `\u20AC${Math.abs(netOwed).toFixed(2)}`;
+          let body: string;
+          if (netOwed > 0) {
+            body = `Your shift has been settled. ${amountStr} cash returned to store. Thanks!`;
+          } else if (netOwed < 0) {
+            body = `Your shift has been settled. ${amountStr} owed to you has been processed. Thanks!`;
+          } else {
+            body = `Your shift has been settled. No balance outstanding. Thanks!`;
+          }
+
+          await sendPushNotification(driverUser.pushToken, {
+            title: "\u2705 Shift Settled",
+            body,
+            data: { type: "settlement_settled", shiftId: input.shiftId },
+            channelId: "orders",
+          });
+          console.log(`[Settlement] Push notification sent to driver ${shift.driverId}`);
+        }
+      } catch (notifError) {
+        console.error("[Settlement] Failed to send push notification:", notifError);
+      }
+
       return { success: true };
     }),
 
@@ -2119,6 +2151,24 @@ export const adminRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
+
+      // First, get unsettled shifts to calculate total for notification
+      const unsettledShifts = await db
+        .select()
+        .from(driverShifts)
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        );
+
+      const totalNetOwed = unsettledShifts.reduce(
+        (sum, s) => sum + parseFloat(s.netOwed || "0"),
+        0
+      );
+      const shiftCount = unsettledShifts.length;
 
       const result = await db
         .update(driverShifts)
@@ -2134,7 +2184,38 @@ export const adminRouter = router({
           )
         );
 
-      console.log(`[Settlement] All unsettled shifts for driver ${input.driverId} marked as settled by admin ${input.adminUserId}`);
+      console.log(`[Settlement] All unsettled shifts (${shiftCount}) for driver ${input.driverId} marked as settled by admin ${input.adminUserId}`);
+
+      // Send push notification to driver
+      try {
+        const [driverUser] = await db
+          .select({ pushToken: users.pushToken, name: users.name })
+          .from(users)
+          .where(eq(users.id, input.driverId))
+          .limit(1);
+
+        if (driverUser?.pushToken) {
+          const amountStr = `\u20AC${Math.abs(totalNetOwed).toFixed(2)}`;
+          let body: string;
+          if (totalNetOwed > 0) {
+            body = `All ${shiftCount} shift${shiftCount !== 1 ? "s" : ""} settled. ${amountStr} cash returned to store. Thanks!`;
+          } else if (totalNetOwed < 0) {
+            body = `All ${shiftCount} shift${shiftCount !== 1 ? "s" : ""} settled. ${amountStr} owed to you has been processed. Thanks!`;
+          } else {
+            body = `All ${shiftCount} shift${shiftCount !== 1 ? "s" : ""} settled. No balance outstanding. Thanks!`;
+          }
+
+          await sendPushNotification(driverUser.pushToken, {
+            title: "\u2705 All Shifts Settled",
+            body,
+            data: { type: "all_settlements_settled", driverId: input.driverId, shiftCount },
+            channelId: "orders",
+          });
+          console.log(`[Settlement] Push notification sent to driver ${input.driverId} for ${shiftCount} settled shifts`);
+        }
+      } catch (notifError) {
+        console.error("[Settlement] Failed to send push notification:", notifError);
+      }
 
       return { success: true };
     }),

@@ -2226,3 +2226,9 @@
 - [x] Admin: "Mark as Settled" button (per-shift and settle-all per driver)
 - [x] Admin: Settlement detail modal with full order breakdown
 - [x] Tests: 22 unit tests for settlement calculation, aggregation, display logic
+
+## Settlement Push Notifications
+- [x] Send push notification to driver when admin marks a single shift as settled
+- [x] Send push notification to driver when admin marks all shifts as settled
+- [x] Include settlement amount in notification message (shows direction: cash returned / owed to you)
+- [x] Write tests for settlement notification logic (7 new tests, 29 total passing)
