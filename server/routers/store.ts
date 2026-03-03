@@ -1093,4 +1093,36 @@ export const storeRouter = router({
       await db.update(products).set({ categoryId: input.categoryId }).where(eq(products.id, input.productId));
       return { success: true };
     }),
+
+  // Bulk change category for multiple products
+  bulkChangeCategory: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      categoryId: z.number().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.update(products).set({ categoryId: input.categoryId }).where(inArray(products.id, input.productIds));
+      return { success: true, count: input.productIds.length };
+    }),
+
+  // Bulk update prices for multiple products (set same price)
+  bulkSetPrice: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      price: z.string().optional(),
+      salePrice: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const updateData: any = {};
+      if (input.price !== undefined) updateData.price = input.price;
+      if (input.salePrice !== undefined) updateData.salePrice = input.salePrice;
+      if (Object.keys(updateData).length > 0) {
+        await db.update(products).set(updateData).where(inArray(products.id, input.productIds));
+      }
+      return { success: true, count: input.productIds.length };
+    }),
 });

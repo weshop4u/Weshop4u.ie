@@ -2125,3 +2125,17 @@
 - [x] Add "driver is nearby" push notification to customer when driver is within 500m of delivery address
 - [x] Fix Spar Balbriggan store coordinates — update to correct GPS for eircode K32PP52
 - [x] Phone order card payment: redirect to Elavon checkout page when staff selects card payment, process payment before dispatching order
+- [ ] Bug: Store dashboard goes dark and unresponsive after login on web/laptop
+
+## Login Page Dark Overlay Bug
+- [ ] Fix unresponsive dark overlay appearing after login attempt on web
+- [ ] Replace Alert.alert with web-compatible alerts on all login pages
+- [ ] Fix blue favicon icon in browser tab
+
+## Product Prices Bulk Operations
+- [x] Add checkboxes beside each product in Product Prices page
+- [x] Add select all checkbox in header
+- [x] Add bulk action bar (Set Price, Sale Price, Move Category) when items selected
+- [x] Implement bulk price update functionality
+- [x] Implement bulk category move functionality
+- [x] Add backend endpoints for bulk operations (bulkSetPrice, bulkChangeCategory)

@@ -37,6 +37,7 @@ type ActionMenuState = {
 };
 
 type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
+type BulkAction = "category" | "price" | "salePrice" | null;
 
 function ProductPricesContent() {
   const router = useRouter();
@@ -69,6 +70,14 @@ function ProductPricesContent() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<BulkAction>(null);
+  const [bulkCategorySearch, setBulkCategorySearch] = useState("");
+  const [bulkPriceValue, setBulkPriceValue] = useState("");
+  const [bulkSalePriceValue, setBulkSalePriceValue] = useState("");
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+
   // Action menu state
   const [actionMenu, setActionMenu] = useState<ActionMenuState>({
     visible: false, productId: null, productName: "", currentCategoryId: null, currentCategoryName: "", currentStockStatus: "in_stock", isPinned: false,
@@ -88,6 +97,8 @@ function ProductPricesContent() {
   const duplicateToStoreMutation = trpc.store.duplicateProductToStore.useMutation();
   const toggleStockMutation = trpc.store.toggleProductStock.useMutation();
   const updateProductMutation = trpc.stores.updateProduct.useMutation();
+  const bulkChangeCategoryMutation = trpc.store.bulkChangeCategory.useMutation();
+  const bulkSetPriceMutation = trpc.store.bulkSetPrice.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -103,7 +114,10 @@ function ProductPricesContent() {
     }
   }, [stores]);
 
-  useEffect(() => { setPriceChanges({}); }, [selectedStore]);
+  useEffect(() => { setPriceChanges({}); setSelectedIds(new Set()); }, [selectedStore]);
+
+  // Clear selection when filters change
+  useEffect(() => { setSelectedIds(new Set()); }, [selectedCategory, debouncedSearch, showOOSOnly, page]);
 
   // Fetch products
   const { data: productsData, isLoading, refetch } = trpc.stores.getProducts.useQuery(
@@ -152,6 +166,93 @@ function ProductPricesContent() {
   }, [sortedCategories, categorySearch]);
 
   const changesCount = Object.keys(priceChanges).length;
+  const selectedCount = selectedIds.size;
+
+  // Bulk selection handlers
+  const toggleSelectItem = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === products.length && products.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map((p: any) => p.id)));
+    }
+  }, [products, selectedIds.size]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setBulkAction(null);
+    setBulkCategorySearch("");
+    setBulkPriceValue("");
+    setBulkSalePriceValue("");
+  }, []);
+
+  // Bulk action handlers
+  const handleBulkChangeCategory = useCallback(async (categoryId: number, categoryName: string) => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkChangeCategoryMutation.mutateAsync({ productIds: Array.from(selectedIds), categoryId });
+      clearSelection();
+      refetch();
+      showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} moved to ${categoryName}`, "success");
+    } catch (err) {
+      showToast("Failed to change category for selected products", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
+
+  const handleBulkSetPrice = useCallback(async () => {
+    if (selectedCount === 0 || !bulkPriceValue.trim()) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkSetPriceMutation.mutateAsync({ productIds: Array.from(selectedIds), price: bulkPriceValue.trim() });
+      clearSelection();
+      refetch();
+      showToast(`Price set to €${bulkPriceValue.trim()} for ${selectedCount} product${selectedCount > 1 ? "s" : ""}`, "success");
+    } catch (err) {
+      showToast("Failed to update prices", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount, bulkPriceValue]);
+
+  const handleBulkClearSalePrice = useCallback(async () => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkSetPriceMutation.mutateAsync({ productIds: Array.from(selectedIds), salePrice: null });
+      clearSelection();
+      refetch();
+      showToast(`Sale price cleared for ${selectedCount} product${selectedCount > 1 ? "s" : ""}`, "success");
+    } catch (err) {
+      showToast("Failed to clear sale prices", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
+
+  const handleBulkSetSalePrice = useCallback(async () => {
+    if (selectedCount === 0 || !bulkSalePriceValue.trim()) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkSetPriceMutation.mutateAsync({ productIds: Array.from(selectedIds), salePrice: bulkSalePriceValue.trim() });
+      clearSelection();
+      refetch();
+      showToast(`Sale price set to €${bulkSalePriceValue.trim()} for ${selectedCount} product${selectedCount > 1 ? "s" : ""}`, "success");
+    } catch (err) {
+      showToast("Failed to update sale prices", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount, bulkSalePriceValue]);
 
   const handlePriceChange = useCallback((productId: number, field: "price" | "salePrice", value: string, originalValue: string) => {
     setPriceChanges(prev => {
@@ -303,10 +404,30 @@ function ProductPricesContent() {
     return sorted.filter(c => c.name?.toLowerCase().includes(term));
   }, [allCategories, subMenuSearch]);
 
+  const filteredBulkCategories = useMemo(() => {
+    if (!allCategories) return [];
+    const sorted = [...allCategories].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (!bulkCategorySearch.trim()) return sorted;
+    const term = bulkCategorySearch.toLowerCase();
+    return sorted.filter(c => c.name?.toLowerCase().includes(term));
+  }, [allCategories, bulkCategorySearch]);
+
   const otherStores = useMemo(() => {
     if (!stores) return [];
     return stores.filter(s => s.id !== selectedStore);
   }, [stores, selectedStore]);
+
+  const isAllSelected = products.length > 0 && selectedIds.size === products.length;
+
+  // Render checkbox
+  const renderCheckbox = useCallback((checked: boolean, onPress: () => void, size: number = 20) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.checkbox, { width: size, height: size, borderRadius: 4 }, checked && styles.checkboxChecked]}
+    >
+      {checked && <Text style={[styles.checkboxMark, { fontSize: size - 6 }]}>✓</Text>}
+    </TouchableOpacity>
+  ), []);
 
   // Render product row
   const renderProduct = useCallback(({ item }: { item: any }) => {
@@ -317,9 +438,14 @@ function ProductPricesContent() {
     const priceChanged = changes?.price !== undefined;
     const salePriceChanged = changes?.salePrice !== undefined;
     const isOutOfStock = item.stockStatus === "out_of_stock";
+    const isSelected = selectedIds.has(item.id);
 
     return (
-      <View style={[styles.row, (priceChanged || salePriceChanged) && styles.rowChanged, isOutOfStock && styles.rowOutOfStock]}>
+      <View style={[styles.row, (priceChanged || salePriceChanged) && styles.rowChanged, isOutOfStock && styles.rowOutOfStock, isSelected && styles.rowSelected]}>
+        <View style={styles.checkboxCell}>
+          {renderCheckbox(isSelected, () => toggleSelectItem(item.id))}
+        </View>
+
         <View style={styles.imageCell}>
           {imageUrl ? (
             <Image source={{ uri: imageUrl }} style={[styles.productImage, isOutOfStock && { opacity: 0.4 }]} contentFit="cover" />
@@ -396,10 +522,13 @@ function ProductPricesContent() {
         </TouchableOpacity>
       </View>
     );
-  }, [priceChanges, colors, handlePriceChange, openActionMenu]);
+  }, [priceChanges, colors, handlePriceChange, openActionMenu, selectedIds, toggleSelectItem, renderCheckbox]);
 
   const ListHeader = useMemo(() => (
     <View style={styles.tableHeader}>
+      <View style={styles.checkboxCell}>
+        {renderCheckbox(isAllSelected, toggleSelectAll)}
+      </View>
       <View style={styles.imageCell}>
         <Text style={[styles.headerText, { color: colors.muted }]}>IMG</Text>
       </View>
@@ -419,11 +548,154 @@ function ProductPricesContent() {
         <Text style={[styles.headerText, { color: colors.muted }]}></Text>
       </View>
     </View>
-  ), [colors]);
+  ), [colors, isAllSelected, toggleSelectAll, renderCheckbox]);
 
   const selectedCategoryName = selectedCategory === "all"
     ? "All Categories"
     : sortedCategories.find((c: any) => c.id === selectedCategory)?.name || "Unknown";
+
+  // Render the bulk action popup
+  const renderBulkActionPopup = () => {
+    if (!bulkAction) return null;
+
+    const popupContent = (
+      <View style={styles.popupContainer}>
+        <View style={styles.popupHeader}>
+          <Text style={styles.popupProductName} numberOfLines={1}>
+            {bulkAction === "category" ? "Move to Category" : bulkAction === "price" ? "Set Price" : "Set Sale Price"}
+            {" "}({selectedCount} items)
+          </Text>
+          <TouchableOpacity onPress={() => setBulkAction(null)} style={styles.popupClose}>
+            <Text style={styles.popupCloseText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {bulkAction === "category" && (
+          <View>
+            <TextInput
+              style={styles.popupSearchInput}
+              placeholder="Search categories..."
+              placeholderTextColor="#999"
+              value={bulkCategorySearch}
+              onChangeText={setBulkCategorySearch}
+              autoFocus
+            />
+            <ScrollView style={styles.popupScrollList}>
+              {filteredBulkCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => handleBulkChangeCategory(cat.id, cat.name)}
+                  style={styles.popupListItem}
+                >
+                  <Text style={styles.popupListItemText} numberOfLines={1}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+              {filteredBulkCategories.length === 0 && (
+                <Text style={styles.popupEmpty}>No categories found</Text>
+              )}
+            </ScrollView>
+            {isBulkSaving && (
+              <View style={{ padding: 12, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#0a7ea4" />
+              </View>
+            )}
+          </View>
+        )}
+
+        {bulkAction === "price" && (
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+              Set the same price for all {selectedCount} selected product{selectedCount > 1 ? "s" : ""}:
+            </Text>
+            <View style={[styles.priceInputWrapper, { marginBottom: 12 }]}>
+              <Text style={styles.euroSign}>€</Text>
+              <TextInput
+                style={[styles.priceInput, { color: "#333", width: "100%" as any, flex: 1 }]}
+                value={bulkPriceValue}
+                onChangeText={setBulkPriceValue}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor="#999"
+                autoFocus
+              />
+            </View>
+            <TouchableOpacity
+              onPress={handleBulkSetPrice}
+              style={[styles.saveBtn, { paddingVertical: 10, alignItems: "center" }]}
+              disabled={isBulkSaving || !bulkPriceValue.trim()}
+            >
+              {isBulkSaving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Apply Price</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {bulkAction === "salePrice" && (
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+              Set sale price for all {selectedCount} selected product{selectedCount > 1 ? "s" : ""}:
+            </Text>
+            <View style={[styles.priceInputWrapper, { marginBottom: 12 }]}>
+              <Text style={styles.euroSign}>€</Text>
+              <TextInput
+                style={[styles.priceInput, { color: "#333", width: "100%" as any, flex: 1 }]}
+                value={bulkSalePriceValue}
+                onChangeText={setBulkSalePriceValue}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor="#999"
+                autoFocus
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={handleBulkClearSalePrice}
+                style={[styles.discardBtn, { flex: 1, paddingVertical: 10, alignItems: "center" }]}
+                disabled={isBulkSaving}
+              >
+                <Text style={styles.discardBtnText}>Clear Sale Prices</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleBulkSetSalePrice}
+                style={[styles.saveBtn, { flex: 1, paddingVertical: 10, alignItems: "center" }]}
+                disabled={isBulkSaving || !bulkSalePriceValue.trim()}
+              >
+                {isBulkSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Apply Sale Price</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+
+    if (IS_WEB) {
+      return (
+        <View style={styles.webOverlay as any}>
+          <TouchableOpacity onPress={() => setBulkAction(null)} style={styles.webOverlayBackdrop as any} activeOpacity={1} />
+          <View style={styles.webOverlayContent}>
+            {popupContent}
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <Modal visible={!!bulkAction} transparent animationType="fade" onRequestClose={() => setBulkAction(null)}>
+        <TouchableOpacity onPress={() => setBulkAction(null)} style={styles.modalBackdrop} activeOpacity={1}>
+          <View style={styles.modalContent}>
+            {popupContent}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
 
   // Render the action popup — always centered on screen
   const renderActionPopup = () => {
@@ -708,6 +980,25 @@ function ProductPricesContent() {
           </View>
         )}
 
+        {/* Bulk action bar */}
+        {selectedCount > 0 && (
+          <View style={styles.bulkBar}>
+            <Text style={styles.bulkBarText}>{selectedCount} selected</Text>
+            <TouchableOpacity onPress={() => { setBulkAction("price"); setBulkPriceValue(""); }} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Set Price</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setBulkAction("salePrice"); setBulkSalePriceValue(""); }} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Sale Price</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setBulkAction("category"); setBulkCategorySearch(""); }} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Move Category</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={clearSelection} style={styles.bulkClearBtn}>
+              <Text style={styles.bulkClearBtnText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {message !== "" && (
           <View style={[styles.messageBar, messageType === "success" ? styles.messageSuccess : styles.messageError]}>
             <Text style={styles.messageText}>{message}</Text>
@@ -767,6 +1058,7 @@ function ProductPricesContent() {
         )}
 
         {renderActionPopup()}
+        {renderBulkActionPopup()}
       </View>
     </ScreenContainer>
   );
@@ -843,6 +1135,36 @@ const styles = StyleSheet.create({
   oosFilterText: { fontSize: 12, fontWeight: "600", color: "#888" },
   oosFilterTextActive: { color: "#EF4444" },
 
+  // Bulk action bar
+  bulkBar: {
+    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8,
+    paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8,
+    backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE",
+    flexWrap: "wrap",
+  },
+  bulkBarText: { fontSize: 13, fontWeight: "700", color: "#1D4ED8", marginRight: 4 },
+  bulkBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6,
+    backgroundColor: "#0a7ea4",
+  },
+  bulkBtnText: { fontSize: 12, fontWeight: "600", color: "#fff" },
+  bulkClearBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6,
+    backgroundColor: "#f0f0f0",
+  },
+  bulkClearBtnText: { fontSize: 12, fontWeight: "600", color: "#666" },
+
+  // Checkbox
+  checkbox: {
+    borderWidth: 2, borderColor: "#ccc", alignItems: "center", justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  checkboxChecked: {
+    backgroundColor: "#0a7ea4", borderColor: "#0a7ea4",
+  },
+  checkboxMark: { color: "#fff", fontWeight: "800", lineHeight: 16 },
+  checkboxCell: { width: 32, alignItems: "center", justifyContent: "center" },
+
   countText: { fontSize: 12, marginBottom: 6 },
 
   tableHeader: {
@@ -858,6 +1180,7 @@ const styles = StyleSheet.create({
   },
   rowChanged: { backgroundColor: "#FFFBEB" },
   rowOutOfStock: { backgroundColor: "#FEF2F2" },
+  rowSelected: { backgroundColor: "#EFF6FF" },
 
   imageCell: { width: 44, marginRight: 8 },
   productImage: { width: 40, height: 40, borderRadius: 6 },
