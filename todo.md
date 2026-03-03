@@ -2283,3 +2283,7 @@
 ## Auto-Assign Category Images for All Stores
 - [x] Query all 6 stores and their categories missing images
 - [x] Set first product image as category icon — 15 newly updated, 105 already had images, 2 categories with no product images (Fresh Food, Groceries at Millfield)
+
+## Soft Drinks Choose Drink Modifier (Treasure Bowl)
+- [x] Create required "Choose Drink" modifier group (single-select, required) for both products
+- [x] Added Coke (default), Coke Zero, Fanta Orange options at €0.00 to Soft Drinks 330ml (group 1) and Soft Drinks 1 Litre (group 2)
