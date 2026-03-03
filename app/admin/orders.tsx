@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -51,6 +51,7 @@ function AdminOrdersScreenContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: orders, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
     { status: statusFilter, limit: 100 },
@@ -109,8 +110,19 @@ function AdminOrdersScreenContent() {
 
   const sortedOrders = useMemo(() => {
     if (!orders) return [];
-    const sorted = [...orders];
-    sorted.sort((a, b) => {
+    let filtered = [...orders];
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(o =>
+        (o.orderNumber ?? "").toLowerCase().includes(q) ||
+        (o.customerName ?? "").toLowerCase().includes(q) ||
+        (o.storeName ?? "").toLowerCase().includes(q) ||
+        (o.driverName ?? "").toLowerCase().includes(q) ||
+        (o.deliveryAddress ?? "").toLowerCase().includes(q)
+      );
+    }
+    filtered.sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
         case "date": cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); break;
@@ -121,8 +133,8 @@ function AdminOrdersScreenContent() {
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return sorted;
-  }, [orders, sortField, sortDir]);
+    return filtered;
+  }, [orders, sortField, sortDir, searchQuery]);
 
   // Count pending orders waiting > 5 min
   const alertOrders = (orders || []).filter(o => {
@@ -237,114 +249,162 @@ function AdminOrdersScreenContent() {
           })}
         </View>
 
+        {/* Search & Tools Bar */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 12, height: 38 }}>
+            <Text style={{ fontSize: 14, color: "#94A3B8", marginRight: 8 }}>🔍</Text>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search orders, customers, stores..."
+              placeholderTextColor="#94A3B8"
+              style={{ flex: 1, fontSize: 13, color: "#0F172A", outlineStyle: "none" } as any}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Text style={{ fontSize: 14, color: "#94A3B8" }}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity onPress={onRefresh} style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 14, height: 38, justifyContent: "center" }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#64748B" }}>↻ Reload</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Showing count */}
+        <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>
+          Showing {sortedOrders.length} of {orders?.length || 0} orders
+        </Text>
+
         {/* Desktop Table */}
         <View style={dtStyles.tableContainer}>
           {/* Table Header */}
           <View style={dtStyles.thead}>
-            <SortHeader field="date" label="Date" minW={130} />
-            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Order #</Text></View>
+            <SortHeader field="date" label="Date" minW={110} />
+            <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
             <SortHeader field="store" label="Store" />
             <SortHeader field="customer" label="Customer" />
-            <SortHeader field="status" label="Status" minW={120} />
-            <View style={[dtStyles.th, { minWidth: 80 }]}><Text style={dtStyles.thText}>Driver</Text></View>
-            <View style={[dtStyles.th, { minWidth: 80 }]}><Text style={dtStyles.thText}>Payment</Text></View>
-            <SortHeader field="total" label="Total" minW={90} />
-            <View style={[dtStyles.th, { minWidth: 160 }]}><Text style={dtStyles.thText}>Actions</Text></View>
+            <SortHeader field="status" label="Status" minW={130} />
+            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Driver</Text></View>
+            <View style={[dtStyles.th, { minWidth: 110 }]}><Text style={dtStyles.thText}>Payment</Text></View>
+            <SortHeader field="total" label="Total" minW={80} />
+            <View style={[dtStyles.th, { minWidth: 130 }]}><Text style={dtStyles.thText}>Actions</Text></View>
           </View>
 
           {/* Table Body */}
           <ScrollView style={{ maxHeight: 600 }}>
-            {sortedOrders.length > 0 ? sortedOrders.map(order => {
+            {sortedOrders.length > 0 ? sortedOrders.map((order, idx) => {
               const sc = STATUS_COLORS[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
               const expanded = expandedId === order.id;
+              const isEven = idx % 2 === 0;
 
               return (
                 <View key={order.id}>
                   <TouchableOpacity
                     onPress={() => setExpandedId(expanded ? null : order.id)}
-                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }]}
+                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }]}
                   >
-                    <View style={[dtStyles.td, { minWidth: 130 }]}>
-                      <Text style={dtStyles.tdText}>{formatDate(order.createdAt)}</Text>
-                      <Text style={{ fontSize: 11, color: "#94A3B8" }}>{getTimeSince(order.createdAt)}</Text>
+                    {/* Date */}
+                    <View style={[dtStyles.td, { minWidth: 110 }]}>
+                      <Text style={[dtStyles.tdText, { fontSize: 12 }]}>{formatDate(order.createdAt)}</Text>
+                      <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{getTimeSince(order.createdAt)}</Text>
                     </View>
-                    <View style={[dtStyles.td, { minWidth: 100 }]}>
-                      <Text style={[dtStyles.tdText, { fontWeight: "700" }]}>{order.orderNumber}</Text>
-                    </View>
-                    <View style={[dtStyles.td, { flex: 1 }]}>
-                      <Text style={dtStyles.tdText} numberOfLines={1}>{order.storeName}</Text>
-                    </View>
-                    <View style={[dtStyles.td, { flex: 1 }]}>
-                      <Text style={dtStyles.tdText} numberOfLines={1}>{order.customerName}</Text>
-                    </View>
+                    {/* Order # */}
                     <View style={[dtStyles.td, { minWidth: 120 }]}>
-                      <View style={{ backgroundColor: sc.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, alignSelf: "flex-start" }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: sc.text }}>
-                          {order.status.replace(/_/g, " ").toUpperCase()}
+                      <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]}>{order.orderNumber}</Text>
+                    </View>
+                    {/* Store */}
+                    <View style={[dtStyles.td, { flex: 1 }]}>
+                      <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{order.storeName}</Text>
+                    </View>
+                    {/* Customer */}
+                    <View style={[dtStyles.td, { flex: 1 }]}>
+                      <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>{order.customerName}</Text>
+                    </View>
+                    {/* Status */}
+                    <View style={[dtStyles.td, { minWidth: 130 }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", gap: 5 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sc.text }} />
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text, letterSpacing: 0.3 }}>
+                          {order.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
                         </Text>
                       </View>
                     </View>
-                    <View style={[dtStyles.td, { minWidth: 80 }]}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: order.driverName === "Unassigned" ? "#F59E0B" : "#22C55E" }} />
-                        <Text style={{ fontSize: 12, color: order.driverName === "Unassigned" ? "#D97706" : "#059669", fontWeight: "500" }} numberOfLines={1}>
-                          {order.driverName === "Unassigned" ? "—" : order.driverName}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={[dtStyles.td, { minWidth: 80 }]}>
-                      {order.paymentMethod === "cash_on_delivery" ? (
-                        <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#D97706" }}>CASH</Text>
-                        </View>
-                      ) : order.paymentStatus === "completed" ? (
-                        <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>PAID</Text>
-                        </View>
-                      ) : order.paymentStatus === "failed" ? (
-                        <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>FAILED</Text>
-                        </View>
+                    {/* Driver */}
+                    <View style={[dtStyles.td, { minWidth: 100 }]}>
+                      {order.driverName === "Unassigned" ? (
+                        <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }}>Unassigned</Text>
                       ) : (
-                        <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: "#D97706" }}>PENDING</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
+                          <Text style={{ fontSize: 12, color: "#0F172A", fontWeight: "500" }} numberOfLines={1}>
+                            {order.driverName}
+                          </Text>
                         </View>
                       )}
                     </View>
-                    <View style={[dtStyles.td, { minWidth: 90 }]}>
-                      <Text style={{ fontSize: 14, fontWeight: "800", color: "#00E5FF" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+                    {/* Payment */}
+                    <View style={[dtStyles.td, { minWidth: 110 }]}>
+                      <View style={{ flexDirection: "column", gap: 2 }}>
+                        <Text style={{ fontSize: 11, color: "#64748B" }}>
+                          {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}
+                        </Text>
+                        {order.paymentMethod === "cash_on_delivery" ? (
+                          <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
+                          </View>
+                        ) : order.paymentStatus === "completed" ? (
+                          <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>Paid</Text>
+                          </View>
+                        ) : order.paymentStatus === "failed" ? (
+                          <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>Failed</Text>
+                          </View>
+                        ) : (
+                          <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>Pending</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                    <View style={[dtStyles.td, { minWidth: 160, flexDirection: "row", gap: 6, flexWrap: "wrap" }]}>
+                    {/* Total */}
+                    <View style={[dtStyles.td, { minWidth: 80 }]}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+                    </View>
+                    {/* Actions */}
+                    <View style={[dtStyles.td, { minWidth: 130, flexDirection: "row", gap: 4, alignItems: "center" }]}>
                       <TouchableOpacity
                         onPress={(e) => { e.stopPropagation?.(); setExpandedId(expanded ? null : order.id); }}
-                        style={[dtStyles.actionBtn, { backgroundColor: "#F0F9FF" }]}
+                        style={[dtStyles.actionBtn, { backgroundColor: expanded ? "#E0F2FE" : "#F1F5F9" }]}
+                        {...({ title: expanded ? "Collapse" : "Expand" } as any)}
                       >
-                        <Text style={[dtStyles.actionBtnText, { fontSize: 11 }]}>{expanded ? "▲" : "▼"}</Text>
+                        <Text style={{ fontSize: 10, color: "#64748B" }}>{expanded ? "▲" : "▼"}</Text>
                       </TouchableOpacity>
                       {isActive && (
                         <>
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); setAssignModalOrderId(order.id); }}
-                            style={dtStyles.actionBtn}
+                            style={[dtStyles.actionBtn, { backgroundColor: "#DBEAFE" }]}
                             {...({ title: "Assign Driver" } as any)}
                           >
-                            <Text style={dtStyles.actionBtnText}>🚗</Text>
+                            <Text style={{ fontSize: 12 }}>🚗</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); setStatusModalOrderId(order.id); }}
                             style={[dtStyles.actionBtn, { backgroundColor: "#E0E7FF" }]}
                             {...({ title: "Update Status" } as any)}
                           >
-                            <Text style={dtStyles.actionBtnText}>📋</Text>
+                            <Text style={{ fontSize: 12 }}>📋</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={(e) => { e.stopPropagation?.(); handleUpdateStatus(order.id, "cancelled"); }}
                             style={[dtStyles.actionBtn, { backgroundColor: "#FEE2E2" }]}
                             {...({ title: "Cancel Order" } as any)}
                           >
-                            <Text style={dtStyles.actionBtnText}>✕</Text>
+                            <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "700" }}>✕</Text>
                           </TouchableOpacity>
                         </>
                       )}
@@ -355,21 +415,19 @@ function AdminOrdersScreenContent() {
                   {expanded && (
                     <View style={dtStyles.expandedRow}>
                       <View style={{ flexDirection: "row", gap: 32, flexWrap: "wrap" }}>
-                        {/* Store */}
                         <View style={{ minWidth: 140 }}>
                           <Text style={dtStyles.detailLabel}>Store</Text>
                           <Text style={[dtStyles.detailValue, { fontWeight: "700" }]}>{order.storeName}</Text>
                         </View>
-                        {/* Order Items */}
                         <View style={{ minWidth: 260, flex: 1 }}>
                           <Text style={dtStyles.detailLabel}>Items Ordered</Text>
                           {(order as any).items && (order as any).items.length > 0 ? (
-                            (order as any).items.map((item: any, idx: number) => (
-                              <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                            (order as any).items.map((item: any, idx2: number) => (
+                              <View key={idx2} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
                                 <Text style={[dtStyles.detailValue, { flex: 1 }]}>
                                   {item.quantity}x {item.productName}
                                 </Text>
-                                <Text style={[dtStyles.detailValue, { color: "#00E5FF", fontWeight: "600", marginLeft: 12 }]}>
+                                <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
                                   €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
                                 </Text>
                               </View>
@@ -378,7 +436,6 @@ function AdminOrdersScreenContent() {
                             <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No items data</Text>
                           )}
                         </View>
-                        {/* Delivery Address */}
                         <View style={{ minWidth: 200 }}>
                           <Text style={dtStyles.detailLabel}>Delivery Address</Text>
                           <Text style={dtStyles.detailValue}>{order.deliveryAddress}</Text>
@@ -413,7 +470,7 @@ function AdminOrdersScreenContent() {
             }) : (
               <View style={{ alignItems: "center", paddingVertical: 40 }}>
                 <Text style={{ color: "#94A3B8", fontSize: 15 }}>
-                  {statusFilter === "all" ? "No orders yet" : `No ${statusFilter.replace(/_/g, " ")} orders`}
+                  {searchQuery ? `No orders matching "${searchQuery}"` : statusFilter === "all" ? "No orders yet" : `No ${statusFilter.replace(/_/g, " ")} orders`}
                 </Text>
               </View>
             )}
@@ -809,7 +866,7 @@ function AdminOrdersScreenContent() {
 const dtStyles = StyleSheet.create({
   tableContainer: {
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
@@ -817,17 +874,17 @@ const dtStyles = StyleSheet.create({
   thead: {
     flexDirection: "row",
     backgroundColor: "#F8FAFC",
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
     borderBottomColor: "#E2E8F0",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   th: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     justifyContent: "center",
   },
   thText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "#64748B",
     textTransform: "uppercase",
@@ -837,12 +894,12 @@ const dtStyles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: "center",
   },
   td: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     justifyContent: "center",
   },
   tdText: {
@@ -852,7 +909,7 @@ const dtStyles = StyleSheet.create({
   expandedRow: {
     backgroundColor: "#F8FAFC",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
   },
@@ -870,10 +927,12 @@ const dtStyles = StyleSheet.create({
     lineHeight: 20,
   },
   actionBtn: {
-    backgroundColor: "#DBEAFE",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
   },
   actionBtnText: {
     fontSize: 14,

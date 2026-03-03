@@ -2152,3 +2152,15 @@
 - [x] Frontend: Add "Move to Store" button in bulk action bar with store picker
 - [x] Frontend: Add "Delete" button in bulk action bar with confirmation
 - [x] Frontend: Add "Stock Toggle" button in bulk action bar (In Stock / Out of Stock)
+
+## Orders Table Layout Redesign
+- [x] Tighten row height and improve spacing
+- [x] Better column width distribution
+- [x] Cleaner status badges (dot + pill shape)
+- [x] Improved payment column styling (method + status badge)
+- [x] Better actions column (icon buttons with tooltips)
+- [x] Subtle table header background
+- [x] Add search bar to orders table
+- [x] Add reload button
+- [x] Alternating row colors for readability
+- [x] Show order count ("Showing X of Y orders")
