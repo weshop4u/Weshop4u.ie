@@ -2144,3 +2144,11 @@
 - [x] Add "Duplicate to Store" button in bulk action bar
 - [x] Add backend endpoint for bulk product duplication to another store
 - [x] Show store picker popup when bulk duplicate is clicked
+
+## Bulk Move to Store, Bulk Delete, Bulk Stock Toggle
+- [x] Backend: bulk move products to another store (move = change storeId)
+- [x] Backend: bulk delete products
+- [x] Backend: bulk stock toggle (in stock / out of stock)
+- [x] Frontend: Add "Move to Store" button in bulk action bar with store picker
+- [x] Frontend: Add "Delete" button in bulk action bar with confirmation
+- [x] Frontend: Add "Stock Toggle" button in bulk action bar (In Stock / Out of Stock)

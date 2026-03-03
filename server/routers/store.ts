@@ -1160,4 +1160,42 @@ export const storeRouter = router({
       }
       return { success: true, count: duplicated };
     }),
+
+  // Bulk move products to another store (changes storeId, removes from current store)
+  bulkMoveToStore: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      targetStoreId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.update(products).set({ storeId: input.targetStoreId }).where(inArray(products.id, input.productIds));
+      return { success: true, count: input.productIds.length };
+    }),
+
+  // Bulk delete products
+  bulkDeleteProducts: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.delete(products).where(inArray(products.id, input.productIds));
+      return { success: true, count: input.productIds.length };
+    }),
+
+  // Bulk toggle stock status
+  bulkSetStockStatus: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      stockStatus: z.enum(["in_stock", "out_of_stock"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.update(products).set({ stockStatus: input.stockStatus }).where(inArray(products.id, input.productIds));
+      return { success: true, count: input.productIds.length };
+    }),
 });

@@ -37,7 +37,7 @@ type ActionMenuState = {
 };
 
 type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
-type BulkAction = "category" | "price" | "salePrice" | "duplicateStore" | null;
+type BulkAction = "category" | "price" | "salePrice" | "duplicateStore" | "moveStore" | "delete" | "stockToggle" | null;
 
 function ProductPricesContent() {
   const router = useRouter();
@@ -100,6 +100,9 @@ function ProductPricesContent() {
   const bulkChangeCategoryMutation = trpc.store.bulkChangeCategory.useMutation();
   const bulkSetPriceMutation = trpc.store.bulkSetPrice.useMutation();
   const bulkDuplicateToStoreMutation = trpc.store.bulkDuplicateToStore.useMutation();
+  const bulkMoveToStoreMutation = trpc.store.bulkMoveToStore.useMutation();
+  const bulkDeleteProductsMutation = trpc.store.bulkDeleteProducts.useMutation();
+  const bulkSetStockStatusMutation = trpc.store.bulkSetStockStatus.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -264,6 +267,52 @@ function ProductPricesContent() {
       showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} duplicated to ${storeName}`, "success");
     } catch (err) {
       showToast("Failed to duplicate products", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
+
+  const handleBulkMoveToStore = useCallback(async (targetStoreId: number, storeName: string) => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkMoveToStoreMutation.mutateAsync({ productIds: Array.from(selectedIds), targetStoreId });
+      clearSelection();
+      refetch();
+      showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} moved to ${storeName}`, "success");
+    } catch (err) {
+      showToast("Failed to move products", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkDeleteProductsMutation.mutateAsync({ productIds: Array.from(selectedIds) });
+      clearSelection();
+      refetch();
+      showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} deleted`, "success");
+    } catch (err) {
+      showToast("Failed to delete products", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
+
+  const handleBulkStockToggle = useCallback(async (status: "in_stock" | "out_of_stock") => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkSetStockStatusMutation.mutateAsync({ productIds: Array.from(selectedIds), stockStatus: status });
+      clearSelection();
+      refetch();
+      const label = status === "in_stock" ? "In Stock" : "Out of Stock";
+      showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} set to ${label}`, "success");
+    } catch (err) {
+      showToast("Failed to update stock status", "error");
     } finally {
       setIsBulkSaving(false);
     }
@@ -710,6 +759,90 @@ function ProductPricesContent() {
             )}
           </View>
         )}
+
+        {bulkAction === "moveStore" && (
+          <View>
+            <Text style={styles.popupSubTitle}>Move {selectedCount} product{selectedCount > 1 ? "s" : ""} to which store?</Text>
+            <Text style={{ fontSize: 11, color: "#EF4444", paddingHorizontal: 14, marginBottom: 8 }}>Products will be removed from the current store.</Text>
+            {(stores || []).filter(s => s.id !== selectedStore).map((store) => (
+              <TouchableOpacity
+                key={store.id}
+                onPress={() => handleBulkMoveToStore(store.id, store.name)}
+                style={styles.popupListItem}
+                disabled={isBulkSaving}
+              >
+                <Text style={styles.popupListItemText}>{store.name}</Text>
+              </TouchableOpacity>
+            ))}
+            {isBulkSaving && (
+              <View style={{ padding: 12, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#0a7ea4" />
+              </View>
+            )}
+          </View>
+        )}
+
+        {bulkAction === "stockToggle" && (
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>
+              Set stock status for {selectedCount} selected product{selectedCount > 1 ? "s" : ""}:
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => handleBulkStockToggle("in_stock")}
+                style={[styles.saveBtn, { flex: 1, paddingVertical: 12, alignItems: "center", backgroundColor: "#22C55E" }]}
+                disabled={isBulkSaving}
+              >
+                {isBulkSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>\u2705 Mark In Stock</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleBulkStockToggle("out_of_stock")}
+                style={[styles.saveBtn, { flex: 1, paddingVertical: 12, alignItems: "center", backgroundColor: "#EF4444" }]}
+                disabled={isBulkSaving}
+              >
+                {isBulkSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>\u26D4 Mark Out of Stock</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {bulkAction === "delete" && (
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: "#EF4444", marginBottom: 8 }}>
+              \u26A0\uFE0F Delete {selectedCount} product{selectedCount > 1 ? "s" : ""}?
+            </Text>
+            <Text style={{ fontSize: 13, color: "#666", marginBottom: 14 }}>
+              This action cannot be undone. The selected products will be permanently removed.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setBulkAction(null)}
+                style={[styles.discardBtn, { flex: 1, paddingVertical: 12, alignItems: "center" }]}
+              >
+                <Text style={styles.discardBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleBulkDelete}
+                style={[styles.saveBtn, { flex: 1, paddingVertical: 12, alignItems: "center", backgroundColor: "#EF4444" }]}
+                disabled={isBulkSaving}
+              >
+                {isBulkSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Delete Permanently</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     );
 
@@ -1033,6 +1166,15 @@ function ProductPricesContent() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setBulkAction("duplicateStore")} style={styles.bulkBtn}>
               <Text style={styles.bulkBtnText}>Duplicate to Store</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setBulkAction("moveStore")} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Move to Store</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setBulkAction("stockToggle")} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Stock Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setBulkAction("delete")} style={[styles.bulkBtn, { backgroundColor: "#EF4444" }]}>
+              <Text style={styles.bulkBtnText}>Delete</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={clearSelection} style={styles.bulkClearBtn}>
               <Text style={styles.bulkClearBtnText}>Clear</Text>
