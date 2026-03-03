@@ -2279,3 +2279,7 @@
 ## Treasure Bowl Category Images
 - [x] Query all 34 Treasure Bowl categories and find the first product image in each
 - [x] Update each category's icon field with the first product's image URL (34/34 updated, 0 missing)
+
+## Auto-Assign Category Images for All Stores
+- [x] Query all 6 stores and their categories missing images
+- [x] Set first product image as category icon — 15 newly updated, 105 already had images, 2 categories with no product images (Fresh Food, Groceries at Millfield)
