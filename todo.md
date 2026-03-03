@@ -2232,3 +2232,15 @@
 - [x] Send push notification to driver when admin marks all shifts as settled
 - [x] Include settlement amount in notification message (shows direction: cash returned / owed to you)
 - [x] Write tests for settlement notification logic (7 new tests, 29 total passing)
+
+## Bulk Modifier Template Assignment (Treasure Bowl)
+- [ ] Identify Treasure Bowl store ID and its categories
+- [ ] Identify the "Chinese template" modifier template
+- [ ] Bulk-apply the template to all products in user-specified categories
+- [ ] Verify products have the template assigned correctly
+
+## Treasure Bowl Modifier Bulk Assignment
+- [x] Apply "Chinese Sides" template (id=1) to 24 categories via category_modifier_templates (24 links created)
+- [x] Create "Choose Sauce" modifier template (id=90001) for Thai Red/Green Curry with Thai Red Curry / Thai Green Curry options
+- [x] Create "Choose Your Side" template (id=90002) for Set Dinner and Meal Deals with Boiled Rice, Chips, Fried Rice all at €0.00
+- [x] Verify all 26 category-template links created correctly
