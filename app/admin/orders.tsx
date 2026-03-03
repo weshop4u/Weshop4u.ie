@@ -52,6 +52,48 @@ function AdminOrdersScreenContent() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [datePreset, setDatePreset] = useState<string>("all");
+
+  const applyDatePreset = useCallback((preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+    const todayEnd = todayStart;
+    switch (preset) {
+      case "today":
+        setDateFrom(todayStart);
+        setDateTo(todayEnd);
+        break;
+      case "yesterday": {
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        const yd = y.toISOString().slice(0, 10);
+        setDateFrom(yd);
+        setDateTo(yd);
+        break;
+      }
+      case "7days": {
+        const d7 = new Date(now);
+        d7.setDate(d7.getDate() - 7);
+        setDateFrom(d7.toISOString().slice(0, 10));
+        setDateTo(todayEnd);
+        break;
+      }
+      case "30days": {
+        const d30 = new Date(now);
+        d30.setDate(d30.getDate() - 30);
+        setDateFrom(d30.toISOString().slice(0, 10));
+        setDateTo(todayEnd);
+        break;
+      }
+      default:
+        setDateFrom("");
+        setDateTo("");
+        break;
+    }
+  }, []);
 
   const { data: orders, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
     { status: statusFilter, limit: 100 },
@@ -111,6 +153,17 @@ function AdminOrdersScreenContent() {
   const sortedOrders = useMemo(() => {
     if (!orders) return [];
     let filtered = [...orders];
+    // Apply date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(o => new Date(o.createdAt) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(o => new Date(o.createdAt) <= toDate);
+    }
     // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -134,7 +187,7 @@ function AdminOrdersScreenContent() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return filtered;
-  }, [orders, sortField, sortDir, searchQuery]);
+  }, [orders, sortField, sortDir, searchQuery, dateFrom, dateTo]);
 
   // Count pending orders waiting > 5 min
   const alertOrders = (orders || []).filter(o => {
@@ -250,7 +303,7 @@ function AdminOrdersScreenContent() {
         </View>
 
         {/* Search & Tools Bar */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 12, height: 38 }}>
             <Text style={{ fontSize: 14, color: "#94A3B8", marginRight: 8 }}>🔍</Text>
             <TextInput
@@ -271,9 +324,61 @@ function AdminOrdersScreenContent() {
           </TouchableOpacity>
         </View>
 
+        {/* Date Range Filter */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          {/* Quick Presets */}
+          {(["all", "today", "yesterday", "7days", "30days"] as const).map(preset => {
+            const labels: Record<string, string> = { all: "All Time", today: "Today", yesterday: "Yesterday", "7days": "Last 7 Days", "30days": "Last 30 Days" };
+            const active = datePreset === preset;
+            return (
+              <TouchableOpacity
+                key={preset}
+                onPress={() => applyDatePreset(preset)}
+                style={{
+                  backgroundColor: active ? "#0F172A" : "#fff",
+                  borderWidth: 1,
+                  borderColor: active ? "#0F172A" : "#E2E8F0",
+                  borderRadius: 6,
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: active ? "#fff" : "#64748B" }}>
+                  {labels[preset]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Custom Date Inputs */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 8 }}>
+            <Text style={{ fontSize: 12, color: "#94A3B8" }}>From:</Text>
+            <TextInput
+              value={dateFrom}
+              onChangeText={(v) => { setDateFrom(v); setDatePreset("custom"); }}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#CBD5E1"
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
+            />
+            <Text style={{ fontSize: 12, color: "#94A3B8" }}>To:</Text>
+            <TextInput
+              value={dateTo}
+              onChangeText={(v) => { setDateTo(v); setDatePreset("custom"); }}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#CBD5E1"
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
+            />
+            {(dateFrom || dateTo) && (
+              <TouchableOpacity onPress={() => applyDatePreset("all")}>
+                <Text style={{ fontSize: 12, color: "#EF4444", fontWeight: "600" }}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Showing count */}
         <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>
-          Showing {sortedOrders.length} of {orders?.length || 0} orders
+          Showing {sortedOrders.length} of {orders?.length || 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
         </Text>
 
         {/* Desktop Table */}

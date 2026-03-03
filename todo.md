@@ -2164,3 +2164,20 @@
 - [x] Add reload button
 - [x] Alternating row colors for readability
 - [x] Show order count ("Showing X of Y orders")
+
+## Date Range Filter for Admin Orders
+- [x] Add date range picker (From/To) above the orders table
+- [x] Filter orders by selected date range
+- [x] Add quick presets (Today, Yesterday, Last 7 days, Last 30 days, All)
+- [x] Clear date filter option
+
+## Store Dashboard Orders Table Redesign
+- [x] Apply clean table layout matching admin orders style (desktop)
+- [x] Add search bar to store orders (desktop)
+- [x] Status badges with dot indicators and colored pills
+- [x] Items column showing first 3 items with +N more
+- [x] Action buttons (Print, Accept, Mark Ready) inline
+- [x] Alternating row colors
+- [x] Prep timer shown in status column
+- [x] Driver-at-store indicator in status column
+- [x] Mobile card view preserved for mobile/tablet

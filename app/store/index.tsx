@@ -1,7 +1,7 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, AppState, useWindowDimensions, TextInput, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
@@ -60,6 +60,9 @@ export default function StoreDashboardScreen() {
   const [newOrderFlash, setNewOrderFlash] = useState(false);
   const [storeId, setStoreId] = useState<number | null>(null);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = Platform.OS === "web" && windowWidth >= 900;
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
   const [markingReadyId, setMarkingReadyId] = useState<number | null>(null);
   const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
   const [printSuccess, setPrintSuccess] = useState<number | null>(null);
@@ -453,11 +456,22 @@ export default function StoreDashboardScreen() {
   // For completed tab: show last 24 hours by default, with option to view older
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+  const searchFilteredOrders = useMemo(() => {
+    if (!storeSearchQuery.trim()) return filteredOrders;
+    const q = storeSearchQuery.toLowerCase().trim();
+    return filteredOrders.filter((o: any) =>
+      (o.orderNumber ?? "").toLowerCase().includes(q) ||
+      (o.customerName ?? "").toLowerCase().includes(q) ||
+      (o.driverName ?? "").toLowerCase().includes(q) ||
+      (o.deliveryAddress ?? "").toLowerCase().includes(q)
+    );
+  }, [filteredOrders, storeSearchQuery]);
+
   const sortedOrders = filter === "completed"
-    ? [...filteredOrders]
+    ? [...searchFilteredOrders]
         .filter((o: any) => showAllHistory || new Date(o.updatedAt || o.createdAt) >= twentyFourHoursAgo)
         .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
-    : filteredOrders;
+    : searchFilteredOrders;
 
   // Count orders older than 24 hours for the "View History" button
   const olderCompletedCount = filter === "completed"
@@ -601,10 +615,37 @@ export default function StoreDashboardScreen() {
           </View>
         </ScrollView>
 
+        {/* Search Bar (Desktop) */}
+        {isDesktop && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 12, height: 36 }}>
+              <Text style={{ fontSize: 14, color: "#94A3B8", marginRight: 8 }}>🔍</Text>
+              <TextInput
+                value={storeSearchQuery}
+                onChangeText={setStoreSearchQuery}
+                placeholder="Search orders, customers..."
+                placeholderTextColor="#94A3B8"
+                style={{ flex: 1, fontSize: 13, color: "#0F172A", outlineStyle: "none" } as any}
+              />
+              {storeSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setStoreSearchQuery("")}>
+                  <Text style={{ fontSize: 14, color: "#94A3B8" }}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity onPress={handleRefresh} style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 14, height: 36, justifyContent: "center" }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: "#64748B" }}>↻ Reload</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 12, color: "#94A3B8" }}>
+              {sortedOrders.length} order{sortedOrders.length !== 1 ? "s" : ""}
+            </Text>
+          </View>
+        )}
+
         {/* Orders List */}
         <ScrollView
           style={{ flex: 1, minHeight: 0 }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          contentContainerStyle={{ padding: isDesktop ? 16 : 16, paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
           {sortedOrders.length === 0 ? (
@@ -630,6 +671,160 @@ export default function StoreDashboardScreen() {
                   <Text style={{ color: "#fff", fontWeight: "600" }}>View Order History</Text>
                 </TouchableOpacity>
               )}
+            </View>
+          ) : isDesktop ? (
+            /* ─── Desktop Table View ─── */
+            <View style={stStyles.tableContainer}>
+              {/* Table Header */}
+              <View style={stStyles.thead}>
+                <View style={[stStyles.th, { minWidth: 100 }]}><Text style={stStyles.thText}>Date</Text></View>
+                <View style={[stStyles.th, { minWidth: 120 }]}><Text style={stStyles.thText}>Order #</Text></View>
+                <View style={[stStyles.th, { flex: 1, minWidth: 140 }]}><Text style={stStyles.thText}>Customer</Text></View>
+                <View style={[stStyles.th, { flex: 2, minWidth: 200 }]}><Text style={stStyles.thText}>Items</Text></View>
+                <View style={[stStyles.th, { minWidth: 110 }]}><Text style={stStyles.thText}>Status</Text></View>
+                <View style={[stStyles.th, { minWidth: 100 }]}><Text style={stStyles.thText}>Payment</Text></View>
+                <View style={[stStyles.th, { minWidth: 70 }]}><Text style={stStyles.thText}>Total</Text></View>
+                <View style={[stStyles.th, { minWidth: 200 }]}><Text style={stStyles.thText}>Actions</Text></View>
+              </View>
+
+              {/* Table Body */}
+              <ScrollView style={{ maxHeight: 600 }}>
+                {sortedOrders.map((order: any, idx: number) => {
+                  const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
+                    pending: { bg: "#FEF3C7", text: "#D97706", dot: "#F59E0B" },
+                    preparing: { bg: "#E0E7FF", text: "#4F46E5", dot: "#6366F1" },
+                    ready_for_pickup: { bg: "#D1FAE5", text: "#059669", dot: "#10B981" },
+                    picked_up: { bg: "#CFFAFE", text: "#0891B2", dot: "#06B6D4" },
+                    on_the_way: { bg: "#CCFBF1", text: "#0D9488", dot: "#14B8A6" },
+                    delivered: { bg: "#DCFCE7", text: "#16A34A", dot: "#22C55E" },
+                    cancelled: { bg: "#FEE2E2", text: "#DC2626", dot: "#EF4444" },
+                  };
+                  const sc = statusColors[order.status] || { bg: "#F3F4F6", text: "#6B7280", dot: "#9CA3AF" };
+                  const isPending = order.status === "pending";
+                  const isPreparing = order.status === "preparing";
+                  const isReady = order.status === "ready_for_pickup";
+                  const driverHere = hasDriverAtStore(order);
+                  const driverName = getDriverName(order);
+                  // Prep timer
+                  let prepTimer = "";
+                  if (isPreparing) {
+                    const preparingEvent = order.tracking?.find((t: any) => t.status === "preparing" || t.status === "accepted");
+                    const startTime = preparingEvent?.createdAt ? new Date(preparingEvent.createdAt).getTime() : order.acceptedAt ? new Date(order.acceptedAt).getTime() : new Date(order.updatedAt || order.createdAt).getTime();
+                    const elapsedMs = now - startTime;
+                    const elapsedMin = Math.floor(elapsedMs / 60000);
+                    const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
+                    prepTimer = `${String(elapsedMin).padStart(2, "0")}:${String(elapsedSec).padStart(2, "0")}`;
+                  }
+                  return (
+                    <View key={order.id} style={[stStyles.tr, idx % 2 === 1 ? { backgroundColor: "#F8FAFC" } : {}]}>
+                      {/* Date */}
+                      <View style={[stStyles.td, { minWidth: 100 }]}>
+                        <Text style={{ fontSize: 12, color: "#0F172A", fontWeight: "500" }}>{formatIrishDateTime(order.createdAt).split(",")[0]}</Text>
+                        <Text style={{ fontSize: 10, color: "#94A3B8" }}>{formatIrishDateTime(order.createdAt).split(",")[1]?.trim() || ""}</Text>
+                      </View>
+                      {/* Order # */}
+                      <View style={[stStyles.td, { minWidth: 120 }]}>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>{order.orderNumber}</Text>
+                      </View>
+                      {/* Customer */}
+                      <View style={[stStyles.td, { flex: 1, minWidth: 140 }]}>
+                        <Text style={{ fontSize: 13, color: "#0F172A" }} numberOfLines={1}>{order.customerName || "—"}</Text>
+                        {order.deliveryAddress && <Text style={{ fontSize: 10, color: "#94A3B8" }} numberOfLines={1}>{order.deliveryAddress}</Text>}
+                      </View>
+                      {/* Items */}
+                      <View style={[stStyles.td, { flex: 2, minWidth: 200 }]}>
+                        {order.items?.slice(0, 3).map((item: any, i: number) => (
+                          <Text key={i} style={{ fontSize: 12, color: "#334155" }} numberOfLines={1}>
+                            {item.quantity}x {item.product?.name || item.productName || "Item"}
+                          </Text>
+                        ))}
+                        {(order.items?.length || 0) > 3 && (
+                          <Text style={{ fontSize: 11, color: "#94A3B8", fontStyle: "italic" }}>+{order.items.length - 3} more</Text>
+                        )}
+                      </View>
+                      {/* Status */}
+                      <View style={[stStyles.td, { minWidth: 110 }]}>
+                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, alignSelf: "flex-start" }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sc.dot, marginRight: 5 }} />
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text }}>{getStatusText(order.status)}</Text>
+                        </View>
+                        {isPreparing && <Text style={{ fontSize: 11, fontWeight: "700", color: "#4F46E5", marginTop: 2, fontVariant: ["tabular-nums"] }}>⏱ {prepTimer}</Text>}
+                        {driverHere && <Text style={{ fontSize: 10, color: "#1E40AF", fontWeight: "600", marginTop: 2 }}>🚗 Driver here</Text>}
+                      </View>
+                      {/* Payment */}
+                      <View style={[stStyles.td, { minWidth: 100 }]}>
+                        <Text style={{ fontSize: 12, color: "#334155", fontWeight: "500" }}>{order.paymentMethod === "card" ? "Card" : "Cash"}</Text>
+                        <Text style={{ fontSize: 10, color: order.paymentMethod === "card" ? "#16A34A" : "#D97706", fontWeight: "600" }}>{order.paymentMethod === "card" ? "Paid" : "COD"}</Text>
+                      </View>
+                      {/* Total */}
+                      <View style={[stStyles.td, { minWidth: 70 }]}>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{order.total}</Text>
+                      </View>
+                      {/* Actions */}
+                      <View style={[stStyles.td, { minWidth: 200, flexDirection: "row", gap: 6, flexWrap: "wrap" }]}>
+                        {/* Print */}
+                        {order.status !== "cancelled" && (
+                          <TouchableOpacity
+                            onPress={() => handlePrintOrder(order.id)}
+                            disabled={printingOrderId === order.id}
+                            style={{ backgroundColor: printSuccess === order.id ? "#DCFCE7" : "#F1F5F9", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: printSuccess === order.id ? "#22C55E" : "#E2E8F0" }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: "600", color: printSuccess === order.id ? "#16A34A" : "#334155" }}>
+                              {printingOrderId === order.id ? "..." : printSuccess === order.id ? "✓ Sent" : "🖨 Print"}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                        {/* Accept */}
+                        {isPending && (
+                          <TouchableOpacity
+                            onPress={() => handleAcceptOrder(order.id)}
+                            disabled={acceptingId === order.id}
+                            style={{ backgroundColor: "#22C55E", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, opacity: acceptingId === order.id ? 0.6 : 1 }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{acceptingId === order.id ? "..." : "✓ Accept"}</Text>
+                          </TouchableOpacity>
+                        )}
+                        {/* Mark Ready */}
+                        {isPreparing && (
+                          <TouchableOpacity
+                            onPress={() => handleMarkReady(order.id)}
+                            disabled={markingReadyId === order.id}
+                            style={{ backgroundColor: "#3B82F6", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, opacity: markingReadyId === order.id ? 0.6 : 1 }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{markingReadyId === order.id ? "..." : "✓ Ready"}</Text>
+                          </TouchableOpacity>
+                        )}
+                        {/* Status indicators */}
+                        {isReady && !driverHere && (
+                          <View style={{ backgroundColor: "#D1FAE5", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 11, color: "#059669", fontWeight: "600" }}>⏳ Waiting</Text>
+                          </View>
+                        )}
+                        {isReady && driverHere && (
+                          <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 11, color: "#1E40AF", fontWeight: "600" }}>📦 Hand to driver</Text>
+                          </View>
+                        )}
+                        {(order.status === "picked_up" || order.status === "on_the_way") && (
+                          <View style={{ backgroundColor: "#D1FAE5", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 11, color: "#059669", fontWeight: "600" }}>🚗 {driverName || "Delivering"}</Text>
+                          </View>
+                        )}
+                        {order.status === "delivered" && (
+                          <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 11, color: "#16A34A", fontWeight: "600" }}>✅ Delivered</Text>
+                          </View>
+                        )}
+                        {order.status === "cancelled" && (
+                          <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600" }}>✕ Cancelled</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
           ) : (
             sortedOrders.map((order: any) => (
@@ -921,3 +1116,45 @@ export default function StoreDashboardScreen() {
     </ScreenContainer>
   );
 }
+
+
+const stStyles = StyleSheet.create({
+  tableContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    overflow: "hidden",
+  },
+  thead: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  th: {
+    paddingHorizontal: 8,
+    justifyContent: "center",
+  },
+  thText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  tr: {
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    alignItems: "center",
+  },
+  td: {
+    paddingHorizontal: 8,
+    justifyContent: "center",
+  },
+});
