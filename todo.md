@@ -2275,3 +2275,7 @@
 - [x] Fix products table — updated 233 products from store_id=30001 to store_id=6
 - [x] Check product_categories — no store_id column (linked via products)
 - [x] Check orders, category_modifier_templates — no stale references found
+
+## Treasure Bowl Category Images
+- [x] Query all 34 Treasure Bowl categories and find the first product image in each
+- [x] Update each category's icon field with the first product's image URL (34/34 updated, 0 missing)
