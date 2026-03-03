@@ -978,3 +978,44 @@ export const promotionalBanners = mysqlTable("promotional_banners", {
 });
 export type PromotionalBanner = typeof promotionalBanners.$inferSelect;
 export type InsertPromotionalBanner = typeof promotionalBanners.$inferInsert;
+
+
+// ===== DRIVER SHIFTS =====
+export const driverShifts = mysqlTable(
+  "driver_shifts",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    driverId: int("driver_id").notNull(), // User ID of the driver
+    startedAt: timestamp("started_at").notNull(),
+    endedAt: timestamp("ended_at"),
+    status: mysqlEnum("status", ["active", "ended"]).notNull().default("active"),
+    // Settlement tracking
+    totalJobs: int("total_jobs").default(0),
+    cashCollected: decimal("cash_collected", { precision: 10, scale: 2 }).default("0.00"),
+    deliveryFeesEarned: decimal("delivery_fees_earned", { precision: 10, scale: 2 }).default("0.00"),
+    cardTipsEarned: decimal("card_tips_earned", { precision: 10, scale: 2 }).default("0.00"),
+    netOwed: decimal("net_owed", { precision: 10, scale: 2 }).default("0.00"), // positive = driver owes admin, negative = admin owes driver
+    settledAt: timestamp("settled_at"),
+    settledBy: int("settled_by"), // Admin user ID who marked it settled
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    driverIdIdx: index("ds_driver_id_idx").on(table.driverId),
+    statusIdx: index("ds_status_idx").on(table.status),
+    startedAtIdx: index("ds_started_at_idx").on(table.startedAt),
+  })
+);
+
+export const driverShiftsRelations = relations(driverShifts, ({ one }) => ({
+  driver: one(users, {
+    fields: [driverShifts.driverId],
+    references: [users.id],
+  }),
+  settledByUser: one(users, {
+    fields: [driverShifts.settledBy],
+    references: [users.id],
+  }),
+}));
+
+export type DriverShift = typeof driverShifts.$inferSelect;
+export type InsertDriverShift = typeof driverShifts.$inferInsert;

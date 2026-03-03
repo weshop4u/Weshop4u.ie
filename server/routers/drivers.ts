@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns, orderTracking } from "../../drizzle/schema";
+import { drivers, orders, orderItems, products, stores, users, driverQueue, orderOffers, jobReturns, orderTracking, driverShifts } from "../../drizzle/schema";
 import { eq, and, or, isNull, asc, desc, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import { sendOrderStatusNotification, sendJobOfferNotification, sendPushNotification } from "../services/notifications";
 import { sendDriverAtStoreSMS } from "../sms";
@@ -1881,4 +1881,221 @@ export const driversRouter = router({
 
     return { count: Number(result[0]?.count ?? 0) };
   }),
+
+  // End shift - driver signals they're done for the day
+  // Creates a shift record with settlement calculation
+  endShift: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Find the last active shift or the last ended shift's endedAt to determine shift start
+      const lastShift = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.driverId, input.driverId))
+        .orderBy(desc(driverShifts.createdAt))
+        .limit(1);
+
+      // Shift start = last shift's endedAt, or beginning of today if no previous shift
+      let shiftStart: Date;
+      if (lastShift.length > 0 && lastShift[0].endedAt) {
+        shiftStart = new Date(lastShift[0].endedAt);
+      } else if (lastShift.length > 0 && lastShift[0].status === "active") {
+        // There's already an active shift - end it and recalculate
+        shiftStart = new Date(lastShift[0].startedAt);
+      } else {
+        // No previous shift - use start of today
+        shiftStart = new Date();
+        shiftStart.setHours(0, 0, 0, 0);
+      }
+
+      const now = new Date();
+
+      // Get all delivered orders for this driver since shift start
+      const shiftOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          deliveryFee: orders.deliveryFee,
+          tipAmount: orders.tipAmount,
+          paymentMethod: orders.paymentMethod,
+          total: orders.total,
+          deliveredAt: orders.deliveredAt,
+          storeName: stores.name,
+        })
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .where(
+          and(
+            eq(orders.driverId, input.driverId),
+            eq(orders.status, "delivered"),
+            gte(orders.deliveredAt, shiftStart)
+          )
+        )
+        .orderBy(asc(orders.deliveredAt));
+
+      // Calculate settlement
+      let cashCollected = 0; // Total cash collected from cash_on_delivery orders
+      let deliveryFeesEarned = 0; // Sum of all delivery fees (driver's base pay)
+      let cardTipsEarned = 0; // Tips from card orders (tracked, paid to driver)
+
+      for (const order of shiftOrders) {
+        const fee = parseFloat(order.deliveryFee || "0");
+        const tip = parseFloat(order.tipAmount || "0");
+        const total = parseFloat(order.total || "0");
+
+        deliveryFeesEarned += fee;
+
+        if (order.paymentMethod === "cash_on_delivery") {
+          // Driver collected the full order total in cash
+          cashCollected += total;
+          // Cash tips are invisible - driver keeps them, not tracked
+        } else {
+          // Card payment - tip is tracked and owed to driver
+          cardTipsEarned += tip;
+        }
+      }
+
+      // Net owed: positive = driver owes admin, negative = admin owes driver
+      // Driver collected cash, but earned delivery fees + card tips
+      // So driver owes: cashCollected - (deliveryFeesEarned + cardTipsEarned)
+      const netOwed = Math.round((cashCollected - (deliveryFeesEarned + cardTipsEarned)) * 100) / 100;
+
+      // If there's an active shift, update it; otherwise create new
+      if (lastShift.length > 0 && lastShift[0].status === "active") {
+        await db
+          .update(driverShifts)
+          .set({
+            endedAt: now,
+            status: "ended",
+            totalJobs: shiftOrders.length,
+            cashCollected: cashCollected.toFixed(2),
+            deliveryFeesEarned: deliveryFeesEarned.toFixed(2),
+            cardTipsEarned: cardTipsEarned.toFixed(2),
+            netOwed: netOwed.toFixed(2),
+          })
+          .where(eq(driverShifts.id, lastShift[0].id));
+      } else {
+        await db.insert(driverShifts).values({
+          driverId: input.driverId,
+          startedAt: shiftStart,
+          endedAt: now,
+          status: "ended",
+          totalJobs: shiftOrders.length,
+          cashCollected: cashCollected.toFixed(2),
+          deliveryFeesEarned: deliveryFeesEarned.toFixed(2),
+          cardTipsEarned: cardTipsEarned.toFixed(2),
+          netOwed: netOwed.toFixed(2),
+        });
+      }
+
+      // Also set driver offline
+      await db
+        .update(drivers)
+        .set({ isOnline: false, isAvailable: false, updatedAt: now })
+        .where(eq(drivers.userId, input.driverId));
+
+      // Remove from queue
+      await db.delete(driverQueue).where(eq(driverQueue.driverId, input.driverId));
+
+      // Expire any pending offers
+      await db
+        .update(orderOffers)
+        .set({ status: "expired", respondedAt: now })
+        .where(
+          and(
+            eq(orderOffers.driverId, input.driverId),
+            eq(orderOffers.status, "pending")
+          )
+        );
+
+      console.log(`[Shift] Driver ${input.driverId} ended shift: ${shiftOrders.length} jobs, cash €${cashCollected.toFixed(2)}, fees €${deliveryFeesEarned.toFixed(2)}, card tips €${cardTipsEarned.toFixed(2)}, net owed €${netOwed.toFixed(2)}`);
+
+      return {
+        success: true,
+        summary: {
+          shiftStart: shiftStart.toISOString(),
+          shiftEnd: now.toISOString(),
+          totalJobs: shiftOrders.length,
+          cashCollected: Math.round(cashCollected * 100) / 100,
+          deliveryFeesEarned: Math.round(deliveryFeesEarned * 100) / 100,
+          cardTipsEarned: Math.round(cardTipsEarned * 100) / 100,
+          netOwed: Math.round(netOwed * 100) / 100,
+          orders: shiftOrders.map(o => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            storeName: o.storeName || "Store",
+            deliveryFee: parseFloat(o.deliveryFee || "0"),
+            tipAmount: parseFloat(o.tipAmount || "0"),
+            paymentMethod: o.paymentMethod,
+            total: parseFloat(o.total || "0"),
+            deliveredAt: o.deliveredAt?.toISOString() || "",
+          })),
+        },
+      };
+    }),
+
+  // Get shift summary for driver (current unsettled balance + recent shifts)
+  getShiftSummary: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get all unsettled shifts
+      const unsettledShifts = await db
+        .select()
+        .from(driverShifts)
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        )
+        .orderBy(desc(driverShifts.endedAt));
+
+      // Calculate total unsettled balance
+      const totalUnsettled = unsettledShifts.reduce(
+        (sum, s) => sum + parseFloat(s.netOwed || "0"),
+        0
+      );
+
+      // Get recent settled shifts (last 10)
+      const recentSettled = await db
+        .select()
+        .from(driverShifts)
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            sql`${driverShifts.settledAt} IS NOT NULL`
+          )
+        )
+        .orderBy(desc(driverShifts.settledAt))
+        .limit(10);
+
+      return {
+        unsettledBalance: Math.round(totalUnsettled * 100) / 100,
+        unsettledShifts: unsettledShifts.map(s => ({
+          id: s.id,
+          startedAt: s.startedAt.toISOString(),
+          endedAt: s.endedAt?.toISOString() || "",
+          totalJobs: s.totalJobs || 0,
+          cashCollected: parseFloat(s.cashCollected || "0"),
+          deliveryFeesEarned: parseFloat(s.deliveryFeesEarned || "0"),
+          cardTipsEarned: parseFloat(s.cardTipsEarned || "0"),
+          netOwed: parseFloat(s.netOwed || "0"),
+        })),
+        recentSettled: recentSettled.map(s => ({
+          id: s.id,
+          startedAt: s.startedAt.toISOString(),
+          endedAt: s.endedAt?.toISOString() || "",
+          totalJobs: s.totalJobs || 0,
+          netOwed: parseFloat(s.netOwed || "0"),
+          settledAt: s.settledAt?.toISOString() || "",
+        })),
+      };
+    }),
 });

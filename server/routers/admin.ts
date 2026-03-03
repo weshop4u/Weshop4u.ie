@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings } from "../../drizzle/schema";
-import { eq, and, desc, gte, sql, count, inArray, isNull } from "drizzle-orm";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts } from "../../drizzle/schema";
+import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
 import { geocodeAddress } from "../services/geocoding";
@@ -1915,6 +1915,228 @@ export const adminRouter = router({
 
       console.log(`[Admin] Assigned order ${input.orderId} to driver ${input.driverId} (batch: ${batchId}, seq: ${nextSequence})`);
       return { success: true, batchId, batchSequence: nextSequence };
+    }),
+
+  // Get all driver settlements for admin view (unsettled + recent settled)
+  getDriverSettlements: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    // Get all drivers
+    const driversList = await db
+      .select({
+        id: drivers.id,
+        userId: drivers.userId,
+        displayNumber: drivers.displayNumber,
+        isOnline: drivers.isOnline,
+      })
+      .from(drivers);
+
+    const userIds = driversList.map(d => d.userId);
+    let userMap: Record<number, string> = {};
+    if (userIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
+      userMap = Object.fromEntries(userRows.map(u => [u.id, u.name || "Unknown"]));
+    }
+
+    // Get all unsettled shifts grouped by driver
+    const unsettledShifts = await db
+      .select()
+      .from(driverShifts)
+      .where(
+        and(
+          eq(driverShifts.status, "ended"),
+          sql`${driverShifts.settledAt} IS NULL`
+        )
+      )
+      .orderBy(desc(driverShifts.endedAt));
+
+    // Build per-driver settlement summary
+    const driverSettlements = driversList.map(driver => {
+      const shifts = unsettledShifts.filter(s => s.driverId === driver.userId);
+      const totalUnsettled = shifts.reduce((sum, s) => sum + parseFloat(s.netOwed || "0"), 0);
+      const totalCashCollected = shifts.reduce((sum, s) => sum + parseFloat(s.cashCollected || "0"), 0);
+      const totalFeesEarned = shifts.reduce((sum, s) => sum + parseFloat(s.deliveryFeesEarned || "0"), 0);
+      const totalCardTips = shifts.reduce((sum, s) => sum + parseFloat(s.cardTipsEarned || "0"), 0);
+      const totalJobs = shifts.reduce((sum, s) => sum + (s.totalJobs || 0), 0);
+
+      return {
+        userId: driver.userId,
+        displayNumber: driver.displayNumber,
+        name: userMap[driver.userId] || "Unknown",
+        isOnline: driver.isOnline,
+        unsettledShiftCount: shifts.length,
+        totalUnsettled: Math.round(totalUnsettled * 100) / 100,
+        totalCashCollected: Math.round(totalCashCollected * 100) / 100,
+        totalFeesEarned: Math.round(totalFeesEarned * 100) / 100,
+        totalCardTips: Math.round(totalCardTips * 100) / 100,
+        totalJobs,
+        shifts: shifts.map(s => ({
+          id: s.id,
+          startedAt: s.startedAt.toISOString(),
+          endedAt: s.endedAt?.toISOString() || "",
+          totalJobs: s.totalJobs || 0,
+          cashCollected: parseFloat(s.cashCollected || "0"),
+          deliveryFeesEarned: parseFloat(s.deliveryFeesEarned || "0"),
+          cardTipsEarned: parseFloat(s.cardTipsEarned || "0"),
+          netOwed: parseFloat(s.netOwed || "0"),
+        })),
+      };
+    }).filter(d => d.unsettledShiftCount > 0 || d.totalUnsettled !== 0);
+
+    // Sort by absolute unsettled amount descending
+    driverSettlements.sort((a, b) => Math.abs(b.totalUnsettled) - Math.abs(a.totalUnsettled));
+
+    // Get totals
+    const totalDriversWithUnsettled = driverSettlements.length;
+    const totalUnsettledAmount = driverSettlements.reduce((sum, d) => sum + d.totalUnsettled, 0);
+
+    return {
+      drivers: driverSettlements,
+      totals: {
+        driversWithUnsettled: totalDriversWithUnsettled,
+        totalUnsettledAmount: Math.round(totalUnsettledAmount * 100) / 100,
+      },
+    };
+  }),
+
+  // Get settlement detail for a specific shift (with order breakdown)
+  getSettlementDetail: publicProcedure
+    .input(z.object({ shiftId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [shift] = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.id, input.shiftId))
+        .limit(1);
+
+      if (!shift) throw new Error("Shift not found");
+
+      // Get orders delivered during this shift
+      const shiftOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          deliveryFee: orders.deliveryFee,
+          tipAmount: orders.tipAmount,
+          paymentMethod: orders.paymentMethod,
+          total: orders.total,
+          deliveredAt: orders.deliveredAt,
+          storeName: stores.name,
+          deliveryAddress: orders.deliveryAddress,
+        })
+        .from(orders)
+        .leftJoin(stores, eq(orders.storeId, stores.id))
+        .where(
+          and(
+            eq(orders.driverId, shift.driverId),
+            eq(orders.status, "delivered"),
+            gte(orders.deliveredAt, shift.startedAt),
+            shift.endedAt ? sql`${orders.deliveredAt} <= ${shift.endedAt}` : sql`1=1`
+          )
+        )
+        .orderBy(asc(orders.deliveredAt));
+
+      // Get driver name
+      const [driverUser] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, shift.driverId))
+        .limit(1);
+
+      return {
+        shift: {
+          id: shift.id,
+          driverId: shift.driverId,
+          driverName: driverUser?.name || "Unknown",
+          startedAt: shift.startedAt.toISOString(),
+          endedAt: shift.endedAt?.toISOString() || "",
+          totalJobs: shift.totalJobs || 0,
+          cashCollected: parseFloat(shift.cashCollected || "0"),
+          deliveryFeesEarned: parseFloat(shift.deliveryFeesEarned || "0"),
+          cardTipsEarned: parseFloat(shift.cardTipsEarned || "0"),
+          netOwed: parseFloat(shift.netOwed || "0"),
+          settledAt: shift.settledAt?.toISOString() || null,
+        },
+        orders: shiftOrders.map(o => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          storeName: o.storeName || "Store",
+          deliveryAddress: o.deliveryAddress,
+          deliveryFee: parseFloat(o.deliveryFee || "0"),
+          tipAmount: parseFloat(o.tipAmount || "0"),
+          paymentMethod: o.paymentMethod,
+          total: parseFloat(o.total || "0"),
+          deliveredAt: o.deliveredAt?.toISOString() || "",
+        })),
+      };
+    }),
+
+  // Mark a shift as settled
+  markSettled: publicProcedure
+    .input(z.object({
+      shiftId: z.number(),
+      adminUserId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [shift] = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.id, input.shiftId))
+        .limit(1);
+
+      if (!shift) throw new Error("Shift not found");
+      if (shift.settledAt) throw new Error("Shift already settled");
+
+      await db
+        .update(driverShifts)
+        .set({
+          settledAt: new Date(),
+          settledBy: input.adminUserId,
+        })
+        .where(eq(driverShifts.id, input.shiftId));
+
+      console.log(`[Settlement] Shift ${input.shiftId} for driver ${shift.driverId} marked as settled by admin ${input.adminUserId}`);
+
+      return { success: true };
+    }),
+
+  // Mark all unsettled shifts for a driver as settled at once
+  markAllSettled: publicProcedure
+    .input(z.object({
+      driverId: z.number(),
+      adminUserId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const result = await db
+        .update(driverShifts)
+        .set({
+          settledAt: new Date(),
+          settledBy: input.adminUserId,
+        })
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        );
+
+      console.log(`[Settlement] All unsettled shifts for driver ${input.driverId} marked as settled by admin ${input.adminUserId}`);
+
+      return { success: true };
     }),
 
   // Get batch details for admin view

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
@@ -96,11 +96,23 @@ export default function DriverHomeScreen() {
     }
   }, [activeDelivery, hasAutoRedirected, activeDeliveryLoading]);
 
+  // End Shift state
+  const [showEndShiftModal, setShowEndShiftModal] = useState(false);
+  const [shiftSummaryData, setShiftSummaryData] = useState<any>(null);
+  const [isEndingShift, setIsEndingShift] = useState(false);
+
+  // Unsettled balance query
+  const { data: shiftData } = trpc.drivers.getShiftSummary.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id, refetchInterval: 60000 }
+  );
+
   // tRPC mutations
   const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
   const acceptOfferMutation = trpc.drivers.acceptOffer.useMutation();
   const declineOfferMutation = trpc.drivers.declineOffer.useMutation();
   const updateLocationMutation = trpc.drivers.updateLocation.useMutation();
+  const endShiftMutation = trpc.drivers.endShift.useMutation();
 
   // Queue position query
   const { data: queueData, refetch: refetchQueue } = trpc.drivers.getQueuePosition.useQuery(
@@ -516,6 +528,29 @@ export default function DriverHomeScreen() {
     }
   };
 
+  const handleEndShift = async () => {
+    if (!user) return;
+    setIsEndingShift(true);
+    try {
+      // Stop all alarms first
+      stopAllAlarms();
+      const result = await endShiftMutation.mutateAsync({ driverId: user.id });
+      setIsOnline(false);
+      setShiftSummaryData(result.summary);
+      setShowEndShiftModal(true);
+      refetchStats();
+    } catch (error) {
+      console.error("Failed to end shift:", error);
+      if (Platform.OS === "web") {
+        alert("Failed to end shift. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to end shift. Please try again.");
+      }
+    } finally {
+      setIsEndingShift(false);
+    }
+  };
+
   const handleSwitchToCustomerMode = async () => {
     try {
       await AsyncStorage.setItem("appMode", "customer");
@@ -815,6 +850,64 @@ export default function DriverHomeScreen() {
           </View>
         )}
 
+        {/* Unsettled Balance Banner */}
+        {shiftData && shiftData.unsettledBalance !== 0 && (
+          <View style={{
+            backgroundColor: shiftData.unsettledBalance > 0 ? '#FEF2F2' : '#F0FDF4',
+            borderWidth: 1,
+            borderColor: shiftData.unsettledBalance > 0 ? '#FECACA' : '#BBF7D0',
+            borderRadius: 12,
+            padding: 14,
+            marginBottom: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: shiftData.unsettledBalance > 0 ? '#991B1B' : '#166534', marginBottom: 2 }}>
+                {shiftData.unsettledBalance > 0 ? 'You owe the store' : 'The store owes you'}
+              </Text>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: shiftData.unsettledBalance > 0 ? '#DC2626' : '#16A34A' }}>
+                \u20ac{Math.abs(shiftData.unsettledBalance).toFixed(2)}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                {shiftData.unsettledShifts.length} unsettled shift{shiftData.unsettledShifts.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: shiftData.unsettledBalance > 0 ? '#FEE2E2' : '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 20 }}>{shiftData.unsettledBalance > 0 ? "\uD83D\uDCB8" : "\uD83D\uDCB0"}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* End Shift Button - shown when offline and not on active delivery */}
+        {!isOnline && !(activeDelivery && activeDelivery.id) && (
+          <TouchableOpacity
+            onPress={handleEndShift}
+            disabled={isEndingShift}
+            style={{
+              backgroundColor: '#7C3AED',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: isEndingShift ? 0.6 : 1,
+            }}
+          >
+            {isEndingShift ? (
+              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+            ) : (
+              <Text style={{ fontSize: 18, marginRight: 8 }}>{"\uD83C\uDFC1"}</Text>
+            )}
+            <View>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>End Shift</Text>
+              <Text style={{ color: '#E9D5FF', fontSize: 12 }}>Done for the day? See your shift summary</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Earnings Summary */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-4">Earnings</Text>
@@ -906,6 +999,133 @@ export default function DriverHomeScreen() {
           <Text className="text-muted text-sm text-center mt-1">Browse stores and place orders</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* End Shift Summary Modal */}
+      <Modal
+        visible={showEndShiftModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEndShiftModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Math.max(insets.bottom, 24), maxHeight: '85%' }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Modal Header */}
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 16 }} />
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A' }}>Shift Summary</Text>
+                <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>{"\uD83C\uDFC1"} Great work today!</Text>
+              </View>
+
+              {shiftSummaryData && (
+                <>
+                  {/* Shift time */}
+                  <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 4 }}>SHIFT PERIOD</Text>
+                    <Text style={{ fontSize: 14, color: '#0F172A' }}>
+                      {new Date(shiftSummaryData.shiftStart).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}
+                      {' '}\u2192{' '}
+                      {new Date(shiftSummaryData.shiftEnd).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+
+                  {/* Key stats */}
+                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                    <View style={{ flex: 1, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 28, fontWeight: '800', color: '#1D4ED8' }}>{shiftSummaryData.totalJobs}</Text>
+                      <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Deliveries</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 28, fontWeight: '800', color: '#16A34A' }}>\u20ac{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
+                      <Text style={{ fontSize: 12, color: '#22C55E', fontWeight: '600' }}>Delivery Fees</Text>
+                    </View>
+                  </View>
+
+                  {/* Settlement breakdown */}
+                  <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>Cash Reconciliation</Text>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#475569' }}>Cash Collected</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>\u20ac{shiftSummaryData.cashCollected.toFixed(2)}</Text>
+                    </View>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#475569' }}>Your Delivery Fees</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-\u20ac{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
+                    </View>
+                    
+                    {shiftSummaryData.cardTipsEarned > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ fontSize: 14, color: '#475569' }}>Card Tips Owed to You</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-\u20ac{shiftSummaryData.cardTipsEarned.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    <View style={{ borderTopWidth: 1, borderTopColor: '#CBD5E1', paddingTop: 10, marginTop: 4 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+                          {shiftSummaryData.netOwed > 0 ? 'You Owe Store' : shiftSummaryData.netOwed < 0 ? 'Store Owes You' : 'Settled'}
+                        </Text>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: shiftSummaryData.netOwed > 0 ? '#DC2626' : shiftSummaryData.netOwed < 0 ? '#16A34A' : '#64748B' }}>
+                          \u20ac{Math.abs(shiftSummaryData.netOwed).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Order list */}
+                  {shiftSummaryData.orders && shiftSummaryData.orders.length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>Deliveries This Shift</Text>
+                      {shiftSummaryData.orders.map((order: any, idx: number) => (
+                        <View key={order.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: idx < shiftSummaryData.orders.length - 1 ? 1 : 0, borderBottomColor: '#F1F5F9' }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>{order.orderNumber}</Text>
+                            <Text style={{ fontSize: 11, color: '#64748B' }}>{order.storeName}</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#059669' }}>\u20ac{order.deliveryFee.toFixed(2)}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Text style={{ fontSize: 10, color: order.paymentMethod === 'cash_on_delivery' ? '#92400E' : '#1D4ED8' }}>
+                                {order.paymentMethod === 'cash_on_delivery' ? '\uD83D\uDCB5 Cash' : '\uD83D\uDCB3 Card'}
+                              </Text>
+                              {order.paymentMethod === 'cash_on_delivery' && (
+                                <Text style={{ fontSize: 10, color: '#64748B' }}>\u20ac{order.total.toFixed(2)}</Text>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {shiftSummaryData.totalJobs === 0 && (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                      <Text style={{ fontSize: 40, marginBottom: 8 }}>{"\uD83D\uDE34"}</Text>
+                      <Text style={{ fontSize: 15, color: '#64748B', textAlign: 'center' }}>No deliveries this shift</Text>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={() => setShowEndShiftModal(false)}
+                style={{
+                  backgroundColor: '#7C3AED',
+                  borderRadius: 12,
+                  padding: 16,
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Done</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }

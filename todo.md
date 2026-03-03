@@ -2208,3 +2208,21 @@
 ## Dashboard Notification Badges
 - [x] Red badge on Active Orders card when pending orders > 0
 - [x] Show pending count in the badge (both desktop and mobile)
+
+## Driver End Shift & Settlement System
+- [x] Database: Add driver_shifts table (driverId, startTime, endTime, status, settlement fields)
+- [x] Database: Add settlement tracking (driverShifts table with netOwed, settledAt, settledBy)
+- [x] Backend: End shift endpoint (creates shift record, goes offline, removes from queue)
+- [x] Backend: Get shift summary endpoint (jobs, cash collected, delivery fees, card tips, net owed)
+- [x] Backend: Get unsettled balance for a driver (getShiftSummary endpoint)
+- [x] Backend: Mark settlement as complete (admin markSettled + markAllSettled)
+- [x] Driver App: Add "End Shift" button (shown when offline, separate from toggle)
+- [x] Driver App: End shift triggers calculation and shows summary modal
+- [x] Driver App: Shift summary modal (deliveries, fees, cash reconciliation, order list)
+- [x] Driver App: Show unsettled balance banner (red if driver owes, green if owed)
+- [x] Admin: Settlement tab on Driver Performance page
+- [x] Admin: Per-driver breakdown (cash collected, fees earned, card tips, net owed)
+- [ ] Admin: Date range picker for settlement period (future enhancement)
+- [x] Admin: "Mark as Settled" button (per-shift and settle-all per driver)
+- [x] Admin: Settlement detail modal with full order breakdown
+- [x] Tests: 22 unit tests for settlement calculation, aggregation, display logic
