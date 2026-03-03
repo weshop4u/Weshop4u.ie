@@ -68,6 +68,8 @@ export default function StoreDashboardScreen() {
   const [printSuccess, setPrintSuccess] = useState<number | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const colors = useColors();
+  const { logout: authLogout } = useAuth();
+  const utils = trpc.useUtils();
 
   // Audio player for persistent alarm (native)
   const alarmPlayer = useAudioPlayer(require("@/assets/sounds/order-alert.mp3"));
@@ -259,9 +261,6 @@ export default function StoreDashboardScreen() {
     setRefreshing(false);
   };
 
-  const { logout: authLogout } = useAuth();
-  const utils = trpc.useUtils();
-
   const handleLogout = async () => {
     const confirmed = await confirmAction("Log Out", "Are you sure you want to log out?");
     if (!confirmed) return;
@@ -414,6 +413,31 @@ export default function StoreDashboardScreen() {
     return null;
   };
 
+  // --- All hooks must be above early returns ---
+  const allOrders = storeOrders || [];
+  const activeStatuses = ["pending", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
+  const completedStatuses = ["delivered", "cancelled"];
+
+  const filteredOrders = useMemo(() => {
+    return allOrders.filter((order: any) => {
+      if (filter === "all") return activeStatuses.includes(order.status);
+      if (filter === "completed") return completedStatuses.includes(order.status);
+      return order.status === filter;
+    });
+  }, [allOrders, filter]);
+
+  const searchFilteredOrders = useMemo(() => {
+    if (!storeSearchQuery.trim()) return filteredOrders;
+    const q = storeSearchQuery.toLowerCase().trim();
+    return filteredOrders.filter((o: any) =>
+      (o.orderNumber ?? "").toLowerCase().includes(q) ||
+      (o.customerName ?? "").toLowerCase().includes(q) ||
+      (o.driverName ?? "").toLowerCase().includes(q) ||
+      (o.deliveryAddress ?? "").toLowerCase().includes(q)
+    );
+  }, [filteredOrders, storeSearchQuery]);
+
+  // --- Early returns (after all hooks) ---
   if (userLoading || isLoading || storeId === null) {
     return (
       <ScreenContainer className="items-center justify-center">
@@ -441,31 +465,9 @@ export default function StoreDashboardScreen() {
   }
 
   const storeName = myStore?.storeName || "Store Dashboard";
-  const allOrders = storeOrders || [];
-
-  // Filter orders based on selected tab
-  const activeStatuses = ["pending", "preparing", "ready_for_pickup", "picked_up", "on_the_way"];
-  const completedStatuses = ["delivered", "cancelled"];
-
-  const filteredOrders = allOrders.filter((order: any) => {
-    if (filter === "all") return activeStatuses.includes(order.status);
-    if (filter === "completed") return completedStatuses.includes(order.status);
-    return order.status === filter;
-  });
 
   // For completed tab: show last 24 hours by default, with option to view older
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-  const searchFilteredOrders = useMemo(() => {
-    if (!storeSearchQuery.trim()) return filteredOrders;
-    const q = storeSearchQuery.toLowerCase().trim();
-    return filteredOrders.filter((o: any) =>
-      (o.orderNumber ?? "").toLowerCase().includes(q) ||
-      (o.customerName ?? "").toLowerCase().includes(q) ||
-      (o.driverName ?? "").toLowerCase().includes(q) ||
-      (o.deliveryAddress ?? "").toLowerCase().includes(q)
-    );
-  }, [filteredOrders, storeSearchQuery]);
 
   const sortedOrders = filter === "completed"
     ? [...searchFilteredOrders]

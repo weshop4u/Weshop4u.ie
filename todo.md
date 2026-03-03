@@ -2247,3 +2247,13 @@
 
 ## Ginger Scallions Category Fix
 - [x] Remove time/availability restriction from Ginger Scallions category (id=150022) — cleared availabilitySchedule and ageRestricted
+
+## Store ID Renumbering
+- [ ] Audit all stores and their current IDs
+- [ ] Identify all tables with store_id foreign keys
+- [ ] Re-number store IDs to simple sequential numbers (Treasure Bowl already = 6)
+- [ ] Update all foreign key references across all tables
+- [ ] Verify no broken references
+
+## Store Dashboard Hooks Error Fix
+- [x] Fix "Rendered more hooks than during the previous render" error in app/store/index.tsx — moved useAuth, trpc.useUtils, and useMemo hooks above early returns
