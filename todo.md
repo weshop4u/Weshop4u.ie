@@ -2139,3 +2139,8 @@
 - [x] Implement bulk price update functionality
 - [x] Implement bulk category move functionality
 - [x] Add backend endpoints for bulk operations (bulkSetPrice, bulkChangeCategory)
+
+## Bulk Duplicate to Store
+- [x] Add "Duplicate to Store" button in bulk action bar
+- [x] Add backend endpoint for bulk product duplication to another store
+- [x] Show store picker popup when bulk duplicate is clicked

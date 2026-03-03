@@ -1125,4 +1125,39 @@ export const storeRouter = router({
       }
       return { success: true, count: input.productIds.length };
     }),
+
+  // Bulk duplicate products to another store
+  bulkDuplicateToStore: publicProcedure
+    .input(z.object({
+      productIds: z.array(z.number()),
+      targetStoreId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const sourceProducts = await db.select().from(products).where(inArray(products.id, input.productIds));
+      if (sourceProducts.length === 0) throw new Error("No products found");
+      let duplicated = 0;
+      for (const p of sourceProducts) {
+        await db.insert(products).values({
+          storeId: input.targetStoreId,
+          categoryId: p.categoryId,
+          name: p.name,
+          description: p.description,
+          sku: p.sku,
+          barcode: p.barcode,
+          price: p.price,
+          salePrice: p.salePrice,
+          images: p.images,
+          stockStatus: p.stockStatus,
+          quantity: p.quantity,
+          isActive: p.isActive,
+          isDrs: p.isDrs,
+          weight: p.weight,
+          dimensions: p.dimensions,
+        });
+        duplicated++;
+      }
+      return { success: true, count: duplicated };
+    }),
 });

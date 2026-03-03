@@ -37,7 +37,7 @@ type ActionMenuState = {
 };
 
 type SubMenuType = "category" | "moveStore" | "duplicateStore" | null;
-type BulkAction = "category" | "price" | "salePrice" | null;
+type BulkAction = "category" | "price" | "salePrice" | "duplicateStore" | null;
 
 function ProductPricesContent() {
   const router = useRouter();
@@ -99,6 +99,7 @@ function ProductPricesContent() {
   const updateProductMutation = trpc.stores.updateProduct.useMutation();
   const bulkChangeCategoryMutation = trpc.store.bulkChangeCategory.useMutation();
   const bulkSetPriceMutation = trpc.store.bulkSetPrice.useMutation();
+  const bulkDuplicateToStoreMutation = trpc.store.bulkDuplicateToStore.useMutation();
 
   // Debounce search
   useEffect(() => {
@@ -253,6 +254,20 @@ function ProductPricesContent() {
       setIsBulkSaving(false);
     }
   }, [selectedIds, selectedCount, bulkSalePriceValue]);
+
+  const handleBulkDuplicateToStore = useCallback(async (targetStoreId: number, storeName: string) => {
+    if (selectedCount === 0) return;
+    setIsBulkSaving(true);
+    try {
+      await bulkDuplicateToStoreMutation.mutateAsync({ productIds: Array.from(selectedIds), targetStoreId });
+      clearSelection();
+      showToast(`${selectedCount} product${selectedCount > 1 ? "s" : ""} duplicated to ${storeName}`, "success");
+    } catch (err) {
+      showToast("Failed to duplicate products", "error");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  }, [selectedIds, selectedCount]);
 
   const handlePriceChange = useCallback((productId: number, field: "price" | "salePrice", value: string, originalValue: string) => {
     setPriceChanges(prev => {
@@ -672,6 +687,29 @@ function ProductPricesContent() {
             </View>
           </View>
         )}
+
+        {bulkAction === "duplicateStore" && (
+          <View>
+            <Text style={styles.popupSubTitle}>Duplicate {selectedCount} product{selectedCount > 1 ? "s" : ""} to which store?</Text>
+            {(stores || []).map((store) => (
+              <TouchableOpacity
+                key={store.id}
+                onPress={() => handleBulkDuplicateToStore(store.id, store.name)}
+                style={[styles.popupListItem, store.id === selectedStore && styles.popupListItemActive]}
+                disabled={isBulkSaving}
+              >
+                <Text style={[styles.popupListItemText, store.id === selectedStore && { color: "#999" }]}>
+                  {store.name}{store.id === selectedStore ? " (current)" : ""}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {isBulkSaving && (
+              <View style={{ padding: 12, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#0a7ea4" />
+              </View>
+            )}
+          </View>
+        )}
       </View>
     );
 
@@ -992,6 +1030,9 @@ function ProductPricesContent() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setBulkAction("category"); setBulkCategorySearch(""); }} style={styles.bulkBtn}>
               <Text style={styles.bulkBtnText}>Move Category</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setBulkAction("duplicateStore")} style={styles.bulkBtn}>
+              <Text style={styles.bulkBtnText}>Duplicate to Store</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={clearSelection} style={styles.bulkClearBtn}>
               <Text style={styles.bulkClearBtnText}>Clear</Text>
