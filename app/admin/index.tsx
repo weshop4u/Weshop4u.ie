@@ -15,7 +15,9 @@ function StatCard({ label, value, subValue, color }: { label: string; value: str
   );
 }
 
-function StatusBadge({ status, count }: { status: string; count: number }) {
+const webCursor = Platform.OS === "web" ? { cursor: "pointer" as any } : {};
+
+function StatusBadge({ status, count, onPress }: { status: string; count: number; onPress?: () => void }) {
   const colors: Record<string, { bg: string; text: string }> = {
     pending: { bg: "#FEF3C7", text: "#D97706" },
     accepted: { bg: "#DBEAFE", text: "#2563EB" },
@@ -29,8 +31,8 @@ function StatusBadge({ status, count }: { status: string; count: number }) {
   const c = colors[status] || { bg: "#F3F4F6", text: "#6B7280" };
   const label = status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
-  return (
-    <View className="flex-row items-center justify-between py-2">
+  const content = (
+    <View className="flex-row items-center justify-between py-2" style={onPress ? { borderRadius: 6, paddingHorizontal: 8, marginHorizontal: -8 } : undefined}>
       <View className="flex-row items-center gap-2">
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.text }} />
         <Text style={{ fontSize: 14, color: "#687076" }}>{label}</Text>
@@ -38,6 +40,15 @@ function StatusBadge({ status, count }: { status: string; count: number }) {
       <Text style={{ fontSize: 16, fontWeight: "700", color: c.text }}>{count}</Text>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.6} style={webCursor}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return content;
 }
 
 function DashboardContent() {
@@ -85,18 +96,18 @@ function DashboardContent() {
         <View>
           <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Today's Overview</Text>
           <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
-            <View style={{ flex: 1, minWidth: 200 }}>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
               <StatCard label="Orders" value={stats?.orders.today.count ?? 0} color="#00E5FF" />
-            </View>
-            <View style={{ flex: 1, minWidth: 200 }}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
               <StatCard label="Revenue" value={`€${(stats?.orders.today.revenue ?? 0).toFixed(2)}`} subValue={`Fees: €${(stats?.orders.today.serviceFees ?? 0).toFixed(2)}`} color="#22C55E" />
-            </View>
-            <View style={{ flex: 1, minWidth: 200 }}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
               <StatCard label="Delivery Fees" value={`€${(stats?.orders.today.deliveryFees ?? 0).toFixed(2)}`} color="#F59E0B" />
-            </View>
-            <View style={{ flex: 1, minWidth: 200 }}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
               <StatCard label="Tips" value={`€${(stats?.orders.today.tips ?? 0).toFixed(2)}`} color="#8B5CF6" />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -135,24 +146,24 @@ function DashboardContent() {
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Live Status</Text>
             <View style={{ gap: 12 }}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
                   <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
                   <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
                 </TouchableOpacity>
               </View>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
                   <StatCard label="Total Drivers" value={stats?.drivers.total ?? 0} color="#00E5FF" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push("/admin/manage-stores" as any)} style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/manage-stores" as any)} activeOpacity={0.7} style={{ flex: 1, ...webCursor }}>
                   <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
                 </TouchableOpacity>
               </View>
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => router.push("/admin/customers" as any)} style={{ opacity: 1 }}>
+                  <TouchableOpacity onPress={() => router.push("/admin/customers" as any)} activeOpacity={0.7} style={{ ...webCursor }}>
                     <StatCard label="Total Customers" value={stats?.customers.total ?? 0} subValue={stats?.customers.today ? `+${stats.customers.today} today` : undefined} color="#EC4899" />
                   </TouchableOpacity>
                 </View>
@@ -169,7 +180,7 @@ function DashboardContent() {
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Order Breakdown</Text>
             <View className="bg-surface rounded-xl p-4 border border-border">
               {stats?.orders.statusBreakdown && Object.entries(stats.orders.statusBreakdown).map(([status, count]) => (
-                <StatusBadge key={status} status={status} count={count} />
+                <StatusBadge key={status} status={status} count={count} onPress={() => router.push("/admin/orders" as any)} />
               ))}
             </View>
           </View>
@@ -292,12 +303,20 @@ function DashboardContent() {
         <View className="px-4 pt-4">
           <Text className="text-lg font-bold text-foreground mb-3">Today</Text>
           <View className="flex-row gap-3 mb-3">
-            <StatCard label="Orders" value={stats?.orders.today.count ?? 0} color="#00E5FF" />
-            <StatCard label="Revenue" value={`€${(stats?.orders.today.revenue ?? 0).toFixed(2)}`} subValue={`Fees: €${(stats?.orders.today.serviceFees ?? 0).toFixed(2)}`} color="#22C55E" />
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Orders" value={stats?.orders.today.count ?? 0} color="#00E5FF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Revenue" value={`€${(stats?.orders.today.revenue ?? 0).toFixed(2)}`} subValue={`Fees: €${(stats?.orders.today.serviceFees ?? 0).toFixed(2)}`} color="#22C55E" />
+            </TouchableOpacity>
           </View>
           <View className="flex-row gap-3">
-            <StatCard label="Delivery Fees" value={`€${(stats?.orders.today.deliveryFees ?? 0).toFixed(2)}`} color="#F59E0B" />
-            <StatCard label="Tips" value={`€${(stats?.orders.today.tips ?? 0).toFixed(2)}`} color="#8B5CF6" />
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Delivery Fees" value={`€${(stats?.orders.today.deliveryFees ?? 0).toFixed(2)}`} color="#F59E0B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Tips" value={`€${(stats?.orders.today.tips ?? 0).toFixed(2)}`} color="#8B5CF6" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -358,7 +377,7 @@ function DashboardContent() {
           <Text className="text-lg font-bold text-foreground mb-3">Order Breakdown</Text>
           <View className="bg-surface rounded-xl p-4 border border-border">
             {stats?.orders.statusBreakdown && Object.entries(stats.orders.statusBreakdown).map(([status, count]) => (
-              <StatusBadge key={status} status={status} count={count} />
+              <StatusBadge key={status} status={status} count={count} onPress={() => router.push("/admin/orders" as any)} />
             ))}
           </View>
         </View>

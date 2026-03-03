@@ -2187,3 +2187,8 @@
 - [x] Drivers Online card → navigate to Driver Management
 - [x] Total Drivers card → navigate to Driver Management
 - [x] Active Stores card → navigate to Manage Stores
+
+## Dashboard Pressable Enhancements
+- [x] Today's Overview cards pressable → navigate to All Orders
+- [x] Order Breakdown rows pressable → navigate to All Orders
+- [x] Hover cursor (pointer) on all pressable cards/rows on desktop
