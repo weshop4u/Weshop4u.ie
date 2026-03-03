@@ -2181,3 +2181,9 @@
 - [x] Prep timer shown in status column
 - [x] Driver-at-store indicator in status column
 - [x] Mobile card view preserved for mobile/tablet
+
+## Make Live Status Cards Pressable on Admin Dashboard
+- [x] Active Orders card → navigate to All Orders
+- [x] Drivers Online card → navigate to Driver Management
+- [x] Total Drivers card → navigate to Driver Management
+- [x] Active Stores card → navigate to Manage Stores

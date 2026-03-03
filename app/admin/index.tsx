@@ -135,20 +135,20 @@ function DashboardContent() {
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Live Status</Text>
             <View style={{ gap: 12 }}>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
                   <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
                   <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
-                </View>
+                </TouchableOpacity>
               </View>
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
                   <StatCard label="Total Drivers" value={stats?.drivers.total ?? 0} color="#00E5FF" />
-                </View>
-                <View style={{ flex: 1 }}>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push("/admin/manage-stores" as any)} style={{ flex: 1 }}>
                   <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
-                </View>
+                </TouchableOpacity>
               </View>
               <View style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ flex: 1 }}>
@@ -331,12 +331,20 @@ function DashboardContent() {
         <View className="px-4 pt-6">
           <Text className="text-lg font-bold text-foreground mb-3">Live Status</Text>
           <View className="flex-row gap-3 mb-3">
-            <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
-            <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Active Orders" value={stats?.orders.active ?? 0} color="#F59E0B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
+              <StatCard label="Drivers Online" value={stats?.drivers.online ?? 0} subValue={`${stats?.drivers.available ?? 0} available`} color="#22C55E" />
+            </TouchableOpacity>
           </View>
           <View className="flex-row gap-3">
-            <StatCard label="Total Drivers" value={stats?.drivers.total ?? 0} color="#00E5FF" />
-            <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
+            <TouchableOpacity onPress={() => router.push("/admin/driver-management" as any)} style={{ flex: 1 }}>
+              <StatCard label="Total Drivers" value={stats?.drivers.total ?? 0} color="#00E5FF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/manage-stores" as any)} style={{ flex: 1 }}>
+              <StatCard label="Active Stores" value={`${stats?.stores.active ?? 0}/${stats?.stores.total ?? 0}`} color="#00E5FF" />
+            </TouchableOpacity>
           </View>
           <View className="flex-row gap-3 mt-3">
             <TouchableOpacity onPress={() => router.push("/admin/customers" as any)} style={{ flex: 1 }}>
