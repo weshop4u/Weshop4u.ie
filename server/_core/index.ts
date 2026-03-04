@@ -2,10 +2,16 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -131,6 +137,45 @@ async function startServer() {
       createContext,
     }),
   );
+
+  // Serve static web files in production
+  if (process.env.NODE_ENV === "production") {
+    const webDistPath = path.resolve(__dirname, "..", "web-dist");
+    if (fs.existsSync(webDistPath)) {
+      console.log(`[web] Serving static files from ${webDistPath}`);
+      // Serve static assets (JS, CSS, images, etc.)
+      app.use(express.static(webDistPath, { maxAge: "1d" }));
+      // For any non-API route, serve the matching HTML file or fall back to index.html (SPA)
+      app.get("*", (req, res) => {
+        // Skip API routes
+        if (req.path.startsWith("/api/")) {
+          res.status(404).json({ error: "Not found" });
+          return;
+        }
+        // Try to find an exact HTML file for this route
+        const htmlPath = path.join(webDistPath, req.path.endsWith(".html") ? req.path : req.path + ".html");
+        if (fs.existsSync(htmlPath)) {
+          res.sendFile(htmlPath);
+          return;
+        }
+        // Try index.html in a subdirectory
+        const dirIndexPath = path.join(webDistPath, req.path, "index.html");
+        if (fs.existsSync(dirIndexPath)) {
+          res.sendFile(dirIndexPath);
+          return;
+        }
+        // Fall back to root index.html for client-side routing
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+          return;
+        }
+        res.status(404).send("Not Found");
+      });
+    } else {
+      console.log(`[web] No web-dist directory found at ${webDistPath}, skipping static file serving`);
+    }
+  }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);

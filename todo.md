@@ -2353,3 +2353,9 @@
 ## Earnings Calculation Bugs (Mar 4 2026)
 - [x] Bug: Dashboard shows 6 deliveries today but earnings page shows 11 — fixed: both endpoints now use Irish timezone (Europe/Dublin) and consistent getDeliveryDate fallback
 - [x] Bug: Dates and times on earnings panels appear incorrect — fixed: day labels now calculated in Irish timezone
+
+## Web Version Deployment
+- [x] Export Expo web build to web-dist directory
+- [x] Update server to serve static web files in production mode
+- [x] Update build script to include web export + server bundle
+- [x] Save checkpoint and republish for web access at weshop4u-hh4skdej.manus.space
