@@ -2321,3 +2321,5 @@
 ## Driver UX Enhancements (Mar 4 2026)
 - [x] Add "currently viewing" indicator on active delivery screen when switching between batch jobs
 - [x] Add pull-to-refresh on dashboard job list so drivers can manually refresh batch status
+- [x] Make batch orders tappable in the reorder panel on active delivery screen to jump directly to a different job
+- [x] Add subtle animation to the VIEWING badge to draw the driver's eye

@@ -1,13 +1,40 @@
 import { View, Text, TouchableOpacity, Pressable, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
+import Animated, { useAnimatedStyle, withRepeat, withTiming, withSequence, useSharedValue } from "react-native-reanimated";
 import { useColors } from "@/hooks/use-colors";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { ChatPanel } from "@/components/chat-panel";
 import { BatchOfferBanner } from "@/components/batch-offer-banner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+/** Animated VIEWING badge with a subtle pulse */
+function ViewingBadge() {
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 800 }),
+        withTiming(1, { duration: 800 })
+      ),
+      -1, // infinite
+      false
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[{ backgroundColor: '#3B82F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }, animatedStyle]}>
+      <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>VIEWING</Text>
+    </Animated.View>
+  );
+}
 
 export default function ActiveDeliveryScreen() {
   const router = useRouter();
@@ -497,7 +524,7 @@ export default function ActiveDeliveryScreen() {
             {/* Expandable reorder panel */}
             {showReorderPanel && (
               <View style={{ backgroundColor: '#F0F9FF', borderWidth: 1, borderTopWidth: 0, borderColor: '#93C5FD', borderBottomLeftRadius: 10, borderBottomRightRadius: 10, padding: 12 }}>
-                <Text style={{ fontSize: 13, color: '#1E40AF', fontWeight: '600', marginBottom: 8 }}>Delivery Order (tap arrows to reorder):</Text>
+                <Text style={{ fontSize: 13, color: '#1E40AF', fontWeight: '600', marginBottom: 8 }}>Tap a job to view it • Use arrows to reorder:</Text>
                 {batchOrders
                   .filter((o: any) => o.status !== 'delivered')
                   .map((bOrder: any, idx: number, arr: any[]) => {
@@ -507,13 +534,22 @@ export default function ActiveDeliveryScreen() {
                     const isCurrentOrder = bOrder.id === orderId;
                     const itemSummary = bOrder.items?.map((it: any) => `${it.quantity}x ${it.productName || 'Item'}`).join(', ') || '';
                     return (
-                      <View key={bOrder.id} style={{
-                        backgroundColor: isCurrentOrder ? '#DBEAFE' : '#FFFFFF',
-                        borderWidth: isCurrentOrder ? 2 : 1,
-                        borderColor: isCurrentOrder ? '#3B82F6' : '#E5E7EB',
-                        borderRadius: 8, padding: 10, marginBottom: 6,
-                        flexDirection: 'row', alignItems: 'center',
-                      }}>
+                      <TouchableOpacity
+                        key={bOrder.id}
+                        onPress={() => {
+                          if (!isCurrentOrder) {
+                            router.replace(`/driver/active-delivery?orderId=${bOrder.id}`);
+                          }
+                        }}
+                        activeOpacity={isCurrentOrder ? 1 : 0.6}
+                        style={{
+                          backgroundColor: isCurrentOrder ? '#DBEAFE' : '#FFFFFF',
+                          borderWidth: isCurrentOrder ? 2 : 1,
+                          borderColor: isCurrentOrder ? '#3B82F6' : '#E5E7EB',
+                          borderRadius: 8, padding: 10, marginBottom: 6,
+                          flexDirection: 'row', alignItems: 'center',
+                        }}
+                      >
                         {/* Order number badge */}
                         <View style={{ backgroundColor: isCurrentOrder ? '#3B82F6' : '#9CA3AF', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                           <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>{idx + 1}</Text>
@@ -522,10 +558,9 @@ export default function ActiveDeliveryScreen() {
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1F2937' }}>{bOrderNumber}</Text>
-                            {isCurrentOrder && (
-                              <View style={{ backgroundColor: '#3B82F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>VIEWING</Text>
-                              </View>
+                            {isCurrentOrder && <ViewingBadge />}
+                            {!isCurrentOrder && (
+                              <Text style={{ fontSize: 10, color: '#3B82F6', fontWeight: '600' }}>TAP TO VIEW</Text>
                             )}
                           </View>
                           <Text style={{ fontSize: 12, color: '#6B7280' }}>{bCustomerName} • {bStoreName}</Text>
@@ -535,7 +570,8 @@ export default function ActiveDeliveryScreen() {
                         <View style={{ flexDirection: 'column', gap: 2, marginLeft: 8 }}>
                           {idx > 0 && (
                             <TouchableOpacity
-                              onPress={() => {
+                              onPress={(e) => {
+                                e.stopPropagation();
                                 const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
                                 const newSequence = remaining.map((o: any, i: number) => {
                                   if (i === idx) return { orderId: remaining[idx - 1].id, sequence: i };
@@ -557,7 +593,8 @@ export default function ActiveDeliveryScreen() {
                           )}
                           {idx < arr.length - 1 && (
                             <TouchableOpacity
-                              onPress={() => {
+                              onPress={(e) => {
+                                e.stopPropagation();
                                 const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
                                 const newSequence = remaining.map((o: any, i: number) => {
                                   if (i === idx) return { orderId: remaining[idx + 1].id, sequence: i };
@@ -578,7 +615,7 @@ export default function ActiveDeliveryScreen() {
                             </TouchableOpacity>
                           )}
                         </View>
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
                 {reorderBatchMutation.isPending && (
