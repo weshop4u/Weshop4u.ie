@@ -734,13 +734,21 @@ export default function DriverHomeScreen() {
                 : activeOrder.status === 'preparing'
                 ? '👨‍🍳 Preparing'
                 : '✅ Accepted';
-              const borderColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+              const isFirstJob = idx === 0 && allActiveOrders.length > 1;
+              const customerName = activeOrder.customer?.name || activeOrder.customerName || '';
+              const borderColor = isFirstJob
+                ? '#059669'
+                : activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
                 ? '#3B82F6'
                 : '#F59E0B';
-              const bgColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+              const bgColor = isFirstJob
+                ? '#ECFDF5'
+                : activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
                 ? '#EFF6FF'
                 : '#FEF3C7';
-              const textColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+              const textColor = isFirstJob
+                ? '#065F46'
+                : activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
                 ? '#1E40AF'
                 : '#92400E';
               return (
@@ -770,16 +778,31 @@ export default function DriverHomeScreen() {
                         {orderNum} • {storeName}
                       </Text>
                     </View>
+                    {isFirstJob && (
+                      <View style={{ marginLeft: allActiveOrders.length > 1 ? 30 : 0, marginBottom: 4 }}>
+                        <View style={{ backgroundColor: '#059669', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold', letterSpacing: 0.5 }}>DELIVER NEXT</Text>
+                        </View>
+                      </View>
+                    )}
                     <Text style={{ fontSize: 12, color: textColor, marginLeft: allActiveOrders.length > 1 ? 30 : 0 }}>
                       {statusLabel}
-                      {!isReordering && activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 40)}${activeOrder.deliveryAddress.length > 40 ? '...' : ''}` : ''}
+                      {customerName ? ` • ${customerName}` : ''}
+                      {!isReordering && activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 35)}${activeOrder.deliveryAddress.length > 35 ? '...' : ''}` : ''}
                     </Text>
-                    {isReordering && activeOrder.deliveryAddress && (
+                    {isReordering && (
                       <View style={{ marginLeft: allActiveOrders.length > 1 ? 30 : 0, marginTop: 4, backgroundColor: '#F3F4F6', borderRadius: 6, padding: 6 }}>
-                        <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500' }}>📍 Deliver to:</Text>
-                        <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', marginTop: 2 }}>
-                          {activeOrder.deliveryAddress}
-                        </Text>
+                        {customerName ? (
+                          <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500', marginBottom: 2 }}>👤 {customerName}</Text>
+                        ) : null}
+                        {activeOrder.deliveryAddress ? (
+                          <>
+                            <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500' }}>📍 Deliver to:</Text>
+                            <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', marginTop: 2 }}>
+                              {activeOrder.deliveryAddress}
+                            </Text>
+                          </>
+                        ) : null}
                       </View>
                     )}
                   </View>

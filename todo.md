@@ -2345,3 +2345,7 @@
 - [x] Add confirmation toast after reordering jobs (e.g., "Delivery order updated")
 - [x] Show delivery addresses more prominently in reorder mode on dashboard
 - [x] Remove completed/delivered jobs from multi-order menu — shrink list as deliveries are done, show normal single-job screen when only 1 left (already handled by server filtering)
+
+## Job Card Enhancements (Mar 4 2026)
+- [x] Show customer name on each job card in reorder mode
+- [x] Add "Deliver Next" highlight on the first job in the list
