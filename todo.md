@@ -2383,3 +2383,12 @@
 - [x] Fix login redirects to use /api/web/ prefix
 - [x] Fix driver mode switch redirect
 - [x] Rebuild and save checkpoint
+
+## Fix ALL remaining web redirects (admin included)
+- [x] Find and fix ALL window.location.href redirects across entire codebase
+- [x] Fixed admin desktop layout logout (the actual cause)
+- [x] Fixed admin _layout.tsx store_staff redirect
+- [x] Fixed store-login.tsx redirect
+- [x] Fixed pos-printer.tsx redirect
+- [x] Rebuild web export and server bundle
+- [x] Save checkpoint

@@ -74,7 +74,8 @@ export default function StoreLoginScreen() {
 
       // Step 6: Navigate to store dashboard
       if (Platform.OS === "web") {
-        window.location.href = "/store";
+        const base = window.location.pathname.startsWith("/api/web") ? "/api/web" : "";
+        window.location.href = `${base}/store`;
       } else {
         Alert.alert("Success", "Logged in successfully!");
         router.replace("/store");

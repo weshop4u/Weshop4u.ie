@@ -17,7 +17,8 @@ export default function AdminLayout() {
       if (user.role === "store_staff") {
         // Store staff should not access admin routes — redirect to store dashboard
         if (Platform.OS === "web") {
-          window.location.href = "/store";
+          const base = window.location.pathname.startsWith("/api/web") ? "/api/web" : "";
+          window.location.href = `${base}/store`;
         } else {
           router.replace("/store" as any);
         }

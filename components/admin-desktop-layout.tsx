@@ -128,9 +128,13 @@ export function AdminDesktopLayout({ children, title }: AdminDesktopLayoutProps)
           )}
 
           <TouchableOpacity
-            onPress={() => {
-              logout();
-              router.push("/" as any);
+            onPress={async () => {
+              await logout();
+              if (Platform.OS === "web" && window.location.pathname.startsWith("/api/web")) {
+                window.location.href = "/api/web/";
+              } else {
+                router.push("/" as any);
+              }
             }}
             style={styles.logoutButton}
             activeOpacity={0.7}

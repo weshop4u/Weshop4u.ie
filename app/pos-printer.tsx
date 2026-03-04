@@ -488,7 +488,8 @@ export default function POSPrinterScreen() {
           <TouchableOpacity
             onPress={() => {
               if (Platform.OS === "web" && typeof window !== "undefined") {
-                window.location.href = "/store-dashboard";
+                const base = window.location.pathname.startsWith("/api/web") ? "/api/web" : "";
+                window.location.href = `${base}/store-dashboard`;
               }
             }}
             style={{
