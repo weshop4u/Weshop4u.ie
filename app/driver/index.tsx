@@ -47,6 +47,19 @@ export default function DriverHomeScreen() {
   const isAutoTogglingOffRef = useRef(false);
   const lastExpiredOfferId = useRef<number | null>(null);
 
+  // Check for active delivery (single — used for auto-redirect)
+  const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id, refetchInterval: 5000 }
+  );
+
+  // Get ALL active deliveries in the batch (for multi-job display)
+  const { data: batchData } = trpc.drivers.getActiveBatch.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id, refetchInterval: 5000 }
+  );
+  const allActiveOrders = batchData?.orders || [];
+
   // Load driver profile to get actual online status from DB
   // Only fetch once on mount - don't refetch automatically to avoid overriding local state
   const hasSyncedProfile = useRef(false);
@@ -56,21 +69,28 @@ export default function DriverHomeScreen() {
   );
 
   // Force driver offline on login - they must manually toggle online when ready
+  // BUT skip this if driver has active deliveries (returning from active-delivery screen)
   useEffect(() => {
     if (hasSyncedProfile.current) return; // Only run once
-    if (driverProfile && user?.id) {
-      hasSyncedProfile.current = true;
-      // Always start offline regardless of DB state
-      setIsOnline(false);
-      // Ensure server also knows we're offline
-      if (driverProfile.isOnline) {
-        toggleOnlineMutation.mutate(
-          { driverId: user.id, isOnline: false },
-          { onSuccess: () => console.log('[Driver] Forced offline on login') }
-        );
-      }
+    // Wait until both profile AND activeDelivery queries have loaded
+    if (!driverProfile || !user?.id || activeDeliveryLoading) return;
+    hasSyncedProfile.current = true;
+    // If driver has active deliveries, sync online state from DB instead of forcing offline
+    if (activeDelivery && activeDelivery.id) {
+      console.log('[Driver] Has active deliveries, syncing online state from DB');
+      setIsOnline(driverProfile.isOnline ?? true); // Default to online if DB says so
+      return;
     }
-  }, [driverProfile, user?.id]);
+    // No active deliveries — start offline regardless of DB state
+    setIsOnline(false);
+    // Ensure server also knows we're offline
+    if (driverProfile.isOnline) {
+      toggleOnlineMutation.mutate(
+        { driverId: user.id, isOnline: false },
+        { onSuccess: () => console.log('[Driver] Forced offline on login') }
+      );
+    }
+  }, [driverProfile, user?.id, activeDelivery, activeDeliveryLoading]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
   useEffect(() => {
@@ -81,11 +101,6 @@ export default function DriverHomeScreen() {
     }
   }, [isOnline, user?.id]);
 
-  // Check for active delivery
-  const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(
-    { driverId: user?.id! },
-    { enabled: !!user?.id, refetchInterval: 5000 }
-  );
   const [hasAutoRedirected, setHasAutoRedirected] = useState(false);
 
   // Auto-redirect to active delivery on login/open
@@ -632,32 +647,76 @@ export default function DriverHomeScreen() {
           <Text className="text-muted">Welcome back, {user.name}!</Text>
         </View>
 
-        {/* Active Delivery Banner */}
-        {activeDelivery && activeDelivery.id && (
-          <TouchableOpacity
-            onPress={() => router.push(`/driver/active-delivery?orderId=${activeDelivery.id}`)}
-            style={{
-              backgroundColor: '#FEF3C7',
-              borderWidth: 2,
-              borderColor: '#F59E0B',
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#92400E', marginBottom: 4 }}>
-                🚗 Active Delivery in Progress
-              </Text>
-              <Text style={{ fontSize: 13, color: '#92400E' }}>
-                {activeDelivery.orderNumber || `Order #${activeDelivery.id}`} • {activeDelivery.store?.name || 'Store'}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 24, color: '#F59E0B' }}>›</Text>
-          </TouchableOpacity>
+        {/* Active Deliveries — show ALL jobs in the batch */}
+        {allActiveOrders.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            {allActiveOrders.length > 1 && (
+              <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, marginRight: 6 }}>📦</Text>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
+                    {allActiveOrders.length} Active Jobs
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, color: '#3B82F6' }}>Tap a job to view details</Text>
+              </View>
+            )}
+            {allActiveOrders.map((activeOrder: any, idx: number) => {
+              const orderNum = activeOrder.orderNumber || `Order #${activeOrder.id}`;
+              const storeName = activeOrder.store?.name || 'Store';
+              const statusLabel = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+                ? '🚗 On the way'
+                : activeOrder.status === 'ready_for_pickup'
+                ? '📦 Ready for pickup'
+                : activeOrder.status === 'preparing'
+                ? '👨‍🍳 Preparing'
+                : '✅ Accepted';
+              const borderColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+                ? '#3B82F6'
+                : '#F59E0B';
+              const bgColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+                ? '#EFF6FF'
+                : '#FEF3C7';
+              const textColor = activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
+                ? '#1E40AF'
+                : '#92400E';
+              return (
+                <TouchableOpacity
+                  key={activeOrder.id}
+                  onPress={() => router.push(`/driver/active-delivery?orderId=${activeOrder.id}`)}
+                  style={{
+                    backgroundColor: bgColor,
+                    borderWidth: 2,
+                    borderColor: borderColor,
+                    borderRadius: 12,
+                    padding: 14,
+                    marginBottom: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      {allActiveOrders.length > 1 && (
+                        <View style={{ backgroundColor: borderColor, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{idx + 1}</Text>
+                        </View>
+                      )}
+                      <Text style={{ fontSize: 15, fontWeight: 'bold', color: textColor }}>
+                        {orderNum} • {storeName}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: textColor, marginLeft: allActiveOrders.length > 1 ? 30 : 0 }}>
+                      {statusLabel}
+                      {activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 40)}${activeOrder.deliveryAddress.length > 40 ? '...' : ''}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 20, color: borderColor, marginLeft: 8 }}>›</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
 
         {/* Online/Offline Toggle */}
@@ -881,7 +940,7 @@ export default function DriverHomeScreen() {
         )}
 
         {/* End Shift Button - shown when offline and not on active delivery */}
-        {!isOnline && !(activeDelivery && activeDelivery.id) && (
+        {!isOnline && allActiveOrders.length === 0 && (
           <TouchableOpacity
             onPress={handleEndShift}
             disabled={isEndingShift}

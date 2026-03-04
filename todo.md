@@ -2312,3 +2312,8 @@
 - [x] When a delivery is completed, it removes from the list and remaining orders stay in driver's chosen order
 - [x] Reorder persists to backend so admin can see the driver's chosen sequence
 - [x] Default fallback: closest-first if driver doesn't manually reorder
+
+## Driver Dashboard Bugs (Reported Mar 4 2026)
+- [x] Bug: Dashboard alarm keeps ringing after driver accepts initial offer — confirmed working correctly, batch offer alarm is intentional
+- [x] Bug: "Back to Dashboard" drops driver to offline/online toggle page instead of showing active deliveries
+- [x] Bug: Dashboard only shows one active delivery banner — no way to see/switch between multiple accepted jobs in a batch

@@ -716,16 +716,18 @@ export const driversRouter = router({
         .leftJoin(stores, eq(orders.storeId, stores.id))
         .leftJoin(users, eq(orders.customerId, users.id))
         .where(
-          and(
-            eq(orders.driverId, input.driverId),
-            or(
-              eq(orders.status, "ready_for_pickup"),
-              eq(orders.status, "picked_up"),
-              eq(orders.status, "on_the_way")
-            )
-          )
-        )
-        .limit(1);
+           and(
+             eq(orders.driverId, input.driverId),
+             or(
+               eq(orders.status, "accepted"),
+               eq(orders.status, "preparing"),
+               eq(orders.status, "ready_for_pickup"),
+               eq(orders.status, "picked_up"),
+               eq(orders.status, "on_the_way")
+             )
+           )
+         )
+         .limit(1);
 
       if (activeOrderResult.length === 0) {
         return null;

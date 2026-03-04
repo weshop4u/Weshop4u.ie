@@ -358,7 +358,7 @@ export default function ActiveDeliveryScreen() {
         {/* Back to Dashboard Link */}
         {deliveryStatus !== "delivered" && (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace('/driver')}
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 4 }}
           >
             <Text style={{ fontSize: 16, color: colors.primary, fontWeight: '600' }}>← Back to Dashboard</Text>
