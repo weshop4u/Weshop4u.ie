@@ -2364,3 +2364,8 @@
 - [x] Fix Android adaptive icon showing as black square instead of WESHOP4U logo
 - [x] Ensure foreground icon asset is properly configured
 - [x] Rebuild and save checkpoint
+
+## Production Build Fix
+- [x] Revert build script to server-only (expo export fails in Docker build environment)
+- [x] Pre-include web-dist in the checkpoint so it's available at deploy time
+- [ ] Save checkpoint and republish
