@@ -480,7 +480,7 @@ export default function ActiveDeliveryScreen() {
                     Batch Delivery: {currentBatchIndex + 1} of {totalBatchOrders}
                   </Text>
                   <Text style={{ fontSize: 12, color: '#3B82F6' }}>
-                    {batchOrders.filter((o: any) => o.status === 'delivered').length} delivered, {batchOrders.filter((o: any) => o.status !== 'delivered').length} remaining
+                    Viewing job {currentBatchIndex + 1} • {batchOrders.filter((o: any) => o.status === 'delivered').length} delivered, {batchOrders.filter((o: any) => o.status !== 'delivered').length} remaining
                   </Text>
                 </View>
               </View>
@@ -520,7 +520,14 @@ export default function ActiveDeliveryScreen() {
                         </View>
                         {/* Order info */}
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1F2937' }}>{bOrderNumber}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1F2937' }}>{bOrderNumber}</Text>
+                            {isCurrentOrder && (
+                              <View style={{ backgroundColor: '#3B82F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' }}>VIEWING</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={{ fontSize: 12, color: '#6B7280' }}>{bCustomerName} • {bStoreName}</Text>
                           {itemSummary ? <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }} numberOfLines={1}>{itemSummary}</Text> : null}
                         </View>

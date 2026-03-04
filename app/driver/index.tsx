@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "expo-router";
@@ -48,17 +48,34 @@ export default function DriverHomeScreen() {
   const lastExpiredOfferId = useRef<number | null>(null);
 
   // Check for active delivery (single — used for auto-redirect)
-  const { data: activeDelivery, isLoading: activeDeliveryLoading } = trpc.drivers.getActiveDelivery.useQuery(
+  const { data: activeDelivery, isLoading: activeDeliveryLoading, refetch: refetchActiveDelivery } = trpc.drivers.getActiveDelivery.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchInterval: 5000 }
   );
 
   // Get ALL active deliveries in the batch (for multi-job display)
-  const { data: batchData } = trpc.drivers.getActiveBatch.useQuery(
+  const { data: batchData, refetch: refetchBatch } = trpc.drivers.getActiveBatch.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchInterval: 5000 }
   );
   const allActiveOrders = batchData?.orders || [];
+
+  // Pull-to-refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchActiveDelivery(),
+        refetchBatch(),
+        refetchStats(),
+      ]);
+    } catch (e) {
+      // ignore
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchActiveDelivery, refetchBatch, refetchStats]);
 
   // Load driver profile to get actual online status from DB
   // Only fetch once on mount - don't refetch automatically to avoid overriding local state
@@ -640,7 +657,17 @@ export default function DriverHomeScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView className="flex-1 p-4">
+      <ScrollView
+        className="flex-1 p-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#0a7ea4"
+            colors={['#0a7ea4']}
+          />
+        }
+      >
         {/* Header */}
         <View className="mb-6">
           <Text className="text-3xl font-bold text-foreground mb-2">Driver Dashboard</Text>

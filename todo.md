@@ -2317,3 +2317,7 @@
 - [x] Bug: Dashboard alarm keeps ringing after driver accepts initial offer — confirmed working correctly, batch offer alarm is intentional
 - [x] Bug: "Back to Dashboard" drops driver to offline/online toggle page instead of showing active deliveries
 - [x] Bug: Dashboard only shows one active delivery banner — no way to see/switch between multiple accepted jobs in a batch
+
+## Driver UX Enhancements (Mar 4 2026)
+- [x] Add "currently viewing" indicator on active delivery screen when switching between batch jobs
+- [x] Add pull-to-refresh on dashboard job list so drivers can manually refresh batch status
