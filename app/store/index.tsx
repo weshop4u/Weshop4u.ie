@@ -273,7 +273,8 @@ export default function StoreDashboardScreen() {
       utils.invalidate();
       // Navigate
       if (Platform.OS === "web") {
-        window.location.href = "/";
+        const baseUrl = window.location.pathname.startsWith("/api/web") ? "/api/web/" : "/";
+        window.location.href = baseUrl;
       } else {
         router.replace("/(tabs)" as any);
       }
@@ -285,13 +286,13 @@ export default function StoreDashboardScreen() {
       } catch (e) { /* ignore */ }
       await AsyncStorage.multiRemove(["user", "authToken", "userRole", "appMode"]);
       if (Platform.OS === "web") {
-        window.location.href = "/";
+        const baseUrl = window.location.pathname.startsWith("/api/web") ? "/api/web/" : "/";
+        window.location.href = baseUrl;
       } else {
         router.replace("/(tabs)" as any);
       }
     }
   };
-
   const handlePrintOrder = useCallback(async (orderId: number) => {
     if (!storeId) return;
     try {

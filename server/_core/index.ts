@@ -138,6 +138,9 @@ async function startServer() {
     }),
   );
 
+  // Redirect root /api/ to /api/web/ so users always land on the web app
+  app.get("/api", (_req, res) => res.redirect("/api/web/"));
+
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
   {

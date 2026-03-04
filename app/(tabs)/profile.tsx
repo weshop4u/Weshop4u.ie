@@ -72,7 +72,9 @@ export default function ProfileScreen() {
       // 5. Navigate
       if (Platform.OS === "web") {
         console.log("[Logout] Reloading page...");
-        window.location.href = "/";
+        // Redirect to /api/web/ since the deployment platform only serves the web app there
+        const baseUrl = window.location.pathname.startsWith("/api/web") ? "/api/web/" : "/";
+        window.location.href = baseUrl;
       } else {
         console.log("[Logout] Navigating to home (native)...");
         // On native, navigate to home - useAuth state is already cleared
@@ -90,7 +92,9 @@ export default function ProfileScreen() {
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
       utils.auth.me.reset();
       if (Platform.OS === "web") {
-        window.location.href = "/";
+        // Redirect to /api/web/ since the deployment platform only serves the web app there
+        const baseUrl = window.location.pathname.startsWith("/api/web") ? "/api/web/" : "/";
+        window.location.href = baseUrl;
       } else {
         router.replace("/(tabs)" as any);
       }

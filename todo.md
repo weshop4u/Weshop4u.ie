@@ -2376,3 +2376,10 @@
 - [x] Rebuild and save checkpoint
 - [x] Verified locally - web app serves at /api/web/ with correct asset paths
 - [ ] Verify web version works at weshop4u-hh4skdej.manus.space/api/web/ after republish
+
+## Root URL & Logout Redirect Fix
+- [x] Add server redirect from root /api to /api/web/
+- [x] Fix logout to redirect back to /api/web/ instead of /
+- [x] Fix login redirects to use /api/web/ prefix
+- [x] Fix driver mode switch redirect
+- [x] Rebuild and save checkpoint

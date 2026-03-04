@@ -609,7 +609,8 @@ export default function DriverHomeScreen() {
     try {
       await AsyncStorage.setItem("appMode", "customer");
       if (Platform.OS === "web") {
-        window.location.href = "/";
+        const base = window.location.pathname.startsWith("/api/web") ? "/api/web" : "";
+        window.location.href = `${base}/`;
       } else {
         router.push("/");
       }

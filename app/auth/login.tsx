@@ -110,12 +110,13 @@ export default function LoginScreen() {
 
       // Step 7: Navigate based on role
       if (Platform.OS === "web") {
+        const base = window.location.pathname.startsWith("/api/web") ? "/api/web" : "";
         if (result.user.role === "driver") {
-          window.location.href = "/driver";
+          window.location.href = `${base}/driver`;
         } else if (result.user.role === "store_staff") {
-          window.location.href = "/store";
+          window.location.href = `${base}/store`;
         } else {
-          window.location.href = "/";
+          window.location.href = `${base}/`;
         }
       } else {
         if (result.user.role === "driver") {
