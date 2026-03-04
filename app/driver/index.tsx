@@ -774,6 +774,7 @@ export default function DriverHomeScreen() {
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
+                            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
                             setLocalOrderOverride(newOrder);
@@ -794,6 +795,7 @@ export default function DriverHomeScreen() {
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
+                            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
                             setLocalOrderOverride(newOrder);

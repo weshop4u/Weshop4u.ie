@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
+import * as Haptics from "expo-haptics";
 import { ChatPanel } from "@/components/chat-panel";
 import { BatchOfferBanner } from "@/components/batch-offer-banner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -575,6 +576,7 @@ export default function ActiveDeliveryScreen() {
                             <TouchableOpacity
                               onPress={(e) => {
                                 e.stopPropagation();
+                                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
                                 const newSequence = remaining.map((o: any, i: number) => {
                                   if (i === idx) return { orderId: remaining[idx - 1].id, sequence: i };
@@ -598,6 +600,7 @@ export default function ActiveDeliveryScreen() {
                             <TouchableOpacity
                               onPress={(e) => {
                                 e.stopPropagation();
+                                if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
                                 const newSequence = remaining.map((o: any, i: number) => {
                                   if (i === idx) return { orderId: remaining[idx + 1].id, sequence: i };

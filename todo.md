@@ -2336,3 +2336,7 @@
 ## Reorder Bug Fix (Mar 4 2026)
 - [x] Bug: Dashboard reorder arrows don't visually move cards — fixed with optimistic local state + correct server payload format
 - [x] Bug: Active-delivery reorder panel already sends correct { orderId, sequence } format — confirmed working
+
+## Reorder UX Improvements (Mar 4 2026)
+- [x] Add haptic feedback on reorder arrow presses (both dashboard and active-delivery)
+- [x] Ensure driver can always reorder jobs regardless of status (picked up, on the way, etc.) — only exclude delivered (already working this way)
