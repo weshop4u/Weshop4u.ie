@@ -106,18 +106,21 @@ export default function ActiveDeliveryScreen() {
       setDeliveryStatus("going_to_customer");
       setHasNotifiedAtStore(true);
     } else if (order.status === "ready_for_pickup") {
-      // Order is ready at store, but only show "at_store" UI if driver has tapped the button
-      // Otherwise keep showing "going_to_store" so the button remains visible
-      if (hasNotifiedAtStore) {
-        setDeliveryStatus("at_store");
-      }
-      // Don't auto-set to at_store — driver must tap the button
+      // Order is ready at store — driver has arrived or store marked it ready
+      setDeliveryStatus("at_store");
+      setHasNotifiedAtStore(true);
+    } else if ((order as any).driverArrivedAt) {
+      // Driver has arrived at store (persisted on server) but order not yet ready_for_pickup
+      // This handles the case where driver tapped "Arrived" but store hasn't changed status yet
+      setDeliveryStatus("at_store");
+      setHasNotifiedAtStore(true);
     } else {
-      // Default to going_to_store for other statuses
-      if (deliveryStatus === "delivered") return; // Don't reset if already delivered
+      // Default to going_to_store for other statuses (accepted, preparing, etc.)
+      if (deliveryStatus === "delivered" || deliveryStatus === "going_to_customer") return; // Don't regress
+      if (deliveryStatus === "at_store" && hasNotifiedAtStore) return; // Don't reset if already at store locally
       setDeliveryStatus("going_to_store");
     }
-  }, [order?.status, hasNotifiedAtStore]);
+  }, [order?.status, (order as any)?.driverArrivedAt]);
 
   // Location tracking - send updates every 10 seconds during active delivery
   useEffect(() => {
@@ -246,7 +249,7 @@ export default function ActiveDeliveryScreen() {
         reason: returnReason || undefined,
       });
       // Navigate back to driver dashboard (driver is now offline)
-      router.replace("/driver");
+      router.replace("/driver?fromDelivery=true");
     } catch (error: any) {
       const msg = error?.message || "";
       if (msg.includes("REASON_REQUIRED")) {
@@ -385,7 +388,7 @@ export default function ActiveDeliveryScreen() {
         {/* Back to Dashboard Link */}
         {deliveryStatus !== "delivered" && (
           <TouchableOpacity
-            onPress={() => router.replace('/driver')}
+            onPress={() => router.replace('/driver?fromDelivery=true')}
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 4 }}
           >
             <Text style={{ fontSize: 16, color: colors.primary, fontWeight: '600' }}>← Back to Dashboard</Text>
@@ -847,7 +850,7 @@ export default function ActiveDeliveryScreen() {
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => router.replace("/driver")}
+                  onPress={() => router.replace("/driver?fromDelivery=true")}
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, borderRadius: 12, alignItems: 'center' }}
                 >
                   <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>Back to Dashboard</Text>
@@ -855,7 +858,7 @@ export default function ActiveDeliveryScreen() {
               </View>
             ) : (
               <TouchableOpacity
-                onPress={() => router.replace("/driver")}
+                onPress={() => router.replace("/driver?fromDelivery=true")}
                 style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center' }}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Back to Dashboard</Text>

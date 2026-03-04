@@ -291,6 +291,7 @@ export const orders = mysqlTable(
     batchId: varchar("batch_id", { length: 50 }), // Groups multiple orders for same driver batch delivery
     batchSequence: int("batch_sequence"), // Delivery order within the batch (1 = first delivery)
     driverAssignedAt: timestamp("driver_assigned_at"),
+    driverArrivedAt: timestamp("driver_arrived_at"),
     acceptedAt: timestamp("accepted_at"),
     pickedUpAt: timestamp("picked_up_at"),
     deliveredAt: timestamp("delivered_at"),

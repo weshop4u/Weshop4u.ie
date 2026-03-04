@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
@@ -16,6 +16,7 @@ const isExpoGo = Constants.appOwnership === "expo";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
 
@@ -121,12 +122,14 @@ export default function DriverHomeScreen() {
   const [hasAutoRedirected, setHasAutoRedirected] = useState(false);
 
   // Auto-redirect to active delivery on login/open
+  // Skip if driver explicitly navigated back from active delivery (fromDelivery param)
   useEffect(() => {
+    if (params.fromDelivery === 'true') return; // Driver explicitly came back, don't bounce them
     if (activeDelivery && activeDelivery.id && !hasAutoRedirected && !activeDeliveryLoading) {
       setHasAutoRedirected(true);
       router.push(`/driver/active-delivery?orderId=${activeDelivery.id}`);
     }
-  }, [activeDelivery, hasAutoRedirected, activeDeliveryLoading]);
+  }, [activeDelivery, hasAutoRedirected, activeDeliveryLoading, params.fromDelivery]);
 
   // End Shift state
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
@@ -695,6 +698,8 @@ export default function DriverHomeScreen() {
                 ? '🚗 On the way'
                 : activeOrder.status === 'ready_for_pickup'
                 ? '📦 Ready for pickup'
+                : activeOrder.driverArrivedAt
+                ? '🏪 At store'
                 : activeOrder.status === 'preparing'
                 ? '👨‍🍳 Preparing'
                 : '✅ Accepted';

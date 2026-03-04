@@ -2323,3 +2323,8 @@
 - [x] Add pull-to-refresh on dashboard job list so drivers can manually refresh batch status
 - [x] Make batch orders tappable in the reorder panel on active delivery screen to jump directly to a different job
 - [x] Add subtle animation to the VIEWING badge to draw the driver's eye
+
+## Critical Driver Bugs (Mar 4 2026 - Round 2)
+- [x] Bug: Back to Dashboard from active delivery screen doesn't actually navigate away — stays on same screen
+- [x] Bug: Back to Dashboard resets "Arrived at Store" status back to "Going to Store", causing repeated SMS notifications to customer
+- [x] Bug: Dashboard only shows single "Active Delivery in Progress" banner instead of all batch jobs (multi-job cards not appearing)

@@ -774,8 +774,20 @@ export const driversRouter = router({
         throw new Error("Order not found");
       }
 
+      const orderRecord = orderResult[0].orders;
       const customer = orderResult[0].users;
       const store = orderResult[0].stores;
+
+      // Check if driver already arrived (prevent duplicate SMS)
+      if (orderRecord.driverArrivedAt) {
+        console.log(`[notifyDriverAtStore] Driver already arrived for order ${input.orderId}, skipping duplicate notification`);
+        return { success: true, alreadyNotified: true };
+      }
+
+      // Set driverArrivedAt timestamp to persist the "at store" state
+      await db.update(orders).set({
+        driverArrivedAt: new Date(),
+      }).where(eq(orders.id, input.orderId));
 
       // Log to order_tracking
       await db.insert(orderTracking).values({
@@ -787,7 +799,6 @@ export const driversRouter = router({
       // SMS #2 / Push — Driver at Store notification
       // Strategy: Send push to customers WITH a push token (app users).
       // Send SMS to customers WITHOUT a push token (guests + web-only users).
-      const orderRecord = orderResult[0].orders;
       const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
       const trackingUrl = `${baseUrl}/track/${input.orderId}`;
 
