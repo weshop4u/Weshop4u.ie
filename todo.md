@@ -2392,3 +2392,9 @@
 - [x] Fixed pos-printer.tsx redirect
 - [x] Rebuild web export and server bundle
 - [x] Save checkpoint
+
+## Call Customer Button for Drivers
+- [x] Add "Call Customer" button on driver order cards
+- [x] Integrate with phone dialer (tel: link) for native and web
+- [x] Rebuild web export and server bundle
+- [x] Save checkpoint

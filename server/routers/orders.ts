@@ -420,6 +420,7 @@ export const ordersRouter = router({
         .select()
         .from(orders)
         .leftJoin(stores, eq(orders.storeId, stores.id))
+        .leftJoin(users, eq(orders.customerId, users.id))
         .where(eq(orders.id, input.orderId))
         .limit(1);
 
@@ -468,6 +469,7 @@ export const ordersRouter = router({
       return {
         ...orderResult[0].orders,
         store: orderResult[0].stores,
+        customer: orderResult[0].users ? { name: orderResult[0].users.name, phone: orderResult[0].users.phone } : null,
         items: itemsWithModifiers,
       };
     }),

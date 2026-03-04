@@ -372,7 +372,7 @@ export default function ActiveDeliveryScreen() {
   const storeLng = order.store?.longitude || null;
   const customerAddress = order.deliveryAddress || "Address unavailable";
   const customerName = (order as any).customer?.name || (order as any).guestName || "Customer";
-  const customerPhone = order.guestPhone || "";
+  const customerPhone = order.guestPhone || (order as any).customer?.phone || "";
   const customerLat = order.deliveryLatitude || null;
   const customerLng = order.deliveryLongitude || null;
   const deliveryFee = parseFloat(order.deliveryFee || "0");

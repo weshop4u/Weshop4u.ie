@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -737,6 +737,7 @@ export default function DriverHomeScreen() {
                 : '✅ Accepted';
               const isFirstJob = idx === 0 && allActiveOrders.length > 1;
               const customerName = activeOrder.customer?.name || activeOrder.customerName || '';
+              const customerPhone = activeOrder.guestPhone || activeOrder.customer?.phone || '';
               const borderColor = isFirstJob
                 ? '#059669'
                 : activeOrder.status === 'picked_up' || activeOrder.status === 'on_the_way'
@@ -806,6 +807,39 @@ export default function DriverHomeScreen() {
                         ) : null}
                       </View>
                     )}
+                    {/* Call Customer Button */}
+                    {customerPhone ? (
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          Linking.openURL(`tel:${customerPhone}`).catch((err) => {
+                            console.error('Could not open phone dialer:', err);
+                            if (Platform.OS === 'web') {
+                              alert(`Call customer: ${customerPhone}`);
+                            } else {
+                              Alert.alert('Call Customer', customerPhone);
+                            }
+                          });
+                        }}
+                        style={{
+                          marginLeft: allActiveOrders.length > 1 ? 30 : 0,
+                          marginTop: 6,
+                          backgroundColor: '#DBEAFE',
+                          borderWidth: 1,
+                          borderColor: '#93C5FD',
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        <Text style={{ fontSize: 14, marginRight: 6 }}>📞</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1D4ED8' }}>Call Customer</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                   {isReordering && allActiveOrders.length > 1 ? (
                     <View style={{ marginLeft: 8, gap: 2 }}>
