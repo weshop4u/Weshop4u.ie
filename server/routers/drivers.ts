@@ -988,12 +988,16 @@ export const driversRouter = router({
         return new Date(order.createdAt);
       };
 
-      // Calculate today's stats
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Helper to get date string in Irish timezone (Europe/Dublin)
+      const toIrishDateStr = (date: Date): string => {
+        return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' }); // returns YYYY-MM-DD
+      };
+
+      // Calculate today's stats using Irish timezone
+      const todayStr = toIrishDateStr(new Date());
       const todayOrders = completedOrders.filter(order => {
         const deliveredAt = getDeliveryDate(order);
-        return deliveredAt >= today;
+        return toIrishDateStr(deliveredAt) === todayStr;
       });
       const todayEarnings = todayOrders.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
@@ -1004,13 +1008,25 @@ export const driversRouter = router({
         0
       );
 
-      // Calculate this week's stats
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
-      weekStart.setHours(0, 0, 0, 0);
+      // Calculate this week's stats using Irish timezone
+      // Get current day of week in Irish timezone
+      const nowInIreland = new Date();
+      const irishDayOfWeek = parseInt(nowInIreland.toLocaleDateString('en-US', { timeZone: 'Europe/Dublin', weekday: 'narrow' }).length > 0 
+        ? new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Dublin', weekday: 'short' }).format(nowInIreland)
+        : '0');
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const currentDayIdx = dayNames.indexOf(
+        new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Dublin', weekday: 'short' }).format(nowInIreland)
+      );
+      // Build list of date strings for this week (Sunday to today) in Irish timezone
+      const weekDateStrs: string[] = [];
+      for (let i = currentDayIdx; i >= 0; i--) {
+        const d = new Date(nowInIreland.getTime() - i * 86400000);
+        weekDateStrs.push(toIrishDateStr(d));
+      }
       const weekOrders = completedOrders.filter(order => {
         const deliveredAt = getDeliveryDate(order);
-        return deliveredAt >= weekStart;
+        return weekDateStrs.includes(toIrishDateStr(deliveredAt));
       });
       const weekEarnings = weekOrders.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
@@ -1467,42 +1483,62 @@ export const driversRouter = router({
         0
       );
 
-      // Build daily breakdown for the past 7 days
+      // Helper to get date string in Irish timezone (Europe/Dublin)
+      const toIrishDateStr = (date: Date): string => {
+        return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' }); // returns YYYY-MM-DD
+      };
+      const toIrishDayLabel = (date: Date): string => {
+        return new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Dublin', weekday: 'short' }).format(date);
+      };
+      const toIrishDayOfMonth = (date: Date): number => {
+        return parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Dublin', day: 'numeric' }).format(date));
+      };
+
+      // Helper to get effective delivery date (use deliveredAt, fall back to createdAt)
+      const getDeliveryDate = (order: any): Date => {
+        if (order.deliveredAt) return new Date(order.deliveredAt);
+        return new Date(order.createdAt);
+      };
+
+      // Build daily breakdown for the past 7 days using Irish timezone
       const dailyBreakdown: { date: string; dayLabel: string; earnings: number; deliveries: number }[] = [];
-      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split("T")[0];
+        const d = new Date(Date.now() - i * 86400000);
+        const dateStr = toIrishDateStr(d);
         const dayOrders = completedOrders.filter(o => {
-          const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
+          const oDate = toIrishDateStr(getDeliveryDate(o));
           return oDate === dateStr;
         });
+        const dayOfMonth = toIrishDayOfMonth(d);
         dailyBreakdown.push({
           date: dateStr,
-          dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : days[d.getDay()],
+          dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : toIrishDayLabel(d),
           earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
           deliveries: dayOrders.length,
         });
       }
 
-      // Today's earnings
-      const todayStr = new Date().toISOString().split("T")[0];
+      // Today's earnings using Irish timezone
+      const todayStr = toIrishDateStr(new Date());
       const todayOrders = completedOrders.filter(o => {
-        const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
+        const oDate = toIrishDateStr(getDeliveryDate(o));
         return oDate === todayStr;
       });
       const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
       const todayTips = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
-      // This week's earnings
-      const weekStart = new Date();
-      weekStart.setHours(0, 0, 0, 0);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+      // This week's earnings using Irish timezone
+      const nowForWeek = new Date();
+      const dayNamesForWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const currentDayIdx = dayNamesForWeek.indexOf(toIrishDayLabel(nowForWeek));
+      const weekDateStrs: string[] = [];
+      for (let i = currentDayIdx; i >= 0; i--) {
+        const d = new Date(nowForWeek.getTime() - i * 86400000);
+        weekDateStrs.push(toIrishDateStr(d));
+      }
       const weekOrders = completedOrders.filter(o => {
-        const oDate = o.deliveredAt ? new Date(o.deliveredAt) : null;
-        return oDate && oDate >= weekStart;
+        const oDate = toIrishDateStr(getDeliveryDate(o));
+        return weekDateStrs.includes(oDate);
       });
       const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
       const weekTips = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);

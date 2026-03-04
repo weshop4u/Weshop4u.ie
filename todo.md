@@ -2349,3 +2349,7 @@
 ## Job Card Enhancements (Mar 4 2026)
 - [x] Show customer name on each job card in reorder mode
 - [x] Add "Deliver Next" highlight on the first job in the list
+
+## Earnings Calculation Bugs (Mar 4 2026)
+- [x] Bug: Dashboard shows 6 deliveries today but earnings page shows 11 — fixed: both endpoints now use Irish timezone (Europe/Dublin) and consistent getDeliveryDate fallback
+- [x] Bug: Dates and times on earnings panels appear incorrect — fixed: day labels now calculated in Irish timezone
