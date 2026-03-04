@@ -2332,3 +2332,7 @@
 ## Dashboard Job Reorder (Mar 4 2026)
 - [x] Add up/down arrow buttons on dashboard job cards to rearrange delivery sequence
 - [x] Update batch sequence on server when driver reorders from dashboard
+
+## Reorder Bug Fix (Mar 4 2026)
+- [x] Bug: Dashboard reorder arrows don't visually move cards — fixed with optimistic local state + correct server payload format
+- [x] Bug: Active-delivery reorder panel already sends correct { orderId, sequence } format — confirmed working

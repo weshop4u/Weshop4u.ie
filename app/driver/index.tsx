@@ -59,9 +59,19 @@ export default function DriverHomeScreen() {
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchInterval: 5000 }
   );
-  const allActiveOrders = batchData?.orders || [];
+  const serverOrders = batchData?.orders || [];
   const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
   const [isReordering, setIsReordering] = useState(false);
+  const [localOrderOverride, setLocalOrderOverride] = useState<any[] | null>(null);
+  const allActiveOrders = localOrderOverride || serverOrders;
+
+  // Sync local override when server data updates (but not during active reordering)
+  useEffect(() => {
+    if (!reorderBatchMutation.isPending && localOrderOverride) {
+      // Server has new data, clear override so we use server truth
+      setLocalOrderOverride(null);
+    }
+  }, [serverOrders]);
 
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -766,7 +776,8 @@ export default function DriverHomeScreen() {
                             e.stopPropagation();
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
-                            const newSequence = newOrder.map((o: any) => o.id);
+                            setLocalOrderOverride(newOrder);
+                            const newSequence = newOrder.map((o: any, i: number) => ({ orderId: o.id, sequence: i }));
                             if (batchData?.batchId && user?.id) {
                               reorderBatchMutation.mutate(
                                 { driverId: user.id, batchId: batchData.batchId, orderSequence: newSequence },
@@ -785,7 +796,8 @@ export default function DriverHomeScreen() {
                             e.stopPropagation();
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
-                            const newSequence = newOrder.map((o: any) => o.id);
+                            setLocalOrderOverride(newOrder);
+                            const newSequence = newOrder.map((o: any, i: number) => ({ orderId: o.id, sequence: i }));
                             if (batchData?.batchId && user?.id) {
                               reorderBatchMutation.mutate(
                                 { driverId: user.id, batchId: batchData.batchId, orderSequence: newSequence },
