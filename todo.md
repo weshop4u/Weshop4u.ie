@@ -2359,3 +2359,8 @@
 - [x] Update server to serve static web files in production mode
 - [x] Update build script to include web export + server bundle
 - [x] Save checkpoint and republish for web access at weshop4u-hh4skdej.manus.space
+
+## Android App Icon Fix
+- [x] Fix Android adaptive icon showing as black square instead of WESHOP4U logo
+- [x] Ensure foreground icon asset is properly configured
+- [x] Rebuild and save checkpoint
