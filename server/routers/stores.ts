@@ -292,7 +292,7 @@ export const storesRouter = router({
             sql`LOWER(${products.name}) LIKE ${searchTerm}`
           )
         )
-        .limit(30);
+        .limit(20);
 
       // Parse images and group by store
       return results.map(r => ({

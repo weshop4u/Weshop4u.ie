@@ -63,7 +63,9 @@ export default function ActiveDeliveryScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [statusError, setStatusError] = useState("");
+  const [showReorderPanel, setShowReorderPanel] = useState(false);
   const colors = useColors();
+  const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
 
   // Sync local deliveryStatus with order status from server
   useEffect(() => {
@@ -462,21 +464,119 @@ export default function ActiveDeliveryScreen() {
 
         {/* Batch Progress Indicator */}
         {totalBatchOrders > 1 && (
-          <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, marginRight: 8 }}>📦</Text>
-              <View>
-                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
-                  Batch Delivery: {currentBatchIndex + 1} of {totalBatchOrders}
-                </Text>
-                <Text style={{ fontSize: 12, color: '#3B82F6' }}>
-                  {batchOrders.filter((o: any) => o.status === 'delivered').length} delivered, {batchOrders.filter((o: any) => o.status !== 'delivered').length} remaining
-                </Text>
+          <View style={{ marginBottom: 12 }}>
+            {/* Header row */}
+            <Pressable
+              onPress={() => setShowReorderPanel(!showReorderPanel)}
+              style={({ pressed }) => [{
+                backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: showReorderPanel ? 0 : 10, borderTopLeftRadius: 10, borderTopRightRadius: 10, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                opacity: pressed ? 0.8 : 1,
+              }]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, marginRight: 8 }}>📦</Text>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
+                    Batch Delivery: {currentBatchIndex + 1} of {totalBatchOrders}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#3B82F6' }}>
+                    {batchOrders.filter((o: any) => o.status === 'delivered').length} delivered, {batchOrders.filter((o: any) => o.status !== 'delivered').length} remaining
+                  </Text>
+                </View>
               </View>
-            </View>
-            {batchOrders.filter((o: any) => o.status !== 'delivered').length > 1 && (
-              <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-                <Text style={{ fontSize: 11, color: '#1E40AF', fontWeight: '600' }}>Multi-drop</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {batchOrders.filter((o: any) => o.status !== 'delivered').length > 1 && (
+                  <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 11, color: '#1E40AF', fontWeight: '600' }}>Multi-drop</Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 16, color: '#1E40AF' }}>{showReorderPanel ? '▲' : '▼'}</Text>
+              </View>
+            </Pressable>
+
+            {/* Expandable reorder panel */}
+            {showReorderPanel && (
+              <View style={{ backgroundColor: '#F0F9FF', borderWidth: 1, borderTopWidth: 0, borderColor: '#93C5FD', borderBottomLeftRadius: 10, borderBottomRightRadius: 10, padding: 12 }}>
+                <Text style={{ fontSize: 13, color: '#1E40AF', fontWeight: '600', marginBottom: 8 }}>Delivery Order (tap arrows to reorder):</Text>
+                {batchOrders
+                  .filter((o: any) => o.status !== 'delivered')
+                  .map((bOrder: any, idx: number, arr: any[]) => {
+                    const bOrderNumber = bOrder.orderNumber || `Order #${bOrder.id}`;
+                    const bCustomerName = bOrder.customer?.name || bOrder.guestName || 'Customer';
+                    const bStoreName = bOrder.store?.name || 'Store';
+                    const isCurrentOrder = bOrder.id === orderId;
+                    const itemSummary = bOrder.items?.map((it: any) => `${it.quantity}x ${it.productName || 'Item'}`).join(', ') || '';
+                    return (
+                      <View key={bOrder.id} style={{
+                        backgroundColor: isCurrentOrder ? '#DBEAFE' : '#FFFFFF',
+                        borderWidth: isCurrentOrder ? 2 : 1,
+                        borderColor: isCurrentOrder ? '#3B82F6' : '#E5E7EB',
+                        borderRadius: 8, padding: 10, marginBottom: 6,
+                        flexDirection: 'row', alignItems: 'center',
+                      }}>
+                        {/* Order number badge */}
+                        <View style={{ backgroundColor: isCurrentOrder ? '#3B82F6' : '#9CA3AF', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>{idx + 1}</Text>
+                        </View>
+                        {/* Order info */}
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1F2937' }}>{bOrderNumber}</Text>
+                          <Text style={{ fontSize: 12, color: '#6B7280' }}>{bCustomerName} • {bStoreName}</Text>
+                          {itemSummary ? <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }} numberOfLines={1}>{itemSummary}</Text> : null}
+                        </View>
+                        {/* Up/Down arrows */}
+                        <View style={{ flexDirection: 'column', gap: 2, marginLeft: 8 }}>
+                          {idx > 0 && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
+                                const newSequence = remaining.map((o: any, i: number) => {
+                                  if (i === idx) return { orderId: remaining[idx - 1].id, sequence: i };
+                                  if (i === idx - 1) return { orderId: bOrder.id, sequence: i };
+                                  return { orderId: o.id, sequence: i };
+                                });
+                                if (batchData?.batchId && user?.id) {
+                                  reorderBatchMutation.mutate({
+                                    driverId: user.id,
+                                    batchId: batchData.batchId,
+                                    orderSequence: newSequence,
+                                  });
+                                }
+                              }}
+                              style={{ backgroundColor: '#E5E7EB', width: 32, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#374151' }}>▲</Text>
+                            </TouchableOpacity>
+                          )}
+                          {idx < arr.length - 1 && (
+                            <TouchableOpacity
+                              onPress={() => {
+                                const remaining = batchOrders.filter((o: any) => o.status !== 'delivered');
+                                const newSequence = remaining.map((o: any, i: number) => {
+                                  if (i === idx) return { orderId: remaining[idx + 1].id, sequence: i };
+                                  if (i === idx + 1) return { orderId: bOrder.id, sequence: i };
+                                  return { orderId: o.id, sequence: i };
+                                });
+                                if (batchData?.batchId && user?.id) {
+                                  reorderBatchMutation.mutate({
+                                    driverId: user.id,
+                                    batchId: batchData.batchId,
+                                    orderSequence: newSequence,
+                                  });
+                                }
+                              }}
+                              style={{ backgroundColor: '#E5E7EB', width: 32, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#374151' }}>▼</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                {reorderBatchMutation.isPending && (
+                  <Text style={{ fontSize: 12, color: '#3B82F6', textAlign: 'center', marginTop: 4 }}>Updating order...</Text>
+                )}
               </View>
             )}
           </View>
@@ -689,7 +789,9 @@ export default function ActiveDeliveryScreen() {
               <View style={{ gap: 10 }}>
                 <TouchableOpacity
                   onPress={() => {
-                    const nextOrder = batchOrders.find((o: any) => o.id !== orderId && o.status !== 'delivered');
+                    // Get remaining undelivered orders in sequence order (batchOrders is already sorted by batchSequence)
+                    const remaining = batchOrders.filter((o: any) => o.id !== orderId && o.status !== 'delivered');
+                    const nextOrder = remaining[0]; // First in sequence = next delivery
                     if (nextOrder) {
                       router.replace(`/driver/active-delivery?orderId=${nextOrder.id}`);
                     }

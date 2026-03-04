@@ -2302,3 +2302,13 @@
 - [x] Set PUBLIC_URL environment variable to current API server URL for SMS tracking links
 - [x] Fix tracking URL in SMS — currently points to weshop4u.app which doesn't exist, set PUBLIC_URL to actual API server
 - [x] Bug fix: Driver "Arrived at Store" button disappears when store marks order ready_for_pickup — SMS never fires
+- [x] Admin can manually change any order status from admin dashboard (override control) — already implemented
+- [x] Driver "Arrived at Store" step is optional — order flow continues without it, just no tracking SMS for that order — confirmed working
+
+## Driver Batch Delivery Reorder
+- [x] Show all batch orders as a reorderable list on the driver active delivery screen
+- [x] Add up/down arrow buttons to move orders in the delivery sequence
+- [x] Driver can reorder at any point (even when 2 remain, they can still swap)
+- [x] When a delivery is completed, it removes from the list and remaining orders stay in driver's chosen order
+- [x] Reorder persists to backend so admin can see the driver's chosen sequence
+- [x] Default fallback: closest-first if driver doesn't manually reorder

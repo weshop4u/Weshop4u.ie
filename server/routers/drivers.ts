@@ -2105,4 +2105,40 @@ export const driversRouter = router({
         })),
       };
     }),
+
+  // Driver reorder batch delivery sequence
+  reorderBatch: publicProcedure
+    .input(
+      z.object({
+        driverId: z.number(),
+        batchId: z.string(),
+        orderSequence: z.array(z.object({ orderId: z.number(), sequence: z.number() })),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Verify all orders belong to this driver
+      for (const item of input.orderSequence) {
+        const [order] = await db
+          .select({ id: orders.id, driverId: orders.driverId })
+          .from(orders)
+          .where(and(eq(orders.id, item.orderId), eq(orders.batchId, input.batchId)))
+          .limit(1);
+        if (!order || order.driverId !== input.driverId) {
+          throw new Error(`Order ${item.orderId} does not belong to this driver's batch`);
+        }
+      }
+
+      for (const item of input.orderSequence) {
+        await db
+          .update(orders)
+          .set({ batchSequence: item.sequence })
+          .where(and(eq(orders.id, item.orderId), eq(orders.batchId, input.batchId)));
+      }
+
+      console.log(`[Driver] Reordered batch ${input.batchId}: ${input.orderSequence.map(o => `#${o.orderId}→${o.sequence}`).join(", ")}`);
+      return { success: true };
+    }),
 });
