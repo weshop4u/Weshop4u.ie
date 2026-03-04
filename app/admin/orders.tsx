@@ -556,7 +556,7 @@ function AdminOrdersScreenContent() {
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
-                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "card" ? "Card" : "Cash"} ({order.paymentStatus})</Text>
+                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})</Text>
                           {order.deliveryDistance && <Text style={dtStyles.detailValue}>Distance: {parseFloat(order.deliveryDistance as string).toFixed(1)} km</Text>}
                           {order.deliveredAt && <Text style={dtStyles.detailValue}>Delivered: {formatDate(order.deliveredAt)}</Text>}
                           {order.cancelledAt && <Text style={[dtStyles.detailValue, { color: "#DC2626" }]}>Cancelled: {formatDate(order.cancelledAt)}</Text>}
@@ -723,7 +723,7 @@ function AdminOrdersScreenContent() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Payment</Text>
                           <Text className="text-sm text-foreground font-medium">
-                            {order.paymentMethod === "card" ? "Card" : "Cash"} ({order.paymentStatus})
+                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})
                           </Text>
                         </View>
 

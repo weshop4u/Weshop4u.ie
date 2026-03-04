@@ -2398,3 +2398,9 @@
 - [x] Integrate with phone dialer (tel: link) for native and web
 - [x] Rebuild web export and server bundle
 - [x] Save checkpoint
+
+## Fix Admin Dashboard Payment Display Bug
+- [x] Orders showing "Card / Pending" when they are actually cash-on-delivery
+- [x] Fix payment method display to show correct method (Cash vs Card)
+- [x] Fix payment status display to show correct status
+- [x] Rebuild web export and save checkpoint
