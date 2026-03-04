@@ -2328,3 +2328,7 @@
 - [x] Bug: Back to Dashboard from active delivery screen doesn't actually navigate away — stays on same screen
 - [x] Bug: Back to Dashboard resets "Arrived at Store" status back to "Going to Store", causing repeated SMS notifications to customer
 - [x] Bug: Dashboard only shows single "Active Delivery in Progress" banner instead of all batch jobs (multi-job cards not appearing)
+
+## Dashboard Job Reorder (Mar 4 2026)
+- [x] Add up/down arrow buttons on dashboard job cards to rearrange delivery sequence
+- [x] Update batch sequence on server when driver reorders from dashboard

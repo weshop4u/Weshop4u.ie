@@ -60,6 +60,8 @@ export default function DriverHomeScreen() {
     { enabled: !!user?.id, refetchInterval: 5000 }
   );
   const allActiveOrders = batchData?.orders || [];
+  const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
+  const [isReordering, setIsReordering] = useState(false);
 
   // Pull-to-refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -681,14 +683,26 @@ export default function DriverHomeScreen() {
         {allActiveOrders.length > 0 && (
           <View style={{ marginBottom: 16 }}>
             {allActiveOrders.length > 1 && (
-              <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10, padding: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 16, marginRight: 6 }}>📦</Text>
-                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
-                    {allActiveOrders.length} Active Jobs
-                  </Text>
+              <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD', borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, marginRight: 6 }}>📦</Text>
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#1E40AF' }}>
+                      {allActiveOrders.length} Active Jobs
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setIsReordering(!isReordering)}
+                    style={{ backgroundColor: isReordering ? '#3B82F6' : '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: isReordering ? '#FFFFFF' : '#3B82F6' }}>
+                      {isReordering ? '✓ Done' : '↕ Reorder'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={{ fontSize: 12, color: '#3B82F6' }}>Tap a job to view details</Text>
+                {isReordering && (
+                  <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>Use arrows to change delivery order. Customers see their position.</Text>
+                )}
               </View>
             )}
             {allActiveOrders.map((activeOrder: any, idx: number) => {
@@ -744,7 +758,50 @@ export default function DriverHomeScreen() {
                       {activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 40)}${activeOrder.deliveryAddress.length > 40 ? '...' : ''}` : ''}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 20, color: borderColor, marginLeft: 8 }}>›</Text>
+                  {isReordering && allActiveOrders.length > 1 ? (
+                    <View style={{ marginLeft: 8, gap: 2 }}>
+                      {idx > 0 && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            const newOrder = [...allActiveOrders];
+                            [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+                            const newSequence = newOrder.map((o: any) => o.id);
+                            if (batchData?.batchId && user?.id) {
+                              reorderBatchMutation.mutate(
+                                { driverId: user.id, batchId: batchData.batchId, orderSequence: newSequence },
+                                { onSuccess: () => refetchBatch() }
+                              );
+                            }
+                          }}
+                          style={{ backgroundColor: '#E5E7EB', width: 30, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#374151' }}>▲</Text>
+                        </TouchableOpacity>
+                      )}
+                      {idx < allActiveOrders.length - 1 && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            const newOrder = [...allActiveOrders];
+                            [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+                            const newSequence = newOrder.map((o: any) => o.id);
+                            if (batchData?.batchId && user?.id) {
+                              reorderBatchMutation.mutate(
+                                { driverId: user.id, batchId: batchData.batchId, orderSequence: newSequence },
+                                { onSuccess: () => refetchBatch() }
+                              );
+                            }
+                          }}
+                          style={{ backgroundColor: '#E5E7EB', width: 30, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#374151' }}>▼</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 20, color: borderColor, marginLeft: 8 }}>›</Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
