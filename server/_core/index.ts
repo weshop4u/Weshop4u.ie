@@ -138,28 +138,34 @@ async function startServer() {
     }),
   );
 
-  // Serve static web files in production
-  if (process.env.NODE_ENV === "production") {
+  // Serve static web files - the deployment platform only routes /api/* to Express,
+  // so we serve the web app under /api/web/ prefix
+  {
     const webDistPath = path.resolve(__dirname, "..", "web-dist");
     if (fs.existsSync(webDistPath)) {
-      console.log(`[web] Serving static files from ${webDistPath}`);
-      // Serve static assets (JS, CSS, images, etc.)
-      app.use(express.static(webDistPath, { maxAge: "1d" }));
-      // For any non-API route, serve the matching HTML file or fall back to index.html (SPA)
-      app.get("*", (req, res) => {
-        // Skip API routes
-        if (req.path.startsWith("/api/")) {
-          res.status(404).json({ error: "Not found" });
-          return;
+      console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
+      // Serve static assets under /api/web/
+      app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
+      // Root /api/web/ serves index.html
+      app.get("/api/web", (_req, res) => {
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+        } else {
+          res.status(404).send("Web app not found");
         }
+      });
+      // For any /api/web/* route, serve the matching HTML file or fall back to index.html
+      app.get("/api/web/*", (req, res) => {
+        const subPath = req.path.replace(/^\/api\/web/, "") || "/";
         // Try to find an exact HTML file for this route
-        const htmlPath = path.join(webDistPath, req.path.endsWith(".html") ? req.path : req.path + ".html");
+        const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
         if (fs.existsSync(htmlPath)) {
           res.sendFile(htmlPath);
           return;
         }
         // Try index.html in a subdirectory
-        const dirIndexPath = path.join(webDistPath, req.path, "index.html");
+        const dirIndexPath = path.join(webDistPath, subPath, "index.html");
         if (fs.existsSync(dirIndexPath)) {
           res.sendFile(dirIndexPath);
           return;
