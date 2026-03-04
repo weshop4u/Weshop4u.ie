@@ -2301,3 +2301,4 @@
 - [x] Write tests for the updated SMS/push notification logic
 - [x] Set PUBLIC_URL environment variable to current API server URL for SMS tracking links
 - [x] Fix tracking URL in SMS — currently points to weshop4u.app which doesn't exist, set PUBLIC_URL to actual API server
+- [x] Bug fix: Driver "Arrived at Store" button disappears when store marks order ready_for_pickup — SMS never fires

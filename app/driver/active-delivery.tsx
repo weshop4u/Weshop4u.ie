@@ -54,6 +54,7 @@ export default function ActiveDeliveryScreen() {
   const hasMoreBatchOrders = batchOrders.some((o: any) => o.id !== orderId && o.status !== "delivered");
 
   const [deliveryStatus, setDeliveryStatus] = useState<"going_to_store" | "at_store" | "going_to_customer" | "delivered">("going_to_store");
+  const [hasNotifiedAtStore, setHasNotifiedAtStore] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
   const [returnReason, setReturnReason] = useState("");
@@ -71,16 +72,23 @@ export default function ActiveDeliveryScreen() {
     // Map order status to delivery status
     if (order.status === "delivered") {
       setDeliveryStatus("delivered");
+      setHasNotifiedAtStore(true);
     } else if (order.status === "picked_up" || order.status === "on_the_way") {
       setDeliveryStatus("going_to_customer");
+      setHasNotifiedAtStore(true);
     } else if (order.status === "ready_for_pickup") {
-      setDeliveryStatus("at_store");
+      // Order is ready at store, but only show "at_store" UI if driver has tapped the button
+      // Otherwise keep showing "going_to_store" so the button remains visible
+      if (hasNotifiedAtStore) {
+        setDeliveryStatus("at_store");
+      }
+      // Don't auto-set to at_store — driver must tap the button
     } else {
       // Default to going_to_store for other statuses
       if (deliveryStatus === "delivered") return; // Don't reset if already delivered
       setDeliveryStatus("going_to_store");
     }
-  }, [order?.status]);
+  }, [order?.status, hasNotifiedAtStore]);
 
   // Location tracking - send updates every 10 seconds during active delivery
   useEffect(() => {
@@ -242,6 +250,7 @@ export default function ActiveDeliveryScreen() {
     
     // Update state immediately for instant UI feedback
     setDeliveryStatus("at_store");
+    setHasNotifiedAtStore(true);
     
     try {
       await notifyAtStoreMutation.mutateAsync({
@@ -252,6 +261,7 @@ export default function ActiveDeliveryScreen() {
       console.error("[Driver] Failed to notify arrived at store:", error);
       // Revert state on error
       setDeliveryStatus("going_to_store");
+      setHasNotifiedAtStore(false);
       setStatusError("Failed to update status. Please try again.");
     }
   };
