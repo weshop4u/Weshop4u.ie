@@ -2368,4 +2368,10 @@
 ## Production Build Fix
 - [x] Revert build script to server-only (expo export fails in Docker build environment)
 - [x] Pre-include web-dist in the checkpoint so it's available at deploy time
-- [ ] Save checkpoint and republish
+- [x] Save checkpoint and republish
+
+## Web Version Fix - Production "Not Found"
+- [x] Investigate why web-dist is not served in production deployment
+- [x] Fix server to properly serve web files on published domain
+- [ ] Rebuild and save checkpoint
+- [ ] Verify web version works at weshop4u-hh4skdej.manus.space
