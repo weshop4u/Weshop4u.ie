@@ -332,8 +332,8 @@ function DashboardContent() {
               const statusLabel = order.status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
               const paymentLabel = order.paymentMethod === "cash_on_delivery" || order.paymentMethod === "cash" ? "Cash" : "Card";
               const isCashDelivered = (order.paymentMethod === "cash_on_delivery" || order.paymentMethod === "cash") && order.status === "delivered";
-              const paymentStatusLabel = isCashDelivered ? "Collected" : order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "pending" ? "Pending" : order.paymentStatus;
-              const paymentColor = isCashDelivered ? "#16A34A" : order.paymentStatus === "paid" ? "#16A34A" : "#D97706";
+              const paymentStatusLabel = order.paymentStatus === "completed" ? "Paid" : isCashDelivered ? "Collected" : order.paymentStatus === "paid" ? "Paid" : order.paymentStatus === "pending" ? "Pending" : order.paymentStatus;
+              const paymentColor = order.paymentStatus === "completed" ? "#16A34A" : isCashDelivered ? "#16A34A" : order.paymentStatus === "paid" ? "#16A34A" : "#D97706";
               const timeAgo = order.createdAt ? (() => {
                 const diff = Date.now() - new Date(order.createdAt).getTime();
                 const mins = Math.floor(diff / 60000);

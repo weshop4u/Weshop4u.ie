@@ -8,7 +8,7 @@ describe("Admin Payment Display", () => {
 
   function getPaymentStatus(paymentMethod: string, paymentStatus: string, orderStatus: string): string {
     const isCashDelivered = (paymentMethod === "cash_on_delivery" || paymentMethod === "cash") && orderStatus === "delivered";
-    return isCashDelivered ? "Collected" : paymentStatus === "paid" ? "Paid" : paymentStatus === "pending" ? "Pending" : paymentStatus;
+    return paymentStatus === "completed" ? "Paid" : isCashDelivered ? "Collected" : paymentStatus === "paid" ? "Paid" : paymentStatus === "pending" ? "Pending" : paymentStatus;
   }
 
   it("should show 'Cash' for cash_on_delivery orders", () => {
@@ -31,8 +31,12 @@ describe("Admin Payment Display", () => {
     expect(getPaymentStatus("cash_on_delivery", "pending", "preparing")).toBe("Pending");
   });
 
-  it("should show 'Paid' for paid card orders", () => {
-    expect(getPaymentStatus("card", "paid", "delivered")).toBe("Paid");
+  it("should show 'Paid' for completed card orders", () => {
+    expect(getPaymentStatus("card", "completed", "delivered")).toBe("Paid");
+  });
+
+  it("should show 'Paid' for completed cash orders (marked as paid)", () => {
+    expect(getPaymentStatus("cash_on_delivery", "completed", "delivered")).toBe("Paid");
   });
 
   it("should show 'Pending' for pending card orders", () => {

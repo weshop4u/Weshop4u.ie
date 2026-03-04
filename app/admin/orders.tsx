@@ -114,6 +114,11 @@ function AdminOrdersScreenContent() {
     onError: (err) => { setErrorMessage(err.message); },
   });
 
+  const markPaidMutation = trpc.admin.markOrderPaid.useMutation({
+    onSuccess: () => { refetch(); setErrorMessage(""); },
+    onError: (err) => { setErrorMessage(err.message); },
+  });
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -456,13 +461,13 @@ function AdminOrdersScreenContent() {
                         <Text style={{ fontSize: 11, color: "#64748B" }}>
                           {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}
                         </Text>
-                        {order.paymentMethod === "cash_on_delivery" ? (
-                          <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
-                          </View>
-                        ) : order.paymentStatus === "completed" ? (
+                        {order.paymentStatus === "completed" ? (
                           <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
                             <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>Paid</Text>
+                          </View>
+                        ) : order.paymentMethod === "cash_on_delivery" ? (
+                          <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
                           </View>
                         ) : order.paymentStatus === "failed" ? (
                           <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
@@ -556,7 +561,7 @@ function AdminOrdersScreenContent() {
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
-                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})</Text>
+                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})</Text>
                           {order.deliveryDistance && <Text style={dtStyles.detailValue}>Distance: {parseFloat(order.deliveryDistance as string).toFixed(1)} km</Text>}
                           {order.deliveredAt && <Text style={dtStyles.detailValue}>Delivered: {formatDate(order.deliveredAt)}</Text>}
                           {order.cancelledAt && <Text style={[dtStyles.detailValue, { color: "#DC2626" }]}>Cancelled: {formatDate(order.cancelledAt)}</Text>}
@@ -568,6 +573,31 @@ function AdminOrdersScreenContent() {
                           </View>
                         )}
                       </View>
+                      {/* Mark as Paid button for cash orders with pending payment */}
+                      {order.paymentMethod === "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+                          <TouchableOpacity
+                            onPress={() => markPaidMutation.mutate({ orderId: order.id })}
+                            disabled={markPaidMutation.isPending}
+                            style={{
+                              backgroundColor: markPaidMutation.isPending ? "#D1D5DB" : "#16A34A",
+                              paddingVertical: 8,
+                              paddingHorizontal: 16,
+                              borderRadius: 8,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              alignSelf: "flex-start",
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ fontSize: 14 }}>💰</Text>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
+                              {markPaidMutation.isPending ? "Marking..." : "Mark as Paid"}
+                            </Text>
+                          </TouchableOpacity>
+                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
+                        </View>
+                      )}
                     </View>
                   )}
                 </View>
@@ -698,8 +728,8 @@ function AdminOrdersScreenContent() {
                         {order.driverName}
                       </Text>
                       {order.paymentMethod === "cash_on_delivery" && (
-                        <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
-                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>CASH</Text>
+                        <View style={{ backgroundColor: order.paymentStatus === "completed" ? "#DCFCE7" : "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : "#D97706" }}>{order.paymentStatus === "completed" ? "PAID" : "CASH"}</Text>
                         </View>
                       )}
                     </View>
@@ -723,7 +753,7 @@ function AdminOrdersScreenContent() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Payment</Text>
                           <Text className="text-sm text-foreground font-medium">
-                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})
+                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})
                           </Text>
                         </View>
 
@@ -803,6 +833,31 @@ function AdminOrdersScreenContent() {
                             >
                               <Text style={{ fontSize: 14, fontWeight: "700", color: "#DC2626" }}>Cancel Order</Text>
                             </TouchableOpacity>
+                          </View>
+                        )}
+                        {/* Mark as Paid button for cash orders */}
+                        {order.paymentMethod === "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => markPaidMutation.mutate({ orderId: order.id })}
+                              disabled={markPaidMutation.isPending}
+                              style={{
+                                backgroundColor: markPaidMutation.isPending ? "#D1D5DB" : "#16A34A",
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 8,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Text style={{ fontSize: 15 }}>💰</Text>
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                                {markPaidMutation.isPending ? "Marking..." : "Mark as Paid"}
+                              </Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, textAlign: "center" }}>Confirm cash has been collected</Text>
                           </View>
                         )}
                       </View>

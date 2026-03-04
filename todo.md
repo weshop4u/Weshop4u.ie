@@ -2404,3 +2404,11 @@
 - [x] Fix payment method display to show correct method (Cash vs Card)
 - [x] Fix payment status display to show correct status
 - [x] Rebuild web export and save checkpoint
+
+## Mark as Paid Button for Admin
+- [x] Add backend API endpoint (admin.markOrderPaid) to update payment_status to "completed"
+- [x] Add "Mark as Paid" button on admin orders page (desktop table expanded view)
+- [x] Add "Mark as Paid" button on admin orders page (mobile card expanded view)
+- [x] Show button only for cash_on_delivery orders with pending payment status
+- [x] Update admin dashboard recent orders to also show Mark as Paid (handled via payment status display)
+- [x] Rebuild web export and save checkpoint

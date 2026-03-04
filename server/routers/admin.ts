@@ -578,6 +578,26 @@ export const adminRouter = router({
       return { success: true };
     }),
 
+  // Admin mark order payment as paid (for cash collection confirmation)
+  markOrderPaid: publicProcedure
+    .input(z.object({
+      orderId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+      if (!order) throw new Error("Order not found");
+      if (order.paymentStatus === "completed") {
+        throw new Error("Order is already marked as paid");
+      }
+
+      await db.update(orders).set({ paymentStatus: "completed" }).where(eq(orders.id, input.orderId));
+      console.log(`[Admin] Order ${input.orderId} marked as paid`);
+      return { success: true };
+    }),
+
   // Admin assign driver to order
   assignDriver: publicProcedure
     .input(z.object({
