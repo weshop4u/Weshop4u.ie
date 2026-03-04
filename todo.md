@@ -2287,3 +2287,15 @@
 ## Soft Drinks Choose Drink Modifier (Treasure Bowl)
 - [x] Create required "Choose Drink" modifier group (single-select, required) for both products
 - [x] Added Coke (default), Coke Zero, Fanta Orange options at €0.00 to Soft Drinks 330ml (group 1) and Soft Drinks 1 Litre (group 2)
+
+## Font Loading Timeout Error on Expo Go
+- [ ] Fix 6000ms font loading timeout from fontfaceobserver on Expo Go
+
+## SMS Notification Flow (Twilio)
+- [x] Change SMS logic from "guest only" to "no push token" (covers guests + web users without the app)
+- [x] SMS #1 (Order Confirmed): Send to customers without push token when order is placed
+- [x] SMS #2 (Driver at Store): Send to customers without push token when driver arrives, include tracking link
+- [x] Push notifications: Continue sending to customers WITH push token (app users)
+- [x] Fix tracking URL in SMS to use PUBLIC_URL environment variable (not hardcoded weshop4u.app)
+- [x] Ensure public tracking page (/track/:orderId) works without login for SMS recipients
+- [x] Write tests for the updated SMS/push notification logic

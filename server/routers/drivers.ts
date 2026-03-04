@@ -782,29 +782,36 @@ export const driversRouter = router({
         notes: `Driver arrived at ${store?.name || "store"}`,
       });
 
-      // Send push notification to customer
+      // SMS #2 / Push — Driver at Store notification
+      // Strategy: Send push to customers WITH a push token (app users).
+      // Send SMS to customers WITHOUT a push token (guests + web-only users).
+      const orderRecord = orderResult[0].orders;
+      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
+      const trackingUrl = `${baseUrl}/track/${input.orderId}`;
+
       if (customer && customer.pushToken && store) {
+        // App user — send push notification (free)
         await sendOrderStatusNotification(
           customer.pushToken,
           input.orderId,
           "driver_at_store",
           store.name
         );
-      }
-
-      // SMS #2 — Driver at Store + tracking link
-      // Only sent to GUEST orders (no customerId). Logged-in users get push notifications (free).
-      const orderRecord = orderResult[0].orders;
-      const isGuestOrder = !orderRecord.customerId;
-      if (isGuestOrder && orderRecord.guestPhone && store) {
-        try {
-          // Build tracking URL — use the public API server URL
-          const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
-          const trackingUrl = `${baseUrl}/track/${input.orderId}`;
-          await sendDriverAtStoreSMS(orderRecord.guestPhone, store.name, orderRecord.orderNumber, trackingUrl);
-          console.log(`[SMS] Driver-at-store SMS sent to ${orderRecord.guestPhone} for order ${orderRecord.orderNumber}`);
-        } catch (smsError) {
-          console.error(`[SMS] Failed to send driver-at-store SMS:`, smsError);
+        console.log(`[Push] Driver-at-store push sent to customer ${orderRecord.customerId}`);
+      } else if (store) {
+        // No push token — send SMS with tracking link
+        // Get phone number: guest phone or logged-in user's phone
+        let smsPhone: string | null = orderRecord.guestPhone || null;
+        if (!smsPhone && customer?.phone) {
+          smsPhone = customer.phone;
+        }
+        if (smsPhone) {
+          try {
+            await sendDriverAtStoreSMS(smsPhone, store.name, orderRecord.orderNumber, trackingUrl);
+            console.log(`[SMS] Driver-at-store SMS sent to ${smsPhone} for order ${orderRecord.orderNumber}`);
+          } catch (smsError) {
+            console.error(`[SMS] Failed to send driver-at-store SMS:`, smsError);
+          }
         }
       }
 
