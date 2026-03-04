@@ -2299,3 +2299,5 @@
 - [x] Fix tracking URL in SMS to use PUBLIC_URL environment variable (not hardcoded weshop4u.app)
 - [x] Ensure public tracking page (/track/:orderId) works without login for SMS recipients
 - [x] Write tests for the updated SMS/push notification logic
+- [x] Set PUBLIC_URL environment variable to current API server URL for SMS tracking links
+- [x] Fix tracking URL in SMS — currently points to weshop4u.app which doesn't exist, set PUBLIC_URL to actual API server
