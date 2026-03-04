@@ -63,6 +63,13 @@ export default function DriverHomeScreen() {
   const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
   const [isReordering, setIsReordering] = useState(false);
   const [localOrderOverride, setLocalOrderOverride] = useState<any[] | null>(null);
+  const [reorderToast, setReorderToast] = useState(false);
+  const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showReorderToast = () => {
+    setReorderToast(true);
+    if (reorderToastTimeout.current) clearTimeout(reorderToastTimeout.current);
+    reorderToastTimeout.current = setTimeout(() => setReorderToast(false), 2000);
+  };
   const allActiveOrders = localOrderOverride || serverOrders;
 
   // Sync local override when server data updates (but not during active reordering)
@@ -765,8 +772,16 @@ export default function DriverHomeScreen() {
                     </View>
                     <Text style={{ fontSize: 12, color: textColor, marginLeft: allActiveOrders.length > 1 ? 30 : 0 }}>
                       {statusLabel}
-                      {activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 40)}${activeOrder.deliveryAddress.length > 40 ? '...' : ''}` : ''}
+                      {!isReordering && activeOrder.deliveryAddress ? ` • ${activeOrder.deliveryAddress.substring(0, 40)}${activeOrder.deliveryAddress.length > 40 ? '...' : ''}` : ''}
                     </Text>
+                    {isReordering && activeOrder.deliveryAddress && (
+                      <View style={{ marginLeft: allActiveOrders.length > 1 ? 30 : 0, marginTop: 4, backgroundColor: '#F3F4F6', borderRadius: 6, padding: 6 }}>
+                        <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500' }}>📍 Deliver to:</Text>
+                        <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', marginTop: 2 }}>
+                          {activeOrder.deliveryAddress}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   {isReordering && allActiveOrders.length > 1 ? (
                     <View style={{ marginLeft: 8, gap: 2 }}>
@@ -778,6 +793,7 @@ export default function DriverHomeScreen() {
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
                             setLocalOrderOverride(newOrder);
+                            showReorderToast();
                             const newSequence = newOrder.map((o: any, i: number) => ({ orderId: o.id, sequence: i }));
                             if (batchData?.batchId && user?.id) {
                               reorderBatchMutation.mutate(
@@ -799,6 +815,7 @@ export default function DriverHomeScreen() {
                             const newOrder = [...allActiveOrders];
                             [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
                             setLocalOrderOverride(newOrder);
+                            showReorderToast();
                             const newSequence = newOrder.map((o: any, i: number) => ({ orderId: o.id, sequence: i }));
                             if (batchData?.batchId && user?.id) {
                               reorderBatchMutation.mutate(
@@ -819,6 +836,12 @@ export default function DriverHomeScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* Reorder Toast */}
+            {reorderToast && (
+              <View style={{ backgroundColor: '#059669', borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 4 }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>✓ Delivery order updated</Text>
+              </View>
+            )}
           </View>
         )}
 

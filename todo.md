@@ -2340,3 +2340,8 @@
 ## Reorder UX Improvements (Mar 4 2026)
 - [x] Add haptic feedback on reorder arrow presses (both dashboard and active-delivery)
 - [x] Ensure driver can always reorder jobs regardless of status (picked up, on the way, etc.) — only exclude delivered (already working this way)
+
+## Multi-Order UX Polish (Mar 4 2026)
+- [x] Add confirmation toast after reordering jobs (e.g., "Delivery order updated")
+- [x] Show delivery addresses more prominently in reorder mode on dashboard
+- [x] Remove completed/delivered jobs from multi-order menu — shrink list as deliveries are done, show normal single-job screen when only 1 left (already handled by server filtering)
