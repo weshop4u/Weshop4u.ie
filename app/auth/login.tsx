@@ -217,7 +217,16 @@ export default function LoginScreen() {
               <View>
                 <Text className="text-foreground font-semibold mb-2">Email</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    color: colors.foreground,
+                    fontSize: 16,
+                  }}
                   placeholder="your@email.com"
                   placeholderTextColor="#9BA1A6"
                   value={email}
@@ -232,7 +241,16 @@ export default function LoginScreen() {
               <View>
                 <Text className="text-foreground font-semibold mb-2">Phone Number</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    color: colors.foreground,
+                    fontSize: 16,
+                  }}
                   placeholder="087 123 4567"
                   placeholderTextColor="#9BA1A6"
                   value={phone}
@@ -249,7 +267,16 @@ export default function LoginScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Password</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  color: colors.foreground,
+                  fontSize: 16,
+                }}
                 placeholder="Enter your password"
                 placeholderTextColor="#9BA1A6"
                 value={password}

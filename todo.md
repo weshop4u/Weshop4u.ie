@@ -2412,3 +2412,10 @@
 - [x] Show button only for cash_on_delivery orders with pending payment status
 - [x] Update admin dashboard recent orders to also show Mark as Paid (handled via payment status display)
 - [x] Rebuild web export and save checkpoint
+
+## Bug Fixes - TextInput Focus Loss
+- [x] Fix login page TextInput losing focus after each character
+- [x] Fix signup page TextInput losing focus after each character
+- [x] Ensure cursor stays in field while typing
+- [x] Test on iOS, Android, and web
+- [x] Rebuild web export and save checkpoint
