@@ -2419,3 +2419,11 @@
 - [x] Ensure cursor stays in field while typing
 - [x] Test on iOS, Android, and web
 - [x] Rebuild web export and save checkpoint
+
+## Password Strength Indicator
+- [x] Create password strength calculation utility function
+- [x] Add password strength indicator UI (visual bar + text label)
+- [x] Show strength levels: Weak, Fair, Good, Strong
+- [x] Update password field styling based on strength
+- [x] Test password strength calculation
+- [x] Rebuild web export and save checkpoint

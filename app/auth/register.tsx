@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { WebLayout } from "@/components/web-layout";
 import { useColors } from "@/hooks/use-colors";
+import { calculatePasswordStrength, getPasswordStrengthColor, getPasswordStrengthLabel } from "@/lib/password-strength";
 
 type Step = "details" | "otp" | "success";
 
@@ -18,6 +19,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const passwordStrength = calculatePasswordStrength(password);
 
   // OTP fields
   const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
@@ -275,6 +277,45 @@ export default function RegisterScreen() {
                   secureTextEntry
                   autoCapitalize="none"
                 />
+                {password && (
+                  <View style={{ marginTop: 12 }}>
+                    <View style={{ flexDirection: "row", gap: 4, marginBottom: 8 }}>
+                      {[1, 2, 3, 4].map((index) => (
+                        <View
+                          key={index}
+                          style={{
+                            flex: 1,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor:
+                              index <= passwordStrength.score
+                                ? getPasswordStrengthColor(passwordStrength.strength)
+                                : colors.border,
+                          }}
+                        />
+                      ))}
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "600",
+                          color: getPasswordStrengthColor(passwordStrength.strength),
+                        }}
+                      >
+                        {getPasswordStrengthLabel(passwordStrength.strength)}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: colors.muted,
+                        }}
+                      >
+                        {passwordStrength.feedback}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               <View>
