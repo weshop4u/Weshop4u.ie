@@ -2427,3 +2427,7 @@
 - [x] Update password field styling based on strength
 - [x] Test password strength calculation
 - [x] Rebuild web export and save checkpoint
+
+## Phone Order UX Improvements
+- [x] Add "Next" button at top of phone order form
+- [x] Rebuild web export and save checkpoint

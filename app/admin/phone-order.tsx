@@ -555,8 +555,28 @@ function PhoneOrderScreenContent() {
       {/* STEP 3: Customer Details */}
       {step === "details" && (
         <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}>
-          <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 4 }}>Customer Details</Text>
-          <Text style={{ fontSize: 14, color: "#687076", marginBottom: 16 }}>Enter the caller's delivery information</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 4 }}>Customer Details</Text>
+              <Text style={{ fontSize: 14, color: "#687076" }}>Enter the caller's delivery information</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
+                  setSubmitError("Please fill in name, phone, address, and Eircode.");
+                  return;
+                }
+                setSubmitError("");
+                if (!feeInfo && deliveryEircode.trim().length >= 5) {
+                  calculateFees();
+                }
+                setStep("confirm");
+              }}
+              style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginLeft: 12, marginTop: 2 }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Next</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Phone Number (FIRST - for auto-fill) */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER * (enter first to auto-fill)</Text>
