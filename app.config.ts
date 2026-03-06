@@ -129,7 +129,9 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
-    reactCompiler: true,
+    // React Compiler disabled — causes cascading remounts with NativeWind on native Android,
+    // leading to TextInput focus loss and component flickering
+    reactCompiler: false,
     baseUrl: "/api/web",
   },
 };

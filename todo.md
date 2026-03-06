@@ -2490,3 +2490,8 @@
 - [x] Wrap all notification calls in try/catch to prevent crashes — safe-notifications.ts wrapper
 - [x] Rewrote use-push-notifications.ts to use lazy require() instead of top-level import
 - [x] Rebuild web export and server bundle
+
+## CRITICAL - Native APK STILL broken (March 6 v4)
+- [x] TextInput loses focus after 1 character in ALL fields on native APK — ROOT CAUSE: ThemeProvider used useState for colorScheme + called Appearance.setColorScheme() creating a feedback loop that caused 2-3 full tree remounts on startup. Each remount recreated TextInput instances, killing focus. Fixed by using useRef for scheme, computing NativeWind vars once with empty deps, removing Appearance.setColorScheme() call.
+- [x] Products appear for 1 second then disappear, happens 3 times before staying — ROOT CAUSE: Same ThemeProvider remount cascade. Each time colorScheme state changed, the root View style changed (new NativeWind vars object), causing full tree re-layout. Fixed by stabilizing the vars with empty useMemo deps.
+- [x] Root cause confirmed: ThemeProvider + React Compiler. Disabled React Compiler (experiments.reactCompiler=false) which amplified remount issues with NativeWind on native Android. Removed console.log from ThemeProvider render path.
