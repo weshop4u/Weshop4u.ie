@@ -1,5 +1,5 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 import WebHome from "./web-home";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
@@ -93,9 +93,9 @@ export default function HomeScreen() {
   // This early return is AFTER all hooks, so it's safe
   if (Platform.OS === "web") {
     return (
-      <WebLayout>
+      <ScreenWrapper>
         <WebHome />
-      </WebLayout>
+      </ScreenWrapper>
     );
   }
 

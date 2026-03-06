@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 type Step = "phone" | "otp" | "newPassword" | "success";
 
@@ -161,10 +161,10 @@ export default function ForgotPasswordScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -353,6 +353,6 @@ export default function ForgotPasswordScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

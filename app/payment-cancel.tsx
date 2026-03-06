@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { useColors } from "@/hooks/use-colors";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 export default function PaymentCancelScreen() {
   const params = useLocalSearchParams<{ orderId?: string }>();
@@ -36,10 +36,10 @@ export default function PaymentCancelScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
       <ScreenContainer className="items-center justify-center p-6">
         <View style={{ alignItems: "center", gap: 16 }}>
           <View style={{
@@ -73,6 +73,6 @@ export default function PaymentCancelScreen() {
           </View>
         </View>
       </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

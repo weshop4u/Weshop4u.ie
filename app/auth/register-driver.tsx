@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 type Step = "form" | "pending";
 
@@ -69,11 +69,11 @@ export default function RegisterDriverScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   if (step === "pending") {
     return (
-      <Wrapper>
+      <ScreenWrapper>
       <ScreenContainer>
         <View className="flex-1 p-6 justify-center items-center">
           <View className="items-center mb-8">
@@ -108,12 +108,12 @@ export default function RegisterDriverScreen() {
           </TouchableOpacity>
         </View>
       </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -304,6 +304,6 @@ export default function RegisterDriverScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

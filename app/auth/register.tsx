@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 import { useColors } from "@/hooks/use-colors";
 import { calculatePasswordStrength, getPasswordStrengthColor, getPasswordStrengthLabel } from "@/lib/password-strength";
 
@@ -158,10 +158,10 @@ export default function RegisterScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -435,6 +435,6 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

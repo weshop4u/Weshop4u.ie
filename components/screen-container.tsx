@@ -1,43 +1,42 @@
-import { View, type ViewProps } from "react-native";
+import { View, StyleSheet, type ViewProps, type ViewStyle } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
-import { cn } from "@/lib/utils";
-
 export interface ScreenContainerProps extends ViewProps {
-  /**
-   * SafeArea edges to apply. Defaults to ["top", "left", "right"].
-   * Bottom is typically handled by Tab Bar.
-   */
   edges?: Edge[];
-  /**
-   * Tailwind className for the content area.
-   */
   className?: string;
-  /**
-   * Additional className for the outer container (background layer).
-   */
   containerClassName?: string;
-  /**
-   * Additional className for the SafeAreaView (content layer).
-   */
   safeAreaClassName?: string;
+  contentStyle?: ViewStyle;
 }
 
 /**
- * A container component that properly handles SafeArea and background colors.
- *
- * The outer View extends to full screen (including status bar area) with the background color,
- * while the inner SafeAreaView ensures content is within safe bounds.
- *
- * Usage:
- * ```tsx
- * <ScreenContainer className="p-4">
- *   <Text className="text-2xl font-bold text-foreground">
- *     Welcome
- *   </Text>
- * </ScreenContainer>
- * ```
+ * Maps common Tailwind class names to React Native style objects.
+ * This avoids NativeWind's className processing on native, which can
+ * cause component remounts and TextInput focus loss.
  */
+const CLASS_MAP: Record<string, ViewStyle> = {
+  "flex-1": { flex: 1 },
+  "items-center": { alignItems: "center" },
+  "justify-center": { justifyContent: "center" },
+  "p-4": { padding: 16 },
+  "p-5": { padding: 20 },
+  "p-6": { padding: 24 },
+  "bg-background": {}, // Already set on outerContainer
+};
+
+function classNameToStyle(className?: string): ViewStyle {
+  if (!className) return {};
+  const result: ViewStyle = {};
+  const classes = className.trim().split(/\s+/);
+  for (const cls of classes) {
+    const mapped = CLASS_MAP[cls];
+    if (mapped) {
+      Object.assign(result, mapped);
+    }
+  }
+  return result;
+}
+
 export function ScreenContainer({
   children,
   edges = ["top", "left", "right"],
@@ -45,24 +44,38 @@ export function ScreenContainer({
   containerClassName,
   safeAreaClassName,
   style,
+  contentStyle,
   ...props
 }: ScreenContainerProps) {
+  // Convert className to native style to avoid NativeWind processing
+  const mappedStyle = classNameToStyle(className);
+
   return (
     <View
-      className={cn(
-        "flex-1",
-        "bg-background",
-        containerClassName
-      )}
+      style={styles.outerContainer}
       {...props}
     >
       <SafeAreaView
         edges={edges}
-        className={cn("flex-1", safeAreaClassName)}
-        style={style}
+        style={[styles.safeArea, style]}
       >
-        <View className={cn("flex-1", className)}>{children}</View>
+        <View style={[styles.innerContainer, mappedStyle, contentStyle]}>
+          {children}
+        </View>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+  safeArea: {
+    flex: 1,
+  },
+  innerContainer: {
+    flex: 1,
+  },
+});

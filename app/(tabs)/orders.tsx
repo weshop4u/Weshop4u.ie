@@ -8,7 +8,7 @@ import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime, formatIrishDateTime } from "@/lib/timezone";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 
 function getEstimatedTime(order: any): string | null {
@@ -652,13 +652,12 @@ export default function OrderHistoryScreen() {
     setExpandedOrderId((prev) => prev === orderId ? null : orderId);
   };
 
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   // Early return for unauthenticated users - AFTER all hooks
   if (!user) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
           <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
@@ -697,7 +696,7 @@ export default function OrderHistoryScreen() {
           </TouchableOpacity>
         </View>
       </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
@@ -706,11 +705,11 @@ export default function OrderHistoryScreen() {
 
   if (isLoading) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
       </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
@@ -721,7 +720,7 @@ export default function OrderHistoryScreen() {
   ];
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
@@ -887,6 +886,6 @@ export default function OrderHistoryScreen() {
         }}
       />
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

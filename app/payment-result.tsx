@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import { useColors } from "@/hooks/use-colors";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 type ResultState = "checking" | "success" | "failed" | "pending" | "error";
 
@@ -72,11 +72,11 @@ export default function PaymentResultScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   if (!orderIdNum) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
         <ScreenContainer className="items-center justify-center p-6">
           <Text style={{ fontSize: 40 }}>⚠️</Text>
           <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "600", marginTop: 16 }}>
@@ -95,12 +95,12 @@ export default function PaymentResultScreen() {
             <Text style={{ color: "#000", fontWeight: "600" }}>Back to Home</Text>
           </TouchableOpacity>
         </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
       <ScreenContainer className="items-center justify-center p-6">
         {state === "checking" && (
           <View style={{ alignItems: "center", gap: 16 }}>
@@ -260,6 +260,6 @@ export default function PaymentResultScreen() {
           </View>
         )}
       </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useState } from "react";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 interface FAQItem {
   question: string;
@@ -173,11 +173,10 @@ export default function FAQScreen() {
   const router = useRouter();
   const colors = useColors();
 
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       {/* Header */}
       <View style={{
@@ -287,6 +286,6 @@ export default function FAQScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

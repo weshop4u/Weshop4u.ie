@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
 import { useAuth } from "@/hooks/use-auth";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 import { useColors } from "@/hooks/use-colors";
 
 type LoginMethod = "email" | "phone";
@@ -187,11 +187,8 @@ export default function LoginScreen() {
     }
   }, [identifier, password, loginMethod, rememberMe, loginMutation, refreshAuth, router]);
 
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -357,7 +354,7 @@ export default function LoginScreen() {
         </View>
       </KeyboardAvoidingView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }
 

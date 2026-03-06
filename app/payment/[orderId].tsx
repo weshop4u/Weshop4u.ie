@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import { useColors } from "@/hooks/use-colors";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 import { getApiBaseUrl } from "@/constants/oauth";
 
 type PaymentState = "loading" | "redirecting" | "error" | "cancelled";
@@ -117,10 +117,10 @@ export default function PaymentScreen() {
   };
 
   const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
       <ScreenContainer className="items-center justify-center p-6">
         {state === "loading" && (
           <View style={{ alignItems: "center", gap: 16 }}>
@@ -206,6 +206,6 @@ export default function PaymentScreen() {
           </View>
         )}
       </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

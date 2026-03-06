@@ -10,7 +10,7 @@ import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } fro
 import * as Haptics from "expo-haptics";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 import { HighlightText } from "@/components/highlight-text";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -292,8 +292,7 @@ export default function StoreDetailScreen() {
     setTimeout(() => setSelectedProduct(null), 300);
   }, []);
 
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   // Fetch merged modifiers for selected product (category-inherited + product-assigned templates + custom)
   const { data: modifierData } = trpc.modifierTemplates.getAllForProduct.useQuery(
@@ -781,28 +780,28 @@ export default function StoreDetailScreen() {
 
   if (storeLoading || productsLoading) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
         <ScreenContainer className="items-center justify-center">
           <ActivityIndicator size="large" color="#00E5FF" />
         </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
   if (!store) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
         <ScreenContainer className="items-center justify-center">
           <Text className="text-foreground">Store not found</Text>
         </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
   // If no category selected, show category selection
   if (selectedCategoryId === null) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
       <ScreenContainer className="bg-background">
         {/* Header with Cart Icon */}
         <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
@@ -1341,7 +1340,7 @@ export default function StoreDetailScreen() {
       {/* Product Detail Modal — also rendered in category browsing/search view */}
       {renderProductModal()}
       </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
@@ -1370,7 +1369,7 @@ export default function StoreDetailScreen() {
   };
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer className="bg-background">
       {/* Product Detail Modal */}
       {renderProductModal()}
@@ -1567,7 +1566,7 @@ export default function StoreDetailScreen() {
         </View>
       )}
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }
 

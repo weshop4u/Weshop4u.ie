@@ -6,7 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
-import { WebLayout } from "@/components/web-layout";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -102,12 +102,11 @@ export default function ProfileScreen() {
   };
 
   // Show login required screen if user is not logged in
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 
   if (!user) {
     return (
-      <Wrapper>
+      <ScreenWrapper>
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-6 px-6">
           {/* Logo */}
@@ -163,12 +162,12 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScreenContainer>
-      </Wrapper>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <Wrapper>
+    <ScreenWrapper>
     <ScreenContainer className="p-6">
       <ScrollView>
         <View className="gap-6">
@@ -304,6 +303,6 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
-    </Wrapper>
+    </ScreenWrapper>
   );
 }

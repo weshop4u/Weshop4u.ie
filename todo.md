@@ -2495,3 +2495,11 @@
 - [x] TextInput loses focus after 1 character in ALL fields on native APK — ROOT CAUSE: ThemeProvider used useState for colorScheme + called Appearance.setColorScheme() creating a feedback loop that caused 2-3 full tree remounts on startup. Each remount recreated TextInput instances, killing focus. Fixed by using useRef for scheme, computing NativeWind vars once with empty deps, removing Appearance.setColorScheme() call.
 - [x] Products appear for 1 second then disappear, happens 3 times before staying — ROOT CAUSE: Same ThemeProvider remount cascade. Each time colorScheme state changed, the root View style changed (new NativeWind vars object), causing full tree re-layout. Fixed by stabilizing the vars with empty useMemo deps.
 - [x] Root cause confirmed: ThemeProvider + React Compiler. Disabled React Compiler (experiments.reactCompiler=false) which amplified remount issues with NativeWind on native Android. Removed console.log from ThemeProvider render path.
+
+## CRITICAL - Native APK STILL broken attempt 9 (March 6 v5)
+- [x] TextInput STILL loses focus — DEFINITIVE ROOT CAUSE FOUND: Inline Wrapper component `const Wrapper = isWeb ? WebLayout : ({ children }) => <>{children}</>` defined INSIDE render function creates a NEW component type on EVERY render. React sees new component → unmounts entire subtree → remounts → TextInput destroyed → focus lost. Present in ALL 14 screen files.
+- [x] Products STILL flicker — Same root cause. Each render creates new Wrapper → React unmounts/remounts entire FlatList tree → products disappear/reappear.
+- [x] FIX: Created stable ScreenWrapper at MODULE level (components/native-wrapper.tsx). Platform.OS resolved once at import time. Replaced inline Wrapper in all 14 files: login, register, register-driver, forgot-password, orders, profile, store/index, store/[id], cart/[storeId], order-tracking/[orderId], receipt/[orderId], payment/[orderId], payment-result, payment-cancel, faq, index.
+- [x] Also: Rewrote ScreenContainer to pure StyleSheet (no NativeWind className), ThemeProvider with module-level vars, disabled React Compiler + New Architecture.
+- [x] Verified: Zero remaining WebLayout imports or inline Wrapper patterns in app code.
+- [x] Rebuild web export and server bundle.
