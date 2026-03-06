@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,8 +22,23 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const loginMutation = trpc.auth.login.useMutation();
+
+  useEffect(() => {
+    const loadRememberedMethod = async () => {
+      try {
+        const remembered = await AsyncStorage.getItem("rememberedLoginMethod");
+        if (remembered === "email" || remembered === "phone") {
+          setLoginMethod(remembered);
+        }
+      } catch (e) {
+        console.error("Failed to load remembered login method:", e);
+      }
+    };
+    loadRememberedMethod();
+  }, []);
 
   const handleLogin = async () => {
     setError("");
@@ -56,6 +71,13 @@ export default function LoginScreen() {
       await AsyncStorage.setItem("userId", String(result.user.id));
       if (result.profile) {
         await AsyncStorage.setItem("profile", JSON.stringify(result.profile));
+      }
+
+      // Step 2b: Store login method preference if Remember me is checked
+      if (rememberMe) {
+        await AsyncStorage.setItem("rememberedLoginMethod", loginMethod);
+      } else {
+        await AsyncStorage.removeItem("rememberedLoginMethod");
       }
 
       // Step 3: Create session via REST API (sets cookie for web, returns token for native)
@@ -262,7 +284,36 @@ export default function LoginScreen() {
                   Enter the phone number you registered with
                 </Text>
               </View>
-            )}
+            )
+          }
+
+            {/* Remember Me Checkbox */}
+            <TouchableOpacity
+              onPress={() => setRememberMe(!rememberMe)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 8,
+                marginBottom: 4,
+              }}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 4,
+                  backgroundColor: rememberMe ? colors.primary : 'transparent',
+                  borderWidth: 2,
+                  borderColor: rememberMe ? colors.primary : colors.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {rememberMe && <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF' }}>✓</Text>}
+              </View>
+              <Text style={{ fontSize: 14, color: colors.foreground }}>Remember this login method</Text>
+            </TouchableOpacity>
 
             <View>
               <Text className="text-foreground font-semibold mb-2">Password</Text>

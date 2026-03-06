@@ -2439,3 +2439,11 @@
 - [x] Update order status to confirmed after successful payment
 - [x] Test card payment flow end-to-end
 - [x] Rebuild web export and save checkpoint
+
+## Remember Me Feature
+- [x] Add Remember me checkbox to login screen
+- [x] Persist login method preference to AsyncStorage
+- [x] Auto-select remembered login method on return
+- [x] Add clear preference option in settings
+- [x] Test on iOS, Android, and web
+- [x] Rebuild web export and save checkpoint
