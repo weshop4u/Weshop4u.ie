@@ -9,6 +9,7 @@ import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } fr
 import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
 import * as Haptics from "expo-haptics";
 import { StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebLayout } from "@/components/web-layout";
 import { HighlightText } from "@/components/highlight-text";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -52,6 +53,7 @@ export default function StoreDetailScreen() {
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [modalQuantity, setModalQuantity] = useState(1);
+  const insets = useSafeAreaInsets();
   const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
   const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({}); // "groupId_modId" -> quantity (for allowOptionQuantity groups)
   const { cart, addToCart, clearCart, getItemCount, getProductQuantity: cartGetProductQuantity } = useCart();
@@ -475,7 +477,14 @@ export default function StoreDetailScreen() {
               </TouchableOpacity>
               {productImage ? (
                 <View style={styles.modalImageContainer}>
-                  <Image source={{ uri: productImage }} style={styles.modalImage} contentFit="contain" />
+                  <Image
+                    source={{ uri: productImage }}
+                    style={styles.modalImage}
+                    contentFit="contain"
+                    recyclingKey={selectedProduct?.id?.toString()}
+                    cachePolicy="memory-disk"
+                    transition={0}
+                  />
                 </View>
               ) : (
                 <View style={[styles.modalImageContainer, styles.modalImagePlaceholder]}>
@@ -669,7 +678,7 @@ export default function StoreDetailScreen() {
               </View>
             </ScrollView>
             {canAdd && (
-              <View style={styles.modalBottom}>
+              <View style={[styles.modalBottom, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.quantitySelector}>
                   <TouchableOpacity
                     onPress={() => { if (modalQuantity > 1) { setModalQuantity(modalQuantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
@@ -735,7 +744,7 @@ export default function StoreDetailScreen() {
               </View>
             )}
             {!canAdd && (
-              <View style={styles.modalBottom}>
+              <View style={[styles.modalBottom, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={[styles.addToCartButton, { backgroundColor: "#9BA1A6", flex: 1 }]}>
                   <Text style={styles.addToCartText}>
                     {isOutOfStock ? "Out of Stock" : !storeOpen ? "Store Closed" : "Not Available Right Now"}
@@ -1611,14 +1620,15 @@ const styles = StyleSheet.create({
   },
   modalImageContainer: {
     width: "100%",
-    height: 240,
+    height: 260,
     backgroundColor: "#f9f9f9",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   modalImage: {
     width: "100%",
-    height: 240,
+    height: 260,
   },
   modalImagePlaceholder: {
     backgroundColor: "#f0f0f0",

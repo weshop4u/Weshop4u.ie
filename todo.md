@@ -2447,3 +2447,9 @@
 - [x] Add clear preference option in settings
 - [x] Test on iOS, Android, and web
 - [x] Rebuild web export and save checkpoint
+
+## Bug Fix - Product Detail Bottom Sheet
+- [x] Fix product image flickering/glitching when bottom sheet opens (7Up image going up and down)
+- [x] Fix Add to Cart button hidden behind Android navigation bar
+- [x] Add proper bottom safe area padding to bottom sheet
+- [x] Rebuild web export and save checkpoint
