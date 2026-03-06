@@ -1,8 +1,29 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
+
+/**
+ * Lazily loaded expo-notifications module.
+ * Using require() instead of top-level import to prevent native module
+ * initialization crashes on standalone APK builds without FCM config.
+ */
+let _Notifications: typeof import("expo-notifications") | null = null;
+let _loadFailed = false;
+
+function getNotifications(): typeof import("expo-notifications") | null {
+  if (Platform.OS === "web") return null;
+  if (_loadFailed) return null;
+  if (_Notifications) return _Notifications;
+  try {
+    _Notifications = require("expo-notifications");
+    return _Notifications;
+  } catch (e) {
+    console.log("[Push] Failed to load expo-notifications:", e);
+    _loadFailed = true;
+    return null;
+  }
+}
 
 /**
  * Check if we're running in Expo Go (where push notifications are limited/unavailable)
@@ -33,6 +54,12 @@ export function usePushNotifications(userId: number | undefined) {
 
     async function registerPushToken() {
       try {
+        const Notifications = getNotifications();
+        if (!Notifications) {
+          console.log("[Push] Notifications module not available");
+          return;
+        }
+
         // Request permission
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
@@ -99,6 +126,9 @@ export function setupNotificationHandler() {
   }
 
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
+
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
@@ -127,6 +157,9 @@ export async function setupNotificationChannels() {
   }
 
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
+
     // Orders channel - for customer order updates
     await Notifications.setNotificationChannelAsync("orders", {
       name: "Order Updates",

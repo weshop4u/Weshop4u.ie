@@ -4,7 +4,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
-// expo-notifications removed - causes native crash on standalone APK without FCM config
+import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime, formatIrishDateTime } from "@/lib/timezone";
@@ -541,6 +541,7 @@ export default function OrderHistoryScreen() {
 
   const [cancelConfirmOrder, setCancelConfirmOrder] = useState<{ id: number; number: string } | null>(null);
   const [inlineMessage, setInlineMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const lastStatusesRef = useRef<Record<number, string>>({});
 
@@ -567,11 +568,23 @@ export default function OrderHistoryScreen() {
     return () => subscription.remove();
   }, [refetch, user]);
 
-  // Track status changes (notifications disabled for standalone APK stability)
+  // Track status changes and send local notifications
   useEffect(() => {
     if (!orders) return;
     const prevStatuses = lastStatusesRef.current;
     for (const order of orders) {
+      const prevStatus = prevStatuses[order.id];
+      if (prevStatus && prevStatus !== order.status) {
+        const msg = STATUS_MESSAGES[order.status];
+        if (msg) {
+          scheduleLocalNotification({
+            title: msg.title,
+            body: msg.body,
+            channelId: "orders",
+            data: { orderId: order.id },
+          });
+        }
+      }
       prevStatuses[order.id] = order.status;
     }
     lastStatusesRef.current = prevStatuses;
@@ -788,7 +801,19 @@ export default function OrderHistoryScreen() {
         keyExtractor={(item) => String(item.id)}
         extraData={expandedOrderId}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              try {
+                await refetch();
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
         ListHeaderComponent={activeOrders.length > 0 ? (
           <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.primary, marginBottom: 12 }}>

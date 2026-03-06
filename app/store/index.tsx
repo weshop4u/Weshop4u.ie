@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
-// expo-notifications removed for standalone APK stability
+import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -183,6 +183,14 @@ export default function StoreDashboardScreen() {
     if (newPendingOrders.length > 0) {
       setNewOrderFlash(true);
       setTimeout(() => setNewOrderFlash(false), 3000);
+
+      // Send local notification for new orders
+      scheduleLocalNotification({
+        title: "🔔 New Order Received!",
+        body: `${newPendingOrders.length} new order${newPendingOrders.length > 1 ? "s" : ""} waiting to be accepted`,
+        channelId: "store",
+        data: { type: "new_order" },
+      });
 
       // Start persistent looping alarm
       startAlarm();

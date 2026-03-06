@@ -2474,3 +2474,19 @@
 - [x] NEW: App crashes after successful login — ROOT CAUSE: expo-notifications module crashing Hermes on native Android (no FCM/google-services.json). Removed ALL expo-notifications imports from every screen (orders, store, driver, store-dashboard). Also rewrote auth.ts with lazy SecureStore loading and AsyncStorage fallback.
 - [x] Deep dive debugging with independent analysis
 - [x] Rebuild web export and save checkpoint
+
+## Pull-to-Refresh on Orders Screen
+- [x] Add RefreshControl to orders FlatList (was already present but broken - refreshing hardcoded to false)
+- [x] Wire up tRPC query refetch on pull with proper async/await
+- [x] Show loading indicator during refresh with refreshing state
+- [x] Added colors prop for Android spinner color
+
+## Re-add Push Notifications (Safe for APK)
+- [x] Research safe expo-notifications usage for standalone APK builds
+- [x] Add proper Platform guards so notifications module only loads on supported platforms — created lib/safe-notifications.ts with lazy require() loading
+- [x] Re-add notification registration for customers (order status updates) — orders.tsx uses scheduleLocalNotification for status changes
+- [x] Re-add notification alerts for store dashboard (new orders) — store-dashboard/index.tsx and store/index.tsx
+- [x] Re-add notification alerts for drivers (new offers) — driver/index.tsx
+- [x] Wrap all notification calls in try/catch to prevent crashes — safe-notifications.ts wrapper
+- [x] Rewrote use-push-notifications.ts to use lazy require() instead of top-level import
+- [x] Rebuild web export and server bundle

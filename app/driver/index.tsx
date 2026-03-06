@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
-// expo-notifications removed for standalone APK stability
+import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
@@ -277,8 +277,13 @@ export default function DriverHomeScreen() {
             } catch (e) { /* ignore */ }
           }, 3000); // Vibrate every 3 seconds
 
-          // Local push notification disabled for standalone APK stability
-          console.log('[Driver] New offer notification (push disabled for APK stability)');
+          // Send local push notification for new offer
+          scheduleLocalNotification({
+            title: "🚗 New Delivery Offer!",
+            body: `New delivery from ${offerData.offer.storeName || "store"} - €${offerData.offer.deliveryFee || "0.00"} delivery fee`,
+            channelId: "jobs",
+            data: { type: "driver_offer", offerId },
+          });
         }
       }
     }

@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
-// expo-notifications removed for standalone APK stability
+import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime } from "@/lib/timezone";
 
@@ -220,6 +220,14 @@ export default function StoreDashboardScreen() {
     if (newPendingOrders.length > 0) {
       setNewOrderFlash(true);
       setTimeout(() => setNewOrderFlash(false), 3000);
+
+      // Send local notification for new orders
+      scheduleLocalNotification({
+        title: "🔔 New Order Received!",
+        body: `${newPendingOrders.length} new order${newPendingOrders.length > 1 ? "s" : ""} waiting to be accepted`,
+        channelId: "store",
+        data: { type: "new_order" },
+      });
 
       if (audioEnabled && Platform.OS !== "web") {
         try {
