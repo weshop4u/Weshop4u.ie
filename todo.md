@@ -2431,3 +2431,11 @@
 ## Phone Order UX Improvements
 - [x] Add "Next" button at top of phone order form
 - [x] Rebuild web export and save checkpoint
+
+## Bug Fix - Card Payment Flow
+- [x] Orders with card payment should NOT go to store until payment is confirmed
+- [x] Create pending_payment status for orders awaiting card payment
+- [x] Hold store notification until payment webhook confirms success
+- [x] Update order status to confirmed after successful payment
+- [x] Test card payment flow end-to-end
+- [x] Rebuild web export and save checkpoint

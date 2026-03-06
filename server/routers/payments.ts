@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders } from "../../drizzle/schema";
+import { orders, storeStaff, users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
+import { sendNewOrderNotification } from "../services/notifications";
+
 
 // Elavon EPG API base URL (production EU)
 const ELAVON_API_BASE = "https://api.eu.convergepay.com";
@@ -181,6 +183,25 @@ export const paymentsRouter = router({
               elavonTransactionId: transactionId || null,
             })
             .where(eq(orders.id, input.orderId));
+
+          // Send store notification now that payment is confirmed
+          try {
+            const storeStaffMembers = await db
+              .select({ userId: storeStaff.userId, pushToken: users.pushToken })
+              .from(storeStaff)
+              .innerJoin(users, eq(storeStaff.userId, users.id))
+              .where(eq(storeStaff.storeId, order.storeId));
+
+            const customerName = order.guestName || (order.customerId ? "Customer" : "Unknown");
+            for (const staff of storeStaffMembers) {
+              if (staff.pushToken) {
+                await sendNewOrderNotification(staff.pushToken, input.orderId, customerName, 0, parseFloat(order.total));
+              }
+            }
+            console.log(`[Payment] Store staff notified for order ${input.orderId} after card payment confirmed`);
+          } catch (e) {
+            console.error(`[Payment] Failed to notify store staff for order ${input.orderId}:`, e);
+          }
 
           // Dispatch order to driver queue now that payment is confirmed
           try {

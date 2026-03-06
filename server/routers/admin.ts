@@ -812,21 +812,25 @@ export const adminRouter = router({
         await db.insert(orderItems).values({ orderId: Number(orderId), ...item });
       }
 
-      // Send push notification to store staff
-      try {
-        const storeStaffMembers = await db
-          .select({ userId: storeStaffTable.userId, pushToken: users.pushToken })
-          .from(storeStaffTable)
-          .innerJoin(users, eq(storeStaffTable.userId, users.id))
-          .where(eq(storeStaffTable.storeId, input.storeId));
+      // Send push notification to store staff (only for cash orders; card orders wait for payment confirmation)
+      if (input.paymentMethod !== "card") {
+        try {
+          const storeStaffMembers = await db
+            .select({ userId: storeStaffTable.userId, pushToken: users.pushToken })
+            .from(storeStaffTable)
+            .innerJoin(users, eq(storeStaffTable.userId, users.id))
+            .where(eq(storeStaffTable.storeId, input.storeId));
 
-        for (const staff of storeStaffMembers) {
-          if (staff.pushToken) {
-            await sendNewOrderNotification(staff.pushToken, Number(orderId), input.customerName, input.items.length, total);
+          for (const staff of storeStaffMembers) {
+            if (staff.pushToken) {
+              await sendNewOrderNotification(staff.pushToken, Number(orderId), input.customerName, input.items.length, total);
+            }
           }
+        } catch (e) {
+          console.error(`[Push] Failed to notify store staff for phone order ${orderId}:`, e);
         }
-      } catch (e) {
-        console.error(`[Push] Failed to notify store staff for phone order ${orderId}:`, e);
+      } else {
+        console.log(`[Admin] Card payment order ${orderId} created - store notification will be sent after payment confirmation`);
       }
 
       // For cash orders, offer to driver queue immediately
