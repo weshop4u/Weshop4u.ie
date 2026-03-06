@@ -249,27 +249,49 @@ export default function LoginScreen() {
               <Text style={{ color: colors.foreground, fontWeight: '600', marginBottom: 8 }}>
                 {loginMethod === "email" ? "Email" : "Phone Number"}
               </Text>
-              <TextInput
-                key={loginMethod}
-                style={{
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 8,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  color: colors.foreground,
-                  fontSize: 16,
-                }}
-                placeholder={loginMethod === "email" ? "your@email.com" : "087 123 4567"}
-                placeholderTextColor="#9BA1A6"
-                value={loginMethod === "email" ? email : phone}
-                onChangeText={loginMethod === "email" ? setEmail : setPhone}
-                keyboardType={loginMethod === "email" ? "email-address" : "phone-pad"}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
+              {loginMethod === "email" ? (
+                <TextInput
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    color: colors.foreground,
+                    fontSize: 16,
+                  }}
+                  placeholder="your@email.com"
+                  placeholderTextColor="#9BA1A6"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              ) : (
+                <TextInput
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    color: colors.foreground,
+                    fontSize: 16,
+                  }}
+                  placeholder="087 123 4567"
+                  placeholderTextColor="#9BA1A6"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              )}
               {loginMethod === "phone" && (
                 <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
                   Enter the phone number you registered with

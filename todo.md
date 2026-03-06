@@ -2460,3 +2460,9 @@
 - [x] Remember me not persisting after logout
 - [x] Old orders scroll jumps to top when tapping an order
 - [x] Rebuild web export and save checkpoint
+
+## CRITICAL - APK Crashes and Persistent Bugs (March 6 v2)
+- [x] App crashes ("WESHOP4U keeps stopping") when viewing old orders — replaced Set<number> with Record, wrapped notification scheduling in try/catch, extracted order cards to separate components
+- [x] Login TextInput still losing focus after each character on native Android — removed key={loginMethod} prop, used separate TextInput components for email/phone
+- [x] Product detail card still flickering (appears/disappears) on native Android — decoupled modalVisible state from selectedProduct, added closeProductDetail with delayed cleanup
+- [x] Rebuild web export and save checkpoint

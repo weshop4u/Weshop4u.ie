@@ -52,6 +52,7 @@ export default function StoreDetailScreen() {
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const insets = useSafeAreaInsets();
   const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
@@ -276,6 +277,14 @@ export default function StoreDetailScreen() {
     setSelectedModifiers({});
     setOptionQuantities({});
     setSelectedProduct(product);
+    setModalVisible(true);
+  }, []);
+
+  // Close product detail modal
+  const closeProductDetail = useCallback(() => {
+    setModalVisible(false);
+    // Delay clearing data so modal animates out cleanly
+    setTimeout(() => setSelectedProduct(null), 300);
   }, []);
 
   const isWeb = Platform.OS === "web";
@@ -289,7 +298,7 @@ export default function StoreDetailScreen() {
 
   // Set defaults when modifier data loads
   useEffect(() => {
-    if (modifierData?.groups && selectedProduct) {
+    if (modifierData?.groups && selectedProduct && modalVisible) {
       const defaults: Record<number, number[]> = {};
       for (const group of modifierData.groups) {
         const availableMods = group.modifiers.filter((m: any) => m.available !== false);
@@ -458,22 +467,22 @@ export default function StoreDetailScreen() {
 
     return (
       <Modal
-        visible={!!selectedProduct}
+        visible={modalVisible}
         animationType="none"
         transparent={true}
-        onRequestClose={() => setSelectedProduct(null)}
+        onRequestClose={closeProductDetail}
         statusBarTranslucent={true}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
-            onPress={() => setSelectedProduct(null)}
+            onPress={closeProductDetail}
           />
           <View style={styles.modalContent}>
             <View style={styles.handleBar} />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              <TouchableOpacity onPress={() => setSelectedProduct(null)} style={styles.closeButton}>
+              <TouchableOpacity onPress={closeProductDetail} style={styles.closeButton}>
                 <Text style={{ fontSize: 18, color: "#687076", fontWeight: "600" }}>✕</Text>
               </TouchableOpacity>
               {productImage ? (
@@ -736,7 +745,7 @@ export default function StoreDetailScreen() {
                         ]
                       );
                     }
-                    setSelectedProduct(null);
+                    closeProductDetail();
                   }}
                   style={[styles.addToCartButton, !requiredMet && { opacity: 0.5 }]}
                 >

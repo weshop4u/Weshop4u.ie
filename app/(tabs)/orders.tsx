@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity, FlatList, RefreshControl, Platform, Alert, AppState, Image, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, Platform, AppState, Image, ActivityIndicator, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
@@ -96,7 +96,7 @@ function StarRating({
   );
 }
 
-function StatusTimeline({ order, colors }: { order: any; colors: ReturnType<typeof useColors> }) {
+function StatusTimeline({ order, colors }: { order: any; colors: any }) {
   const currentIdx = getStepIndex(order.status);
 
   const getTimestamp = (stepKey: string): string => {
@@ -178,213 +178,10 @@ function StatusTimeline({ order, colors }: { order: any; colors: ReturnType<type
   );
 }
 
-export default function OrderHistoryScreen() {
-  const router = useRouter();
-  const { user } = useAuth();
-  const colors = useColors();
-  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
-  const [ratingOrderId, setRatingOrderId] = useState<number | null>(null);
-  const [selectedRating, setSelectedRating] = useState(0);
-  const [ratingComment, setRatingComment] = useState("");
-  const [ratingSubmitted, setRatingSubmitted] = useState<Set<number>>(new Set());
-  const { clearCart, addToCart } = useCart();
-
-  // Cancel confirmation overlay state
-  const [cancelConfirmOrder, setCancelConfirmOrder] = useState<{ id: number; number: string } | null>(null);
-  // Inline message state
-  const [inlineMessage, setInlineMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const lastStatusesRef = useRef<Record<number, string>>({});
-
-  const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
-    refetchInterval: 5000,
-    enabled: !!user,
-  });
-
-  // Auto-dismiss inline message
-  useEffect(() => {
-    if (inlineMessage) {
-      const timer = setTimeout(() => setInlineMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [inlineMessage]);
-
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
-  if (!user) {
-    return (
-      <Wrapper>
-      <ScreenContainer className="p-6">
-        <View className="flex-1 items-center justify-center gap-6 px-6">
-          <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
-            <Image
-              source={require("@/assets/images/Weshop4ulogo.jpg")}
-              style={{ width: 144, height: 144, borderRadius: 72 }}
-              resizeMode="cover"
-            />
-          </View>
-          <Text className="text-3xl font-bold text-foreground text-center">
-            Log In to Continue
-          </Text>
-          <Text className="text-base text-muted text-center">
-            Create an account or log in to track orders, save addresses, and enjoy faster checkout
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push("/auth/login" as any)}
-            style={{
-              backgroundColor: colors.primary,
-              paddingHorizontal: 32,
-              paddingVertical: 14,
-              borderRadius: 25,
-              marginTop: 16,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Log In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/auth/signup" as any)}
-            style={{
-              paddingHorizontal: 32,
-              paddingVertical: 14,
-            }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </ScreenContainer>
-      </Wrapper>
-    );
-  }
-
-  // Listen for push notifications to trigger immediate refetch
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    if (isExpoGo) return;
-    let subscription: Notifications.Subscription | null = null;
-    try {
-      subscription = Notifications.addNotificationReceivedListener((notification) => {
-        const data = notification.request.content.data;
-        if (data?.type === "order_update") {
-          refetch();
-        }
-      });
-    } catch (e) {
-      console.log("[Push] Could not add notification listener");
-    }
-    return () => subscription?.remove();
-  }, [refetch]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (nextAppState === "active") {
-        refetch();
-      }
-    });
-    return () => subscription.remove();
-  }, [refetch]);
-
-  useEffect(() => {
-    if (!orders || Platform.OS === "web") return;
-    const prevStatuses = lastStatusesRef.current;
-    for (const order of orders) {
-      const prevStatus = prevStatuses[order.id];
-      if (prevStatus && prevStatus !== order.status && STATUS_MESSAGES[order.status]) {
-        const msg = STATUS_MESSAGES[order.status];
-        if (!isExpoGo) {
-          try {
-            Notifications.scheduleNotificationAsync({
-              content: {
-                title: msg.title,
-                body: `${order.store?.name || "Store"} - ${msg.body}`,
-                sound: true,
-              },
-              trigger: null,
-            });
-          } catch (e) {
-            console.log("[Push] Could not schedule notification");
-          }
-        }
-      }
-      prevStatuses[order.id] = order.status;
-    }
-    lastStatusesRef.current = prevStatuses;
-  }, [orders]);
-
-  const rateDriverMutation = trpc.orders.rateDriver.useMutation({
-    onSuccess: (_, variables) => {
-      setRatingSubmitted((prev) => new Set([...prev, variables.orderId]));
-      setRatingOrderId(null);
-      setSelectedRating(0);
-      setRatingComment("");
-      refetch();
-    },
-  });
-
-  const cancelOrderMutation = trpc.orders.cancelOrder.useMutation({
-    onSuccess: () => {
-      setInlineMessage({ type: "success", text: "Your order has been cancelled successfully." });
-      setCancelConfirmOrder(null);
-      refetch();
-    },
-    onError: (error) => {
-      setInlineMessage({ type: "error", text: error.message || "Failed to cancel order." });
-      setCancelConfirmOrder(null);
-    },
-  });
-
-  const handleCancelOrder = (orderId: number, orderNumber: string) => {
-    setCancelConfirmOrder({ id: orderId, number: orderNumber });
-  };
-
-  const confirmCancel = () => {
-    if (cancelConfirmOrder) {
-      cancelOrderMutation.mutate({ orderId: cancelConfirmOrder.id });
-    }
-  };
-
-  const handleReorder = async (order: any) => {
-    clearCart();
-    for (const item of order.items) {
-      await addToCart(
-        order.storeId,
-        order.store?.name || "Store",
-        {
-          productId: item.productId,
-          productName: item.product?.name || "Product",
-          productPrice: item.productPrice,
-          quantity: item.quantity,
-        }
-      );
-    }
-    router.push(`/cart/${order.storeId}`);
-  };
-
-  const handleSubmitRating = (orderId: number) => {
-    if (selectedRating < 1) return;
-    rateDriverMutation.mutate({
-      orderId,
-      rating: selectedRating,
-      comment: ratingComment || undefined,
-    });
-  };
-
-  const activeOrders = orders?.filter((o) => isActiveOrder(o.status)) || [];
-  const pastOrders = orders?.filter((o) => !isActiveOrder(o.status)) || [];
-
-  if (isLoading) {
-    return (
-      <Wrapper>
-      <ScreenContainer className="items-center justify-center">
-        <ActivityIndicator size="large" color={colors.primary} />
-      </ScreenContainer>
-      </Wrapper>
-    );
-  }
-
-  const renderActiveOrder = useCallback((order: any) => (
+// Separate components to avoid re-render issues with FlatList
+function ActiveOrderCard({ order, isExpanded, onToggleExpand, colors, router, onCancelOrder, cancelPending }: any) {
+  return (
     <View
-      key={order.id}
       style={{
         backgroundColor: colors.primary + '08',
         borderWidth: 2,
@@ -471,15 +268,15 @@ export default function OrderHistoryScreen() {
       </View>
 
       <TouchableOpacity
-        onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+        onPress={() => onToggleExpand(order.id)}
         style={{ borderTopWidth: 1, borderTopColor: colors.primary + '30', padding: 12, alignItems: "center" }}
       >
         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
-          {expandedOrderId === order.id ? "Hide Details ▲" : "View Details ▼"}
+          {isExpanded ? "Hide Details ▲" : "View Details ▼"}
         </Text>
       </TouchableOpacity>
 
-      {expandedOrderId === order.id && (
+      {isExpanded && (
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
           <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
           {order.items?.map((item: any, idx: number) => (
@@ -522,8 +319,8 @@ export default function OrderHistoryScreen() {
           )}
           {order.status === "pending" && (
             <TouchableOpacity
-              onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
-              disabled={cancelOrderMutation.isPending}
+              onPress={() => onCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
+              disabled={cancelPending}
               style={{
                 marginTop: 8,
                 backgroundColor: colors.error + '10',
@@ -532,11 +329,11 @@ export default function OrderHistoryScreen() {
                 borderRadius: 10,
                 padding: 12,
                 alignItems: "center",
-                opacity: cancelOrderMutation.isPending ? 0.5 : 1,
+                opacity: cancelPending ? 0.5 : 1,
               }}
             >
               <Text style={{ color: colors.error, fontWeight: "bold", fontSize: 14 }}>
-                {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
+                {cancelPending ? "Cancelling..." : "Cancel Order"}
               </Text>
               <Text style={{ color: colors.error, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
                 Only available while order is pending
@@ -546,11 +343,12 @@ export default function OrderHistoryScreen() {
         </View>
       )}
     </View>
-  ), [expandedOrderId, colors, cancelOrderMutation.isPending]);
+  );
+}
 
-  const renderPastOrder = useCallback((order: any) => (
+function PastOrderCard({ order, isExpanded, onToggleExpand, colors, router, isRated, ratingOrderId, selectedRating, ratingComment, onSetRatingOrderId, onSetSelectedRating, onSetRatingComment, onSubmitRating, onReorder, ratingPending }: any) {
+  return (
     <View
-      key={order.id}
       style={{
         backgroundColor: colors.surface,
         borderWidth: 1,
@@ -561,7 +359,7 @@ export default function OrderHistoryScreen() {
       }}
     >
       <TouchableOpacity
-        onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+        onPress={() => onToggleExpand(order.id)}
         style={{ padding: 16 }}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -585,7 +383,7 @@ export default function OrderHistoryScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text style={{ color: colors.muted, fontSize: 13 }}>{order.store?.name || "Store"}</Text>
           <Text style={{ color: colors.primary, fontSize: 13 }}>
-            {expandedOrderId === order.id ? "Hide ▲" : "Details ▼"}
+            {isExpanded ? "Hide ▲" : "Details ▼"}
           </Text>
         </View>
       </TouchableOpacity>
@@ -593,19 +391,19 @@ export default function OrderHistoryScreen() {
       {order.status === "delivered" &&
         order.driverId &&
         !order.hasRating &&
-        !ratingSubmitted.has(order.id) && (
+        !isRated && (
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16 }}>
             {ratingOrderId === order.id ? (
               <View>
                 <Text style={{ fontSize: 14, fontWeight: "bold", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>
                   How was your delivery experience?
                 </Text>
-                <StarRating rating={selectedRating} onRate={setSelectedRating} />
+                <StarRating rating={selectedRating} onRate={onSetSelectedRating} />
                 <TextInput
                   placeholder="Leave a comment (optional)"
                   placeholderTextColor={colors.muted}
                   value={ratingComment}
-                  onChangeText={setRatingComment}
+                  onChangeText={onSetRatingComment}
                   style={{
                     borderWidth: 1,
                     borderColor: colors.border,
@@ -622,16 +420,16 @@ export default function OrderHistoryScreen() {
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
                   <TouchableOpacity
                     onPress={() => {
-                      setRatingOrderId(null);
-                      setSelectedRating(0);
-                      setRatingComment("");
+                      onSetRatingOrderId(null);
+                      onSetSelectedRating(0);
+                      onSetRatingComment("");
                     }}
                     style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}
                   >
                     <Text style={{ color: colors.muted, fontWeight: "600" }}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => handleSubmitRating(order.id)}
+                    onPress={() => onSubmitRating(order.id)}
                     style={{
                       flex: 1,
                       padding: 12,
@@ -639,17 +437,17 @@ export default function OrderHistoryScreen() {
                       backgroundColor: selectedRating > 0 ? colors.primary : colors.surface,
                       alignItems: "center",
                     }}
-                    disabled={selectedRating < 1 || rateDriverMutation.isPending}
+                    disabled={selectedRating < 1 || ratingPending}
                   >
                     <Text style={{ color: selectedRating > 0 ? "#fff" : colors.muted, fontWeight: "bold" }}>
-                      {rateDriverMutation.isPending ? "Submitting..." : "Submit"}
+                      {ratingPending ? "Submitting..." : "Submit"}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <TouchableOpacity
-                onPress={() => setRatingOrderId(order.id)}
+                onPress={() => onSetRatingOrderId(order.id)}
                 style={{
                   backgroundColor: "#FFF7ED",
                   borderWidth: 1,
@@ -670,13 +468,13 @@ export default function OrderHistoryScreen() {
           </View>
         )}
 
-      {(order.hasRating || ratingSubmitted.has(order.id)) && order.status === "delivered" && (
+      {(order.hasRating || isRated) && order.status === "delivered" && (
         <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 12, alignItems: "center" }}>
           <Text style={{ color: colors.success, fontSize: 13, fontWeight: "600" }}>✅ Thanks for rating!</Text>
         </View>
       )}
 
-      {expandedOrderId === order.id && (
+      {isExpanded && (
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
           <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
           {order.items?.map((item: any, idx: number) => (
@@ -719,7 +517,7 @@ export default function OrderHistoryScreen() {
           )}
           {order.status === "delivered" && (
             <TouchableOpacity
-              onPress={() => handleReorder(order)}
+              onPress={() => onReorder(order)}
               style={{ marginTop: 16, backgroundColor: colors.primary, padding: 14, borderRadius: 10, alignItems: "center" }}
             >
               <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Reorder</Text>
@@ -728,7 +526,222 @@ export default function OrderHistoryScreen() {
         </View>
       )}
     </View>
-  ), [expandedOrderId, colors, ratingOrderId, selectedRating, ratingComment, ratingSubmitted, rateDriverMutation.isPending]);
+  );
+}
+
+export default function OrderHistoryScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const colors = useColors();
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+  const [ratingOrderId, setRatingOrderId] = useState<number | null>(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+  // Use Record instead of Set for stable serialization on native
+  const [ratingSubmitted, setRatingSubmitted] = useState<Record<number, boolean>>({});
+  const { clearCart, addToCart } = useCart();
+
+  const [cancelConfirmOrder, setCancelConfirmOrder] = useState<{ id: number; number: string } | null>(null);
+  const [inlineMessage, setInlineMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const lastStatusesRef = useRef<Record<number, string>>({});
+
+  const { data: orders, isLoading, refetch } = trpc.orders.getUserOrders.useQuery(undefined, {
+    refetchInterval: 5000,
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (inlineMessage) {
+      const timer = setTimeout(() => setInlineMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [inlineMessage]);
+
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+  if (!user) {
+    return (
+      <Wrapper>
+      <ScreenContainer className="p-6">
+        <View className="flex-1 items-center justify-center gap-6 px-6">
+          <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 144, height: 144, borderRadius: 72 }}
+              resizeMode="cover"
+            />
+          </View>
+          <Text className="text-3xl font-bold text-foreground text-center">
+            Log In to Continue
+          </Text>
+          <Text className="text-base text-muted text-center">
+            Create an account or log in to track orders, save addresses, and enjoy faster checkout
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/login" as any)}
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 25,
+              marginTop: 16,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Log In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/signup" as any)}
+            style={{
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+      </Wrapper>
+    );
+  }
+
+  // Listen for push notifications to trigger immediate refetch
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (isExpoGo) return;
+    let subscription: Notifications.Subscription | null = null;
+    try {
+      subscription = Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification.request.content.data;
+        if (data?.type === "order_update") {
+          refetch();
+        }
+      });
+    } catch (e) {
+      console.log("[Push] Could not add notification listener");
+    }
+    return () => { try { subscription?.remove(); } catch (e) {} };
+  }, [refetch]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        refetch();
+      }
+    });
+    return () => subscription.remove();
+  }, [refetch]);
+
+  // Local notification on status change - wrapped in try/catch to prevent crashes
+  useEffect(() => {
+    if (!orders || Platform.OS === "web") return;
+    if (isExpoGo) return;
+    const prevStatuses = lastStatusesRef.current;
+    for (const order of orders) {
+      const prevStatus = prevStatuses[order.id];
+      if (prevStatus && prevStatus !== order.status && STATUS_MESSAGES[order.status]) {
+        const msg = STATUS_MESSAGES[order.status];
+        try {
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: msg.title,
+              body: `${order.store?.name || "Store"} - ${msg.body}`,
+              sound: "default",
+            },
+            trigger: null,
+          }).catch(() => {
+            // Silently ignore notification failures
+          });
+        } catch (e) {
+          // Silently ignore notification failures
+        }
+      }
+      prevStatuses[order.id] = order.status;
+    }
+    lastStatusesRef.current = prevStatuses;
+  }, [orders]);
+
+  const rateDriverMutation = trpc.orders.rateDriver.useMutation({
+    onSuccess: (_, variables) => {
+      setRatingSubmitted((prev) => ({ ...prev, [variables.orderId]: true }));
+      setRatingOrderId(null);
+      setSelectedRating(0);
+      setRatingComment("");
+      refetch();
+    },
+  });
+
+  const cancelOrderMutation = trpc.orders.cancelOrder.useMutation({
+    onSuccess: () => {
+      setInlineMessage({ type: "success", text: "Your order has been cancelled successfully." });
+      setCancelConfirmOrder(null);
+      refetch();
+    },
+    onError: (error) => {
+      setInlineMessage({ type: "error", text: error.message || "Failed to cancel order." });
+      setCancelConfirmOrder(null);
+    },
+  });
+
+  const handleCancelOrder = (orderId: number, orderNumber: string) => {
+    setCancelConfirmOrder({ id: orderId, number: orderNumber });
+  };
+
+  const confirmCancel = () => {
+    if (cancelConfirmOrder) {
+      cancelOrderMutation.mutate({ orderId: cancelConfirmOrder.id });
+    }
+  };
+
+  const handleReorder = async (order: any) => {
+    clearCart();
+    for (const item of order.items) {
+      await addToCart(
+        order.storeId,
+        order.store?.name || "Store",
+        {
+          productId: item.productId,
+          productName: item.product?.name || "Product",
+          productPrice: item.productPrice,
+          quantity: item.quantity,
+        }
+      );
+    }
+    router.push(`/cart/${order.storeId}`);
+  };
+
+  const handleSubmitRating = (orderId: number) => {
+    if (selectedRating < 1) return;
+    rateDriverMutation.mutate({
+      orderId,
+      rating: selectedRating,
+      comment: ratingComment || undefined,
+    });
+  };
+
+  const handleToggleExpand = (orderId: number) => {
+    setExpandedOrderId((prev) => prev === orderId ? null : orderId);
+  };
+
+  const activeOrders = orders?.filter((o) => isActiveOrder(o.status)) || [];
+  const pastOrders = orders?.filter((o) => !isActiveOrder(o.status)) || [];
+
+  if (isLoading) {
+    return (
+      <Wrapper>
+      <ScreenContainer className="items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </ScreenContainer>
+      </Wrapper>
+    );
+  }
+
+  // Combine active and past orders into a single list with section markers
+  const listData = [
+    ...activeOrders.map(o => ({ ...o, _section: 'active' as const })),
+    ...pastOrders.map(o => ({ ...o, _section: 'past' as const })),
+  ];
 
   return (
     <Wrapper>
@@ -807,8 +820,9 @@ export default function OrderHistoryScreen() {
 
       <FlatList
         style={{ flex: 1, padding: 16 }}
-        data={[...activeOrders.map(o => ({ ...o, _section: 'active' as const })), ...pastOrders.map(o => ({ ...o, _section: 'past' as const }))]}
+        data={listData}
         keyExtractor={(item) => String(item.id)}
+        extraData={expandedOrderId}
         refreshControl={
           <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primary} />
         }
@@ -822,7 +836,6 @@ export default function OrderHistoryScreen() {
           </Text>
         ) : null}
         ListEmptyComponent={
-
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
             <Image
               source={require("@/assets/images/Weshop4ulogo.jpg")}
@@ -843,8 +856,7 @@ export default function OrderHistoryScreen() {
         }
         ListFooterComponent={<View style={{ height: 40 }} />}
         renderItem={({ item: order, index }) => {
-          // Show section header for past orders
-          const showPastHeader = order._section === 'past' && (index === 0 || (index > 0 && activeOrders.length > 0 && index === activeOrders.length));
+          const showPastHeader = order._section === 'past' && (index === 0 || (activeOrders.length > 0 && index === activeOrders.length));
           return (
             <View>
               {showPastHeader && (
@@ -852,7 +864,35 @@ export default function OrderHistoryScreen() {
                   Past Orders
                 </Text>
               )}
-              {order._section === 'active' ? renderActiveOrder(order) : renderPastOrder(order)}
+              {order._section === 'active' ? (
+                <ActiveOrderCard
+                  order={order}
+                  isExpanded={expandedOrderId === order.id}
+                  onToggleExpand={handleToggleExpand}
+                  colors={colors}
+                  router={router}
+                  onCancelOrder={handleCancelOrder}
+                  cancelPending={cancelOrderMutation.isPending}
+                />
+              ) : (
+                <PastOrderCard
+                  order={order}
+                  isExpanded={expandedOrderId === order.id}
+                  onToggleExpand={handleToggleExpand}
+                  colors={colors}
+                  router={router}
+                  isRated={!!ratingSubmitted[order.id]}
+                  ratingOrderId={ratingOrderId}
+                  selectedRating={selectedRating}
+                  ratingComment={ratingComment}
+                  onSetRatingOrderId={setRatingOrderId}
+                  onSetSelectedRating={setSelectedRating}
+                  onSetRatingComment={setRatingComment}
+                  onSubmitRating={handleSubmitRating}
+                  onReorder={handleReorder}
+                  ratingPending={rateDriverMutation.isPending}
+                />
+              )}
             </View>
           );
         }}
