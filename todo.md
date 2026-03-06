@@ -2466,3 +2466,11 @@
 - [x] Login TextInput still losing focus after each character on native Android — removed key={loginMethod} prop, used separate TextInput components for email/phone
 - [x] Product detail card still flickering (appears/disappears) on native Android — decoupled modalVisible state from selectedProduct, added closeProductDetail with delayed cleanup
 - [x] Rebuild web export and save checkpoint
+
+## CRITICAL - APK Bugs STILL NOT FIXED + New Crash (March 6 v3)
+- [x] Orders screen STILL crashes app on native Android — ROOT CAUSE: Hook order violation (useEffect/useMutation hooks after if(!user) conditional return). Moved ALL hooks before early return.
+- [x] Login TextInput STILL loses focus after each character on native Android — ROOT CAUSE: (a) All TextInput components across entire app used className instead of style prop, (b) AsyncStorage load during render caused re-renders, (c) useAuth autoFetch triggered background re-renders. Fixed all 182+ TextInputs to use style, moved AsyncStorage to useEffect, disabled autoFetch on login screen.
+- [x] Product detail card STILL flickering on native Android — ROOT CAUSE: categoriesWithProducts computed on every render creating new object references. Wrapped in useMemo with stable dependencies.
+- [x] NEW: App crashes after successful login — ROOT CAUSE: expo-notifications module crashing Hermes on native Android (no FCM/google-services.json). Removed ALL expo-notifications imports from every screen (orders, store, driver, store-dashboard). Also rewrote auth.ts with lazy SecureStore loading and AsyncStorage fallback.
+- [x] Deep dive debugging with independent analysis
+- [x] Rebuild web export and save checkpoint

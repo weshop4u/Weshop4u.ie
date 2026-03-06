@@ -145,7 +145,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Full Name *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="John Doe"
                 placeholderTextColor="#9BA1A6"
                 value={name}
@@ -157,7 +157,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Email *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="your@email.com"
                 placeholderTextColor="#9BA1A6"
                 value={email}
@@ -171,7 +171,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Phone *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="087 123 4567"
                 placeholderTextColor="#9BA1A6"
                 value={phone}
@@ -183,7 +183,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Town / Area</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="e.g., Balbriggan, Swords, Drogheda"
                 placeholderTextColor="#9BA1A6"
                 value={town}
@@ -195,7 +195,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Address</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="Your home address"
                 placeholderTextColor="#9BA1A6"
                 value={address}
@@ -209,7 +209,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Vehicle Type *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="Car, Bike, Scooter, etc."
                 placeholderTextColor="#9BA1A6"
                 value={vehicleType}
@@ -221,7 +221,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Vehicle Registration *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="e.g., 231-D-12345"
                 placeholderTextColor="#9BA1A6"
                 value={vehicleNumber}
@@ -233,7 +233,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Driver License Number (Optional)</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="License number"
                 placeholderTextColor="#9BA1A6"
                 value={licenseNumber}
@@ -247,7 +247,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Password *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="At least 6 characters"
                 placeholderTextColor="#9BA1A6"
                 value={password}
@@ -260,7 +260,7 @@ export default function RegisterDriverScreen() {
             <View>
               <Text className="text-foreground font-semibold mb-2">Confirm Password *</Text>
               <TextInput
-                className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                 placeholder="Re-enter password"
                 placeholderTextColor="#9BA1A6"
                 value={confirmPassword}

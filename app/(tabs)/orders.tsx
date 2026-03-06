@@ -4,14 +4,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/lib/cart-provider";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
+// expo-notifications removed - causes native crash on standalone APK without FCM config
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime, formatIrishDateTime } from "@/lib/timezone";
 import { WebLayout } from "@/components/web-layout";
 
-const isExpoGo = Constants.appOwnership === "expo";
 
 function getEstimatedTime(order: any): string | null {
   const status = order.status;
@@ -558,105 +556,22 @@ export default function OrderHistoryScreen() {
     }
   }, [inlineMessage]);
 
-  const isWeb = Platform.OS === "web";
-  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
-  if (!user) {
-    return (
-      <Wrapper>
-      <ScreenContainer className="p-6">
-        <View className="flex-1 items-center justify-center gap-6 px-6">
-          <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
-            <Image
-              source={require("@/assets/images/Weshop4ulogo.jpg")}
-              style={{ width: 144, height: 144, borderRadius: 72 }}
-              resizeMode="cover"
-            />
-          </View>
-          <Text className="text-3xl font-bold text-foreground text-center">
-            Log In to Continue
-          </Text>
-          <Text className="text-base text-muted text-center">
-            Create an account or log in to track orders, save addresses, and enjoy faster checkout
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push("/auth/login" as any)}
-            style={{
-              backgroundColor: colors.primary,
-              paddingHorizontal: 32,
-              paddingVertical: 14,
-              borderRadius: 25,
-              marginTop: 16,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Log In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/auth/signup" as any)}
-            style={{
-              paddingHorizontal: 32,
-              paddingVertical: 14,
-            }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </ScreenContainer>
-      </Wrapper>
-    );
-  }
-
-  // Listen for push notifications to trigger immediate refetch
+  // ALL hooks MUST be above this line - React requires consistent hook order across renders
   useEffect(() => {
-    if (Platform.OS === "web") return;
-    if (isExpoGo) return;
-    let subscription: Notifications.Subscription | null = null;
-    try {
-      subscription = Notifications.addNotificationReceivedListener((notification) => {
-        const data = notification.request.content.data;
-        if (data?.type === "order_update") {
-          refetch();
-        }
-      });
-    } catch (e) {
-      console.log("[Push] Could not add notification listener");
-    }
-    return () => { try { subscription?.remove(); } catch (e) {} };
-  }, [refetch]);
-
-  useEffect(() => {
+    if (!user) return; // Guard inside effect, not before it
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active") {
         refetch();
       }
     });
     return () => subscription.remove();
-  }, [refetch]);
+  }, [refetch, user]);
 
-  // Local notification on status change - wrapped in try/catch to prevent crashes
+  // Track status changes (notifications disabled for standalone APK stability)
   useEffect(() => {
-    if (!orders || Platform.OS === "web") return;
-    if (isExpoGo) return;
+    if (!orders) return;
     const prevStatuses = lastStatusesRef.current;
     for (const order of orders) {
-      const prevStatus = prevStatuses[order.id];
-      if (prevStatus && prevStatus !== order.status && STATUS_MESSAGES[order.status]) {
-        const msg = STATUS_MESSAGES[order.status];
-        try {
-          Notifications.scheduleNotificationAsync({
-            content: {
-              title: msg.title,
-              body: `${order.store?.name || "Store"} - ${msg.body}`,
-              sound: "default",
-            },
-            trigger: null,
-          }).catch(() => {
-            // Silently ignore notification failures
-          });
-        } catch (e) {
-          // Silently ignore notification failures
-        }
-      }
       prevStatuses[order.id] = order.status;
     }
     lastStatusesRef.current = prevStatuses;
@@ -723,6 +638,55 @@ export default function OrderHistoryScreen() {
   const handleToggleExpand = (orderId: number) => {
     setExpandedOrderId((prev) => prev === orderId ? null : orderId);
   };
+
+  const isWeb = Platform.OS === "web";
+  const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
+  // Early return for unauthenticated users - AFTER all hooks
+  if (!user) {
+    return (
+      <Wrapper>
+      <ScreenContainer className="p-6">
+        <View className="flex-1 items-center justify-center gap-6 px-6">
+          <View style={{ width: 144, height: 144, borderRadius: 72, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
+            <Image
+              source={require("@/assets/images/Weshop4ulogo.jpg")}
+              style={{ width: 144, height: 144, borderRadius: 72 }}
+              resizeMode="cover"
+            />
+          </View>
+          <Text className="text-3xl font-bold text-foreground text-center">
+            Log In to Continue
+          </Text>
+          <Text className="text-base text-muted text-center">
+            Create an account or log in to track orders, save addresses, and enjoy faster checkout
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/login" as any)}
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 25,
+              marginTop: 16,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Log In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/auth/signup" as any)}
+            style={{
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+      </Wrapper>
+    );
+  }
 
   const activeOrders = orders?.filter((o) => isActiveOrder(o.status)) || [];
   const pastOrders = orders?.filter((o) => !isActiveOrder(o.status)) || [];

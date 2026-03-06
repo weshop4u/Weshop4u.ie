@@ -195,7 +195,7 @@ export default function ForgotPasswordScreen() {
               <View>
                 <Text className="text-foreground font-semibold mb-2">Phone Number</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                   placeholder="087 123 4567"
                   placeholderTextColor="#9BA1A6"
                   value={phone}
@@ -245,8 +245,7 @@ export default function ForgotPasswordScreen() {
                   <TextInput
                     key={index}
                     ref={(ref) => { otpRefs.current[index] = ref; }}
-                    className="bg-surface border-2 border-border rounded-xl text-foreground text-center font-bold"
-                    style={{ width: 48, height: 56, fontSize: 24, lineHeight: 28 }}
+                    style={{ width: 48, height: 56, fontSize: 24, lineHeight: 28, backgroundColor: '#f5f5f5', borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 12, color: '#11181C', textAlign: 'center', fontWeight: 'bold' }}
                     value={digit}
                     onChangeText={(text) => handleOtpChange(text, index)}
                     onKeyPress={(e) => handleOtpKeyPress(e, index)}
@@ -298,7 +297,7 @@ export default function ForgotPasswordScreen() {
               <View>
                 <Text className="text-foreground font-semibold mb-2">New Password</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                   placeholder="At least 6 characters"
                   placeholderTextColor="#9BA1A6"
                   value={newPassword}
@@ -312,7 +311,7 @@ export default function ForgotPasswordScreen() {
               <View>
                 <Text className="text-foreground font-semibold mb-2">Confirm New Password</Text>
                 <TextInput
-                  className="bg-surface border border-border rounded-lg p-4 text-foreground"
+                  style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 16, color: '#11181C', fontSize: 16 }}
                   placeholder="Re-enter new password"
                   placeholderTextColor="#9BA1A6"
                   value={confirmPassword}

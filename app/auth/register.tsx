@@ -379,8 +379,7 @@ export default function RegisterScreen() {
                   <TextInput
                     key={index}
                     ref={(ref) => { otpRefs.current[index] = ref; }}
-                    className="bg-surface border-2 border-border rounded-xl text-foreground text-center font-bold"
-                    style={{ width: 48, height: 56, fontSize: 24, lineHeight: 28 }}
+                    style={{ width: 48, height: 56, fontSize: 24, lineHeight: 28, backgroundColor: '#f5f5f5', borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 12, color: '#11181C', textAlign: 'center', fontWeight: 'bold' }}
                     value={digit}
                     onChangeText={(text) => handleOtpChange(text, index)}
                     onKeyPress={(e) => handleOtpKeyPress(e, index)}

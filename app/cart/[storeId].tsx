@@ -757,7 +757,7 @@ export default function CartScreen() {
             <Text className="text-muted text-sm mb-3">We need your details to deliver your order</Text>
             
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
+              style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginBottom: 12, fontSize: 16 }}
               placeholder="Full Name *"
               placeholderTextColor={colors.muted}
               value={guestName}
@@ -765,7 +765,7 @@ export default function CartScreen() {
             />
             
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, fontSize: 16 }}
               placeholder="Email Address (optional — for order updates)"
               placeholderTextColor={colors.muted}
               value={guestEmail}
@@ -841,7 +841,7 @@ export default function CartScreen() {
           
           {/* Street Address */}
           <TextInput
-            className="bg-surface text-foreground p-4 rounded-lg border border-border mb-3"
+            style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginBottom: 12, fontSize: 16 }}
             placeholder="Street address (e.g., 123 Main Street, Balbriggan)"
             placeholderTextColor={colors.muted}
             value={streetAddress}
@@ -857,7 +857,7 @@ export default function CartScreen() {
 
           {/* Eircode */}
           <TextInput
-            className="bg-surface text-foreground p-4 rounded-lg border border-border"
+            style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, fontSize: 16 }}
             placeholder="Eircode (e.g., K32 Y621)"
             placeholderTextColor={colors.muted}
             value={eircode}
@@ -911,7 +911,7 @@ export default function CartScreen() {
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-2">Order Notes (Optional)</Text>
           <TextInput
-            className="bg-surface text-foreground p-4 rounded-lg border border-border"
+            style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, fontSize: 16 }}
             placeholder="Special instructions for your order..."
             placeholderTextColor={colors.muted}
             value={customerNotes}
@@ -1046,7 +1046,7 @@ export default function CartScreen() {
             </View>
             {showCustomTip && (
               <TextInput
-                className="bg-surface text-foreground p-4 rounded-lg border border-border mt-2"
+                style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginTop: 8, fontSize: 16 }}
                 placeholder="Enter tip amount (€)"
                 placeholderTextColor={colors.muted}
                 value={customTip}
@@ -1202,8 +1202,7 @@ export default function CartScreen() {
 
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
-                className="bg-background text-foreground p-4 rounded-lg border border-border"
-                style={{ flex: 1, borderColor: phoneVerified ? '#22C55E' : undefined, borderWidth: phoneVerified ? 2 : 1 }}
+                style={{ flex: 1, backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: phoneVerified ? 2 : 1, borderColor: phoneVerified ? '#22C55E' : colors.border, fontSize: 16 }}
                 placeholder="Phone Number *"
                 placeholderTextColor={colors.muted}
                 value={guestPhone}
@@ -1251,8 +1250,7 @@ export default function CartScreen() {
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput
-                    className="bg-background text-foreground p-4 rounded-lg border border-border"
-                    style={{ flex: 1, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
+                    style={{ flex: 1, backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
                     placeholder="000000"
                     placeholderTextColor={colors.muted}
                     value={otpCode}

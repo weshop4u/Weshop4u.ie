@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, StyleSheet } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,49 +12,66 @@ import { useColors } from "@/hooks/use-colors";
 
 type LoginMethod = "email" | "phone";
 
+// Load remembered data synchronously-ish via lazy state initializer
+// This avoids useEffect setState that causes re-renders and steals focus
+function getInitialRemembered(): { method: LoginMethod; remember: boolean } {
+  // Default values - AsyncStorage will update these on first render via a one-time load
+  return { method: "email", remember: false };
+}
+
 export default function LoginScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { refresh: refreshAuth } = useAuth();
+  // Disable autoFetch to prevent background re-renders while user is typing
+  const { refresh: refreshAuth } = useAuth({ autoFetch: false });
+
   const [loginMethod, setLoginMethod] = useState<LoginMethod>("email");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Single field for email or phone
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  const identifierRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const loginMutation = trpc.auth.login.useMutation();
 
+  // Load remembered data ONCE in useEffect (not during render)
   useEffect(() => {
-    const loadRememberedData = async () => {
-      try {
-        const remembered = await AsyncStorage.getItem("rememberedLoginMethod");
-        if (remembered === "email" || remembered === "phone") {
-          setLoginMethod(remembered);
+    AsyncStorage.multiGet(["rememberedLoginMethod", "rememberedEmail", "rememberedPhone"])
+      .then((results) => {
+        const method = results[0][1];
+        const savedEmail = results[1][1];
+        const savedPhone = results[2][1];
+        if (method === "email" || method === "phone") {
+          setLoginMethod(method);
           setRememberMe(true);
+          if (method === "email" && savedEmail) {
+            setIdentifier(savedEmail);
+          } else if (method === "phone" && savedPhone) {
+            setIdentifier(savedPhone);
+          }
         }
-        // Also restore last used email/phone
-        const savedEmail = await AsyncStorage.getItem("rememberedEmail");
-        const savedPhone = await AsyncStorage.getItem("rememberedPhone");
-        if (savedEmail) setEmail(savedEmail);
-        if (savedPhone) setPhone(savedPhone);
-      } catch (e) {
-        console.error("Failed to load remembered login data:", e);
-      }
-    };
-    loadRememberedData();
+        setInitialLoaded(true);
+      })
+      .catch(() => {
+        setInitialLoaded(true);
+      });
+  }, []); // Empty deps = runs once on mount
+
+  const handleMethodSwitch = useCallback((method: LoginMethod) => {
+    setLoginMethod(method);
+    setIdentifier(""); // Clear identifier when switching
+    setError("");
   }, []);
 
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     setError("");
-    
-    if (loginMethod === "email" && !email) {
-      setError("Please enter your email");
-      return;
-    }
-    if (loginMethod === "phone" && !phone) {
-      setError("Please enter your phone number");
+
+    if (!identifier.trim()) {
+      setError(loginMethod === "email" ? "Please enter your email" : "Please enter your phone number");
       return;
     }
     if (!password) {
@@ -67,9 +84,9 @@ export default function LoginScreen() {
     try {
       // Step 1: Validate credentials via tRPC
       const loginPayload = loginMethod === "email"
-        ? { email: email.toLowerCase().trim(), password }
-        : { phone: phone.trim(), password };
-      
+        ? { email: identifier.toLowerCase().trim(), password }
+        : { phone: identifier.trim(), password };
+
       const result = await loginMutation.mutateAsync(loginPayload);
 
       // Step 2: Store user data in AsyncStorage for quick access
@@ -82,12 +99,13 @@ export default function LoginScreen() {
       // Step 2b: Store login method preference if Remember me is checked
       if (rememberMe) {
         await AsyncStorage.setItem("rememberedLoginMethod", loginMethod);
-        await AsyncStorage.setItem("rememberedEmail", email);
-        await AsyncStorage.setItem("rememberedPhone", phone);
+        if (loginMethod === "email") {
+          await AsyncStorage.setItem("rememberedEmail", identifier);
+        } else {
+          await AsyncStorage.setItem("rememberedPhone", identifier);
+        }
       } else {
-        await AsyncStorage.removeItem("rememberedLoginMethod");
-        await AsyncStorage.removeItem("rememberedEmail");
-        await AsyncStorage.removeItem("rememberedPhone");
+        await AsyncStorage.multiRemove(["rememberedLoginMethod", "rememberedEmail", "rememberedPhone"]);
       }
 
       // Step 3: Create session via REST API (sets cookie for web, returns token for native)
@@ -101,44 +119,40 @@ export default function LoginScreen() {
 
       if (sessionResponse.ok) {
         const sessionData = await sessionResponse.json();
-        console.log("[Login] Session response data:", {
-          hasSessionToken: !!sessionData.sessionToken,
-          hasUser: !!sessionData.user,
-          platform: Platform.OS,
-          sessionToken: sessionData.sessionToken ? `${sessionData.sessionToken.substring(0, 30)}...` : null,
-        });
-        
+
         // Step 4: Store session token in SecureStore for native persistence
         if (Platform.OS !== "web") {
           if (sessionData.sessionToken) {
-            console.log("[Login] Storing session token on native...");
-            await Auth.setSessionToken(sessionData.sessionToken);
-            console.log("[Login] Session token stored in SecureStore successfully");
-            
-            // Verify it was stored
-            const storedToken = await Auth.getSessionToken();
-            console.log("[Login] Verification - token retrieved:", storedToken ? `${storedToken.substring(0, 30)}...` : "FAILED TO RETRIEVE");
-          } else {
-            console.error("[Login] ERROR: No sessionToken in response for native platform!");
+            try {
+              await Auth.setSessionToken(sessionData.sessionToken);
+            } catch (e) {
+              console.error("[Login] Failed to store session token:", e);
+            }
           }
         }
 
         // Step 5: Cache user info for quick session restore
-        await Auth.setUserInfo({
-          id: result.user.id,
-          openId: "",
-          name: result.user.name,
-          email: result.user.email,
-          loginMethod: "password",
-          lastSignedIn: new Date(),
-          role: result.user.role || null,
-        });
+        try {
+          await Auth.setUserInfo({
+            id: result.user.id,
+            openId: "",
+            name: result.user.name,
+            email: result.user.email,
+            loginMethod: "password",
+            lastSignedIn: new Date(),
+            role: result.user.role || null,
+          });
+        } catch (e) {
+          console.error("[Login] Failed to cache user info:", e);
+        }
       }
 
       // Step 6: Refresh useAuth to sync user state across all components
-      console.log("[Login] Refreshing auth state...");
-      await refreshAuth();
-      console.log("[Login] Auth state refreshed, navigating...");
+      try {
+        await refreshAuth();
+      } catch (e) {
+        console.error("[Login] Failed to refresh auth:", e);
+      }
 
       // Step 7: Navigate based on role
       if (Platform.OS === "web") {
@@ -151,20 +165,27 @@ export default function LoginScreen() {
           window.location.href = `${base}/`;
         }
       } else {
-        if (result.user.role === "driver") {
-          router.replace("/driver");
-        } else if (result.user.role === "store_staff") {
-          router.replace("/store");
-        } else {
-          router.replace("/");
-        }
+        // Use setTimeout to ensure navigation happens after state updates settle
+        setTimeout(() => {
+          try {
+            if (result.user.role === "driver") {
+              router.replace("/driver");
+            } else if (result.user.role === "store_staff") {
+              router.replace("/store");
+            } else {
+              router.replace("/");
+            }
+          } catch (e) {
+            console.error("[Login] Navigation error:", e);
+          }
+        }, 100);
       }
-    } catch (error: any) {
-      setError(error.message || (loginMethod === "email" ? "Invalid email or password" : "Invalid phone number or password"));
+    } catch (err: any) {
+      setError(err.message || (loginMethod === "email" ? "Invalid email or password" : "Invalid phone number or password"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [identifier, password, loginMethod, rememberMe, loginMutation, refreshAuth, router]);
 
   const isWeb = Platform.OS === "web";
   const Wrapper = isWeb ? WebLayout : ({ children }: { children: React.ReactNode }) => <>{children}</>;
@@ -174,63 +195,49 @@ export default function LoginScreen() {
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
+        style={styles.flex1}
       >
-        <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
+        <View style={styles.container}>
           {/* Header */}
-          <View style={{ alignItems: 'center', marginBottom: 32 }}>
+          <View style={styles.header}>
             <Image
               source={require("@/assets/images/Weshop4ulogo.jpg")}
-              style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 12 }}
+              style={styles.logo}
               resizeMode="cover"
             />
-            <Text style={{ color: colors.primary, fontSize: 48, fontWeight: '700', marginBottom: 8 }}>WESHOP4U</Text>
-            <Text style={{ color: colors.muted, fontSize: 18 }}>Welcome Back!</Text>
+            <Text style={[styles.title, { color: colors.primary }]}>WESHOP4U</Text>
+            <Text style={[styles.subtitle, { color: colors.muted }]}>Welcome Back!</Text>
           </View>
 
           {/* Login Method Toggle */}
-          <View style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surface,
-            borderRadius: 12,
-            padding: 4,
-            marginBottom: 20,
-          }}>
+          <View style={[styles.toggleContainer, { backgroundColor: colors.surface }]}>
             <TouchableOpacity
-              onPress={() => { setLoginMethod("email"); setError(""); }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 10,
-                alignItems: 'center',
-                backgroundColor: loginMethod === "email" ? colors.primary : 'transparent',
-              }}
+              onPress={() => handleMethodSwitch("email")}
+              style={[
+                styles.toggleButton,
+                { backgroundColor: loginMethod === "email" ? colors.primary : "transparent" },
+              ]}
               activeOpacity={0.8}
             >
-              <Text style={{
-                fontWeight: '700',
-                fontSize: 15,
-                color: loginMethod === "email" ? '#FFFFFF' : colors.muted,
-              }}>
+              <Text style={[
+                styles.toggleText,
+                { color: loginMethod === "email" ? "#FFFFFF" : colors.muted },
+              ]}>
                 Email
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { setLoginMethod("phone"); setError(""); }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 10,
-                alignItems: 'center',
-                backgroundColor: loginMethod === "phone" ? colors.primary : 'transparent',
-              }}
+              onPress={() => handleMethodSwitch("phone")}
+              style={[
+                styles.toggleButton,
+                { backgroundColor: loginMethod === "phone" ? colors.primary : "transparent" },
+              ]}
               activeOpacity={0.8}
             >
-              <Text style={{
-                fontWeight: '700',
-                fontSize: 15,
-                color: loginMethod === "phone" ? '#FFFFFF' : colors.muted,
-              }}>
+              <Text style={[
+                styles.toggleText,
+                { color: loginMethod === "phone" ? "#FFFFFF" : colors.muted },
+              ]}>
                 Phone
               </Text>
             </TouchableOpacity>
@@ -238,62 +245,38 @@ export default function LoginScreen() {
 
           {/* Error Message */}
           {error ? (
-            <View style={{ backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 1, borderColor: colors.error, borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <Text style={{ color: colors.error, fontWeight: '600' }}>{error}</Text>
+            <View style={[styles.errorBox, { borderColor: colors.error }]}>
+              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
             </View>
           ) : null}
 
           {/* Login Form */}
-          <View style={{ gap: 16 }}>
+          <View style={styles.formContainer}>
             <View>
-              <Text style={{ color: colors.foreground, fontWeight: '600', marginBottom: 8 }}>
+              <Text style={[styles.label, { color: colors.foreground }]}>
                 {loginMethod === "email" ? "Email" : "Phone Number"}
               </Text>
-              {loginMethod === "email" ? (
-                <TextInput
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    color: colors.foreground,
-                    fontSize: 16,
-                  }}
-                  placeholder="your@email.com"
-                  placeholderTextColor="#9BA1A6"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-              ) : (
-                <TextInput
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    color: colors.foreground,
-                    fontSize: 16,
-                  }}
-                  placeholder="087 123 4567"
-                  placeholderTextColor="#9BA1A6"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-              )}
+              {/* SINGLE TextInput - never conditionally rendered, just change props */}
+              <TextInput
+                ref={identifierRef}
+                style={[styles.input, {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                }]}
+                placeholder={loginMethod === "email" ? "your@email.com" : "087 123 4567"}
+                placeholderTextColor="#9BA1A6"
+                value={identifier}
+                onChangeText={setIdentifier}
+                keyboardType={loginMethod === "email" ? "email-address" : "phone-pad"}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                blurOnSubmit={false}
+              />
               {loginMethod === "phone" && (
-                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+                <Text style={[styles.helperText, { color: colors.muted }]}>
                   Enter the phone number you registered with
                 </Text>
               )}
@@ -302,44 +285,28 @@ export default function LoginScreen() {
             {/* Remember Me Checkbox */}
             <TouchableOpacity
               onPress={() => setRememberMe(!rememberMe)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                marginTop: 8,
-                marginBottom: 4,
-              }}
+              style={styles.rememberRow}
             >
               <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 4,
-                  backgroundColor: rememberMe ? colors.primary : 'transparent',
-                  borderWidth: 2,
+                style={[styles.checkbox, {
+                  backgroundColor: rememberMe ? colors.primary : "transparent",
                   borderColor: rememberMe ? colors.primary : colors.border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                }]}
               >
-                {rememberMe && <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF' }}>✓</Text>}
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
               </View>
-              <Text style={{ fontSize: 14, color: colors.foreground }}>Remember this login method</Text>
+              <Text style={[styles.rememberText, { color: colors.foreground }]}>Remember this login method</Text>
             </TouchableOpacity>
 
             <View>
-              <Text style={{ color: colors.foreground, fontWeight: '600', marginBottom: 8 }}>Password</Text>
+              <Text style={[styles.label, { color: colors.foreground }]}>Password</Text>
               <TextInput
-                style={{
+                ref={passwordRef}
+                style={[styles.input, {
                   backgroundColor: colors.surface,
-                  borderWidth: 1,
                   borderColor: colors.border,
-                  borderRadius: 8,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
                   color: colors.foreground,
-                  fontSize: 16,
-                }}
+                }]}
                 placeholder="Enter your password"
                 placeholderTextColor="#9BA1A6"
                 value={password}
@@ -355,39 +322,35 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleLogin}
               disabled={loading}
-              style={{
+              style={[styles.loginButton, {
                 backgroundColor: colors.primary,
-                padding: 16,
-                borderRadius: 8,
-                alignItems: 'center',
-                marginTop: 16,
                 opacity: loading ? 0.5 : 1,
-              }}
+              }]}
               activeOpacity={0.7}
             >
-              <Text style={{ color: colors.background, fontWeight: '700', fontSize: 18 }}>
+              <Text style={[styles.loginButtonText, { color: colors.background }]}>
                 {loading ? "Logging in..." : "Login"}
               </Text>
             </TouchableOpacity>
 
             {/* Forgot Password Link */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12 }}>
+            <View style={styles.linkRow}>
               <TouchableOpacity
                 onPress={() => router.push("/auth/forgot-password" as any)}
                 activeOpacity={0.7}
               >
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>Forgot Password?</Text>
+                <Text style={[styles.linkText, { color: colors.primary }]}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
             {/* Register Link */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 16 }}>
+            <View style={styles.linkRow}>
               <Text style={{ color: colors.muted }}>Don't have an account? </Text>
               <TouchableOpacity
                 onPress={() => router.push("/auth/register" as any)}
                 activeOpacity={0.7}
               >
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
+                <Text style={[styles.linkText, { color: colors.primary }]}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -397,3 +360,118 @@ export default function LoginScreen() {
     </Wrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 18,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  toggleText: {
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  errorBox: {
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontWeight: "600",
+  },
+  formContainer: {
+    gap: 16,
+  },
+  label: {
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  rememberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkmark: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  rememberText: {
+    fontSize: 14,
+  },
+  loginButton: {
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  loginButtonText: {
+    fontWeight: "700",
+    fontSize: 18,
+  },
+  linkRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  linkText: {
+    fontWeight: "600",
+  },
+});

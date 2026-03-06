@@ -31,15 +31,7 @@ function formatDistance(km: number): string {
 }
 
 export default function HomeScreen() {
-  // On web, render the web-optimised home page with header/footer
-  if (Platform.OS === "web") {
-    return (
-      <WebLayout>
-        <WebHome />
-      </WebLayout>
-    );
-  }
-
+  // ALL hooks must be called unconditionally before any early return
   const router = useRouter();
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { data: activeBanners } = trpc.banners.getActive.useQuery();
@@ -97,6 +89,16 @@ export default function HomeScreen() {
     });
   }, [filteredStores, location]);
 
+  // On web, render the web-optimised home page with header/footer
+  // This early return is AFTER all hooks, so it's safe
+  if (Platform.OS === "web") {
+    return (
+      <WebLayout>
+        <WebHome />
+      </WebLayout>
+    );
+  }
+
   if (isLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
@@ -131,7 +133,15 @@ export default function HomeScreen() {
         {/* Search Bar */}
         <View className="px-4 mb-4">
           <TextInput
-            className="bg-surface border border-border rounded-xl p-4 text-foreground"
+            style={{
+              backgroundColor: '#f5f5f5',
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              borderRadius: 12,
+              padding: 16,
+              color: '#11181C',
+              fontSize: 16,
+            }}
             placeholder="Search stores by name or category..."
             placeholderTextColor="#9BA1A6"
             value={searchQuery}

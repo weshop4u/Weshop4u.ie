@@ -5,16 +5,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
+// expo-notifications removed for standalone APK stability
 import { useAuth } from "@/hooks/use-auth";
 import * as Auth from "@/lib/_core/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishDateTime } from "@/lib/timezone";
 
-const isExpoGo = Constants.appOwnership === "expo";
 import { playNewOrderSound, playDriverArrivedSound, startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 
@@ -48,8 +45,6 @@ export default function StoreDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { data: user, isLoading: userLoading } = trpc.auth.me.useQuery();
 
-  // Register push token for store staff
-  usePushNotifications(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "preparing" | "ready_for_pickup" | "completed">("all");
@@ -149,22 +144,6 @@ export default function StoreDashboardScreen() {
   const markReadyMutation = trpc.store.markOrderReady.useMutation();
   const createPrintJobMutation = trpc.print.createPrintJob.useMutation();
 
-  // Listen for push notifications
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-
-    if (isExpoGo) return; // Skip in Expo Go
-    let subscription: Notifications.Subscription | null = null;
-    try {
-      subscription = Notifications.addNotificationReceivedListener(() => {
-        refetch();
-      });
-    } catch (e) {
-      console.log("[Push] Could not add notification listener");
-    }
-
-    return () => subscription?.remove();
-  }, [refetch]);
 
   // Refetch when app comes to foreground
   useEffect(() => {

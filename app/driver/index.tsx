@@ -5,14 +5,11 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
+// expo-notifications removed for standalone APK stability
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 
-const isExpoGo = Constants.appOwnership === "expo";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -20,8 +17,6 @@ export default function DriverHomeScreen() {
   const insets = useSafeAreaInsets();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
 
-  // Register push token for driver
-  usePushNotifications(user?.id);
 
   // Audio player for alarm sound (native)
   const alarmPlayer = useAudioPlayer(require("@/assets/sounds/order-alert.mp3"));
@@ -204,25 +199,6 @@ export default function DriverHomeScreen() {
     }
   }, [user, isLoading]);
 
-  // Request notification permissions on mount
-  useEffect(() => {
-    if (Platform.OS !== "web" && !isExpoGo) {
-      try {
-        Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-            shouldShowBanner: true,
-            shouldShowList: true,
-          }),
-        });
-        Notifications.requestPermissionsAsync();
-      } catch (e) {
-        console.log("[Push] Could not set up notifications in Expo Go");
-      }
-    }
-  }, []);
 
   // Helper to stop all alarms and vibrations
   const stopAllAlarms = useCallback(() => {
@@ -301,20 +277,8 @@ export default function DriverHomeScreen() {
             } catch (e) { /* ignore */ }
           }, 3000); // Vibrate every 3 seconds
 
-          // Fire local push notification (works in Expo Go too with scheduleNotificationAsync)
-          try {
-            Notifications.scheduleNotificationAsync({
-              content: {
-                title: "New Delivery Offer!",
-                body: `${offerData.offer.storeName} - EUR${parseFloat(offerData.offer.deliveryFee).toFixed(2)} fee. Respond within 15 seconds!`,
-                sound: true,
-                priority: Notifications.AndroidNotificationPriority.MAX,
-              },
-              trigger: null,
-            });
-          } catch (e) {
-            console.log("[Push] Could not schedule notification:", e);
-          }
+          // Local push notification disabled for standalone APK stability
+          console.log('[Driver] New offer notification (push disabled for APK stability)');
         }
       }
     }

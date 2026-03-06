@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useCart, CartItemModifier, getItemUnitPrice } from "@/lib/cart-provider";
 import { isStoreOpen, getTodayHours, getNextOpenTime, getWeeklyHoursSummary } from "@/lib/store-hours";
 import { isCategoryAvailable, getAvailabilityMessage, getTodayAvailability } from "@/lib/category-availability";
@@ -123,25 +123,28 @@ export default function StoreDetailScreen() {
 
   const cartItemCount = getItemCount();
 
-  // Group products by category
-  const categoriesWithProducts = products?.reduce((acc, product) => {
-    if (!product.categoryId) return acc;
-    
-    if (!acc[product.categoryId]) {
-      acc[product.categoryId] = {
-        id: product.categoryId,
-        name: product.category?.name || "Uncategorized",
-        icon: product.category?.icon || null,
-        ageRestricted: product.category?.ageRestricted || false,
-        availabilitySchedule: product.category?.availabilitySchedule || null,
-        products: [],
-      };
-    }
-    acc[product.categoryId].products.push(product);
-    return acc;
-  }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>) || {};
+  // Group products by category - memoized to prevent flickering from re-renders
+  const categoriesWithProducts = useMemo(() => {
+    if (!products || products.length === 0) return {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>;
+    return products.reduce((acc, product) => {
+      if (!product.categoryId) return acc;
+      
+      if (!acc[product.categoryId]) {
+        acc[product.categoryId] = {
+          id: product.categoryId,
+          name: product.category?.name || "Uncategorized",
+          icon: product.category?.icon || null,
+          ageRestricted: product.category?.ageRestricted || false,
+          availabilitySchedule: product.category?.availabilitySchedule || null,
+          products: [],
+        };
+      }
+      acc[product.categoryId].products.push(product);
+      return acc;
+    }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>);
+  }, [products]);
 
-  const categories = Object.values(categoriesWithProducts);
+  const categories = useMemo(() => Object.values(categoriesWithProducts), [categoriesWithProducts]);
 
   // Filter and sort categories
   const filteredCategories = useMemo(() => {
@@ -283,6 +286,8 @@ export default function StoreDetailScreen() {
   // Close product detail modal
   const closeProductDetail = useCallback(() => {
     setModalVisible(false);
+    // Reset the defaults ref so next open will set defaults again
+    lastDefaultsProductIdRef.current = null;
     // Delay clearing data so modal animates out cleanly
     setTimeout(() => setSelectedProduct(null), 300);
   }, []);
@@ -296,22 +301,28 @@ export default function StoreDetailScreen() {
     { enabled: !!selectedProduct }
   );
 
-  // Set defaults when modifier data loads
+  // Track which product we last set defaults for to avoid re-running
+  const lastDefaultsProductIdRef = useRef<number | null>(null);
+
+  // Set defaults when modifier data loads - only once per product open
   useEffect(() => {
-    if (modifierData?.groups && selectedProduct && modalVisible) {
-      const defaults: Record<number, number[]> = {};
-      for (const group of modifierData.groups) {
-        const availableMods = group.modifiers.filter((m: any) => m.available !== false);
-        const defaultMods = availableMods.filter((m: any) => m.isDefault);
-        if (defaultMods.length > 0) {
-          defaults[group.id] = defaultMods.map((m: any) => m.id);
-        } else if (group.required && group.type === "single" && availableMods.length > 0) {
-          defaults[group.id] = [availableMods[0].id];
-        }
+    if (!modifierData?.groups || !selectedProduct || !modalVisible) return;
+    // Only set defaults once per product modal open
+    if (lastDefaultsProductIdRef.current === selectedProduct.id) return;
+    lastDefaultsProductIdRef.current = selectedProduct.id;
+
+    const defaults: Record<number, number[]> = {};
+    for (const group of modifierData.groups) {
+      const availableMods = group.modifiers.filter((m: any) => m.available !== false);
+      const defaultMods = availableMods.filter((m: any) => m.isDefault);
+      if (defaultMods.length > 0) {
+        defaults[group.id] = defaultMods.map((m: any) => m.id);
+      } else if (group.required && group.type === "single" && availableMods.length > 0) {
+        defaults[group.id] = [availableMods[0].id];
       }
-      setSelectedModifiers(defaults);
     }
-  }, [modifierData, selectedProduct?.id]);
+    setSelectedModifiers(defaults);
+  }, [modifierData, selectedProduct?.id, modalVisible]);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -905,7 +916,7 @@ export default function StoreDetailScreen() {
           {/* Search Bar — categories + products */}
           <View className="px-4 mb-4">
             <TextInput
-              className="bg-surface border border-border rounded-xl p-4 text-foreground"
+              style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
               placeholder="Search products and categories..."
               placeholderTextColor="#9BA1A6"
               value={globalSearch}
@@ -1424,7 +1435,7 @@ export default function StoreDetailScreen() {
         {/* Product Search Bar */}
         <View className="px-4 pt-3 pb-2">
           <TextInput
-            className="bg-surface border border-border rounded-xl p-4 text-foreground"
+            style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
             placeholder="Search products..."
             placeholderTextColor="#9BA1A6"
             value={productSearch}

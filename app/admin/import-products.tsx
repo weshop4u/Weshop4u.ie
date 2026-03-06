@@ -149,7 +149,7 @@ Avonmore Milk 2L,Fresh whole milk,2.99,dairy-eggs,AVM2L,5000112345680,30,https:/
           <View>
             <Text className="text-sm font-semibold text-foreground mb-2">Paste CSV Data</Text>
             <TextInput
-              className="bg-surface border border-border rounded-xl p-4 text-foreground font-mono text-xs"
+              style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 12, fontFamily: 'monospace' }}
               placeholder="Paste your CSV data here..."
               placeholderTextColor="#9BA1A6"
               value={csvText}

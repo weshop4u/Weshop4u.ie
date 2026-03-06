@@ -4,14 +4,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
-import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
-import Constants from "expo-constants";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
+// expo-notifications removed for standalone APK stability
 import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime } from "@/lib/timezone";
 
-const isExpoGo = Constants.appOwnership === "expo";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 
 // Trigger local print via browser print dialog (for POS standalone mode)
@@ -146,8 +143,6 @@ export default function StoreDashboardScreen() {
   const colors = useColors();
   const { data: user, isLoading: userLoading } = trpc.auth.me.useQuery();
 
-  // Register push token for store staff
-  usePushNotifications(user?.id);
 
   const [refreshing, setRefreshing] = useState(false);
   const prevPendingIdsRef = useRef<Set<number>>(new Set());
@@ -190,26 +185,6 @@ export default function StoreDashboardScreen() {
     }
   }, []);
 
-  // Listen for push notifications (new order alerts from server)
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-
-    if (isExpoGo) return; // Skip in Expo Go
-    let subscription: Notifications.Subscription | null = null;
-    try {
-      subscription = Notifications.addNotificationReceivedListener((notification) => {
-        const data = notification.request.content.data;
-        if (data?.type === "new_order") {
-          // Immediately refetch orders when we get a push notification
-          refetch();
-        }
-      });
-    } catch (e) {
-      console.log("[Push] Could not add notification listener");
-    }
-
-    return () => subscription?.remove();
-  }, [refetch]);
 
   // Refetch when app comes to foreground
   useEffect(() => {

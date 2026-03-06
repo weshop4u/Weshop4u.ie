@@ -62,7 +62,7 @@ export default function AddAddressScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Label *</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="e.g., Home, Work, Mom's House"
               placeholderTextColor="#9BA1A6"
               value={label}
@@ -75,7 +75,7 @@ export default function AddAddressScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Street Address *</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="e.g., 123 Main Street, Balbriggan"
               placeholderTextColor="#9BA1A6"
               value={streetAddress}
@@ -89,7 +89,7 @@ export default function AddAddressScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Eircode *</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="e.g., K32 Y621"
               placeholderTextColor="#9BA1A6"
               value={eircode}

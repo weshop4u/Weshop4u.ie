@@ -56,7 +56,7 @@ export default function EditProfileScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Full Name *</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="Enter your full name"
               placeholderTextColor="#9BA1A6"
               value={name}
@@ -69,7 +69,7 @@ export default function EditProfileScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Email *</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="Enter your email"
               placeholderTextColor="#9BA1A6"
               value={email}
@@ -83,7 +83,7 @@ export default function EditProfileScreen() {
           <View>
             <Text className="text-foreground font-semibold mb-2">Phone Number</Text>
             <TextInput
-              className="bg-surface text-foreground p-4 rounded-lg border border-border"
+              style={{ backgroundColor: '#f5f5f5', color: '#11181C', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 16 }}
               placeholder="Enter your phone number"
               placeholderTextColor="#9BA1A6"
               value={phone}
