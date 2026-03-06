@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, FlatList, RefreshControl, Pla
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useCart } from "@/lib/cart-provider";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
@@ -382,6 +382,354 @@ export default function OrderHistoryScreen() {
     );
   }
 
+  const renderActiveOrder = useCallback((order: any) => (
+    <View
+      key={order.id}
+      style={{
+        backgroundColor: colors.primary + '08',
+        borderWidth: 2,
+        borderColor: colors.primary,
+        borderRadius: 12,
+        overflow: "hidden",
+        marginBottom: 12,
+      }}
+    >
+      <View style={{ padding: 16 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground }}>
+              {order.orderNumber || `Order #${order.id}`}
+            </Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
+              {order.store?.name || "Store"} · €{parseFloat(order.total).toFixed(2)}
+            </Text>
+          </View>
+          <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+              {order.status.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
+            </Text>
+          </View>
+        </View>
+
+        {getEstimatedTime(order) && (
+          <View style={{ backgroundColor: "#FFF7ED", padding: 12, borderRadius: 8, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ fontSize: 20 }}>⏱️</Text>
+            <View>
+              <Text style={{ fontSize: 14, fontWeight: "bold", color: "#D97706" }}>
+                Estimated arrival: {getEstimatedTime(order)}
+              </Text>
+              <Text style={{ fontSize: 11, color: "#92400E", marginTop: 2 }}>
+                {order.driverId ? "Driver is on the job" : "Waiting for driver assignment"}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {order.driverId && !getEstimatedTime(order) && (
+          <View style={{ backgroundColor: colors.primary + '15', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>
+              🚗 {order.driver?.name ? `${order.driver.name} has been assigned` : "A driver has been assigned to your order"}
+            </Text>
+          </View>
+        )}
+
+        {(order as any).batchId && (order as any).batchSequence && (
+          <View style={{ backgroundColor: '#EFF6FF', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#93C5FD' }}>
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{(order as any).batchSequence}</Text>
+            </View>
+            <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
+              {(order as any).batchSequence === 1
+                ? "Your driver has multiple deliveries — yours is next!"
+                : `Your driver has multiple deliveries — yours is #${(order as any).batchSequence} in queue`}
+            </Text>
+          </View>
+        )}
+
+        <StatusTimeline order={order} colors={colors} />
+
+        {order.driverId && ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) && (
+          <TouchableOpacity
+            onPress={() => router.push(`/order-tracking/${order.id}` as any)}
+            style={{
+              backgroundColor: colors.primary,
+              padding: 12,
+              borderRadius: 10,
+              marginTop: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>💬</Text>
+            <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+              Chat with Driver
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <TouchableOpacity
+        onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+        style={{ borderTopWidth: 1, borderTopColor: colors.primary + '30', padding: 12, alignItems: "center" }}
+      >
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
+          {expandedOrderId === order.id ? "Hide Details ▲" : "View Details ▼"}
+        </Text>
+      </TouchableOpacity>
+
+      {expandedOrderId === order.id && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
+          {order.items?.map((item: any, idx: number) => (
+            <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
+              <Text style={{ color: colors.muted, flex: 1 }}>
+                {item.quantity}x {item.product?.name || "Product"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontWeight: "600" }}>
+                €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
+              </Text>
+            </View>
+          ))}
+          {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
+            <View style={{ marginTop: 8, backgroundColor: colors.primary + '15', padding: 8, borderRadius: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Driver Tip: €{parseFloat(order.tipAmount).toFixed(2)}</Text>
+            </View>
+          )}
+          {order.deliveryAddress && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
+              <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
+            </View>
+          )}
+          {order.paymentMethod === "card" && order.paymentStatus !== "completed" && order.status === "pending" && (
+            <TouchableOpacity
+              onPress={() => router.push(`/payment/${order.id}` as any)}
+              style={{
+                marginTop: 16,
+                backgroundColor: '#00E5FF15',
+                borderWidth: 1,
+                borderColor: '#00E5FF',
+                borderRadius: 10,
+                padding: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: '#00B8D4', fontWeight: "bold", fontSize: 14 }}>Retry Payment</Text>
+              <Text style={{ color: '#00B8D4', fontSize: 11, marginTop: 2, opacity: 0.7 }}>Complete your card payment</Text>
+            </TouchableOpacity>
+          )}
+          {order.status === "pending" && (
+            <TouchableOpacity
+              onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
+              disabled={cancelOrderMutation.isPending}
+              style={{
+                marginTop: 8,
+                backgroundColor: colors.error + '10',
+                borderWidth: 1,
+                borderColor: colors.error,
+                borderRadius: 10,
+                padding: 12,
+                alignItems: "center",
+                opacity: cancelOrderMutation.isPending ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ color: colors.error, fontWeight: "bold", fontSize: 14 }}>
+                {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
+              </Text>
+              <Text style={{ color: colors.error, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
+                Only available while order is pending
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  ), [expandedOrderId, colors, cancelOrderMutation.isPending]);
+
+  const renderPastOrder = useCallback((order: any) => (
+    <View
+      key={order.id}
+      style={{
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        overflow: "hidden",
+        marginBottom: 12,
+      }}
+    >
+      <TouchableOpacity
+        onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+        style={{ padding: 16 }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "bold", color: colors.foreground }}>
+              {order.orderNumber || `Order #${order.id}`}
+            </Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
+              {formatDate(order.createdAt)}
+            </Text>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={{ color: order.status === "delivered" ? colors.success : colors.error, fontWeight: "600", fontSize: 13 }}>
+              {order.status === "delivered" ? "Delivered" : "Cancelled"}
+            </Text>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 2 }}>
+              €{parseFloat(order.total).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ color: colors.muted, fontSize: 13 }}>{order.store?.name || "Store"}</Text>
+          <Text style={{ color: colors.primary, fontSize: 13 }}>
+            {expandedOrderId === order.id ? "Hide ▲" : "Details ▼"}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {order.status === "delivered" &&
+        order.driverId &&
+        !order.hasRating &&
+        !ratingSubmitted.has(order.id) && (
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16 }}>
+            {ratingOrderId === order.id ? (
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: "bold", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>
+                  How was your delivery experience?
+                </Text>
+                <StarRating rating={selectedRating} onRate={setSelectedRating} />
+                <TextInput
+                  placeholder="Leave a comment (optional)"
+                  placeholderTextColor={colors.muted}
+                  value={ratingComment}
+                  onChangeText={setRatingComment}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    padding: 10,
+                    marginTop: 12,
+                    fontSize: 14,
+                    color: colors.foreground,
+                    backgroundColor: colors.background,
+                  }}
+                  multiline
+                  returnKeyType="done"
+                />
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setRatingOrderId(null);
+                      setSelectedRating(0);
+                      setRatingComment("");
+                    }}
+                    style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}
+                  >
+                    <Text style={{ color: colors.muted, fontWeight: "600" }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleSubmitRating(order.id)}
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      borderRadius: 8,
+                      backgroundColor: selectedRating > 0 ? colors.primary : colors.surface,
+                      alignItems: "center",
+                    }}
+                    disabled={selectedRating < 1 || rateDriverMutation.isPending}
+                  >
+                    <Text style={{ color: selectedRating > 0 ? "#fff" : colors.muted, fontWeight: "bold" }}>
+                      {rateDriverMutation.isPending ? "Submitting..." : "Submit"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setRatingOrderId(order.id)}
+                style={{
+                  backgroundColor: "#FFF7ED",
+                  borderWidth: 1,
+                  borderColor: colors.warning,
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#D97706", fontWeight: "bold", fontSize: 14 }}>
+                  ⭐ Rate Your Driver
+                </Text>
+                <Text style={{ color: "#92400E", fontSize: 12, marginTop: 2 }}>
+                  Help us improve our service
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+      {(order.hasRating || ratingSubmitted.has(order.id)) && order.status === "delivered" && (
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 12, alignItems: "center" }}>
+          <Text style={{ color: colors.success, fontSize: 13, fontWeight: "600" }}>✅ Thanks for rating!</Text>
+        </View>
+      )}
+
+      {expandedOrderId === order.id && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
+          {order.items?.map((item: any, idx: number) => (
+            <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
+              <Text style={{ color: colors.muted, flex: 1 }}>
+                {item.quantity}x {item.product?.name || "Product"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontWeight: "600" }}>
+                €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
+              </Text>
+            </View>
+          ))}
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8, paddingTop: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+              <Text style={{ color: colors.muted }}>Subtotal</Text>
+              <Text style={{ color: colors.foreground }}>
+                €{(parseFloat(order.total) - parseFloat(order.deliveryFee || "0")).toFixed(2)}
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+              <Text style={{ color: colors.muted }}>Delivery</Text>
+              <Text style={{ color: colors.foreground }}>€{parseFloat(order.deliveryFee || "0").toFixed(2)}</Text>
+            </View>
+            {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>Driver Tip</Text>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>€{parseFloat(order.tipAmount).toFixed(2)}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 8 }}>
+              <Text style={{ color: colors.foreground, fontWeight: "bold" }}>Total</Text>
+              <Text style={{ color: colors.foreground, fontWeight: "bold" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+            </View>
+          </View>
+          {order.deliveryAddress && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
+              <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
+            </View>
+          )}
+          {order.status === "delivered" && (
+            <TouchableOpacity
+              onPress={() => handleReorder(order)}
+              style={{ marginTop: 16, backgroundColor: colors.primary, padding: 14, borderRadius: 10, alignItems: "center" }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Reorder</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  ), [expandedOrderId, colors, ratingOrderId, selectedRating, ratingComment, ratingSubmitted, rateDriverMutation.isPending]);
+
   return (
     <Wrapper>
     <ScreenContainer>
@@ -457,384 +805,24 @@ export default function OrderHistoryScreen() {
         </View>
       )}
 
-      <ScrollView style={{ flex: 1, padding: 16 }}>
-        {/* Active Orders Section */}
-        {activeOrders.length > 0 && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.primary, marginBottom: 12 }}>
-              📍 Active Orders
-            </Text>
-            {activeOrders.map((order) => (
-              <View
-                key={order.id}
-                style={{
-                  backgroundColor: colors.primary + '08',
-                  borderWidth: 2,
-                  borderColor: colors.primary,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  marginBottom: 12,
-                }}
-              >
-                <View style={{ padding: 16 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground }}>
-                        {order.orderNumber || `Order #${order.id}`}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-                        {order.store?.name || "Store"} · €{parseFloat(order.total).toFixed(2)}
-                      </Text>
-                    </View>
-                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
-                        {order.status.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
-                      </Text>
-                    </View>
-                  </View>
+      <FlatList
+        style={{ flex: 1, padding: 16 }}
+        data={[...activeOrders.map(o => ({ ...o, _section: 'active' as const })), ...pastOrders.map(o => ({ ...o, _section: 'past' as const }))]}
+        keyExtractor={(item) => String(item.id)}
+        refreshControl={
+          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primary} />
+        }
+        ListHeaderComponent={activeOrders.length > 0 ? (
+          <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.primary, marginBottom: 12 }}>
+            📍 Active Orders
+          </Text>
+        ) : pastOrders.length > 0 ? (
+          <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.muted, marginBottom: 12 }}>
+            Past Orders
+          </Text>
+        ) : null}
+        ListEmptyComponent={
 
-                  {getEstimatedTime(order) && (
-                    <View style={{ backgroundColor: "#FFF7ED", padding: 12, borderRadius: 8, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={{ fontSize: 20 }}>⏱️</Text>
-                      <View>
-                        <Text style={{ fontSize: 14, fontWeight: "bold", color: "#D97706" }}>
-                          Estimated arrival: {getEstimatedTime(order)}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: "#92400E", marginTop: 2 }}>
-                          {order.driverId ? "Driver is on the job" : "Waiting for driver assignment"}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {order.driverId && !getEstimatedTime(order) && (
-                    <View style={{ backgroundColor: colors.primary + '15', padding: 10, borderRadius: 8, marginBottom: 12 }}>
-                      <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>
-                        🚗 {order.driver?.name ? `${order.driver.name} has been assigned` : "A driver has been assigned to your order"}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Batch delivery position */}
-                  {(order as any).batchId && (order as any).batchSequence && (
-                    <View style={{ backgroundColor: '#EFF6FF', padding: 10, borderRadius: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#93C5FD' }}>
-                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{(order as any).batchSequence}</Text>
-                      </View>
-                      <Text style={{ fontSize: 12, color: '#1E40AF', flex: 1 }}>
-                        {(order as any).batchSequence === 1
-                          ? "Your driver has multiple deliveries — yours is next!"
-                          : `Your driver has multiple deliveries — yours is #${(order as any).batchSequence} in queue`}
-                      </Text>
-                    </View>
-                  )}
-
-                  <StatusTimeline order={order} colors={colors} />
-
-                  {order.driverId && ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"].includes(order.status) && (
-                    <TouchableOpacity
-                      onPress={() => router.push(`/order-tracking/${order.id}` as any)}
-                      style={{
-                        backgroundColor: colors.primary,
-                        padding: 12,
-                        borderRadius: 10,
-                        marginTop: 12,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <Text style={{ fontSize: 18 }}>💬</Text>
-                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
-                        Chat with Driver
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                  style={{ borderTopWidth: 1, borderTopColor: colors.primary + '30', padding: 12, alignItems: "center" }}
-                >
-                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
-                    {expandedOrderId === order.id ? "Hide Details ▲" : "View Details ▼"}
-                  </Text>
-                </TouchableOpacity>
-
-                {expandedOrderId === order.id && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
-                    <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
-                    {order.items?.map((item: any, index: number) => (
-                      <View key={index} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-                        <Text style={{ color: colors.muted, flex: 1 }}>
-                          {item.quantity}x {item.product?.name || "Product"}
-                        </Text>
-                        <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                          €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
-                        </Text>
-                      </View>
-                    ))}
-                    {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
-                      <View style={{ marginTop: 8, backgroundColor: colors.primary + '15', padding: 8, borderRadius: 8 }}>
-                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Driver Tip: €{parseFloat(order.tipAmount).toFixed(2)}</Text>
-                      </View>
-                    )}
-                    {order.deliveryAddress && (
-                      <View style={{ marginTop: 12 }}>
-                        <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
-                        <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
-                      </View>
-                    )}
-
-                    {/* Retry Payment button for card orders with pending payment */}
-                    {order.paymentMethod === "card" && order.paymentStatus !== "completed" && order.status === "pending" && (
-                      <TouchableOpacity
-                        onPress={() => router.push(`/payment/${order.id}` as any)}
-                        style={{
-                          marginTop: 16,
-                          backgroundColor: '#00E5FF' + '15',
-                          borderWidth: 1,
-                          borderColor: '#00E5FF',
-                          borderRadius: 10,
-                          padding: 12,
-                          alignItems: "center",
-                        }}
-                      >
-                        <Text style={{ color: '#00B8D4', fontWeight: "bold", fontSize: 14 }}>
-                          Retry Payment
-                        </Text>
-                        <Text style={{ color: '#00B8D4', fontSize: 11, marginTop: 2, opacity: 0.7 }}>
-                          Complete your card payment
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {order.status === "pending" && (
-                      <TouchableOpacity
-                        onPress={() => handleCancelOrder(order.id, order.orderNumber || `#${order.id}`)}
-                        disabled={cancelOrderMutation.isPending}
-                        style={{
-                          marginTop: 8,
-                          backgroundColor: colors.error + '10',
-                          borderWidth: 1,
-                          borderColor: colors.error,
-                          borderRadius: 10,
-                          padding: 12,
-                          alignItems: "center",
-                          opacity: cancelOrderMutation.isPending ? 0.5 : 1,
-                        }}
-                      >
-                        <Text style={{ color: colors.error, fontWeight: "bold", fontSize: 14 }}>
-                          {cancelOrderMutation.isPending ? "Cancelling..." : "Cancel Order"}
-                        </Text>
-                        <Text style={{ color: colors.error, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
-                          Only available while order is pending
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Past Orders Section */}
-        {pastOrders.length > 0 && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.muted, marginBottom: 12 }}>
-              Past Orders
-            </Text>
-            {pastOrders.map((order) => (
-              <View
-                key={order.id}
-                style={{
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  marginBottom: 12,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                  style={{ padding: 16 }}
-                >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: "bold", color: colors.foreground }}>
-                        {order.orderNumber || `Order #${order.id}`}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-                        {formatDate(order.createdAt)}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ color: order.status === "delivered" ? colors.success : colors.error, fontWeight: "600", fontSize: 13 }}>
-                        {order.status === "delivered" ? "Delivered" : "Cancelled"}
-                      </Text>
-                      <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 2 }}>
-                        €{parseFloat(order.total).toFixed(2)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={{ color: colors.muted, fontSize: 13 }}>{order.store?.name || "Store"}</Text>
-                    <Text style={{ color: colors.primary, fontSize: 13 }}>
-                      {expandedOrderId === order.id ? "Hide ▲" : "Details ▼"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Rating Prompt */}
-                {order.status === "delivered" &&
-                  order.driverId &&
-                  !order.hasRating &&
-                  !ratingSubmitted.has(order.id) && (
-                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 16 }}>
-                      {ratingOrderId === order.id ? (
-                        <View>
-                          <Text style={{ fontSize: 14, fontWeight: "bold", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>
-                            How was your delivery experience?
-                          </Text>
-                          <StarRating rating={selectedRating} onRate={setSelectedRating} />
-                          <TextInput
-                            placeholder="Leave a comment (optional)"
-                            placeholderTextColor={colors.muted}
-                            value={ratingComment}
-                            onChangeText={setRatingComment}
-                            style={{
-                              borderWidth: 1,
-                              borderColor: colors.border,
-                              borderRadius: 8,
-                              padding: 10,
-                              marginTop: 12,
-                              fontSize: 14,
-                              color: colors.foreground,
-                              backgroundColor: colors.background,
-                            }}
-                            multiline
-                            returnKeyType="done"
-                          />
-                          <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-                            <TouchableOpacity
-                              onPress={() => {
-                                setRatingOrderId(null);
-                                setSelectedRating(0);
-                                setRatingComment("");
-                              }}
-                              style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}
-                            >
-                              <Text style={{ color: colors.muted, fontWeight: "600" }}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => handleSubmitRating(order.id)}
-                              style={{
-                                flex: 1,
-                                padding: 12,
-                                borderRadius: 8,
-                                backgroundColor: selectedRating > 0 ? colors.primary : colors.surface,
-                                alignItems: "center",
-                              }}
-                              disabled={selectedRating < 1 || rateDriverMutation.isPending}
-                            >
-                              <Text style={{ color: selectedRating > 0 ? "#fff" : colors.muted, fontWeight: "bold" }}>
-                                {rateDriverMutation.isPending ? "Submitting..." : "Submit"}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => setRatingOrderId(order.id)}
-                          style={{
-                            backgroundColor: "#FFF7ED",
-                            borderWidth: 1,
-                            borderColor: colors.warning,
-                            padding: 12,
-                            borderRadius: 8,
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text style={{ color: "#D97706", fontWeight: "bold", fontSize: 14 }}>
-                            ⭐ Rate Your Driver
-                          </Text>
-                          <Text style={{ color: "#92400E", fontSize: 12, marginTop: 2 }}>
-                            Help us improve our service
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-
-                {(order.hasRating || ratingSubmitted.has(order.id)) && order.status === "delivered" && (
-                  <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 12, alignItems: "center" }}>
-                    <Text style={{ color: colors.success, fontSize: 13, fontWeight: "600" }}>✅ Thanks for rating!</Text>
-                  </View>
-                )}
-
-                {expandedOrderId === order.id && (
-                  <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
-                    <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
-                    {order.items?.map((item: any, index: number) => (
-                      <View key={index} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-                        <Text style={{ color: colors.muted, flex: 1 }}>
-                          {item.quantity}x {item.product?.name || "Product"}
-                        </Text>
-                        <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                          €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
-                        </Text>
-                      </View>
-                    ))}
-                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8, paddingTop: 8 }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                        <Text style={{ color: colors.muted }}>Subtotal</Text>
-                        <Text style={{ color: colors.foreground }}>
-                          €{(parseFloat(order.total) - parseFloat(order.deliveryFee || "0")).toFixed(2)}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                        <Text style={{ color: colors.muted }}>Delivery</Text>
-                        <Text style={{ color: colors.foreground }}>€{parseFloat(order.deliveryFee || "0").toFixed(2)}</Text>
-                      </View>
-                      {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
-                          <Text style={{ color: colors.primary, fontWeight: "600" }}>Driver Tip</Text>
-                          <Text style={{ color: colors.primary, fontWeight: "600" }}>€{parseFloat(order.tipAmount).toFixed(2)}</Text>
-                        </View>
-                      )}
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 8 }}>
-                        <Text style={{ color: colors.foreground, fontWeight: "bold" }}>Total</Text>
-                        <Text style={{ color: colors.foreground, fontWeight: "bold" }}>€{parseFloat(order.total).toFixed(2)}</Text>
-                      </View>
-                    </View>
-
-                    {order.deliveryAddress && (
-                      <View style={{ marginTop: 12 }}>
-                        <Text style={{ fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>Delivery Address:</Text>
-                        <Text style={{ color: colors.muted, fontSize: 13 }}>{order.deliveryAddress}</Text>
-                      </View>
-                    )}
-
-                    {order.status === "delivered" && (
-                      <TouchableOpacity
-                        onPress={() => handleReorder(order)}
-                        style={{ marginTop: 16, backgroundColor: colors.primary, padding: 14, borderRadius: 10, alignItems: "center" }}
-                      >
-                        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Reorder</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Empty State */}
-        {(!orders || orders.length === 0) && (
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
             <Image
               source={require("@/assets/images/Weshop4ulogo.jpg")}
@@ -852,10 +840,23 @@ export default function OrderHistoryScreen() {
               <Text style={{ color: "#fff", fontWeight: "bold" }}>Start Shopping</Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+        }
+        ListFooterComponent={<View style={{ height: 40 }} />}
+        renderItem={({ item: order, index }) => {
+          // Show section header for past orders
+          const showPastHeader = order._section === 'past' && (index === 0 || (index > 0 && activeOrders.length > 0 && index === activeOrders.length));
+          return (
+            <View>
+              {showPastHeader && (
+                <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.muted, marginBottom: 12, marginTop: activeOrders.length > 0 ? 24 : 0 }}>
+                  Past Orders
+                </Text>
+              )}
+              {order._section === 'active' ? renderActiveOrder(order) : renderPastOrder(order)}
+            </View>
+          );
+        }}
+      />
     </ScreenContainer>
     </Wrapper>
   );

@@ -459,9 +459,10 @@ export default function StoreDetailScreen() {
     return (
       <Modal
         visible={!!selectedProduct}
-        animationType="slide"
+        animationType="none"
         transparent={true}
         onRequestClose={() => setSelectedProduct(null)}
+        statusBarTranslucent={true}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity

@@ -2453,3 +2453,10 @@
 - [x] Fix Add to Cart button hidden behind Android navigation bar
 - [x] Add proper bottom safe area padding to bottom sheet
 - [x] Rebuild web export and save checkpoint
+
+## Persistent APK Bugs (March 6)
+- [x] Product detail card flickering - appears/disappears 3 times before staying on native
+- [x] Login TextInput focus loss - only accepts 1 letter then pushes cursor out on native
+- [x] Remember me not persisting after logout
+- [x] Old orders scroll jumps to top when tapping an order
+- [x] Rebuild web export and save checkpoint
