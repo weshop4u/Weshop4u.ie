@@ -1552,14 +1552,14 @@ export default function StoreDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* View Cart Button - Fixed at bottom */}
+      {/* View Cart Button - Fixed at bottom with safe area padding */}
       {cartItemCount > 0 && cart.storeId === storeId && (
-        <View className="p-4 bg-background border-t border-border">
+        <View style={[styles.cartButtonContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TouchableOpacity
             onPress={() => router.push(`/cart/${storeId}` as any)}
-            className="bg-primary py-4 rounded-xl active:opacity-70"
+            style={styles.cartButton}
           >
-            <Text className="text-background text-center font-bold text-lg">
+            <Text style={styles.cartButtonText}>
               View Cart ({cartItemCount} {cartItemCount === 1 ? 'item' : 'items'})
             </Text>
           </TouchableOpacity>
@@ -1708,6 +1708,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addToCartText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  cartButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: "#ffffff",
+    borderTopWidth: 0.5,
+    borderTopColor: "#E5E7EB",
+  },
+  cartButton: {
+    backgroundColor: "#00E5FF",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartButtonText: {
     fontSize: 16,
     fontWeight: "700",
     color: "#ffffff",

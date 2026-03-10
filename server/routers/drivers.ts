@@ -85,17 +85,33 @@ async function offerOldestOrderToDriver(driverId: number) {
 
     // Found an eligible order — create the offer directly
     const expiresAt = new Date(Date.now() + 15 * 1000);
+    const offerCreatedAt = new Date();
     await db.insert(orderOffers).values({
       orderId: order.id,
       driverId,
       status: "pending",
-      offeredAt: new Date(),
+      offeredAt: offerCreatedAt,
       expiresAt,
     });
     console.log(`[FIFO] Offered oldest eligible order ${order.id} to driver ${driverId}, expires at ${expiresAt.toISOString()}`);
 
-    // Send server-side push notification to driver
-    try {
+    // Check if this order has already been offered to any other driver (to avoid duplicate notifications)
+    const otherOffers = await db
+      .select({ id: orderOffers.id })
+      .from(orderOffers)
+      .where(
+        and(
+          eq(orderOffers.orderId, order.id),
+          sql`${orderOffers.driverId} != ${driverId}`,
+          eq(orderOffers.status, "pending")
+        )
+      )
+      .limit(1);
+
+    // Only send notification if this is the FIRST offer for this order
+    if (otherOffers.length === 0) {
+      // Send server-side push notification to driver
+      try {
       const driverUser = await db
         .select({ pushToken: users.pushToken })
         .from(users)
@@ -125,8 +141,9 @@ async function offerOldestOrderToDriver(driverId: number) {
           console.log(`[Push] Sent job offer notification to driver ${driverId} for order ${order.id}`);
         }
       }
-    } catch (pushError) {
-      console.error(`[Push] Failed to send job offer notification to driver ${driverId}:`, pushError);
+      } catch (pushError) {
+        console.error(`[Push] Failed to send job offer notification to driver ${driverId}:`, pushError);
+      }
     }
     return;
   }
@@ -872,12 +889,14 @@ export const driversRouter = router({
         .set(updateData)
         .where(eq(orders.id, input.orderId));
 
-      // Send notification to customer
+      // Send notification to customer ONLY for on_the_way and driver_at_store
       if (orderBeforeUpdate.length > 0) {
         const customer = orderBeforeUpdate[0].users;
         const store = orderBeforeUpdate[0].stores;
 
-        if (customer && customer.pushToken && store) {
+        // Only send notifications for these two statuses to reduce spam
+        const allowedStatuses = ["on_the_way", "driver_at_store"];
+        if (customer && customer.pushToken && store && allowedStatuses.includes(input.status)) {
           await sendOrderStatusNotification(
             customer.pushToken,
             input.orderId,

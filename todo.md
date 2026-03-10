@@ -2503,3 +2503,30 @@
 - [x] Also: Rewrote ScreenContainer to pure StyleSheet (no NativeWind className), ThemeProvider with module-level vars, disabled React Compiler + New Architecture.
 - [x] Verified: Zero remaining WebLayout imports or inline Wrapper patterns in app code.
 - [x] Rebuild web export and server bundle.
+
+## Bug Fixes (March 7)
+- [ ] View Cart button hidden behind Android navigation bar on product list view (works fine in product detail modal)
+- [ ] Driver notifications sent 5 times for the same delivery offer — should only notify once per new order
+
+
+## Current Session - Remaining Bugs & Features (Mar 09, 2026)
+
+### Critical Bugs to Fix
+- [x] Fix View Cart button hidden behind Android navigation bar on product list
+- [x] Reduce driver notifications to 1 per order (New offer, Accepted, On the way, Arrived at store)
+- [x] Reduce customer notifications to 2 types (Driver on the way, Driver arrived at store)
+
+### Priority Features
+- [ ] Add real-time driver location tracking on order screen
+- [ ] Improve store analytics dashboard (sales, popular items, peak hours)
+- [ ] Firebase Cloud Messaging for background notifications (optional)
+
+### Already Implemented (Confirmed from Screenshots)
+- [x] Order history with reorder button
+- [x] Rate your driver functionality
+- [x] Order details view (items, subtotal, delivery, address)
+- [x] Driver dashboard (online/offline toggle, shift management)
+- [x] Driver earnings (today/week/all time breakdown)
+- [x] Driver stats (total deliveries, rating, average per delivery)
+- [x] Earnings chart (last 7 days visualization)
+- [x] Delivery history tracking
