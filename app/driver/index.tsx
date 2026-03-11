@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl, Linking } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, Alert, RefreshControl, Linking, AppState } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -36,6 +36,14 @@ export default function DriverHomeScreen() {
   );
   const [isOnline, setIsOnline] = useState(false);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
+  
+  // Get count of available jobs waiting in queue
+  const { data: jobsCountData, refetch: refetchJobsCount } = trpc.drivers.getAvailableJobsCount.useQuery(
+    { driverId: user?.id! },
+    { enabled: !!user?.id && isOnline, refetchInterval: isOnline ? 5000 : false }
+  );
+  const availableJobsCount = jobsCountData?.count || 0;
+  
   const [countdown, setCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,6 +67,8 @@ export default function DriverHomeScreen() {
   const [isReordering, setIsReordering] = useState(false);
   const [localOrderOverride, setLocalOrderOverride] = useState<any[] | null>(null);
   const [reorderToast, setReorderToast] = useState(false);
+  const [viewedJobsScreen, setViewedJobsScreen] = useState(false);
+  const [appState, setAppState] = useState<string>(AppState.currentState);
   const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showReorderToast = () => {
     setReorderToast(true);
@@ -84,13 +94,37 @@ export default function DriverHomeScreen() {
         refetchActiveDelivery(),
         refetchBatch(),
         refetchStats(),
+        refetchJobsCount(),
       ]);
     } catch (e) {
       // ignore
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchActiveDelivery, refetchBatch, refetchStats]);
+  }, [refetchActiveDelivery, refetchBatch, refetchStats, refetchJobsCount]);
+
+  // Track app state (foreground/background)
+  useEffect(() => {
+    if (Platform.OS === "web") return; // AppState only works on native
+    
+    const handleAppStateChange = (state: string) => {
+      setAppState(state);
+      // Reset viewed flag when app comes to foreground
+      if (state === "active") {
+        setViewedJobsScreen(false);
+      }
+    };
+    
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
+
+  // Reset viewed flag when driver goes offline
+  useEffect(() => {
+    if (!isOnline) {
+      setViewedJobsScreen(false);
+    }
+  }, [isOnline]);
 
   // Load driver profile to get actual online status from DB
   // Only fetch once on mount - don't refetch automatically to avoid overriding local state
@@ -953,6 +987,19 @@ export default function DriverHomeScreen() {
             </View>
           )}
         </View>
+
+        {/* Available Jobs Counter Badge */}
+        {isOnline && availableJobsCount > 0 && (
+          <View className="bg-primary/10 border border-primary p-3 rounded-lg mb-4 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-primary font-bold text-lg">📋 {availableJobsCount}</Text>
+              <Text className="text-primary text-sm">
+                job{availableJobsCount !== 1 ? "s" : ""} waiting
+              </Text>
+            </View>
+            <Text className="text-primary/70 text-xs">Clear current to see next</Text>
+          </View>
+        )}
 
         {/* INCOMING ORDER OFFER - Full-width prominent card */}
         {hasOffer && offerData.offer && (

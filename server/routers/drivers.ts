@@ -2174,6 +2174,42 @@ export const driversRouter = router({
       };
     }),
 
+  // Get count of available jobs waiting in queue
+  getAvailableJobsCount: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Count unassigned orders that are eligible for delivery
+      const availableOrders = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          and(
+            inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
+            isNull(orders.driverId)
+          )
+        );
+
+      // Filter out orders this driver has already declined or had expire
+      const declinedOrders = await db
+        .select({ orderId: orderOffers.orderId })
+        .from(orderOffers)
+        .where(
+          and(
+            eq(orderOffers.driverId, input.driverId),
+            inArray(orderOffers.status, ["declined", "expired"])
+          )
+        );
+      const excludedOrderIds = declinedOrders.map(o => o.orderId);
+
+      // Count available orders excluding declined/expired ones
+      const count = availableOrders.filter(o => !excludedOrderIds.includes(o.id)).length;
+
+      return { count };
+    }),
+
   // Driver reorder batch delivery sequence
   reorderBatch: publicProcedure
     .input(

@@ -2530,3 +2530,12 @@
 - [x] Driver stats (total deliveries, rating, average per delivery)
 - [x] Earnings chart (last 7 days visualization)
 - [x] Delivery history tracking
+
+
+## New Session - Smart Notifications & Job Counter (Mar 10, 2026)
+
+### Driver UX Improvements
+- [x] Add job counter badge on driver app (shows new available jobs)
+- [x] Implement app state tracking (foreground/background detection)
+- [x] Backend endpoint to track new job count per driver
+- [ ] Modify notification sending to only send when app is background
