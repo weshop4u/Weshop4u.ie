@@ -146,7 +146,7 @@ export default function ActiveDeliveryScreen() {
       };
 
       sendLocation(); // Send immediately
-      const locationInterval = setInterval(sendLocation, 10000);
+      const locationInterval = setInterval(sendLocation, 5000); // Update every 5 seconds
       return () => clearInterval(locationInterval);
     } else {
       // Native: use expo-location
@@ -160,7 +160,7 @@ export default function ActiveDeliveryScreen() {
           locationSub = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.High,
-              timeInterval: 10000,
+              timeInterval: 5000, // Update every 5 seconds
               distanceInterval: 10,
             },
             (loc) => {
