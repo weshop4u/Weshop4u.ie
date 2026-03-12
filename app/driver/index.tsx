@@ -311,17 +311,19 @@ export default function DriverHomeScreen() {
             } catch (e) { /* ignore */ }
           }, 3000); // Vibrate every 3 seconds
 
-          // Send local push notification for new offer
-          scheduleLocalNotification({
-            title: "🚗 New Delivery Offer!",
-            body: `New delivery from ${offerData.offer.storeName || "store"} - €${offerData.offer.deliveryFee || "0.00"} delivery fee`,
-            channelId: "jobs",
-            data: { type: "driver_offer", offerId },
-          });
+          // Send local push notification for new offer (only if app is in background)
+          if (appState !== "active") {
+            scheduleLocalNotification({
+              title: "🚗 New Delivery Offer!",
+              body: `New delivery from ${offerData.offer.storeName || "store"} - €${offerData.offer.deliveryFee || "0.00"} delivery fee`,
+              channelId: "jobs",
+              data: { type: "driver_offer", offerId },
+            });
+          }
         }
       }
     }
-  }, [offerData?.offer?.offerId]);
+  }, [offerData?.offer?.offerId, appState]);
 
   // NOTE: Alarm is now stopped ONLY by explicit user actions (accept/decline)
   // or by autoToggleOffline (countdown expired). No reactive stop on data refetch.

@@ -2538,4 +2538,4 @@
 - [x] Add job counter badge on driver app (shows new available jobs)
 - [x] Implement app state tracking (foreground/background detection)
 - [x] Backend endpoint to track new job count per driver
-- [ ] Modify notification sending to only send when app is background
+- [x] Modify notification sending to only send when app is background
