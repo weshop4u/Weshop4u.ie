@@ -2549,3 +2549,14 @@
 - [x] Store driver location in database with timestamp — ALREADY IMPLEMENTED
 - [x] Display driver location on customer map in real-time — ALREADY IMPLEMENTED
 - [x] Increase location tracking frequency to 5 seconds (from 10)
+
+
+## Store Analytics Dashboard (Mar 12, 2026)
+
+### Analytics Features
+- [x] Create backend endpoints for sales data, popular items, peak hours
+- [ ] Build analytics dashboard UI with charts and key metrics
+- [ ] Add date range filters (today, week, month, custom)
+- [ ] Display top selling products with revenue
+- [ ] Show peak delivery hours and busiest times
+- [ ] Display total orders, revenue, and average order value

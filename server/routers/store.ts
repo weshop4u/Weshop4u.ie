@@ -1199,4 +1199,141 @@ export const storeRouter = router({
       await db.update(products).set({ stockStatus: input.stockStatus }).where(inArray(products.id, input.productIds));
       return { success: true, count: input.productIds.length };
     }),
+
+  // Get top selling products for a store
+  getTopProducts: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      days: z.number().default(30),
+      limit: z.number().default(10),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const cutoffDate = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const recentOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            gte(orders.createdAt, cutoffDate),
+            eq(orders.status, "delivered")
+          )
+        );
+
+      const orderIds = recentOrders.map(o => o.id);
+      if (orderIds.length === 0) return { topProducts: [] };
+
+      const items = await db
+        .select({
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          quantity: orderItems.quantity,
+          price: orderItems.productPrice,
+        })
+        .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(inArray(orderItems.orderId, orderIds));
+
+      const productStats = new Map<number, { name: string; quantity: number; revenue: number }>();
+      items.forEach(item => {
+        if (!item.productId) return;
+        const existing = productStats.get(item.productId) || { name: item.productName || "Unknown", quantity: 0, revenue: 0 };
+        existing.quantity += item.quantity || 0;
+        existing.revenue += (item.quantity || 0) * parseFloat(item.price || "0");
+        productStats.set(item.productId, existing);
+      });
+
+      const topProducts = Array.from(productStats.values())
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, input.limit);
+
+      return { topProducts };
+    }),
+
+  // Get sales by hour (peak hours)
+  getPeakHours: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      days: z.number().default(7),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const cutoffDate = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const recentOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            gte(orders.createdAt, cutoffDate),
+            eq(orders.status, "delivered")
+          )
+        );
+
+      const hourlyStats = new Map<number, { count: number; revenue: number }>();
+      recentOrders.forEach(order => {
+        const hour = new Date(order.createdAt).getHours();
+        const existing = hourlyStats.get(hour) || { count: 0, revenue: 0 };
+        existing.count += 1;
+        existing.revenue += parseFloat(order.subtotal || "0");
+        hourlyStats.set(hour, existing);
+      });
+
+      const peakHours = Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        count: hourlyStats.get(i)?.count || 0,
+        revenue: hourlyStats.get(i)?.revenue || 0,
+      }));
+
+      return { peakHours };
+    }),
+
+  // Get daily sales for the last N days
+  getDailySales: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      days: z.number().default(30),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const cutoffDate = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+      const recentOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.storeId, input.storeId),
+            gte(orders.createdAt, cutoffDate),
+            eq(orders.status, "delivered")
+          )
+        );
+
+      const dailyStats = new Map<string, { count: number; revenue: number }>();
+      recentOrders.forEach(order => {
+        const date = new Date(order.createdAt).toISOString().split('T')[0];
+        const existing = dailyStats.get(date) || { count: 0, revenue: 0 };
+        existing.count += 1;
+        existing.revenue += parseFloat(order.subtotal || "0");
+        dailyStats.set(date, existing);
+      });
+
+      const dailySales = Array.from(dailyStats.entries())
+        .map(([date, stats]) => ({
+          date,
+          ...stats,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      return { dailySales };
+    }),
 });
