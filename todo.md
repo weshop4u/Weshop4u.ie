@@ -2555,8 +2555,9 @@
 
 ### Analytics Features
 - [x] Create backend endpoints for sales data, popular items, peak hours
-- [ ] Build analytics dashboard UI with charts and key metrics
-- [ ] Add date range filters (today, week, month, custom)
-- [ ] Display top selling products with revenue
-- [ ] Show peak delivery hours and busiest times
-- [ ] Display total orders, revenue, and average order value
+- [x] Build analytics dashboard UI with charts and key metrics
+- [x] Add date range filters (7, 30, 90 days)
+- [x] Display top selling products with revenue
+- [x] Show peak delivery hours and busiest times
+- [x] Display total orders, revenue, and average order value
+- [x] Create analytics tab/section in store dashboard

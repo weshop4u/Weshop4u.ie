@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, Alert, Linking, Image, AppState } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, Alert, Linking, Image, AppState, Pressable } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime } from "@/lib/timezone";
 
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
+import { AnalyticsDashboard } from "./analytics";
 
 // Trigger local print via browser print dialog (for POS standalone mode)
 function triggerLocalPrint(content: string) {
@@ -155,6 +156,7 @@ export default function StoreDashboardScreen() {
   const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
   const [printSuccess, setPrintSuccess] = useState<number | null>(null);
   const [showPrintSettings, setShowPrintSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState<"orders" | "analytics">("orders");
 
   // Get the store ID for this staff member
   const { data: myStore } = trpc.store.getMyStore.useQuery(
@@ -744,6 +746,47 @@ export default function StoreDashboardScreen() {
         className="flex-1 p-4"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
+        {/* Tab Buttons */}
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+          <Pressable
+            onPress={() => setActiveTab("orders")}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              backgroundColor: activeTab === "orders" ? colors.primary : colors.surface,
+              borderWidth: 1,
+              borderColor: activeTab === "orders" ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: activeTab === "orders" ? "#fff" : colors.foreground, textAlign: "center" }}>
+              📋 Orders
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveTab("analytics")}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              borderRadius: 8,
+              backgroundColor: activeTab === "analytics" ? colors.primary : colors.surface,
+              borderWidth: 1,
+              borderColor: activeTab === "analytics" ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "600", color: activeTab === "analytics" ? "#fff" : colors.foreground, textAlign: "center" }}>
+              📊 Analytics
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Show analytics or orders */}
+        {activeTab === "analytics" && myStore?.storeId ? (
+          <AnalyticsDashboard storeId={myStore.storeId} />
+        ) : (
+          <>
         {/* Header */}
         <View style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -954,6 +997,8 @@ export default function StoreDashboardScreen() {
 
         {/* Bottom spacing */}
         <View style={{ height: 40 }} />
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
