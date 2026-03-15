@@ -747,20 +747,20 @@ export default function StoreDashboardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {/* Tab Buttons */}
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 20, marginTop: 12 }}>
           <Pressable
             onPress={() => setActiveTab("orders")}
             style={{
               flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 8,
+              paddingVertical: 16,
+              paddingHorizontal: 16,
+              borderRadius: 12,
               backgroundColor: activeTab === "orders" ? colors.primary : colors.surface,
-              borderWidth: 1,
+              borderWidth: 2,
               borderColor: activeTab === "orders" ? colors.primary : colors.border,
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "600", color: activeTab === "orders" ? "#fff" : colors.foreground, textAlign: "center" }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "orders" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📋 Orders
             </Text>
           </Pressable>
@@ -768,15 +768,15 @@ export default function StoreDashboardScreen() {
             onPress={() => setActiveTab("analytics")}
             style={{
               flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 8,
+              paddingVertical: 16,
+              paddingHorizontal: 16,
+              borderRadius: 12,
               backgroundColor: activeTab === "analytics" ? colors.primary : colors.surface,
-              borderWidth: 1,
+              borderWidth: 2,
               borderColor: activeTab === "analytics" ? colors.primary : colors.border,
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: "600", color: activeTab === "analytics" ? "#fff" : colors.foreground, textAlign: "center" }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "analytics" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📊 Analytics
             </Text>
           </Pressable>

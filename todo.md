@@ -2561,3 +2561,4 @@
 - [x] Show peak delivery hours and busiest times
 - [x] Display total orders, revenue, and average order value
 - [x] Create analytics tab/section in store dashboard
+- [x] Redesign tab buttons to be larger and more visible
