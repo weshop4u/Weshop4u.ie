@@ -748,7 +748,7 @@ export default function StoreDashboardScreen() {
       >
         {/* Tab Buttons */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 20, marginTop: 12 }}>
-          <Pressable
+          <TouchableOpacity
             onPress={() => setActiveTab("orders")}
             style={{
               flex: 1,
@@ -763,8 +763,8 @@ export default function StoreDashboardScreen() {
             <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "orders" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📋 Orders
             </Text>
-          </Pressable>
-          <Pressable
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => setActiveTab("analytics")}
             style={{
               flex: 1,
@@ -779,7 +779,7 @@ export default function StoreDashboardScreen() {
             <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "analytics" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📊 Analytics
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Show analytics or orders */}

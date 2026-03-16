@@ -2128,8 +2128,8 @@
 - [ ] Bug: Store dashboard goes dark and unresponsive after login on web/laptop
 
 ## Login Page Dark Overlay Bug
-- [ ] Fix unresponsive dark overlay appearing after login attempt on web
-- [ ] Replace Alert.alert with web-compatible alerts on all login pages
+- [x] Fix unresponsive dark overlay appearing after login attempt on web — ROOT CAUSE: Alert component was not imported in store-login.tsx, causing undefined reference error when Alert.alert() was called. Added proper React Native imports.
+- [x] Replace Alert.alert with web-compatible alerts on all login pages — Alert is now properly imported
 - [ ] Fix blue favicon icon in browser tab
 
 ## Product Prices Bulk Operations
@@ -2562,3 +2562,12 @@
 - [x] Display total orders, revenue, and average order value
 - [x] Create analytics tab/section in store dashboard
 - [x] Redesign tab buttons to be larger and more visible
+
+
+## Current Session - Store Dashboard Issues (Mar 16, 2026)
+
+### Navigation & UX Issues
+- [ ] Fix darkening/modal overlay issue on store product page
+- [ ] Add visible navigation link from store page to analytics dashboard
+- [ ] Redirect store login to analytics dashboard instead of product page
+- [ ] Ensure analytics dashboard is the main entry point for store staff
