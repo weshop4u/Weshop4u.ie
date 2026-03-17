@@ -748,9 +748,9 @@ export default function StoreDashboardScreen() {
       >
         {/* Tab Buttons */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 20, marginTop: 12 }}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => setActiveTab("orders")}
-            style={{
+            style={({ pressed }) => ({
               flex: 1,
               paddingVertical: 16,
               paddingHorizontal: 16,
@@ -758,15 +758,16 @@ export default function StoreDashboardScreen() {
               backgroundColor: activeTab === "orders" ? colors.primary : colors.surface,
               borderWidth: 2,
               borderColor: activeTab === "orders" ? colors.primary : colors.border,
-            }}
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
             <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "orders" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📋 Orders
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             onPress={() => setActiveTab("analytics")}
-            style={{
+            style={({ pressed }) => ({
               flex: 1,
               paddingVertical: 16,
               paddingHorizontal: 16,
@@ -774,12 +775,13 @@ export default function StoreDashboardScreen() {
               backgroundColor: activeTab === "analytics" ? colors.primary : colors.surface,
               borderWidth: 2,
               borderColor: activeTab === "analytics" ? colors.primary : colors.border,
-            }}
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
             <Text style={{ fontSize: 16, fontWeight: "700", color: activeTab === "analytics" ? "#fff" : colors.foreground, textAlign: "center" }}>
               📊 Analytics
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Show analytics or orders */}
