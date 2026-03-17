@@ -2575,3 +2575,4 @@
 - [ ] Consolidate the two store dashboard implementations into one
 - [ ] Redirect store login to /store-dashboard instead of /store
 - [ ] Ensure analytics dashboard is the main entry point for store staff
+- [x] Add back button to Analytics view to navigate back to Orders dashboard — NOT NEEDED: Tab buttons (📋 Orders & 📊 Analytics) at the top already allow seamless switching between views. Navigation is already fully functional.
