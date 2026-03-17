@@ -2577,3 +2577,6 @@
 - [ ] Ensure analytics dashboard is the main entry point for store staff
 - [x] Add back button to Analytics view to navigate back to Orders dashboard — NOT NEEDED: Tab buttons (📋 Orders & 📊 Analytics) at the top already allow seamless switching between views. Navigation is already fully functional.
 - [x] Fix Orders tab button on /store-dashboard — FIXED: Changed Orders button to navigate to /store instead of switching tabs. Now the workflow is: /store (landing) → Analytics button → /store-dashboard (analytics) → Orders button → /store (back to landing)
+
+## Search Results Issue (Mar 17, 2026)
+- [x] Fix search results display — FIXED: Removed .slice(0, 4) limits and wrapped dropdown in ScrollView. Now shows all matching products with scrollable list. Tested with "coca" search showing all 25 Coca Cola variants.

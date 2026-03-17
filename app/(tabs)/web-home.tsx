@@ -3,7 +3,7 @@
  * This component is used when Platform.OS === "web" to provide a proper website experience
  * with hero section, store cards in a grid layout, and responsive design.
  */
-import { Text, View, TouchableOpacity, ActivityIndicator, TextInput, StyleSheet, Dimensions } from "react-native";
+import { Text, View, TouchableOpacity, ActivityIndicator, TextInput, StyleSheet, Dimensions, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
@@ -77,7 +77,7 @@ export default function WebHome() {
   const matchingStores = useMemo(() => {
     if (!stores || !debouncedQuery) return [];
     const q = debouncedQuery.toLowerCase();
-    return stores.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 4);
+    return stores.filter((s) => s.name.toLowerCase().includes(q));
   }, [stores, debouncedQuery]);
 
   // Group product results by store
@@ -190,7 +190,7 @@ export default function WebHome() {
 
           {/* Search Dropdown */}
           {showDropdown && debouncedQuery.length >= 2 && (
-            <View style={searchDropdownStyles.dropdown}>
+            <ScrollView style={searchDropdownStyles.dropdown} scrollEnabled={true}>
               {/* Matching Stores */}
               {matchingStores.length > 0 && (
                 <View style={searchDropdownStyles.section}>
@@ -229,7 +229,7 @@ export default function WebHome() {
                   {groupedProducts.map((group) => (
                     <View key={`group-${group.storeId}`}>
                       <Text style={searchDropdownStyles.groupStoreName}>{group.storeName}</Text>
-                      {group.products.slice(0, 4).map((product) => (
+                      {group.products.map((product) => (
                         <TouchableOpacity
                           key={`product-${product.id}`}
                           style={searchDropdownStyles.productRow}
@@ -266,7 +266,7 @@ export default function WebHome() {
                   <Text style={searchDropdownStyles.noResultsText}>No stores or products found for "{debouncedQuery}"</Text>
                 </View>
               )}
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
