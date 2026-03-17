@@ -749,7 +749,7 @@ export default function StoreDashboardScreen() {
         {/* Tab Buttons */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 20, marginTop: 12 }}>
           <Pressable
-            onPress={() => setActiveTab("orders")}
+            onPress={() => router.push("/store")}
             style={({ pressed }) => ({
               flex: 1,
               paddingVertical: 16,
