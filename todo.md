@@ -2567,7 +2567,11 @@
 ## Current Session - Store Dashboard Issues (Mar 16, 2026)
 
 ### Navigation & UX Issues
-- [ ] Fix darkening/modal overlay issue on store product page
-- [ ] Add visible navigation link from store page to analytics dashboard
-- [ ] Redirect store login to analytics dashboard instead of product page
+- [x] Fix darkening/modal overlay issue on store product page — RESOLVED: This was the store login Alert bug (missing imports), now fixed
+- [x] Analytics dashboard buttons not visible — RESOLVED: Analytics tabs exist at /store-dashboard (not /store). The app has two implementations:
+  * `/store` → app/store/index.tsx (order management only, no analytics)
+  * `/store-dashboard` → app/store-dashboard/index.tsx (with Orders & Analytics tabs)
+- [x] Add Analytics button to /store dashboard quick actions bar — Added 📊 Analytics button that navigates to /store-dashboard
+- [ ] Consolidate the two store dashboard implementations into one
+- [ ] Redirect store login to /store-dashboard instead of /store
 - [ ] Ensure analytics dashboard is the main entry point for store staff
