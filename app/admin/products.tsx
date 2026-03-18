@@ -45,6 +45,7 @@ function ProductsManagementScreenContent() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateTargetStoreIds, setDuplicateTargetStoreIds] = useState<number[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
+  const [pvFilter, setPvFilter] = useState<"all" | "verified" | "unverified">("all"); // PV filter state
 
   // Add product form state
   const [addForm, setAddForm] = useState({

@@ -2580,3 +2580,14 @@
 
 ## Search Results Issue (Mar 17, 2026)
 - [x] Fix search results display — FIXED: Removed .slice(0, 4) limits and wrapped dropdown in ScrollView. Now shows all matching products with scrollable list. Tested with "coca" search showing all 25 Coca Cola variants.
+
+
+## Price Verification (PV) System (Mar 17, 2026)
+- [ ] Add PV (Price Verified) field to product schema and database
+- [ ] Add PV checkbox to product listings with green (verified) / red (unverified) color coding
+- [ ] Create filter buttons showing PV [count] and PV ✗ [count] in column headers
+- [ ] Implement filter logic to show only verified products when PV button clicked
+- [ ] Implement filter logic to show only unverified products when PV ✗ button clicked
+- [ ] Add PV system to Products page
+- [ ] Add PV system to Product Prices page
+- [ ] Test PV system across all store product pages

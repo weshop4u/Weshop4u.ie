@@ -149,6 +149,7 @@ export const products = mysqlTable(
     sortOrder: int("sort_order").default(999), // Lower number = higher in category list
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
+    priceVerified: boolean("price_verified").default(false), // PV - Price Verified flag for price checking
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },
