@@ -59,6 +59,9 @@ function ProductPricesContent() {
   // Out of Stock filter
   const [showOOSOnly, setShowOOSOnly] = useState(false);
 
+  // Price Verified filter
+  const [pvFilter, setPvFilter] = useState<"all" | "verified" | "unverified">("all");
+
   // Pagination
   const [page, setPage] = useState(0);
 
@@ -110,7 +113,7 @@ function ProductPricesContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => { setPage(0); }, [selectedStore, selectedCategory, debouncedSearch, showOOSOnly]);
+  useEffect(() => { setPage(0); }, [selectedStore, selectedCategory, debouncedSearch, showOOSOnly, pvFilter]);
 
   useEffect(() => {
     if (stores && stores.length > 0 && !selectedStore) {
@@ -121,7 +124,7 @@ function ProductPricesContent() {
   useEffect(() => { setPriceChanges({}); setSelectedIds(new Set()); }, [selectedStore]);
 
   // Clear selection when filters change
-  useEffect(() => { setSelectedIds(new Set()); }, [selectedCategory, debouncedSearch, showOOSOnly, page]);
+  useEffect(() => { setSelectedIds(new Set()); }, [selectedCategory, debouncedSearch, showOOSOnly, pvFilter, page]);
 
   // Fetch products
   const { data: productsData, isLoading, refetch } = trpc.stores.getProducts.useQuery(
@@ -171,6 +174,8 @@ function ProductPricesContent() {
 
   const changesCount = Object.keys(priceChanges).length;
   const selectedCount = selectedIds.size;
+  const verifiedCount = useMemo(() => products.filter((p: any) => p.priceVerified).length, [products]);
+  const unverifiedCount = useMemo(() => products.filter((p: any) => !p.priceVerified).length, [products]);
 
   // Bulk selection handlers
   const toggleSelectItem = useCallback((id: number) => {
@@ -1085,8 +1090,24 @@ function ProductPricesContent() {
               🚫 Out of Stock Only
             </Text>
           </TouchableOpacity>
-          {showOOSOnly && (
-            <TouchableOpacity onPress={() => setShowOOSOnly(false)}>
+          <TouchableOpacity
+            onPress={() => setPvFilter(pvFilter === "verified" ? "all" : "verified")}
+            style={[styles.oosFilterBtn, pvFilter === "verified" && styles.oosFilterBtnActive, { backgroundColor: pvFilter === "verified" ? "#22C55E" : "transparent" }]}
+          >
+            <Text style={[styles.oosFilterText, pvFilter === "verified" && styles.oosFilterTextActive, { color: pvFilter === "verified" ? "#fff" : colors.foreground }]}>
+              PV ✓ ({verifiedCount})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setPvFilter(pvFilter === "unverified" ? "all" : "unverified")}
+            style={[styles.oosFilterBtn, pvFilter === "unverified" && styles.oosFilterBtnActive, { backgroundColor: pvFilter === "unverified" ? "#EF4444" : "transparent" }]}
+          >
+            <Text style={[styles.oosFilterText, pvFilter === "unverified" && styles.oosFilterTextActive, { color: pvFilter === "unverified" ? "#fff" : colors.foreground }]}>
+              PV ✗ ({unverifiedCount})
+            </Text>
+          </TouchableOpacity>
+          {(showOOSOnly || pvFilter !== "all") && (
+            <TouchableOpacity onPress={() => { setShowOOSOnly(false); setPvFilter("all"); }}>
               <Text style={{ fontSize: 13, color: "#0a7ea4", fontWeight: "600" }}>Show All</Text>
             </TouchableOpacity>
           )}
@@ -1198,7 +1219,11 @@ function ProductPricesContent() {
           </View>
         ) : (
           <FlatList
-            data={products}
+            data={products.filter((product: any) => {
+              if (pvFilter === "verified") return product.priceVerified;
+              if (pvFilter === "unverified") return !product.priceVerified;
+              return true;
+            })}
             keyExtractor={(item: any) => String(item.id)}
             renderItem={renderProduct}
             ListHeaderComponent={ListHeader}

@@ -119,6 +119,8 @@ function ProductsManagementScreenContent() {
   const missingImageCount = productsData?.counts?.noImage || 0;
   const drsCount = productsData?.counts?.drs || 0;
   const outOfStockCount = productsData?.counts?.outOfStock || 0;
+  const verifiedCount = useMemo(() => products.filter((p: any) => p.priceVerified).length, [products]);
+  const unverifiedCount = useMemo(() => products.filter((p: any) => !p.priceVerified).length, [products]);
 
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
 
@@ -636,6 +638,26 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Price Verified filter */}
+                <TouchableOpacity
+                  onPress={() => setPvFilter(pvFilter === "verified" ? "all" : "verified")}
+                  style={[itemStyles.filterPill, { backgroundColor: pvFilter === "verified" ? "#22C55E" : colors.surface, borderColor: pvFilter === "verified" ? "#22C55E" : colors.border }]}
+                >
+                  <Text style={{ color: pvFilter === "verified" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    PV ✓ ({verifiedCount})
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Price Unverified filter */}
+                <TouchableOpacity
+                  onPress={() => setPvFilter(pvFilter === "unverified" ? "all" : "unverified")}
+                  style={[itemStyles.filterPill, { backgroundColor: pvFilter === "unverified" ? "#EF4444" : colors.surface, borderColor: pvFilter === "unverified" ? "#EF4444" : colors.border }]}
+                >
+                  <Text style={{ color: pvFilter === "unverified" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    PV ✗ ({unverifiedCount})
+                  </Text>
+                </TouchableOpacity>
+
                 {/* Category filters */}
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryFilter("all")}
@@ -714,10 +736,15 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 70 }]}>SKU</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>PV</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
-              {products.map((product: any, idx: number) => {
+              {products.filter((product: any) => {
+                if (pvFilter === "verified") return product.priceVerified;
+                if (pvFilter === "unverified") return !product.priceVerified;
+                return true;
+              }).map((product: any, idx: number) => {
                 const stockBadge = getStockBadge(product.stockStatus);
                 const hasDesc = product.description && product.description.trim() !== "";
                 const imageUri = getProductImageUri(product);
@@ -785,6 +812,32 @@ function ProductsManagementScreenContent() {
                         <Text style={{ color: colors.border, fontSize: 11 }}>—</Text>
                       )}
                     </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const updatedProduct = { ...product, priceVerified: !product.priceVerified };
+                        updateMutation.mutate(updatedProduct, {
+                          onSuccess: () => refetch(),
+                        });
+                      }}
+                      style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
+                    >
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: product.priceVerified ? "#22C55E" : "#EF4444",
+                          backgroundColor: product.priceVerified ? "#22C55E20" : "#EF444420",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: product.priceVerified ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
+                          {product.priceVerified ? "✓" : "✗"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                     <View style={[tableStyles.cell, { width: activeFilter === "out_of_stock" ? 260 : 140, flexDirection: "row", gap: 6 }]}>
                       {activeFilter === "out_of_stock" && (
                         <TouchableOpacity
@@ -868,6 +921,18 @@ function ProductsManagementScreenContent() {
                   style={[itemStyles.filterPill, { backgroundColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.surface, borderColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.border }]}
                 >
                   <Text style={{ color: activeFilter === "out_of_stock" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>Out of Stock ({outOfStockCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setPvFilter(pvFilter === "verified" ? "all" : "verified")}
+                  style={[itemStyles.filterPill, { backgroundColor: pvFilter === "verified" ? "#22C55E" : colors.surface, borderColor: pvFilter === "verified" ? "#22C55E" : colors.border }]}
+                >
+                  <Text style={{ color: pvFilter === "verified" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>PV ✓ ({verifiedCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setPvFilter(pvFilter === "unverified" ? "all" : "unverified")}
+                  style={[itemStyles.filterPill, { backgroundColor: pvFilter === "unverified" ? "#EF4444" : colors.surface, borderColor: pvFilter === "unverified" ? "#EF4444" : colors.border }]}
+                >
+                  <Text style={{ color: pvFilter === "unverified" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>PV ✗ ({unverifiedCount})</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryFilter("all")}
