@@ -91,6 +91,7 @@ function ProductsManagementScreenContent() {
   const { data: categories } = trpc.categories.getAll.useQuery();
 
   const updateMutation = trpc.stores.updateProduct.useMutation();
+  const togglePvMutation = trpc.stores.togglePriceVerified.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
   const bulkStockMutation = trpc.stores.bulkUpdateStock.useMutation();
@@ -814,8 +815,7 @@ function ProductsManagementScreenContent() {
                     </View>
                     <TouchableOpacity
                       onPress={() => {
-                        const updatedProduct = { ...product, priceVerified: !product.priceVerified };
-                        updateMutation.mutate(updatedProduct, {
+                        togglePvMutation.mutate({ productId: product.id }, {
                           onSuccess: () => refetch(),
                         });
                       }}

@@ -99,6 +99,7 @@ function ProductPricesContent() {
   const moveToStoreMutation = trpc.store.moveProductToStore.useMutation();
   const duplicateToStoreMutation = trpc.store.duplicateProductToStore.useMutation();
   const toggleStockMutation = trpc.store.toggleProductStock.useMutation();
+  const togglePvMutation = trpc.stores.togglePriceVerified.useMutation();
   const updateProductMutation = trpc.stores.updateProduct.useMutation();
   const bulkChangeCategoryMutation = trpc.store.bulkChangeCategory.useMutation();
   const bulkSetPriceMutation = trpc.store.bulkSetPrice.useMutation();
@@ -584,6 +585,19 @@ function ProductPricesContent() {
         </View>
 
         <TouchableOpacity
+          onPress={() => {
+            togglePvMutation.mutate({ productId: item.id }, {
+              onSuccess: () => refetch(),
+            });
+          }}
+          style={[styles.actionBtn, { backgroundColor: item.priceVerified ? "#22C55E20" : "#EF444420", borderColor: item.priceVerified ? "#22C55E" : "#EF4444", borderWidth: 1 }]}
+        >
+          <Text style={{ color: item.priceVerified ? "#22C55E" : "#EF4444", fontSize: 16, fontWeight: "700" }}>
+            {item.priceVerified ? "✓" : "✗"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => openActionMenu(item)}
           style={styles.actionBtn}
         >
@@ -591,7 +605,7 @@ function ProductPricesContent() {
         </TouchableOpacity>
       </View>
     );
-  }, [priceChanges, colors, handlePriceChange, openActionMenu, selectedIds, toggleSelectItem, renderCheckbox]);
+  }, [priceChanges, colors, handlePriceChange, openActionMenu, selectedIds, toggleSelectItem, renderCheckbox, togglePvMutation, refetch]);
 
   const ListHeader = useMemo(() => (
     <View style={styles.tableHeader}>

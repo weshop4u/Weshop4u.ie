@@ -375,6 +375,7 @@ export const storesRouter = router({
         categoryId: z.number().nullable().optional(),
         isDrs: z.boolean().optional(),
         pinnedToTrending: z.boolean().optional(),
+        priceVerified: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -420,10 +421,36 @@ export const storesRouter = router({
       if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
       if (input.isDrs !== undefined) updateData.isDrs = input.isDrs;
       if (input.pinnedToTrending !== undefined) updateData.pinnedToTrending = input.pinnedToTrending;
+      if (input.priceVerified !== undefined) updateData.priceVerified = input.priceVerified;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 
       return { success: true };
+    }),
+
+  // Toggle price verified status on a single product
+  togglePriceVerified: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      // Get current product to toggle the status
+      const product = await db.select().from(products).where(eq(products.id, input.productId)).limit(1);
+      if (product.length === 0) {
+        throw new Error("Product not found");
+      }
+
+      const newStatus = !product[0].priceVerified;
+      await db.update(products)
+        .set({ priceVerified: newStatus })
+        .where(eq(products.id, input.productId));
+
+      return { success: true, priceVerified: newStatus };
     }),
 
   // Bulk toggle DRS flag on multiple products
