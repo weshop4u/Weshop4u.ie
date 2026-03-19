@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
+import { useQueryClient } from "@tanstack/react-query";
 
 const IS_WEB = Platform.OS === "web";
 const PAGE_SIZE = 50;
@@ -42,6 +43,7 @@ type BulkAction = "category" | "price" | "salePrice" | "duplicateStore" | "moveS
 function ProductPricesContent() {
   const router = useRouter();
   const colors = useColors();
+  const queryClient = useQueryClient();
 
   // Store selector
   const { data: stores } = trpc.stores.getAll.useQuery();
@@ -586,15 +588,59 @@ function ProductPricesContent() {
 
         <TouchableOpacity
           onPress={() => {
+            console.log('PV button onPress fired for product:', item.id);
+            const newVerifiedStatus = !item.priceVerified;
+            queryClient.setQueryData(
+              ['stores', 'getProducts'],
+              (oldData: any) => {
+                if (!oldData) return oldData;
+                return {
+                  ...oldData,
+                  items: oldData.items.map((p: any) =>
+                    p.id === item.id ? { ...p, priceVerified: newVerifiedStatus } : p
+                  ),
+                };
+              }
+            );
             togglePvMutation.mutate({ productId: item.id }, {
-              onSuccess: () => refetch(),
+              onSuccess: () => {
+                console.log('PV mutation success for:', item.id);
+              },
+              onError: (err) => {
+                console.error('PV mutation error:', err);
+                queryClient.setQueryData(
+                  ['stores', 'getProducts'],
+                  (oldData: any) => {
+                    if (!oldData) return oldData;
+                    return {
+                      ...oldData,
+                      items: oldData.items.map((p: any) =>
+                        p.id === item.id ? { ...p, priceVerified: item.priceVerified } : p
+                      ),
+                    };
+                  }
+                );
+              },
             });
           }}
-          style={[styles.actionBtn, { backgroundColor: item.priceVerified ? "#22C55E20" : "#EF444420", borderColor: item.priceVerified ? "#22C55E" : "#EF4444", borderWidth: 1 }]}
+          style={[styles.actionBtn, { justifyContent: "center", alignItems: "center" }]}
         >
-          <Text style={{ color: item.priceVerified ? "#22C55E" : "#EF4444", fontSize: 16, fontWeight: "700" }}>
-            {item.priceVerified ? "✓" : "✗"}
-          </Text>
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: item.priceVerified ? "#22C55E" : "#EF4444",
+              backgroundColor: item.priceVerified ? "#22C55E20" : "#EF444420",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: item.priceVerified ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
+              {item.priceVerified ? "✓" : "✗"}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity

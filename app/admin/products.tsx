@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
@@ -24,6 +25,7 @@ const STOCK_STATUS_OPTIONS: { value: StockStatus; label: string; color: string }
 function ProductsManagementScreenContent() {
   const router = useRouter();
   const colors = useColors();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
@@ -815,8 +817,38 @@ function ProductsManagementScreenContent() {
                     </View>
                     <TouchableOpacity
                       onPress={() => {
+                        const newVerifiedStatus = !product.priceVerified;
+                        queryClient.setQueryData(
+                          ['stores', 'getProducts'],
+                          (oldData: any) => {
+                            if (!oldData) return oldData;
+                            return {
+                              ...oldData,
+                              items: oldData.items.map((p: any) =>
+                                p.id === product.id ? { ...p, priceVerified: newVerifiedStatus } : p
+                              ),
+                            };
+                          }
+                        );
                         togglePvMutation.mutate({ productId: product.id }, {
-                          onSuccess: () => refetch(),
+                          onSuccess: () => {
+                            console.log('PV mutation success for:', product.id);
+                          },
+                          onError: (err) => {
+                            console.error('PV mutation error:', err);
+                            queryClient.setQueryData(
+                              ['stores', 'getProducts'],
+                              (oldData: any) => {
+                                if (!oldData) return oldData;
+                                return {
+                                  ...oldData,
+                                  items: oldData.items.map((p: any) =>
+                                    p.id === product.id ? { ...p, priceVerified: product.priceVerified } : p
+                                  ),
+                                };
+                              }
+                            );
+                          },
                         });
                       }}
                       style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
