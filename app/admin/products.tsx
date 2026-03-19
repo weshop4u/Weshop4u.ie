@@ -832,10 +832,8 @@ function ProductsManagementScreenContent() {
                         );
                         togglePvMutation.mutate({ productId: product.id }, {
                           onSuccess: () => {
-                            console.log('PV mutation success for:', product.id);
                           },
                           onError: (err) => {
-                            console.error('PV mutation error:', err);
                             queryClient.setQueryData(
                               ['stores', 'getProducts'],
                               (oldData: any) => {

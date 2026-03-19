@@ -145,6 +145,8 @@ function ProductPricesContent() {
   const products = productsData?.items || [];
   const totalCount = productsData?.total || 0;
   const categorySummary = productsData?.categories || [];
+
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const bulkUpdateMutation = trpc.store.bulkUpdatePrices.useMutation();
@@ -588,38 +590,19 @@ function ProductPricesContent() {
 
         <TouchableOpacity
           onPress={() => {
-            console.log('PV button onPress fired for product:', item.id);
-            const newVerifiedStatus = !item.priceVerified;
-            queryClient.setQueryData(
-              ['stores', 'getProducts'],
-              (oldData: any) => {
-                if (!oldData) return oldData;
-                return {
-                  ...oldData,
-                  items: oldData.items.map((p: any) =>
-                    p.id === item.id ? { ...p, priceVerified: newVerifiedStatus } : p
-                  ),
-                };
-              }
-            );
+
             togglePvMutation.mutate({ productId: item.id }, {
               onSuccess: () => {
-                console.log('PV mutation success for:', item.id);
+
+                const refetchResult = refetch();
+
+                refetchResult.then((result) => {
+
+                }).catch((err) => {
+
+                });
               },
               onError: (err) => {
-                console.error('PV mutation error:', err);
-                queryClient.setQueryData(
-                  ['stores', 'getProducts'],
-                  (oldData: any) => {
-                    if (!oldData) return oldData;
-                    return {
-                      ...oldData,
-                      items: oldData.items.map((p: any) =>
-                        p.id === item.id ? { ...p, priceVerified: item.priceVerified } : p
-                      ),
-                    };
-                  }
-                );
               },
             });
           }}

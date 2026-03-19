@@ -147,6 +147,7 @@ export const storesRouter = router({
           isDrs: products.isDrs,
           pinnedToTrending: products.pinnedToTrending,
           sortOrder: products.sortOrder,
+          priceVerified: products.priceVerified,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
