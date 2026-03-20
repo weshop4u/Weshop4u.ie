@@ -60,6 +60,10 @@ function CategoriesScreenContent() {
   const [editSchedule, setEditSchedule] = useState<AvailabilitySchedule>(null);
   const [editSortOrder, setEditSortOrder] = useState("0");
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'ageRestricted' | 'timeLimited'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: categories, refetch } = trpc.categories.getAllWithCounts.useQuery({ storeId: 1 });
   const updateImageMutation = trpc.categories.updateImage.useMutation();
@@ -68,6 +72,7 @@ function CategoriesScreenContent() {
   const updateSettingsMutation = trpc.categories.updateSettings.useMutation();
   const deleteMutation = trpc.categories.delete.useMutation();
   const mergeMutation = trpc.categories.merge.useMutation();
+  const createCategoryMutation = trpc.categories.create.useMutation();
 
   // Modifier template queries
   const { data: allTemplates } = trpc.modifierTemplates.list.useQuery();
@@ -264,6 +269,39 @@ function CategoriesScreenContent() {
       })
     : [];
 
+  const filteredCategories = sortedCategories.filter((cat) => {
+    if (filterType === 'all') return true;
+    if (filterType === 'ageRestricted') return cat.ageRestricted;
+    if (filterType === 'timeLimited') return !!cat.availabilitySchedule;
+    return true;
+  });
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      setMessage('Please enter a category name');
+      setMessageType('error');
+      return;
+    }
+    setIsCreating(true);
+    setMessage('');
+    try {
+      await createCategoryMutation.mutateAsync({
+        name: newCategoryName.trim(),
+        storeId: 1,
+      });
+      setMessage('Category created successfully!');
+      setMessageType('success');
+      setNewCategoryName('');
+      refetch();
+      setTimeout(() => setShowCreateModal(false), 1000);
+    } catch (error: any) {
+      setMessage(error.message || 'Failed to create category');
+      setMessageType('error');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <ScreenContainer className="bg-background">
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -277,25 +315,45 @@ function CategoriesScreenContent() {
             </Text>
           </View>
 
-          {/* Summary */}
+          {/* Filter Buttons */}
           <View className="flex-row gap-3">
-            <View className="flex-1 bg-surface rounded-xl p-3 border border-border items-center">
+            <TouchableOpacity
+              onPress={() => setFilterType('all')}
+              style={[{ flex: 1 }, filterType === 'all' && { borderWidth: 2, borderColor: colors.primary }]}
+              className="bg-surface rounded-xl p-3 border border-border items-center"
+            >
               <Text className="text-2xl font-bold text-primary">{sortedCategories.length}</Text>
               <Text className="text-xs text-muted">Categories</Text>
-            </View>
-            <View className="flex-1 bg-surface rounded-xl p-3 border border-border items-center">
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilterType('ageRestricted')}
+              style={[{ flex: 1 }, filterType === 'ageRestricted' && { borderWidth: 2, borderColor: colors.primary }]}
+              className="bg-surface rounded-xl p-3 border border-border items-center"
+            >
               <Text className="text-2xl font-bold text-primary">
                 {sortedCategories.filter((c) => c.ageRestricted).length}
               </Text>
               <Text className="text-xs text-muted">Age Restricted</Text>
-            </View>
-            <View className="flex-1 bg-surface rounded-xl p-3 border border-border items-center">
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFilterType('timeLimited')}
+              style={[{ flex: 1 }, filterType === 'timeLimited' && { borderWidth: 2, borderColor: colors.primary }]}
+              className="bg-surface rounded-xl p-3 border border-border items-center"
+            >
               <Text className="text-2xl font-bold text-primary">
                 {sortedCategories.filter((c) => c.availabilitySchedule).length}
               </Text>
               <Text className="text-xs text-muted">Time Limited</Text>
-            </View>
+            </TouchableOpacity>
           </View>
+
+          {/* ADD Category Button */}
+          <TouchableOpacity
+            onPress={() => setShowCreateModal(true)}
+            style={[{ backgroundColor: colors.primary }, styles.addBtn]}
+          >
+            <Text className="text-white font-semibold text-center">+ ADD Category</Text>
+          </TouchableOpacity>
 
           {/* Global message */}
           {message && !editMode ? (
@@ -306,7 +364,7 @@ function CategoriesScreenContent() {
 
           {/* Categories List */}
           <View className="gap-2">
-            {sortedCategories.map((category) => {
+            {filteredCategories.map((category) => {
               const hasSchedule = !!category.availabilitySchedule;
               const isRestricted = category.ageRestricted;
 
@@ -710,6 +768,57 @@ function CategoriesScreenContent() {
           </View>
         </View>
       </Modal>
+
+      {/* Create Category Modal */}
+      <Modal visible={showCreateModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Modal Header */}
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-lg font-bold text-foreground">Create New Category</Text>
+                <TouchableOpacity onPress={() => setShowCreateModal(false)} style={[styles.closeBtn, { backgroundColor: colors.surface }]}>
+                  <Text className="text-foreground font-semibold">✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Message */}
+              {message && showCreateModal ? (
+                <View style={[styles.messageBox, { borderColor: messageType === "error" ? colors.error : "#22C55E", backgroundColor: messageType === "error" ? "#FEE2E2" : "#DCFCE7", marginBottom: 12 }]}>
+                  <Text style={{ color: messageType === "error" ? colors.error : "#16A34A", fontWeight: "600" }}>{message}</Text>
+                </View>
+              ) : null}
+
+              {/* Category Name Input */}
+              <View className="mb-4">
+                <Text className="text-sm font-semibold text-foreground mb-2">Category Name</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder="Enter category name"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+
+              {/* Create Button */}
+              <TouchableOpacity
+                onPress={handleCreateCategory}
+                disabled={isCreating || !newCategoryName.trim()}
+                style={[styles.saveButton, { opacity: isCreating || !newCategoryName.trim() ? 0.5 : 1 }]}
+              >
+                {isCreating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Create Category</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -767,6 +876,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
+  },
+  addBtn: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   modalOverlay: {
     flex: 1,

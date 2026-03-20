@@ -225,6 +225,56 @@ export const categoriesRouter = router({
       return { success: true };
     }),
 
+  // Create a new category
+  create: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(255),
+        storeId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Generate slug from name
+      const slug = input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .substring(0, 200);
+
+      // Check if category with this name already exists
+      const existing = await db
+        .select()
+        .from(productCategories)
+        .where(eq(productCategories.name, input.name));
+
+      if (existing.length > 0) {
+        throw new Error("Category with this name already exists");
+      }
+
+      // Insert new category
+      await db
+        .insert(productCategories)
+        .values({
+          name: input.name,
+          slug,
+          icon: null,
+          ageRestricted: false,
+          availabilitySchedule: null,
+          sortOrder: 999,
+        });
+
+      // Fetch the created category
+      const created = await db
+        .select()
+        .from(productCategories)
+        .where(eq(productCategories.name, input.name));
+
+      return created[0] || { success: true };
+    }),
+
   // Merge two categories (move all products from source to target, delete source)
   merge: publicProcedure
     .input(
