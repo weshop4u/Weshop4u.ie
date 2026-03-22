@@ -48,6 +48,9 @@ function ProductsManagementScreenContent() {
   const [duplicateTargetStoreIds, setDuplicateTargetStoreIds] = useState<number[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [pvFilter, setPvFilter] = useState<"all" | "verified" | "unverified">("all"); // PV filter state
+  const [editingModifier, setEditingModifier] = useState<any>(null);
+  const [showModifierEditor, setShowModifierEditor] = useState(false);
+  const [modifierSelections, setModifierSelections] = useState<Map<number, number[]>>(new Map());
 
   // Add product form state
   const [addForm, setAddForm] = useState({
@@ -1351,7 +1354,7 @@ function ProductsManagementScreenContent() {
               </View>
 
               {/* ===== MODIFIER TEMPLATES (Inherited + Manual) ===== */}
-              <InlineTemplatesSection productId={editingProduct?.id} categoryId={editingProduct?._categoryId} colors={colors} />
+              <InlineTemplatesSection productId={editingProduct?.id} categoryId={editingProduct?._categoryId} colors={colors} setEditingModifier={setEditingModifier} setShowModifierEditor={setShowModifierEditor} />
 
               {/* ===== INLINE PRODUCT OPTIONS (Custom per-product) ===== */}
               <InlineModifiersSection productId={editingProduct?.id} colors={colors} />
@@ -1384,6 +1387,83 @@ function ProductsManagementScreenContent() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modifier Editor Modal */}
+      <Modal visible={showModifierEditor} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+          <View style={{ backgroundColor: colors.background, borderRadius: 16, padding: 24, width: "90%", maxWidth: 500, maxHeight: "80%" }}>
+            {editingModifier && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Edit {editingModifier.template?.name}</Text>
+                  <TouchableOpacity onPress={() => setShowModifierEditor(false)}>
+                    <Text style={{ fontSize: 24, color: colors.muted }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 12 }}>
+                  {editingModifier.template?.type === "single" ? "Select one option" : "Select multiple options"}
+                </Text>
+
+                <View style={{ gap: 8, marginBottom: 16 }}>
+                  {editingModifier.template?.options?.map((option: any) => {
+                    const isSelected = editingModifier.selectedOptions?.includes(option.id);
+                    return (
+                      <TouchableOpacity
+                        key={option.id}
+                        onPress={() => {
+                          if (editingModifier.template?.type === "single") {
+                            setEditingModifier({
+                              ...editingModifier,
+                              selectedOptions: [option.id],
+                            });
+                          } else {
+                            const newSelected = isSelected
+                              ? editingModifier.selectedOptions?.filter((id: number) => id !== option.id) || []
+                              : [...(editingModifier.selectedOptions || []), option.id];
+                            setEditingModifier({
+                              ...editingModifier,
+                              selectedOptions: newSelected,
+                            });
+                          }
+                        }}
+                        style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          backgroundColor: isSelected ? colors.primary + "15" : colors.surface,
+                        }}
+                      >
+                        <Text style={{ color: colors.foreground, fontWeight: isSelected ? "600" : "400" }}>
+                          {isSelected ? "✓ " : ""}{option.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => setShowModifierEditor(false)}
+                    style={{ flex: 1, paddingVertical: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, alignItems: "center" }}
+                  >
+                    <Text style={{ color: colors.foreground, fontWeight: "600" }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowModifierEditor(false);
+                    }}
+                    style={{ flex: 1, paddingVertical: 12, backgroundColor: colors.primary, borderRadius: 8, alignItems: "center" }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -1905,7 +1985,7 @@ function ProductsManagementScreenContent() {
 }
 
 // ===== INLINE TEMPLATES SECTION (Category-inherited + Manually assigned) =====
-function InlineTemplatesSection({ productId, categoryId, colors }: { productId: number | undefined; categoryId: number | undefined | null; colors: any }) {
+function InlineTemplatesSection({ productId, categoryId, colors, setEditingModifier, setShowModifierEditor }: { productId: number | undefined; categoryId: number | undefined | null; colors: any; setEditingModifier: any; setShowModifierEditor: any }) {
   const [expanded, setExpanded] = useState(true);
 
   // All available templates
@@ -2018,10 +2098,17 @@ function InlineTemplatesSection({ productId, categoryId, colors }: { productId: 
                 Manually Assigned
               </Text>
               {productTemplates.map((pt: any) => (
-                <View key={pt.linkId} style={{
-                  flexDirection: "row", alignItems: "center", gap: 8, padding: 10,
-                  backgroundColor: "#E0F2FE", borderRadius: 8, borderWidth: 1, borderColor: "#0EA5E940",
-                }}>
+                <TouchableOpacity
+                  key={pt.linkId}
+                  onPress={() => {
+                    setEditingModifier(pt);
+                    setShowModifierEditor(true);
+                  }}
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 8, padding: 10,
+                    backgroundColor: "#E0F2FE", borderRadius: 8, borderWidth: 1, borderColor: "#0EA5E940",
+                  }}
+                >
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 13, fontWeight: "600", color: "#0369A1" }}>
                       {pt.template?.name}
@@ -2032,7 +2119,7 @@ function InlineTemplatesSection({ productId, categoryId, colors }: { productId: 
                     </Text>
                   </View>
                   <TouchableOpacity
-                    onPress={async () => {
+                    onPress={async (e) => {
                       try {
                         await removeMut.mutateAsync({ linkId: pt.linkId });
                         refetchProductTemplates();
@@ -2042,7 +2129,7 @@ function InlineTemplatesSection({ productId, categoryId, colors }: { productId: 
                   >
                     <Text style={{ color: "#EF4444", fontWeight: "700", fontSize: 11 }}>Remove</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
