@@ -2303,6 +2303,7 @@ export const adminRouter = router({
         id: products.id,
         name: products.name,
         storeId: products.storeId,
+        price: products.price,
       }).from(products);
 
       // Match each parsed update to a product
@@ -2331,6 +2332,7 @@ export const adminRouter = router({
           matched: bestConfidence > 0.7 ? {
             productId: bestMatch!.id,
             productName: bestMatch!.name,
+            currentPrice: parseFloat(bestMatch!.price),
             confidence: bestConfidence,
           } : undefined,
           error: bestConfidence <= 0.7 ? "No matching product found" : undefined,

@@ -2611,3 +2611,11 @@
 - [ ] Build bulk update API endpoint with PV marking
 - [ ] Create review interface for matches before update
 - [ ] Test end-to-end with sample data
+
+
+## Bulk Price Update Enhancements
+- [ ] Add current price display to review screen
+- [ ] Add "Correct Match" checkbox for each item
+- [ ] Make review items pressable for inline editing
+- [ ] Add "Create New Product" option for unmatched items
+- [ ] Update bulk update logic to only process checked items

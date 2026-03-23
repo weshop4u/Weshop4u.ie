@@ -580,6 +580,7 @@ export const storeRouter = router({
           images: products.images,
           isDrs: products.isDrs,
           sortOrder: products.sortOrder,
+          priceVerified: products.priceVerified,
           createdAt: products.createdAt,
         })
         .from(products)
