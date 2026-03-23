@@ -7,6 +7,7 @@ import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
 import { geocodeAddress } from "../services/geocoding";
 
+
 // Helper function to generate sequential order number per store
 async function generateOrderNumber(storeId: number): Promise<string> {
   const db = await getDb();
@@ -2282,6 +2283,90 @@ export const adminRouter = router({
         orders: batchOrders,
         batchId: batchOrders[0]?.batchId || null,
         batchSize: batchOrders.length,
+      };
+    }),
+
+  // Parse CSV prices and match to products
+  parseCSVPrices: publicProcedure
+    .input(z.object({
+      csvText: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const { parseCSVPrices, fuzzyMatchProduct } = await import("../../lib/csv-parser");
+      const parseResult = parseCSVPrices(input.csvText);
+
+      // Get all products from database for matching
+      const allProducts = await db.select({
+        id: products.id,
+        name: products.name,
+        storeId: products.storeId,
+      }).from(products);
+
+      // Match each parsed update to a product
+      const matchedUpdates = parseResult.updates.map(update => {
+        const storeName = update.store.toLowerCase();
+        const storeProducts = allProducts.filter(p => {
+          // TODO: Match store by name
+          return true; // For now, match all products
+        });
+
+        let bestMatch = null;
+        let bestConfidence = 0;
+
+        for (const product of storeProducts) {
+          const confidence = fuzzyMatchProduct(update.productName, product.name);
+          if (confidence > bestConfidence) {
+            bestConfidence = confidence;
+            bestMatch = product;
+          }
+        }
+
+        return {
+          store: update.store,
+          productName: update.productName,
+          price: update.price,
+          matched: bestConfidence > 0.7 ? {
+            productId: bestMatch!.id,
+            productName: bestMatch!.name,
+            confidence: bestConfidence,
+          } : undefined,
+          error: bestConfidence <= 0.7 ? "No matching product found" : undefined,
+        };
+      });
+
+      return matchedUpdates;
+    }),
+
+  // Bulk update prices and mark as Price Verified
+  bulkUpdatePrices: publicProcedure
+    .input(z.object({
+      updates: z.array(z.object({
+        productId: z.number(),
+        price: z.number(),
+      })),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      let updatedCount = 0;
+
+      for (const update of input.updates) {
+        await db.update(products)
+          .set({
+            price: String(update.price),
+            priceVerified: true,
+          })
+          .where(eq(products.id, update.productId));
+        updatedCount++;
+      }
+
+      return {
+        success: true,
+        updatedCount,
       };
     }),
 });

@@ -2591,3 +2591,23 @@
 - [ ] Add PV system to Products page
 - [ ] Add PV system to Product Prices page
 - [ ] Test PV system across all store product pages
+
+
+## Voice Price Upload System (Mar 22, 2026)
+- [ ] Build audio transcription processor (speech-to-text)
+- [ ] Extract product data (brand, product name, size, price) from transcription
+- [ ] Create fuzzy matching algorithm to match extracted products to database
+- [ ] Build bulk price update API endpoint
+- [ ] Create results review/approval interface
+- [ ] Test with user's shop recording
+- [ ] Refine matching accuracy based on user feedback
+- [ ] Deploy voice price upload feature to admin dashboard
+
+
+## CSV Bulk Price Update System (Mar 23, 2026)
+- [ ] Create CSV upload UI in admin dashboard
+- [ ] Build CSV parser (Store, Product with size, Price)
+- [ ] Create fuzzy matching to products in database
+- [ ] Build bulk update API endpoint with PV marking
+- [ ] Create review interface for matches before update
+- [ ] Test end-to-end with sample data
