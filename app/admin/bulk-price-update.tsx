@@ -1,5 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Alert } from "react-native";
 import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { trpc } from "@/lib/trpc";
@@ -16,11 +16,25 @@ interface PriceUpdate {
   error?: string;
 }
 
+interface EditingItem extends PriceUpdate {
+  id?: number;
+  description?: string;
+  categoryId?: number | null;
+  sku?: string;
+  stockStatus?: "in_stock" | "out_of_stock" | "low_stock";
+  quantity?: number;
+  images?: string[];
+  isDrs?: boolean;
+  pinnedToTrending?: boolean;
+}
+
 export default function BulkPriceUpdatePage() {
   const [csvText, setCsvText] = useState("");
   const [updates, setUpdates] = useState<PriceUpdate[]>([]);
   const [loading, setLoading] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const parseCSV = trpc.admin.parseCSVPrices.useMutation();
   const bulkUpdate = trpc.admin.bulkUpdatePrices.useMutation();
@@ -70,9 +84,44 @@ export default function BulkPriceUpdatePage() {
     }
   };
 
-  const handleManualMatch = (index: number) => {
-    // TODO: Open product selector modal
-    Alert.alert("Manual Match", "Product selector coming soon");
+  const handleEditItem = (index: number) => {
+    const item = updates[index];
+    setEditingItem({
+      ...item,
+      id: item.matched?.productId,
+      categoryId: null,
+      sku: "",
+      stockStatus: "in_stock",
+      quantity: 0,
+      isDrs: false,
+      pinnedToTrending: false,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditedItem = () => {
+    if (!editingItem) return;
+    
+    const updatedIndex = updates.findIndex(
+      u => u.productName === editingItem.productName && u.price === editingItem.price
+    );
+    
+    if (updatedIndex >= 0) {
+      const updatedUpdates = [...updates];
+      updatedUpdates[updatedIndex] = {
+        ...editingItem,
+        matched: editingItem.id ? {
+          productId: editingItem.id,
+          productName: editingItem.productName,
+          confidence: 1.0,
+        } : undefined,
+        error: editingItem.id ? undefined : "No product selected",
+      };
+      setUpdates(updatedUpdates);
+    }
+    
+    setShowEditModal(false);
+    setEditingItem(null);
   };
 
   const content = (
@@ -160,7 +209,11 @@ export default function BulkPriceUpdatePage() {
           {/* Matches List */}
           <View className="gap-2">
             {updates.map((update, idx) => (
-              <View key={idx} className="bg-surface rounded-lg p-4 border border-border">
+              <TouchableOpacity
+                key={idx}
+                onPress={() => handleEditItem(idx)}
+                className="bg-surface rounded-lg p-4 border border-border active:opacity-70"
+              >
                 <View className="mb-2">
                   <Text className="text-sm font-semibold text-foreground">{update.productName}</Text>
                   <Text className="text-xs text-muted">€{update.price.toFixed(2)}</Text>
@@ -180,16 +233,13 @@ export default function BulkPriceUpdatePage() {
                     </Text>
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    onPress={() => handleManualMatch(idx)}
-                    className="bg-warning/10 rounded p-2"
-                  >
+                  <View className="bg-warning/10 rounded p-2">
                     <Text className="text-xs text-warning font-semibold">
-                      ⚠ No match - Tap to select manually
+                      ⚠ No match - Tap to edit
                     </Text>
-                  </TouchableOpacity>
+                  </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
 
@@ -212,9 +262,135 @@ export default function BulkPriceUpdatePage() {
     </ScrollView>
   );
 
+  // Quick-edit modal
+  const editModal = (
+    <Modal visible={showEditModal} animationType="slide" transparent>
+      <View className="flex-1 bg-black/50 justify-end">
+        <View className="bg-background rounded-t-2xl p-6 max-h-[90%]">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold text-foreground">Edit Product</Text>
+            <TouchableOpacity onPress={() => { setShowEditModal(false); setEditingItem(null); }}>
+              <Text className="text-2xl text-muted">×</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView className="flex-1" contentContainerStyle={{ gap: 16, paddingBottom: 20 }}>
+            {/* Product Name */}
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Product Name</Text>
+              <TextInput
+                className="border border-border rounded-lg p-3 text-foreground bg-surface"
+                value={editingItem?.productName || ""}
+                onChangeText={(text) => setEditingItem({ ...editingItem!, productName: text })}
+                placeholder="Product name"
+              />
+            </View>
+
+            {/* Price */}
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Price (€)</Text>
+              <TextInput
+                className="border border-border rounded-lg p-3 text-foreground bg-surface"
+                value={editingItem?.price.toString() || ""}
+                onChangeText={(text) => setEditingItem({ ...editingItem!, price: parseFloat(text) || 0 })}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+              />
+            </View>
+
+            {/* SKU */}
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">SKU</Text>
+              <TextInput
+                className="border border-border rounded-lg p-3 text-foreground bg-surface"
+                value={editingItem?.sku || ""}
+                onChangeText={(text) => setEditingItem({ ...editingItem!, sku: text })}
+                placeholder="SKU (optional)"
+              />
+            </View>
+
+            {/* Stock Status */}
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Stock Status</Text>
+              <View className="flex-row gap-2">
+                {["in_stock", "low_stock", "out_of_stock"].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    onPress={() => setEditingItem({ ...editingItem!, stockStatus: status as any })}
+                    className={`flex-1 py-2 rounded-lg border ${
+                      editingItem?.stockStatus === status
+                        ? "bg-primary border-primary"
+                        : "bg-surface border-border"
+                    }`}
+                  >
+                    <Text className={`text-xs font-semibold text-center ${
+                      editingItem?.stockStatus === status ? "text-white" : "text-foreground"
+                    }`}>
+                      {status.replace("_", " ").toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Quantity */}
+            <View>
+              <Text className="text-sm font-semibold text-foreground mb-2">Stock Quantity</Text>
+              <TextInput
+                className="border border-border rounded-lg p-3 text-foreground bg-surface"
+                value={editingItem?.quantity?.toString() || "0"}
+                onChangeText={(text) => setEditingItem({ ...editingItem!, quantity: parseInt(text) || 0 })}
+                keyboardType="number-pad"
+                placeholder="0"
+              />
+            </View>
+
+            {/* DRS Toggle */}
+            <TouchableOpacity
+              onPress={() => setEditingItem({ ...editingItem!, isDrs: !editingItem?.isDrs })}
+              className={`flex-row items-center gap-3 p-3 rounded-lg border ${
+                editingItem?.isDrs ? "bg-cyan-500/10 border-cyan-500" : "bg-surface border-border"
+              }`}
+            >
+              <View className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                editingItem?.isDrs ? "bg-cyan-500 border-cyan-500" : "border-muted"
+              }`}>
+                {editingItem?.isDrs && <Text className="text-white text-xs font-bold">✓</Text>}
+              </View>
+              <Text className="text-sm text-foreground flex-1">DRS (Deposit Return Scheme)</Text>
+            </TouchableOpacity>
+
+            <Text className="text-xs text-muted text-center mt-4">
+              For modifiers and deals, open the full product editor
+            </Text>
+          </ScrollView>
+
+          {/* Buttons */}
+          <View className="flex-row gap-3 mt-4">
+            <TouchableOpacity
+              onPress={() => { setShowEditModal(false); setEditingItem(null); }}
+              className="flex-1 py-3 rounded-lg bg-surface border border-border items-center"
+            >
+              <Text className="text-foreground font-semibold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveEditedItem}
+              className="flex-1 py-3 rounded-lg bg-primary items-center"
+            >
+              <Text className="text-white font-bold">Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <AdminDesktopLayout title="Bulk Price Update">
-      <ScreenContainer>{content}</ScreenContainer>
+      <ScreenContainer>
+        {content}
+        {editModal}
+      </ScreenContainer>
     </AdminDesktopLayout>
   );
 }
