@@ -2371,4 +2371,38 @@ export const adminRouter = router({
         updatedCount,
       };
     }),
+
+  // Get testing mode status
+  getTestingMode: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+    const [setting] = await db.select().from(appSettings).where(eq(appSettings.key, "testingMode"));
+    return {
+      enabled: setting ? JSON.parse(setting.value) : false,
+    };
+  }),
+
+  // Toggle testing mode
+  toggleTestingMode: publicProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      
+      const existing = await db.select().from(appSettings).where(eq(appSettings.key, "testingMode"));
+      
+      if (existing.length > 0) {
+        await db.update(appSettings)
+          .set({ value: JSON.stringify(input.enabled) })
+          .where(eq(appSettings.key, "testingMode"));
+      } else {
+        await db.insert(appSettings).values({
+          key: "testingMode",
+          value: JSON.stringify(input.enabled),
+          description: "Enable/disable testing mode for €0.01 test charges",
+        });
+      }
+      
+      return { success: true, enabled: input.enabled };
+    }),
 });

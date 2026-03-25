@@ -1022,5 +1022,20 @@ export const driverShiftsRelations = relations(driverShifts, ({ one }) => ({
 export type DriverShift = typeof driverShifts.$inferSelect;
 export type InsertDriverShift = typeof driverShifts.$inferInsert;
 
+// ===== APP SETTINGS =====
+export const appSettings = mysqlTable(
+  "app_settings",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    key: varchar("key", { length: 255 }).notNull().unique(),
+    value: text("value").notNull(),
+    description: text("description"),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    keyIdx: index("key_idx").on(table.key),
+  })
+);
+
 export type AppSetting = typeof appSettings.$inferSelect;
 export type InsertAppSetting = typeof appSettings.$inferInsert;
