@@ -295,6 +295,14 @@ function DashboardContent() {
                   </View>
                 )}
               </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push("/admin/settings" as any)}
+                style={{ backgroundColor: "#A78BFA", padding: 14, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Text style={{ fontSize: 16 }}>🧪</Text>
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Testing Mode</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

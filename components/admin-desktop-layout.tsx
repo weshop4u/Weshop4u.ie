@@ -33,6 +33,7 @@ const NAV_ITEMS = [
   { path: "/admin/customers", label: "Customers", icon: "👥", exact: false },
   { path: "/admin/promotional-banners", label: "Promo Banners", icon: "📢", exact: false },
   { path: "/admin/messages", label: "Messages", icon: "💬", exact: false, hasBadge: true },
+  { path: "/admin/settings", label: "Settings", icon: "⚙️", exact: false },
 ];
 
 /**
