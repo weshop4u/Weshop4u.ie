@@ -371,3 +371,19 @@ export const notifications = mysqlTable(
     createdAtIdx: index("created_at_idx").on(table.createdAt),
   })
 );
+
+
+// ===== APP SETTINGS =====
+export const appSettings = mysqlTable(
+  "app_settings",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    key: varchar("key", { length: 255 }).notNull().unique(),
+    value: text("value").notNull(),
+    description: text("description"),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    keyIdx: index("key_idx").on(table.key),
+  })
+);

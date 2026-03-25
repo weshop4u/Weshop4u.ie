@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings } from "../../drizzle/schema";
 import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";

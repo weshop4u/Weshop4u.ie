@@ -7,7 +7,7 @@ interface AnalyticsProps {
   storeId: number;
 }
 
-export function AnalyticsDashboard({ storeId }: AnalyticsProps) {
+export default function AnalyticsDashboard({ storeId }: AnalyticsProps) {
   const colors = useColors();
   const [timePeriod, setTimePeriod] = useState<"7" | "30" | "90">("30");
 

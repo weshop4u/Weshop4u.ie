@@ -1021,3 +1021,6 @@ export const driverShiftsRelations = relations(driverShifts, ({ one }) => ({
 
 export type DriverShift = typeof driverShifts.$inferSelect;
 export type InsertDriverShift = typeof driverShifts.$inferInsert;
+
+export type AppSetting = typeof appSettings.$inferSelect;
+export type InsertAppSetting = typeof appSettings.$inferInsert;

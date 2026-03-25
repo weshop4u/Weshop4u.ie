@@ -10,7 +10,7 @@ import { useColors } from "@/hooks/use-colors";
 import { formatIrishTime } from "@/lib/timezone";
 
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
-import { AnalyticsDashboard } from "./analytics";
+import AnalyticsDashboard from "./analytics";
 
 // Trigger local print via browser print dialog (for POS standalone mode)
 function triggerLocalPrint(content: string) {

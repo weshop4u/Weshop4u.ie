@@ -1,1 +1,0 @@
-ALTER TABLE `products` ADD `price_verified` boolean DEFAULT false;
