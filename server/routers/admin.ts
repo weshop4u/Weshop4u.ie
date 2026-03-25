@@ -593,6 +593,16 @@ export const adminRouter = router({
       if (order.paymentStatus === "completed") {
         throw new Error("Order is already marked as paid");
       }
+      // Check if testing mode is enabled
+      const [testModeSetting] = await db.select().from(appSettings).where(eq(appSettings.key, "testingMode"));
+      const testingModeEnabled = testModeSetting ? JSON.parse(testModeSetting.value) : false;
+      
+      // In testing mode, charge €0.01 instead of full amount
+      let chargeAmount = order.total;
+      if (testingModeEnabled) {
+        chargeAmount = "0.01";
+        console.log(`[TestMode] Order ${input.orderId} will be charged €0.01 instead of €${order.total}`);
+      }
 
       await db.update(orders).set({ paymentStatus: "completed" }).where(eq(orders.id, input.orderId));
       console.log(`[Admin] Order ${input.orderId} marked as paid`);

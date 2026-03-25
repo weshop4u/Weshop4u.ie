@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -6,30 +6,46 @@ import { trpc } from "@/lib/trpc";
  * Provides access to test mode status and toggle functionality
  */
 export function useTestMode() {
-  const queryClient = useQueryClient();
+  const [testingModeEnabled, setTestingModeEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isToggling, setIsToggling] = useState(false);
 
-  // Query to get current test mode status
-  const { data, isLoading } = useQuery({
-    queryKey: ["testingMode"],
-    queryFn: async () => {
-      return trpc.admin.getTestingMode.useQuery().data || { enabled: false };
-    },
-  });
+  // Fetch test mode status on mount
+  useEffect(() => {
+    const fetchTestMode = async () => {
+      try {
+        setIsLoading(true);
+        const result = await trpc.admin.getTestingMode.useQuery().data;
+        if (result) {
+          setTestingModeEnabled(result.enabled);
+        }
+      } catch (error) {
+        console.error("Failed to fetch test mode status:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Mutation to toggle test mode
-  const toggleMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      return trpc.admin.toggleTestingMode.useMutation().mutate({ enabled });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["testingMode"] });
-    },
-  });
+    fetchTestMode();
+  }, []);
+
+  // Toggle test mode
+  const toggleTestingMode = async (enabled: boolean) => {
+    try {
+      setIsToggling(true);
+      await trpc.admin.toggleTestingMode.useMutation().mutate({ enabled });
+      setTestingModeEnabled(enabled);
+    } catch (error) {
+      console.error("Failed to toggle test mode:", error);
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   return {
-    testingModeEnabled: data?.enabled ?? false,
+    testingModeEnabled,
     isLoading,
-    toggleTestingMode: toggleMutation.mutate,
-    isToggling: toggleMutation.isPending,
+    toggleTestingMode,
+    isToggling,
   };
 }
