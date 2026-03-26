@@ -7,36 +7,35 @@ import { trpc } from "@/lib/trpc";
  */
 export function useTestMode() {
   const [testingModeEnabled, setTestingModeEnabled] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
 
-  // Fetch test mode status on mount
-  useEffect(() => {
-    const fetchTestMode = async () => {
-      try {
-        setIsLoading(true);
-        const result = await trpc.admin.getTestingMode.useQuery().data;
-        if (result) {
-          setTestingModeEnabled(result.enabled);
-        }
-      } catch (error) {
-        console.error("Failed to fetch test mode status:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Fetch test mode status
+  const { data: testModeData, isLoading } = trpc.admin.getTestingMode.useQuery(undefined, {
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
-    fetchTestMode();
-  }, []);
+  // Update local state when data changes
+  useEffect(() => {
+    if (testModeData?.enabled !== undefined) {
+      setTestingModeEnabled(testModeData.enabled);
+    }
+  }, [testModeData?.enabled]);
+
+  // Toggle mutation
+  const toggleMutation = trpc.admin.toggleTestingMode.useMutation({
+    onSuccess: (result) => {
+      setTestingModeEnabled(result.enabled);
+    },
+    onError: (error) => {
+      console.error("Failed to toggle test mode:", error);
+    },
+  });
 
   // Toggle test mode
   const toggleTestingMode = async (enabled: boolean) => {
+    setIsToggling(true);
     try {
-      setIsToggling(true);
-      await trpc.admin.toggleTestingMode.useMutation().mutate({ enabled });
-      setTestingModeEnabled(enabled);
-    } catch (error) {
-      console.error("Failed to toggle test mode:", error);
+      await toggleMutation.mutateAsync({ enabled });
     } finally {
       setIsToggling(false);
     }
@@ -46,6 +45,6 @@ export function useTestMode() {
     testingModeEnabled,
     isLoading,
     toggleTestingMode,
-    isToggling,
+    isToggling: isToggling || toggleMutation.isPending,
   };
 }

@@ -1,9 +1,12 @@
+"use client";
+
 import { View, Text, Pressable, ScrollView } from "react-native";
-import { ScreenContainer } from "@/components/screen-container";
+import { useRouter } from "expo-router";
 import { useTestMode } from "@/hooks/use-test-mode";
 import { cn } from "@/lib/utils";
 
 export default function AdminSettingsScreen() {
+  const router = useRouter();
   const { testingModeEnabled, toggleTestingMode, isToggling } = useTestMode();
 
   const handleToggleTestMode = () => {
@@ -11,9 +14,9 @@ export default function AdminSettingsScreen() {
   };
 
   return (
-    <ScreenContainer className="p-4">
+    <View className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="gap-6">
+        <View className="gap-6 p-4">
           {/* Header */}
           <View className="gap-2">
             <Text className="text-3xl font-bold text-foreground">Admin Settings</Text>
@@ -21,65 +24,85 @@ export default function AdminSettingsScreen() {
           </View>
 
           {/* Testing Mode Section */}
-          <View className="bg-surface rounded-lg p-4 gap-4 border border-border">
-            <View className="gap-2">
-              <Text className="text-lg font-semibold text-foreground">🧪 Testing Mode</Text>
+          <View className="bg-surface rounded-lg p-4 gap-3 border border-border">
+            <View className="gap-1">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-2xl">🧪</Text>
+                <Text className="text-lg font-semibold text-foreground">Testing Mode</Text>
+              </View>
               <Text className="text-sm text-muted">
                 When enabled, all orders will be charged €0.01 instead of the full amount. Perfect for testing the complete order workflow.
               </Text>
             </View>
 
             {/* Status Display */}
-            <View className="flex-row items-center justify-between py-3 px-3 bg-background rounded-lg">
-              <Text className="text-base font-medium text-foreground">
-                Status: <Text className={cn(
-                  "font-bold",
-                  testingModeEnabled ? "text-yellow-600" : "text-green-600"
-                )}>
-                  {testingModeEnabled ? "🟡 ACTIVE" : "🟢 OFF"}
-                </Text>
-              </Text>
-            </View>
-
-            {/* Toggle Button */}
-            <Pressable
-              onPress={handleToggleTestMode}
-              disabled={isToggling}
-              className={cn(
-                "px-4 py-3 rounded-lg active:opacity-80",
-                testingModeEnabled
-                  ? "bg-yellow-500"
-                  : "bg-primary"
-              )}
-            >
-              <Text className="text-white font-semibold text-center">
-                {isToggling ? "Updating..." : testingModeEnabled ? "Turn Off Testing Mode" : "Turn On Testing Mode"}
-              </Text>
-            </Pressable>
-
-            {/* Info Box */}
-            {testingModeEnabled && (
-              <View className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 gap-2">
-                <Text className="text-sm font-semibold text-yellow-900">
-                  ⚠️ Testing Mode Active
-                </Text>
-                <Text className="text-xs text-yellow-800">
-                  • Customers will see a test mode banner on all screens{"\n"}
-                  • Orders will be charged €0.01{"\n"}
-                  • Full order workflow will execute normally{"\n"}
-                  • Drivers will receive notifications
+            <View className="gap-3 mt-2">
+              <View className="flex-row items-center gap-2">
+                <View
+                  className={cn(
+                    "w-3 h-3 rounded-full",
+                    testingModeEnabled ? "bg-yellow-500" : "bg-green-500"
+                  )}
+                />
+                <Text className="text-base font-semibold text-foreground">
+                  Status: {testingModeEnabled ? "🟡 ACTIVE" : "🟢 OFF"}
                 </Text>
               </View>
-            )}
+
+              {/* Toggle Button */}
+              <Pressable
+                onPress={handleToggleTestMode}
+                disabled={isToggling}
+                className={cn(
+                  "px-4 py-3 rounded-lg active:opacity-80",
+                  testingModeEnabled ? "bg-yellow-500" : "bg-primary"
+                )}
+              >
+                <Text
+                  className={cn(
+                    "font-bold text-center text-base",
+                    testingModeEnabled ? "text-yellow-900" : "text-foreground"
+                  )}
+                >
+                  {isToggling
+                    ? "Updating..."
+                    : testingModeEnabled
+                      ? "Turn Off Testing Mode"
+                      : "Turn On Testing Mode"}
+                </Text>
+              </Pressable>
+
+              {/* Info Box */}
+              {testingModeEnabled && (
+                <View className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 gap-2">
+                  <Text className="text-sm font-semibold text-yellow-900">
+                    ⚠️ Testing Mode Active
+                  </Text>
+                  <Text className="text-sm text-yellow-800">
+                    • Orders will be charged €0.01 only{"\n"}• Drivers will receive notifications{"\n"}• Full workflow is tested{"\n"}• Easy to refund test charges
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* Additional Settings */}
+          {/* Other Settings Section */}
           <View className="bg-surface rounded-lg p-4 gap-3 border border-border">
             <Text className="text-lg font-semibold text-foreground">Other Settings</Text>
             <Text className="text-sm text-muted">More settings coming soon...</Text>
           </View>
+
+          {/* Dashboard Button */}
+          <Pressable
+            onPress={() => router.push("/admin")}
+            className="px-4 py-3 rounded-lg bg-primary active:opacity-80"
+          >
+            <Text className="font-bold text-center text-base text-foreground">
+              ← Back to Dashboard
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
-    </ScreenContainer>
+    </View>
   );
 }
