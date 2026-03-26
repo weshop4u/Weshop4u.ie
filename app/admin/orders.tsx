@@ -450,9 +450,9 @@ function AdminOrdersScreenContent() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
                           <Text style={{ fontSize: 12, color: "#0F172A", fontWeight: "500" }} numberOfLines={1}>
-                            {(() => {
+            {(() => {
                               // Extract driver number and first name from "Driver 01 — Fergus Gosson"
-                              const match = order.driverName.match(/Driver (\d+).*?—\s*(\w+)/);
+                              const match = order.driverName.match(/Driver\s*(\d+)\s*[—–]\s*(\w+)/);
                               if (match) {
                                 return `${match[1]} - ${match[2]}`; // "01 - Fergus"
                               }
@@ -1047,7 +1047,7 @@ const dtStyles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   th: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
     justifyContent: "center",
   },
   thText: {
@@ -1066,7 +1066,7 @@ const dtStyles = StyleSheet.create({
     alignItems: "center",
   },
   td: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
     justifyContent: "center",
   },
   tdText: {
