@@ -450,7 +450,14 @@ function AdminOrdersScreenContent() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
                           <Text style={{ fontSize: 12, color: "#0F172A", fontWeight: "500" }} numberOfLines={1}>
-                            {order.driverName}
+                            {(() => {
+                              // Extract driver number and first name from "Driver 01 — Fergus Gosson"
+                              const match = order.driverName.match(/Driver (\d+).*?—\s*(\w+)/);
+                              if (match) {
+                                return `${match[1]} - ${match[2]}`; // "01 - Fergus"
+                              }
+                              return order.driverName;
+                            })()}
                           </Text>
                         </View>
                       )}
