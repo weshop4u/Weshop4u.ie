@@ -138,19 +138,15 @@ async function startServer() {
     }),
   );
 
-  // Redirect root /api/ to /api/web/ so users always land on the web app
-  app.get("/api", (_req, res) => res.redirect("/api/web/"));
-
-  // Serve static web files - the deployment platform only routes /api/* to Express,
-  // so we serve the web app under /api/web/ prefix
+  // Serve static web files from root /
   {
     const webDistPath = path.resolve(__dirname, "..", "web-dist");
     if (fs.existsSync(webDistPath)) {
-      console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
-      // Serve static assets under /api/web/
-      app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
-      // Root /api/web/ serves index.html
-      app.get("/api/web", (_req, res) => {
+      console.log(`[web] Serving static files from ${webDistPath} at root /`);
+      // Serve static assets at root
+      app.use("/", express.static(webDistPath, { maxAge: "1d" }));
+      // Root / serves index.html
+      app.get("/", (_req, res) => {
         const rootIndex = path.join(webDistPath, "index.html");
         if (fs.existsSync(rootIndex)) {
           res.sendFile(rootIndex);
@@ -158,9 +154,13 @@ async function startServer() {
           res.status(404).send("Web app not found");
         }
       });
-      // For any /api/web/* route, serve the matching HTML file or fall back to index.html
-      app.get("/api/web/*", (req, res) => {
-        const subPath = req.path.replace(/^\/api\/web/, "") || "/";
+      // For any /* route, serve the matching HTML file or fall back to index.html
+      app.get("*", (req, res) => {
+        // Skip API routes
+        if (req.path.startsWith("/api/")) {
+          return;
+        }
+        const subPath = req.path || "/";
         // Try to find an exact HTML file for this route
         const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
         if (fs.existsSync(htmlPath)) {
