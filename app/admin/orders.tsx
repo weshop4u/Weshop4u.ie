@@ -409,9 +409,10 @@ function AdminOrdersScreenContent() {
         </Text>
 
         {/* Desktop Table */}
-        <View style={dtStyles.tableContainer}>
-          {/* Table Header */}
-          <View style={dtStyles.thead}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ borderRadius: 10, overflow: 'hidden' }}>
+          <View style={dtStyles.tableContainer}>
+            {/* Table Header */}
+            <View style={dtStyles.thead}>
             <SortHeader field="date" label="Date" minW={110} />
             <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
             <SortHeader field="store" label="Store" minW={100} />
@@ -421,10 +422,10 @@ function AdminOrdersScreenContent() {
             <View style={[dtStyles.th, { minWidth: 90 }]}><Text style={dtStyles.thText}>Payment</Text></View>
             <SortHeader field="total" label="Total" minW={70} />
             <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Actions</Text></View>
-          </View>
+            </View>
 
-          {/* Table Body */}
-          <ScrollView style={{ maxHeight: 600 }}>
+            {/* Table Body */}
+            <ScrollView style={{ maxHeight: 600 }}>
             {sortedOrders.length > 0 ? sortedOrders.map((order, idx) => {
               const sc = STATUS_COLORS[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
               const isActive = !["delivered", "cancelled"].includes(order.status);
@@ -638,8 +639,9 @@ function AdminOrdersScreenContent() {
                 </Text>
               </View>
             )}
-          </ScrollView>
-        </View>
+            </ScrollView>
+          </View>
+        </ScrollView>
 
         {/* Modals (same for desktop) */}
         {renderModals()}
