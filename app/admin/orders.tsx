@@ -409,7 +409,7 @@ function AdminOrdersScreenContent() {
         </Text>
 
         {/* Desktop Table */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ borderRadius: 10, overflow: 'hidden' }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 20 }} contentContainerStyle={{ minWidth: '100%' }}>
           <View style={dtStyles.tableContainer}>
             {/* Table Header */}
             <View style={dtStyles.thead}>
@@ -1061,6 +1061,8 @@ const dtStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
+    minWidth: 1200,
+    flexDirection: "column",
   },
   thead: {
     flexDirection: "row",
