@@ -201,10 +201,32 @@ function AdminOrdersScreenContent() {
     return mins > 5;
   });
 
+  // Check if there's a query error (connection issue)
+  const hasConnectionError = orders === undefined && !isLoading;
+
   if (isLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
+      </ScreenContainer>
+    );
+  }
+
+  if (hasConnectionError) {
+    return (
+      <ScreenContainer className="items-center justify-center p-6">
+        <View style={{ alignItems: "center", gap: 16 }}>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: colors.foreground }}>Connection Error</Text>
+          <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center" }}>
+            Unable to connect to the server. Please check your connection or try again in a moment.
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "white" }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </ScreenContainer>
     );
   }
