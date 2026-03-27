@@ -414,13 +414,13 @@ function AdminOrdersScreenContent() {
           <View style={dtStyles.thead}>
             <SortHeader field="date" label="Date" minW={110} />
             <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
-            <SortHeader field="store" label="Store" />
-            <SortHeader field="customer" label="Customer" />
+            <SortHeader field="store" label="Store" minW={100} />
+            <SortHeader field="customer" label="Customer" minW={140} />
             <SortHeader field="status" label="Status" minW={130} />
-            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Driver</Text></View>
-            <View style={[dtStyles.th, { minWidth: 110 }]}><Text style={dtStyles.thText}>Payment</Text></View>
-            <SortHeader field="total" label="Total" minW={80} />
-            <View style={[dtStyles.th, { minWidth: 130 }]}><Text style={dtStyles.thText}>Actions</Text></View>
+            <View style={[dtStyles.th, { minWidth: 95 }]}><Text style={dtStyles.thText}>Driver</Text></View>
+            <View style={[dtStyles.th, { minWidth: 90 }]}><Text style={dtStyles.thText}>Payment</Text></View>
+            <SortHeader field="total" label="Total" minW={70} />
+            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Actions</Text></View>
           </View>
 
           {/* Table Body */}
@@ -448,11 +448,11 @@ function AdminOrdersScreenContent() {
                       <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]}>{order.orderNumber}</Text>
                     </View>
                     {/* Store */}
-                    <View style={[dtStyles.td, { flex: 1 }]}>
+                    <View style={[dtStyles.td, { minWidth: 100 }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{order.storeName}</Text>
                     </View>
                     {/* Customer */}
-                    <View style={[dtStyles.td, { flex: 1 }]}>
+                    <View style={[dtStyles.td, { minWidth: 140 }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>{order.customerName}</Text>
                     </View>
                     {/* Status */}
@@ -465,7 +465,7 @@ function AdminOrdersScreenContent() {
                       </View>
                     </View>
                     {/* Driver */}
-                    <View style={[dtStyles.td, { minWidth: 100 }]}>
+                    <View style={[dtStyles.td, { minWidth: 95 }]}>
                       {order.driverName === "Unassigned" ? (
                         <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }}>Unassigned</Text>
                       ) : (
@@ -485,7 +485,7 @@ function AdminOrdersScreenContent() {
                       )}
                     </View>
                     {/* Payment */}
-                    <View style={[dtStyles.td, { minWidth: 110 }]}>
+                    <View style={[dtStyles.td, { minWidth: 90 }]}>
                       <View style={{ flexDirection: "column", gap: 2 }}>
                         <Text style={{ fontSize: 11, color: "#64748B" }}>
                           {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}
@@ -510,11 +510,11 @@ function AdminOrdersScreenContent() {
                       </View>
                     </View>
                     {/* Total */}
-                    <View style={[dtStyles.td, { minWidth: 80 }]}>
+                    <View style={[dtStyles.td, { minWidth: 70 }]}>
                       <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{parseFloat(order.total).toFixed(2)}</Text>
                     </View>
                     {/* Actions */}
-                    <View style={[dtStyles.td, { minWidth: 130, flexDirection: "row", gap: 4, alignItems: "center" }]}>
+                    <View style={[dtStyles.td, { minWidth: 100, flexDirection: "row", gap: 4, alignItems: "center" }]}>
                       <TouchableOpacity
                         onPress={(e) => { e.stopPropagation?.(); setExpandedId(expanded ? null : order.id); }}
                         style={[dtStyles.actionBtn, { backgroundColor: expanded ? "#E0F2FE" : "#F1F5F9" }]}
