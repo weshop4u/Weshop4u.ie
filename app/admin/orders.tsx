@@ -454,7 +454,16 @@ function AdminOrdersScreenContent() {
                     </View>
                     {/* Customer */}
                     <View style={[dtStyles.td, { minWidth: 140 }]}>
-                      <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>{order.customerName}</Text>
+                      <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>
+                        {(() => {
+                          // Extract first and last name from customerName
+                          const parts = (order.customerName || "").trim().split(/\s+/);
+                          if (parts.length >= 2) {
+                            return `${parts[0]} ${parts[parts.length - 1]}`; // First name + Last name
+                          }
+                          return order.customerName;
+                        })()}
+                      </Text>
                     </View>
                     {/* Status */}
                     <View style={[dtStyles.td, { minWidth: 130 }]}>
@@ -473,11 +482,11 @@ function AdminOrdersScreenContent() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
                           <Text style={{ fontSize: 12, color: "#0F172A", fontWeight: "500" }} numberOfLines={1}>
-            {(() => {
+                            {(() => {
                               // Extract driver number and first name from "Driver 01 — Fergus Gosson"
                               const match = order.driverName.match(/Driver\s*(\d+)\s*[—–]\s*(\w+)/);
                               if (match) {
-                                return `${match[1]} - ${match[2]}`; // "01 - Fergus"
+                                return `${match[1]} ${match[2]}`; // "01 Fergus" (space instead of dash)
                               }
                               return order.driverName;
                             })()}
