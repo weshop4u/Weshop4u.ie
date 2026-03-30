@@ -1,5 +1,7 @@
 import esbuild from 'esbuild';
 
+// Packages that should NOT be bundled into the backend
+// These are either browser-only, mobile-only, or have incompatible dependencies
 const externalPackages = [
   'expo',
   'expo-router',
@@ -31,6 +33,7 @@ const externalPackages = [
   'react-native-worklets',
   'react-native-maps',
   'nativewind',
+  'expo-server-sdk',
 ];
 
 esbuild.build({
