@@ -1185,13 +1185,13 @@ function AdminOrdersScreenContent() {
               </View>
               <FlatList
                 data={availableDrivers}
-                keyExtractor={item => item.id.toString()}
+                keyExtractor={item => item.userId.toString()}
                 contentContainerStyle={{ padding: 12 }}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     onPress={() => {
                       selectedOrderIds.forEach(orderId => {
-                        assignDriverMutation.mutate({ orderId, driverUserId: item.id });
+                        assignDriverMutation.mutate({ orderId, driverUserId: item.userId });
                       });
                       setBulkAssignModal(false);
                       setSelectedOrderIds(new Set());
@@ -1209,10 +1209,10 @@ function AdminOrdersScreenContent() {
                     }}
                   >
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: "center", alignItems: "center" }}>
-                      <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>{item.driverNumber}</Text>
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>{item.displayNumber}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>{item.firstName} {item.lastName}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>{item.name}</Text>
                       <Text style={{ fontSize: 12, color: colors.muted }}>{item.vehicleType || "—"}</Text>
                     </View>
                   </TouchableOpacity>
