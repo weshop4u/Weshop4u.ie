@@ -1,7 +1,15 @@
-import { Expo, ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
+let Expo: any;
+let expo: any;
+let expoAvailable = false;
 
-// Create a new Expo SDK client
-const expo = new Expo();
+try {
+  const expoModule = await import("expo-server-sdk");
+  Expo = expoModule.Expo;
+  expo = new Expo();
+  expoAvailable = true;
+} catch (error) {
+  console.warn("[Notifications] expo-server-sdk not available - push notifications will be disabled");
+}
 
 export interface PushNotificationData {
   title: string;
@@ -19,6 +27,11 @@ export async function sendPushNotification(
   pushToken: string,
   notification: PushNotificationData
 ): Promise<boolean> {
+  if (!expoAvailable) {
+    console.warn("[Notifications] Push notifications disabled - expo-server-sdk not available");
+    return false;
+  }
+
   try {
     // Check that the push token is valid
     if (!Expo.isExpoPushToken(pushToken)) {
@@ -27,7 +40,7 @@ export async function sendPushNotification(
     }
 
     // Construct the message
-    const message: ExpoPushMessage = {
+    const message: any = {
       to: pushToken,
       sound: notification.sound !== false ? "default" : undefined,
       title: notification.title,
@@ -61,6 +74,11 @@ export async function sendBulkPushNotifications(
   pushTokens: string[],
   notification: PushNotificationData
 ): Promise<{ success: number; failed: number }> {
+  if (!expoAvailable) {
+    console.warn("[Notifications] Push notifications disabled - expo-server-sdk not available");
+    return { success: 0, failed: pushTokens.length };
+  }
+
   try {
     // Filter out invalid tokens
     const validTokens = pushTokens.filter((token) => Expo.isExpoPushToken(token));
@@ -71,7 +89,7 @@ export async function sendBulkPushNotifications(
     }
 
     // Construct messages
-    const messages: ExpoPushMessage[] = validTokens.map((token) => ({
+    const messages: any[] = validTokens.map((token) => ({
       to: token,
       sound: notification.sound !== false ? "default" : undefined,
       title: notification.title,
@@ -91,7 +109,7 @@ export async function sendBulkPushNotifications(
         const tickets = await expo.sendPushNotificationsAsync(chunk);
 
         // Count successes and failures
-        tickets.forEach((ticket: ExpoPushTicket) => {
+        tickets.forEach((ticket: any) => {
           if (ticket.status === "ok") {
             successCount++;
           } else {
