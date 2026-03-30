@@ -55,6 +55,9 @@ function AdminOrdersScreenContent() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [datePreset, setDatePreset] = useState<string>("all");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<number>>(new Set());
+  const [bulkStatusModal, setBulkStatusModal] = useState(false);
+  const [bulkAssignModal, setBulkAssignModal] = useState(false);
 
   const applyDatePreset = useCallback((preset: string) => {
     setDatePreset(preset);
@@ -351,6 +354,33 @@ function AdminOrdersScreenContent() {
           </TouchableOpacity>
         </View>
 
+        {/* Bulk Actions Bar */}
+        {selectedOrderIds.size > 0 && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10, backgroundColor: "#E0F2FE", padding: 12, borderRadius: 8 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A", flex: 1 }}>
+              {selectedOrderIds.size} order{selectedOrderIds.size !== 1 ? "s" : ""} selected
+            </Text>
+            <TouchableOpacity
+              onPress={() => setBulkAssignModal(true)}
+              style={{ backgroundColor: "#DBEAFE", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: "#0F172A" }}>🚗 Assign</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setBulkStatusModal(true)}
+              style={{ backgroundColor: "#E0E7FF", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: "#0F172A" }}>📋 Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSelectedOrderIds(new Set())}
+              style={{ backgroundColor: "#FEE2E2", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Date Range Filter */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           {/* Quick Presets */}
@@ -413,6 +443,17 @@ function AdminOrdersScreenContent() {
           <View style={dtStyles.tableContainer}>
             {/* Table Header */}
             <View style={dtStyles.thead}>
+            <View style={[dtStyles.th, { minWidth: 40 }]}>
+              <TouchableOpacity onPress={() => {
+                if (selectedOrderIds.size === sortedOrders.length) {
+                  setSelectedOrderIds(new Set());
+                } else {
+                  setSelectedOrderIds(new Set(sortedOrders.map(o => o.id)));
+                }
+              }}>
+                <Text style={{ fontSize: 16, color: "#0F172A" }}>☐</Text>
+              </TouchableOpacity>
+            </View>
             <SortHeader field="date" label="Date" minW={110} />
             <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
             <SortHeader field="store" label="Store" minW={100} />
@@ -432,13 +473,29 @@ function AdminOrdersScreenContent() {
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
               const expanded = expandedId === order.id;
               const isEven = idx % 2 === 0;
+              const isSelected = selectedOrderIds.has(order.id);
 
               return (
                 <View key={order.id}>
                   <TouchableOpacity
                     onPress={() => setExpandedId(expanded ? null : order.id)}
-                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }]}
+                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isSelected && { backgroundColor: "#E0F2FE" }]}
                   >
+                    {/* Checkbox */}
+                    <View style={[dtStyles.td, { minWidth: 40 }]}>
+                      <TouchableOpacity onPress={(e) => {
+                        e.stopPropagation?.();
+                        const newSelected = new Set(selectedOrderIds);
+                        if (newSelected.has(order.id)) {
+                          newSelected.delete(order.id);
+                        } else {
+                          newSelected.add(order.id);
+                        }
+                        setSelectedOrderIds(newSelected);
+                      }}>
+                        <Text style={{ fontSize: 16, color: "#0F172A" }}>{isSelected ? "☑" : "☐"}</Text>
+                      </TouchableOpacity>
+                    </View>
                     {/* Date */}
                     <View style={[dtStyles.td, { minWidth: 110 }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12 }]}>{formatDate(order.createdAt)}</Text>
@@ -1054,6 +1111,118 @@ function AdminOrdersScreenContent() {
                   );
                 })}
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Bulk Update Status Modal */}
+        <Modal visible={bulkStatusModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: isDesktop ? "center" : "flex-end", alignItems: isDesktop ? "center" : "stretch" }}>
+            <View style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              ...(isDesktop ? { borderRadius: 16, width: 400 } : { paddingBottom: insets.bottom + 16 }),
+            }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Update Status for {selectedOrderIds.size} Orders</Text>
+                <TouchableOpacity onPress={() => setBulkStatusModal(false)}>
+                  <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={{ padding: 12 }}>
+                {ALL_STATUSES.map(status => {
+                  const sc = STATUS_COLORS[status];
+                  const label = status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+                  return (
+                    <TouchableOpacity
+                      key={status}
+                      onPress={() => {
+                        selectedOrderIds.forEach(orderId => {
+                          updateStatusMutation.mutate({ orderId, status: status as any });
+                        });
+                        setBulkStatusModal(false);
+                        setSelectedOrderIds(new Set());
+                      }}
+                      style={{
+                        backgroundColor: sc.bg,
+                        padding: 14,
+                        borderRadius: 12,
+                        marginBottom: 8,
+                        borderWidth: 1,
+                        borderColor: sc.text,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sc.text }} />
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: sc.text }}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Bulk Assign Driver Modal */}
+        <Modal visible={bulkAssignModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: isDesktop ? "center" : "flex-end", alignItems: isDesktop ? "center" : "stretch" }}>
+            <View style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              ...(isDesktop ? { borderRadius: 16, width: 400 } : { paddingBottom: insets.bottom + 16 }),
+            }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>Assign Driver to {selectedOrderIds.size} Orders</Text>
+                <TouchableOpacity onPress={() => setBulkAssignModal(false)}>
+                  <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={availableDrivers}
+                keyExtractor={item => item.id.toString()}
+                contentContainerStyle={{ padding: 12 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      selectedOrderIds.forEach(orderId => {
+                        assignDriverMutation.mutate({ orderId, driverUserId: item.id });
+                      });
+                      setBulkAssignModal(false);
+                      setSelectedOrderIds(new Set());
+                    }}
+                    style={{
+                      backgroundColor: colors.background,
+                      padding: 14,
+                      borderRadius: 12,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: "center", alignItems: "center" }}>
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>{item.driverNumber}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>{item.firstName} {item.lastName}</Text>
+                      <Text style={{ fontSize: 12, color: colors.muted }}>{item.vehicleType || "—"}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                    <Text style={{ color: colors.muted }}>No drivers available</Text>
+                  </View>
+                }
+              />
             </View>
           </View>
         </Modal>
