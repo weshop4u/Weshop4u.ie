@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { users } from "../drizzle/schema";
 
 let _db: any = null;
+// Railway PostgreSQL deployment - v1.0.4 - Force rebuild
 
 // Lazily create the drizzle instance for Railway PostgreSQL
 export async function getDb() {
