@@ -43,6 +43,16 @@ const externalPackages = [
 
 async function build() {
   try {
+    // Build web frontend first
+    console.log('[build] Building web frontend with Expo...');
+    const { execSync } = await import('child_process');
+    try {
+      execSync('pnpm build:web', { stdio: 'inherit' });
+      console.log('[build] ✓ Web frontend built successfully');
+    } catch (error) {
+      console.warn('[build] ⚠ Web frontend build failed, continuing with backend...');
+    }
+
     // Build backend
     console.log('[build] Building backend with esbuild...');
     await esbuild.build({
