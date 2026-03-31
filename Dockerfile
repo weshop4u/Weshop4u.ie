@@ -15,8 +15,9 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Build the project
-RUN pnpm run build
+# Build the project - force no cache
+RUN --mount=type=cache,target=/app/node_modules/.cache \
+    pnpm run build
 
 # Expose port
 EXPOSE 8080
