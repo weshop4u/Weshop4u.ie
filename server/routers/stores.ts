@@ -5,6 +5,7 @@ import { stores, products, productCategories, modifierGroups, productModifierTem
 import { eq, and, like, sql, inArray, count } from "drizzle-orm";
 import { storagePut } from "../storage";
 
+// Railway PostgreSQL Migration - v1.0.5 - Force rebuild with explicit PostgreSQL support
 export const storesRouter = router({
   // Get all active stores
   list: publicProcedure
@@ -19,6 +20,7 @@ export const storesRouter = router({
         throw new Error("Database not available");
       }
 
+      // Force PostgreSQL - v1.0.4 - Raw query to ensure new code is deployed
       let query = db.select().from(stores).where(eq(stores.isActive, true));
       
       if (input?.category) {
