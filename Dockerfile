@@ -15,6 +15,10 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Force rebuild with timestamp
+ARG BUILD_TIMESTAMP=unknown
+RUN echo "Build timestamp: $BUILD_TIMESTAMP"
+
 # Build the project - force no cache
 RUN --mount=type=cache,target=/app/node_modules/.cache \
     pnpm run build
