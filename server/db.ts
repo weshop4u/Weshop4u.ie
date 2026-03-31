@@ -2,22 +2,20 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
-import { getDb as getDualDb } from "./db-dual-write";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  // Use dual-write system if available
-  const dualDb = await getDualDb();
-  if (dualDb) {
-    return dualDb;
-  }
-
-  // Fallback to single database connection
-  if (!_db && process.env.DATABASE_URL) {
+  // Priority: Use Railway PostgreSQL (DATABASE_URL_BACKUP) as primary
+  // Fallback: Use Manus MySQL (DATABASE_URL) for development
+  const dbUrl = process.env.DATABASE_URL_BACKUP || process.env.DATABASE_URL;
+  
+  if (!_db && dbUrl) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(dbUrl);
+      const isRailway = dbUrl.includes("railway") || dbUrl.includes("postgres");
+      console.log(`[Database] Connected to ${isRailway ? "Railway PostgreSQL" : "Manus MySQL"}`);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
