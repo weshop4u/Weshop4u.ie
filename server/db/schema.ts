@@ -3,26 +3,53 @@ import {
   boolean,
   decimal,
   index,
-  int,
-  mysqlEnum,
-  mysqlTable,
+  serial,
+  pgEnum,
+  pgTable,
   text,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
+
+// ===== ENUMS =====
+export const roleEnum = pgEnum("role", ["customer", "driver", "store_staff", "admin"]);
+export const storeRoleEnum = pgEnum("store_role", ["manager", "staff"]);
+export const categoryEnum = pgEnum("category", [
+  "convenience",
+  "restaurant",
+  "hardware",
+  "electrical",
+  "clothing",
+  "grocery",
+  "pharmacy",
+  "other",
+]);
+export const stockStatusEnum = pgEnum("stock_status", ["in_stock", "out_of_stock", "low_stock"]);
+export const orderStatusEnum = pgEnum("order_status", [
+  "pending",
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "picked_up",
+  "on_the_way",
+  "delivered",
+  "cancelled",
+]);
+export const paymentMethodEnum = pgEnum("payment_method", ["card", "cash_on_delivery"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed", "refunded"]);
 
 // ===== USERS =====
-export const users = mysqlTable(
+export const users = pgTable(
   "users",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     phone: varchar("phone", { length: 20 }),
-    role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
+    role: roleEnum("role").notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index("email_idx").on(table.email),
@@ -40,23 +67,14 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 }));
 
 // ===== STORES =====
-export const stores = mysqlTable(
+export const stores = pgTable(
   "stores",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull().unique(),
     description: text("description"),
-    category: mysqlEnum("category", [
-      "convenience",
-      "restaurant",
-      "hardware",
-      "electrical",
-      "clothing",
-      "grocery",
-      "pharmacy",
-      "other",
-    ]).notNull().default("convenience"),
+    category: categoryEnum("category").notNull().default("convenience"),
     logo: varchar("logo", { length: 500 }),
     address: text("address").notNull(),
     eircode: varchar("eircode", { length: 10 }),
@@ -68,10 +86,13 @@ export const stores = mysqlTable(
     openingHours: text("opening_hours"), // JSON string
     isActive: boolean("is_active").default(true),
     shortCode: varchar("short_code", { length: 10 }), // e.g. SPR, OAO - used in order numbers
-    orderCounter: int("order_counter").default(0), // Sequential order counter per store
-    sortPosition: int("sort_position").default(999), // Lower number = higher in customer list (1 = top)
+    orderCounter: serial("order_counter").default(0), // Sequential order counter per store
+    sortPosition: serial("sort_position").default(999), // Lower number = higher in customer list (1 = top)
+    isFeatured: boolean("is_featured").default(false),
+    autoPrintEnabled: boolean("auto_print_enabled").default(false),
+    autoPrintThreshold: serial("auto_print_threshold").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     slugIdx: index("slug_idx").on(table.slug),
@@ -88,13 +109,13 @@ export const storesRelations = relations(stores, ({ many }) => ({
 }));
 
 // ===== STORE STAFF =====
-export const storeStaff = mysqlTable(
+export const storeStaff = pgTable(
   "store_staff",
   {
-    id: int("id").primaryKey().autoincrement(),
-    userId: int("user_id").notNull(),
-    storeId: int("store_id").notNull(),
-    role: mysqlEnum("role", ["manager", "staff"]).notNull().default("staff"),
+    id: serial("id").primaryKey(),
+    userId: serial("user_id").notNull(),
+    storeId: serial("store_id").notNull(),
+    role: storeRoleEnum("role").notNull().default("staff"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -115,8 +136,8 @@ export const storeStaffRelations = relations(storeStaff, ({ one }) => ({
 }));
 
 // ===== PRODUCT CATEGORIES =====
-export const productCategories = mysqlTable("product_categories", {
-  id: int("id").primaryKey().autoincrement(),
+export const productCategories = pgTable("product_categories", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
@@ -129,12 +150,12 @@ export const productCategoriesRelations = relations(productCategories, ({ many }
 }));
 
 // ===== PRODUCTS =====
-export const products = mysqlTable(
+export const products = pgTable(
   "products",
   {
-    id: int("id").primaryKey().autoincrement(),
-    storeId: int("store_id").notNull(),
-    categoryId: int("category_id"),
+    id: serial("id").primaryKey(),
+    storeId: serial("store_id").notNull(),
+    categoryId: serial("category_id"),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
     sku: varchar("sku", { length: 100 }),
@@ -142,16 +163,16 @@ export const products = mysqlTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
     images: text("images"), // JSON array of image URLs
-    stockStatus: mysqlEnum("stock_status", ["in_stock", "out_of_stock", "low_stock"]).notNull().default("in_stock"),
-    quantity: int("quantity").default(0),
+    stockStatus: stockStatusEnum("stock_status").notNull().default("in_stock"),
+    quantity: serial("quantity").default(0),
     isActive: boolean("is_active").default(true),
     isDrs: boolean("is_drs").default(false),
-    sortOrder: int("sort_order").default(999), // Lower number = higher in category list
+    sortOrder: serial("sort_order").default(999), // Lower number = higher in category list
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     priceVerified: boolean("price_verified").default(false), // PV - Price Verified flag for price checking
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     storeIdIdx: index("store_id_idx").on(table.storeId),
@@ -175,8 +196,8 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 }));
 
 // ===== DELIVERY ZONES =====
-export const deliveryZones = mysqlTable("delivery_zones", {
-  id: int("id").primaryKey().autoincrement(),
+export const deliveryZones = pgTable("delivery_zones", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   coordinates: text("coordinates"), // JSON array of lat/lng points for polygon
@@ -189,12 +210,12 @@ export const deliveryZonesRelations = relations(deliveryZones, ({ many }) => ({
 }));
 
 // ===== DRIVERS =====
-export const drivers = mysqlTable(
+export const drivers = pgTable(
   "drivers",
   {
-    id: int("id").primaryKey().autoincrement(),
-    userId: int("user_id").notNull().unique(),
-    zoneId: int("zone_id"),
+    id: serial("id").primaryKey(),
+    userId: serial("user_id").notNull().unique(),
+    zoneId: serial("zone_id"),
     displayNumber: varchar("display_number", { length: 10 }),
     vehicleType: varchar("vehicle_type", { length: 100 }),
     vehicleNumber: varchar("vehicle_number", { length: 50 }),
@@ -204,10 +225,10 @@ export const drivers = mysqlTable(
     currentLatitude: decimal("current_latitude", { precision: 10, scale: 7 }),
     currentLongitude: decimal("current_longitude", { precision: 10, scale: 7 }),
     lastLocationUpdate: timestamp("last_location_update"),
-    totalDeliveries: int("total_deliveries").default(0),
+    totalDeliveries: serial("total_deliveries").default(0),
     rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdIdx: index("user_id_idx").on(table.userId),
@@ -230,26 +251,17 @@ export const driversRelations = relations(drivers, ({ one, many }) => ({
 }));
 
 // ===== ORDERS =====
-export const orders = mysqlTable(
+export const orders = pgTable(
   "orders",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderNumber: varchar("order_number", { length: 50 }).notNull().unique(),
-    customerId: int("customer_id").notNull(),
-    storeId: int("store_id").notNull(),
-    driverId: int("driver_id"),
-    status: mysqlEnum("status", [
-      "pending",
-      "accepted",
-      "preparing",
-      "ready_for_pickup",
-      "picked_up",
-      "on_the_way",
-      "delivered",
-      "cancelled",
-    ]).notNull().default("pending"),
-    paymentMethod: mysqlEnum("payment_method", ["card", "cash_on_delivery"]).notNull(),
-    paymentStatus: mysqlEnum("payment_status", ["pending", "completed", "failed", "refunded"]).notNull().default("pending"),
+    customerId: serial("customer_id").notNull(),
+    storeId: serial("store_id").notNull(),
+    driverId: serial("driver_id"),
+    status: orderStatusEnum("status").notNull().default("pending"),
+    paymentMethod: paymentMethodEnum("payment_method").notNull(),
+    paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // 10% of subtotal
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
@@ -267,7 +279,7 @@ export const orders = mysqlTable(
     cancelledAt: timestamp("cancelled_at"),
     cancellationReason: text("cancellation_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     orderNumberIdx: index("order_number_idx").on(table.orderNumber),
@@ -297,15 +309,14 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 }));
 
 // ===== ORDER ITEMS =====
-export const orderItems = mysqlTable(
+export const orderItems = pgTable(
   "order_items",
   {
-    id: int("id").primaryKey().autoincrement(),
-    orderId: int("order_id").notNull(),
-    productId: int("product_id").notNull(),
-    productName: varchar("product_name", { length: 255 }).notNull(), // Store name at time of order
-    productPrice: decimal("product_price", { precision: 10, scale: 2 }).notNull(), // Store price at time of order
-    quantity: int("quantity").notNull(),
+    id: serial("id").primaryKey(),
+    orderId: serial("order_id").notNull(),
+    productId: serial("product_id").notNull(),
+    quantity: serial("quantity").notNull(),
+    unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -328,12 +339,12 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 }));
 
 // ===== ORDER TRACKING =====
-export const orderTracking = mysqlTable(
+export const orderTracking = pgTable(
   "order_tracking",
   {
-    id: int("id").primaryKey().autoincrement(),
-    orderId: int("order_id").notNull(),
-    status: varchar("status", { length: 100 }).notNull(),
+    id: serial("id").primaryKey(),
+    orderId: serial("order_id").notNull(),
+    status: orderStatusEnum("status").notNull(),
     latitude: decimal("latitude", { precision: 10, scale: 7 }),
     longitude: decimal("longitude", { precision: 10, scale: 7 }),
     notes: text("notes"),
@@ -341,7 +352,7 @@ export const orderTracking = mysqlTable(
   },
   (table) => ({
     orderIdIdx: index("order_id_idx").on(table.orderId),
-    createdAtIdx: index("created_at_idx").on(table.createdAt),
+    statusIdx: index("status_idx").on(table.status),
   })
 );
 
@@ -352,38 +363,95 @@ export const orderTrackingRelations = relations(orderTracking, ({ one }) => ({
   }),
 }));
 
-// ===== NOTIFICATIONS =====
-export const notifications = mysqlTable(
-  "notifications",
+// ===== MODIFIER GROUPS =====
+export const modifierGroups = pgTable("modifier_groups", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  isRequired: boolean("is_required").default(false),
+  maxSelections: serial("max_selections").default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const modifierGroupsRelations = relations(modifierGroups, ({ many }) => ({
+  modifiers: many(modifiers),
+  productModifierTemplates: many(productModifierTemplates),
+}));
+
+// ===== MODIFIERS =====
+export const modifiers = pgTable(
+  "modifiers",
   {
-    id: int("id").primaryKey().autoincrement(),
-    userId: int("user_id").notNull(),
-    type: mysqlEnum("type", ["order", "driver", "store", "system"]).notNull(),
-    title: varchar("title", { length: 255 }).notNull(),
-    message: text("message").notNull(),
-    data: text("data"), // JSON for additional data
-    isRead: boolean("is_read").default(false),
+    id: serial("id").primaryKey(),
+    groupId: serial("group_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    price: decimal("price", { precision: 10, scale: 2 }).default("0.00"),
+    isActive: boolean("is_active").default(true),
+    sortOrder: serial("sort_order").default(999),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    userIdIdx: index("user_id_idx").on(table.userId),
-    isReadIdx: index("is_read_idx").on(table.isRead),
-    createdAtIdx: index("created_at_idx").on(table.createdAt),
+    groupIdIdx: index("group_id_idx").on(table.groupId),
   })
 );
 
+export const modifiersRelations = relations(modifiers, ({ one }) => ({
+  group: one(modifierGroups, {
+    fields: [modifiers.groupId],
+    references: [modifierGroups.id],
+  }),
+}));
 
-// ===== APP SETTINGS =====
-export const appSettings = mysqlTable(
-  "app_settings",
+// ===== PRODUCT MODIFIER TEMPLATES =====
+export const productModifierTemplates = pgTable(
+  "product_modifier_templates",
   {
-    id: int("id").primaryKey().autoincrement(),
-    key: varchar("key", { length: 255 }).notNull().unique(),
-    value: text("value").notNull(),
-    description: text("description"),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    id: serial("id").primaryKey(),
+    productId: serial("product_id").notNull(),
+    groupId: serial("group_id").notNull(),
+    sortOrder: serial("sort_order").default(999),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    keyIdx: index("key_idx").on(table.key),
+    productIdIdx: index("product_id_idx").on(table.productId),
+    groupIdIdx: index("group_id_idx").on(table.groupId),
   })
 );
+
+export const productModifierTemplatesRelations = relations(productModifierTemplates, ({ one }) => ({
+  product: one(products, {
+    fields: [productModifierTemplates.productId],
+    references: [products.id],
+  }),
+  group: one(modifierGroups, {
+    fields: [productModifierTemplates.groupId],
+    references: [modifierGroups.id],
+  }),
+}));
+
+// ===== CATEGORY MODIFIER TEMPLATES =====
+export const categoryModifierTemplates = pgTable(
+  "category_modifier_templates",
+  {
+    id: serial("id").primaryKey(),
+    categoryId: serial("category_id").notNull(),
+    groupId: serial("group_id").notNull(),
+    sortOrder: serial("sort_order").default(999),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    categoryIdIdx: index("category_id_idx").on(table.categoryId),
+    groupIdIdx: index("group_id_idx").on(table.groupId),
+  })
+);
+
+export const categoryModifierTemplatesRelations = relations(categoryModifierTemplates, ({ one }) => ({
+  category: one(productCategories, {
+    fields: [categoryModifierTemplates.categoryId],
+    references: [productCategories.id],
+  }),
+  group: one(modifierGroups, {
+    fields: [categoryModifierTemplates.groupId],
+    references: [modifierGroups.id],
+  }),
+}));
