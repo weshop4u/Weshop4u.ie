@@ -1,32 +1,19 @@
 import { eq } from "drizzle-orm";
-import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { users } from "../drizzle/schema";
-import { ENV } from "./_core/env";
 
 let _db: any = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+// Lazily create the drizzle instance for Railway PostgreSQL
 export async function getDb() {
-  // Priority: Use Railway PostgreSQL (DATABASE_URL_BACKUP) as primary
-  // Fallback: Use Manus MySQL (DATABASE_URL) for development
   const dbUrl = process.env.DATABASE_URL_BACKUP || process.env.DATABASE_URL;
   
   if (!_db && dbUrl) {
     try {
-      const isPostgres = dbUrl.includes("railway") || dbUrl.includes("postgres");
-      
-      if (isPostgres) {
-        // Use PostgreSQL driver for Railway
-        const client = postgres(dbUrl);
-        _db = drizzlePostgres(client);
-        console.log(`[Database] Connected to Railway PostgreSQL`);
-      } else {
-        // Use MySQL driver for Manus
-        _db = drizzleMysql(dbUrl);
-        console.log(`[Database] Connected to Manus MySQL`);
-      }
+      const client = postgres(dbUrl);
+      _db = drizzle(client);
+      console.log(`[Database] Connected to PostgreSQL`);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -56,13 +43,14 @@ export async function upsertUser(user: Partial<InsertUser> & { email: string }):
       passwordHash: user.passwordHash || null,
     };
 
-    const updateSet: Partial<InsertUser> = {};
-    if (user.name) updateSet.name = user.name;
-    if (user.phone) updateSet.phone = user.phone;
-    if (user.passwordHash) updateSet.passwordHash = user.passwordHash;
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
+    // PostgreSQL upsert syntax
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.email,
+      set: {
+        name: user.name || values.name,
+        phone: user.phone || values.phone,
+        passwordHash: user.passwordHash || values.passwordHash,
+      },
     });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
