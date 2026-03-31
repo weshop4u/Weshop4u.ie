@@ -35,6 +35,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 
 async function startServer() {
   // Initialize dual database system (Manus primary + Railway PostgreSQL backup)
+  // Force Railway redeploy - v2
   await initializeDualDatabases();
   const dbHealth = getDatabaseHealth();
   console.log("[Server] Database health:", dbHealth);
