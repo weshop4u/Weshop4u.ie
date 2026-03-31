@@ -13,7 +13,7 @@ export async function getDb() {
     try {
       const client = postgres(dbUrl);
       _db = drizzle(client);
-      console.log(`[Database] Connected to PostgreSQL`);
+      console.log(`[Database] ✅ Connected to PostgreSQL (v2 - PostgreSQL Only)`);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
