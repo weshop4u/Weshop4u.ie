@@ -47,7 +47,15 @@ async function build() {
     console.log('[build] Building web frontend with Expo...');
     const { execSync } = await import('child_process');
     try {
-      execSync('pnpm build:web', { stdio: 'inherit' });
+      // Pass environment variables to web build
+      const env = { ...process.env };
+      // Ensure EXPO_PUBLIC_API_BASE_URL is set for web build
+      if (!env.EXPO_PUBLIC_API_BASE_URL && typeof window === 'undefined') {
+        // If not set and we're in Node (build time), try to infer it
+        // For Railway, it will be set by the environment
+        console.log('[build] EXPO_PUBLIC_API_BASE_URL:', env.EXPO_PUBLIC_API_BASE_URL || 'not set');
+      }
+      execSync('pnpm build:web', { stdio: 'inherit', env });
       console.log('[build] ✓ Web frontend built successfully');
     } catch (error) {
       console.warn('[build] ⚠ Web frontend build failed, continuing with backend...');

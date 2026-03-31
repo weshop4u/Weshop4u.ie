@@ -3,7 +3,6 @@ import {
   boolean,
   decimal,
   index,
-  int,
   pgEnum,
   pgTable,
   serial,
