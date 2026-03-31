@@ -1,30 +1,27 @@
-# WeShop4U - PostgreSQL Production Build
-# Railway will use this Dockerfile instead of auto-detection
-# This ensures a clean build with the latest PostgreSQL code
+# WeShop4U - Production Backend Deployment
+# This Dockerfile is used by Render to build and deploy the backend
+# Working directory is explicitly set to /app to avoid any path confusion
 
-FROM node:18-alpine
+FROM node:25-alpine
 
+# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first (for better layer caching)
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
+# Install pnpm and dependencies
 RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy entire project
 COPY . .
 
-# Force rebuild with timestamp
-ARG BUILD_TIMESTAMP=unknown
-RUN echo "Build timestamp: $BUILD_TIMESTAMP"
+# Build the backend
+RUN pnpm run build
 
-# Build the project - force no cache
-RUN --mount=type=cache,target=/app/node_modules/.cache \
-    pnpm run build
-
-# Expose port
-EXPOSE 8080
+# Expose port 3000 (default Express port)
+EXPOSE 3000
 
 # Start the server
+# NODE_ENV is set by Render automatically for production
 CMD ["node", "dist/index.js"]
