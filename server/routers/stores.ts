@@ -200,8 +200,8 @@ export const storesRouter = router({
         .where(and(...baseConditions, eq(products.stockStatus, "out_of_stock")));
 
       // Check which products have modifiers (custom groups, product templates, or category templates)
-      const productIds = productsList.map(p => p.id);
-      const categoryIds = [...new Set(productsList.map(p => p.categoryId).filter(Boolean))] as number[];
+      const productIds = productsList.map((p: any) => p.id);
+      const categoryIds = [...new Set(productsList.map((p: any) => p.categoryId).filter(Boolean))] as number[];
 
       // Products with custom modifier groups
       const productsWithGroups = productIds.length > 0 ? await db
@@ -209,7 +209,7 @@ export const storesRouter = router({
         .from(modifierGroups)
         .where(inArray(modifierGroups.productId, productIds))
         .groupBy(modifierGroups.productId) : [];
-      const groupProductIds = new Set(productsWithGroups.map(r => r.productId));
+      const groupProductIds = new Set(productsWithGroups.map((r: any) => r.productId));
 
       // Products with directly assigned templates
       const productsWithTemplates = productIds.length > 0 ? await db
@@ -217,7 +217,7 @@ export const storesRouter = router({
         .from(productModifierTemplates)
         .where(inArray(productModifierTemplates.productId, productIds))
         .groupBy(productModifierTemplates.productId) : [];
-      const templateProductIds = new Set(productsWithTemplates.map(r => r.productId));
+      const templateProductIds = new Set(productsWithTemplates.map((r: any) => r.productId));
 
       // Categories with assigned templates
       const categoriesWithTemplates = categoryIds.length > 0 ? await db
@@ -225,10 +225,10 @@ export const storesRouter = router({
         .from(categoryModifierTemplates)
         .where(inArray(categoryModifierTemplates.categoryId, categoryIds))
         .groupBy(categoryModifierTemplates.categoryId) : [];
-      const templateCategoryIds = new Set(categoriesWithTemplates.map(r => r.categoryId));
+      const templateCategoryIds = new Set(categoriesWithTemplates.map((r: any) => r.categoryId));
 
       // Parse images JSON string to array for client
-      const items = productsList.map(p => ({
+      const items = productsList.map((p: any) => ({
         ...p,
         images: p.images ? (() => { try { return JSON.parse(p.images as string); } catch { return [p.images]; } })() : [],
         hasModifiers: groupProductIds.has(p.id) || templateProductIds.has(p.id) || (p.categoryId ? templateCategoryIds.has(p.categoryId) : false),
@@ -237,7 +237,7 @@ export const storesRouter = router({
       return {
         items,
         total,
-        categories: categorySummary.map(c => ({ id: c.categoryId, name: c.categoryName || "Uncategorized", count: c.count })),
+        categories: categorySummary.map((c: any) => ({ id: c.categoryId, name: c.categoryName || "Uncategorized", count: c.count })),
         counts: { noDesc: noDescCount, noImage: noImageCount, drs: drsCount, outOfStock: outOfStockCount },
       };
     }),
@@ -298,7 +298,7 @@ export const storesRouter = router({
         .limit(20);
 
       // Parse images and group by store
-      return results.map(r => ({
+      return results.map((r: any) => ({
         ...r,
         images: r.images ? (() => { try { return JSON.parse(r.images as string); } catch { return [r.images]; } })() : [],
       }));
@@ -342,10 +342,10 @@ export const storesRouter = router({
 
       // Get all categories for slug lookup
       const categories = await db.select().from(productCategories);
-      const categoryMap = new Map(categories.map(c => [c.slug, c.id]));
+      const categoryMap = new Map(categories.map((c: any) => [c.slug, c.id]));
 
       // Insert products
-      const productsToInsert = input.products.map(p => ({
+      const productsToInsert = input.products.map((p: any) => ({
         storeId: input.storeId,
         name: p.name,
         description: p.description || null,

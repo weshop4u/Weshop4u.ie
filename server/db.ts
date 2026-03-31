@@ -1,20 +1,20 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { users } from "../drizzle/schema";
 
 let _db: any = null;
 // Railway PostgreSQL deployment - v1.0.4 - Force rebuild
 
-// Lazily create the drizzle instance for Railway PostgreSQL
+// Lazily create the drizzle instance for MySQL
 export async function getDb() {
-  const dbUrl = process.env.DATABASE_URL_BACKUP || process.env.DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_BACKUP;
   
   if (!_db && dbUrl) {
     try {
-      const client = postgres(dbUrl);
-      _db = drizzle(client);
-      console.log(`[Database] ✅ Connected to PostgreSQL (v2 - PostgreSQL Only)`);
+      const connection = await mysql.createConnection(dbUrl);
+      _db = drizzle(connection);
+      console.log(`[Database] ✅ Connected to MySQL`);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

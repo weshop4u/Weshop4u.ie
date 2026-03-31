@@ -121,7 +121,7 @@ trackingRouter.get("/api/track/:orderId", async (req, res) => {
         longitude: order.storeLongitude ? parseFloat(order.storeLongitude) : null,
       },
       driver: driverData,
-      trackingEvents: trackingEvents.map(e => ({
+      trackingEvents: trackingEvents.map((e: any) => ({
         status: e.status,
         notes: e.notes,
         time: e.createdAt?.toISOString() || null,
@@ -398,7 +398,7 @@ function getTrackingPageHTML(orderId: string, apiBase: string): string {
         { label: 'Delivered', time: order.deliveredAt, done: !!order.deliveredAt },
       ];
 
-      const html = steps.map(s => {
+      const html = steps.map((s: any) => {
         const dotClass = s.done ? 'completed' : 'pending';
         return '<div class="timeline-item">' +
           '<div class="timeline-dot ' + dotClass + '"></div>' +
