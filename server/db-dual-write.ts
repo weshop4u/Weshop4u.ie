@@ -3,11 +3,12 @@
  * 
  * Manages reads/writes to both Manus (primary) and Railway PostgreSQL (backup) databases.
  * Automatically switches to backup when primary is unavailable.
+ * Properly handles ORM switching between MySQL and PostgreSQL.
  * 
  * Architecture:
  * - Manus Database: Primary database (MySQL) - preferred for all operations
  * - Railway PostgreSQL: Backup database - automatic failover when Manus unavailable
- * - Failover: Automatic - if Manus fails, all queries route to Railway
+ * - Failover: Automatic - if Manus fails, all queries route to Railway with PostgreSQL ORM
  * - Sync: Daily automated sync at 1:00 AM to verify both databases match
  */
 
@@ -18,6 +19,7 @@ import postgres from "postgres";
 let _primaryDb: any = null;
 let _backupDb: any = null;
 let _backupSql: ReturnType<typeof postgres> | null = null;
+let _activeDb: any = null; // The currently active database instance
 
 // Track database health status
 let _primaryDbHealthy = true;
@@ -34,6 +36,7 @@ export async function initializeDualDatabases() {
     if (process.env.DATABASE_URL) {
       try {
         _primaryDb = drizzleMysql(process.env.DATABASE_URL);
+        _activeDb = _primaryDb;
         console.log("[DualDB] ✓ Primary Manus database initialized");
         _primaryDbHealthy = true;
       } catch (error) {
@@ -63,15 +66,18 @@ export async function initializeDualDatabases() {
       console.warn("[DualDB] ⚠ DATABASE_URL_BACKUP not set - running in single-database mode");
     }
 
-    // Determine initial mode
+    // Determine initial mode and set active DB
     if (_primaryDb && _primaryDbHealthy) {
       _currentMode = "primary";
+      _activeDb = _primaryDb;
       console.log("[DualDB] Mode: PRIMARY-ACTIVE");
     } else if (_backupDb && _backupDbHealthy) {
       _currentMode = "backup";
+      _activeDb = _backupDb;
       console.log("[DualDB] Mode: BACKUP-ACTIVE (Primary unavailable)");
     } else {
       _currentMode = "offline";
+      _activeDb = null;
       console.log("[DualDB] Mode: OFFLINE (No databases available)");
     }
   } catch (error) {
@@ -113,12 +119,14 @@ async function testBackupConnection(): Promise<boolean> {
 /**
  * Get the active database connection
  * Automatically switches to backup if primary is unavailable
+ * Returns the correct ORM instance (MySQL for primary, PostgreSQL for backup)
  */
 export async function getDb(): Promise<any> {
   // If currently using primary, verify it's still healthy
   if (_currentMode === "primary" && _primaryDb && _primaryDbHealthy) {
     const isHealthy = await testPrimaryConnection();
     if (isHealthy) {
+      _activeDb = _primaryDb;
       return _primaryDb;
     }
     console.warn("[DualDB] Primary database connection lost, switching to backup");
@@ -132,6 +140,7 @@ export async function getDb(): Promise<any> {
       const isHealthy = await testBackupConnection();
       if (isHealthy) {
         _currentMode = "backup";
+        _activeDb = _backupDb; // Switch to PostgreSQL ORM instance
         console.log("[DualDB] Using BACKUP database (Railway PostgreSQL)");
         return _backupDb;
       }
@@ -147,6 +156,7 @@ export async function getDb(): Promise<any> {
       if (isHealthy) {
         _primaryDbHealthy = true;
         _currentMode = "primary";
+        _activeDb = _primaryDb;
         console.log("[DualDB] Reconnected to PRIMARY database");
         return _primaryDb;
       }
@@ -168,6 +178,7 @@ export async function getDb(): Promise<any> {
       if (isHealthy) {
         _backupDbHealthy = true;
         _currentMode = "backup";
+        _activeDb = _backupDb;
         console.log("[DualDB] Reconnected to BACKUP database");
         return _backupDb;
       }
@@ -178,7 +189,16 @@ export async function getDb(): Promise<any> {
 
   console.error("[DualDB] ✗ No databases available!");
   _currentMode = "offline";
+  _activeDb = null;
   return null;
+}
+
+/**
+ * Get the currently active database instance
+ * Used for debugging and health checks
+ */
+export function getActiveDb(): any {
+  return _activeDb;
 }
 
 /**
@@ -195,6 +215,7 @@ export function getDatabaseHealth() {
       healthy: _backupDbHealthy,
     },
     mode: _currentMode,
+    activeDb: _currentMode,
     timestamp: new Date().toISOString(),
   };
 }
@@ -209,6 +230,7 @@ export function markDatabaseUnhealthy(database: "primary" | "backup") {
     // Trigger failover to backup
     if (_backupDb && _backupDbHealthy) {
       _currentMode = "backup";
+      _activeDb = _backupDb;
       console.log("[DualDB] Failover triggered: switching to BACKUP");
     }
   } else {
@@ -224,6 +246,7 @@ export function resetDatabaseHealth(database: "primary" | "backup") {
   if (database === "primary") {
     _primaryDbHealthy = true;
     _currentMode = "primary";
+    _activeDb = _primaryDb;
     console.log("[DualDB] Primary database health reset");
   } else {
     _backupDbHealthy = true;
