@@ -2,11 +2,19 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { getDb as getDualDb } from "./db-dual-write";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
+  // Use dual-write system if available
+  const dualDb = await getDualDb();
+  if (dualDb) {
+    return dualDb;
+  }
+
+  // Fallback to single database connection
   if (!_db && process.env.DATABASE_URL) {
     try {
       _db = drizzle(process.env.DATABASE_URL);

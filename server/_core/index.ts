@@ -9,6 +9,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { initializeDualDatabases, getDatabaseHealth } from "../db-dual-write";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,11 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // Initialize dual database system (Manus primary + Railway PostgreSQL backup)
+  await initializeDualDatabases();
+  const dbHealth = getDatabaseHealth();
+  console.log("[Server] Database health:", dbHealth);
+
   const app = express();
   const server = createServer(app);
 
@@ -63,7 +69,12 @@ async function startServer() {
   registerOAuthRoutes(app);
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
+    const dbHealth = getDatabaseHealth();
+    res.json({ 
+      ok: true, 
+      timestamp: Date.now(),
+      database: dbHealth
+    });
   });
 
   // Public order tracking page (no auth required)
