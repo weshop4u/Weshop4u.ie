@@ -4,26 +4,27 @@ import {
   decimal,
   index,
   int,
-  mysqlEnum,
-  mysqlTable,
+  pgEnum,
+  pgTable,
+  serial,
   text,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 
 // ===== USERS =====
-export const users = mysqlTable(
+export const users = pgTable(
   "users",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     phone: varchar("phone", { length: 20 }),
-    role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
+    role: pgEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
     pushToken: varchar("push_token", { length: 255 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index("email_idx").on(table.email),
@@ -41,14 +42,14 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 }));
 
 // ===== STORES =====
-export const stores = mysqlTable(
+export const stores = pgTable(
   "stores",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull().unique(),
     description: text("description"),
-    category: mysqlEnum("category", [
+    category: pgEnum("category", [
       "convenience",
       "restaurant",
       "hardware",
@@ -76,7 +77,7 @@ export const stores = mysqlTable(
     autoPrintEnabled: boolean("auto_print_enabled").default(false),
     autoPrintThreshold: int("auto_print_threshold").default(5), // Auto-print orders with this many items or more
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     slugIdx: index("slug_idx").on(table.slug),
@@ -93,13 +94,13 @@ export const storesRelations = relations(stores, ({ many }) => ({
 }));
 
 // ===== STORE STAFF =====
-export const storeStaff = mysqlTable(
+export const storeStaff = pgTable(
   "store_staff",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     userId: int("user_id").notNull(),
     storeId: int("store_id").notNull(),
-    role: mysqlEnum("role", ["manager", "staff"]).notNull().default("staff"),
+    role: pgEnum("role", ["manager", "staff"]).notNull().default("staff"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -120,8 +121,8 @@ export const storeStaffRelations = relations(storeStaff, ({ one }) => ({
 }));
 
 // ===== PRODUCT CATEGORIES =====
-export const productCategories = mysqlTable("product_categories", {
-  id: int("id").primaryKey().autoincrement(),
+export const productCategories = pgTable("product_categories", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   description: text("description"),
@@ -137,10 +138,10 @@ export const productCategoriesRelations = relations(productCategories, ({ many }
 }));
 
 // ===== PRODUCTS =====
-export const products = mysqlTable(
+export const products = pgTable(
   "products",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     storeId: int("store_id").notNull(),
     categoryId: int("category_id"),
     name: varchar("name", { length: 255 }).notNull(),
@@ -150,7 +151,7 @@ export const products = mysqlTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
     images: text("images"), // JSON array of image URLs
-    stockStatus: mysqlEnum("stock_status", ["in_stock", "out_of_stock", "low_stock"]).notNull().default("in_stock"),
+    stockStatus: pgEnum("stock_status", ["in_stock", "out_of_stock", "low_stock"]).notNull().default("in_stock"),
     quantity: int("quantity").default(0),
     isActive: boolean("is_active").default(true),
     isDrs: boolean("is_drs").default(false),
@@ -160,7 +161,7 @@ export const products = mysqlTable(
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     storeIdIdx: index("store_id_idx").on(table.storeId),
@@ -186,8 +187,8 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 }));
 
 // ===== DELIVERY ZONES =====
-export const deliveryZones = mysqlTable("delivery_zones", {
-  id: int("id").primaryKey().autoincrement(),
+export const deliveryZones = pgTable("delivery_zones", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   coordinates: text("coordinates"), // JSON array of lat/lng points for polygon
@@ -200,10 +201,10 @@ export const deliveryZonesRelations = relations(deliveryZones, ({ many }) => ({
 }));
 
 // ===== DRIVERS =====
-export const drivers = mysqlTable(
+export const drivers = pgTable(
   "drivers",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     userId: int("user_id").notNull().unique(),
     zoneId: int("zone_id"),
     displayNumber: varchar("display_number", { length: 10 }),
@@ -212,7 +213,7 @@ export const drivers = mysqlTable(
     licenseNumber: varchar("license_number", { length: 100 }),
     town: varchar("town", { length: 100 }),
     address: varchar("address", { length: 255 }),
-    approvalStatus: mysqlEnum("approval_status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+    approvalStatus: pgEnum("approval_status", ["pending", "approved", "rejected"]).default("pending").notNull(),
     isOnline: boolean("is_online").default(false),
     isAvailable: boolean("is_available").default(true),
     currentLatitude: decimal("current_latitude", { precision: 10, scale: 7 }),
@@ -222,7 +223,7 @@ export const drivers = mysqlTable(
     totalReturns: int("total_returns").default(0),
     rating: decimal("rating", { precision: 3, scale: 2 }).default("5.00"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdIdx: index("user_id_idx").on(table.userId),
@@ -245,10 +246,10 @@ export const driversRelations = relations(drivers, ({ one, many }) => ({
 }));
 
 // ===== ORDERS =====
-export const orders = mysqlTable(
+export const orders = pgTable(
   "orders",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderNumber: varchar("order_number", { length: 50 }).notNull().unique(),
     customerId: int("customer_id"), // Nullable for guest orders
     storeId: int("store_id").notNull(),
@@ -257,7 +258,7 @@ export const orders = mysqlTable(
     guestPhone: varchar("guest_phone", { length: 20 }),
     guestEmail: varchar("guest_email", { length: 255 }),
     driverId: int("driver_id"),
-    status: mysqlEnum("status", [
+    status: pgEnum("status", [
       "pending",
       "accepted",
       "preparing",
@@ -267,8 +268,8 @@ export const orders = mysqlTable(
       "delivered",
       "cancelled",
     ]).notNull().default("pending"),
-    paymentMethod: mysqlEnum("payment_method", ["card", "cash_on_delivery"]).notNull(),
-    paymentStatus: mysqlEnum("payment_status", ["pending", "completed", "failed", "refunded"]).notNull().default("pending"),
+    paymentMethod: pgEnum("payment_method", ["card", "cash_on_delivery"]).notNull(),
+    paymentStatus: pgEnum("payment_status", ["pending", "completed", "failed", "refunded"]).notNull().default("pending"),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     serviceFee: decimal("service_fee", { precision: 10, scale: 2 }).notNull(), // 10% of subtotal
     deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
@@ -299,7 +300,7 @@ export const orders = mysqlTable(
     cancelledAt: timestamp("cancelled_at"),
     cancellationReason: text("cancellation_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     orderNumberIdx: index("order_number_idx").on(table.orderNumber),
@@ -329,10 +330,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 }));
 
 // ===== ORDER ITEMS =====
-export const orderItems = mysqlTable(
+export const orderItems = pgTable(
   "order_items",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderId: int("order_id").notNull(),
     productId: int("product_id").notNull(),
     productName: varchar("product_name", { length: 255 }).notNull(), // Store name at time of order
@@ -361,10 +362,10 @@ export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
 }));
 
 // ===== ORDER TRACKING =====
-export const orderTracking = mysqlTable(
+export const orderTracking = pgTable(
   "order_tracking",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderId: int("order_id").notNull(),
     status: varchar("status", { length: 100 }).notNull(),
     latitude: decimal("latitude", { precision: 10, scale: 7 }),
@@ -386,12 +387,12 @@ export const orderTrackingRelations = relations(orderTracking, ({ one }) => ({
 }));
 
 // ===== NOTIFICATIONS =====
-export const notifications = mysqlTable(
+export const notifications = pgTable(
   "notifications",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     userId: int("user_id").notNull(),
-    type: mysqlEnum("type", ["order", "driver", "store", "system"]).notNull(),
+    type: pgEnum("type", ["order", "driver", "store", "system"]).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     message: text("message").notNull(),
     data: text("data"), // JSON for additional data
@@ -407,10 +408,10 @@ export const notifications = mysqlTable(
 
 
 // ===== SAVED ADDRESSES =====
-export const savedAddresses = mysqlTable(
+export const savedAddresses = pgTable(
   "saved_addresses",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     userId: int("user_id").notNull(),
     label: varchar("label", { length: 100 }).notNull(), // e.g., "Home", "Work"
     streetAddress: text("street_address").notNull(),
@@ -419,7 +420,7 @@ export const savedAddresses = mysqlTable(
     longitude: decimal("longitude", { precision: 10, scale: 7 }),
     isDefault: boolean("is_default").default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     userIdIdx: index("user_id_idx").on(table.userId),
@@ -434,10 +435,10 @@ export const savedAddressesRelations = relations(savedAddresses, ({ one }) => ({
 }));
 
 // ===== DRIVER QUEUE =====
-export const driverQueue = mysqlTable(
+export const driverQueue = pgTable(
   "driver_queue",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     driverId: int("driver_id").notNull(), // This is the user ID of the driver
     position: int("position").notNull(),
     wentOnlineAt: timestamp("went_online_at").defaultNow().notNull(),
@@ -459,13 +460,13 @@ export const driverQueueRelations = relations(driverQueue, ({ one }) => ({
 
 // ===== ORDER OFFERS =====
 // Tracks which driver is currently being offered an order
-export const orderOffers = mysqlTable(
+export const orderOffers = pgTable(
   "order_offers",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderId: int("order_id").notNull(),
     driverId: int("driver_id").notNull(), // User ID of the driver being offered
-    status: mysqlEnum("status", ["pending", "accepted", "expired", "declined"]).notNull().default("pending"),
+    status: pgEnum("status", ["pending", "accepted", "expired", "declined"]).notNull().default("pending"),
     offeredAt: timestamp("offered_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     respondedAt: timestamp("responded_at"),
@@ -491,10 +492,10 @@ export const orderOffersRelations = relations(orderOffers, ({ one }) => ({
 }));
 
 // ===== JOB RETURNS =====
-export const jobReturns = mysqlTable(
+export const jobReturns = pgTable(
   "job_returns",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     driverId: int("driver_id").notNull(),
     orderId: int("order_id").notNull(),
     reason: varchar("reason", { length: 255 }),
@@ -519,10 +520,10 @@ export const jobReturnsRelations = relations(jobReturns, ({ one }) => ({
 }));
 
 // ===== DRIVER RATINGS =====
-export const driverRatings = mysqlTable(
+export const driverRatings = pgTable(
   "driver_ratings",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderId: int("order_id").notNull().unique(), // One rating per order
     driverId: int("driver_id").notNull(), // User ID of the driver
     customerId: int("customer_id").notNull(), // User ID of the customer
@@ -554,13 +555,13 @@ export const driverRatingsRelations = relations(driverRatings, ({ one }) => ({
 
 
 // ===== CHAT MESSAGES =====
-export const chatMessages = mysqlTable(
+export const chatMessages = pgTable(
   "chat_messages",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderId: int("order_id").notNull(),
     senderId: int("sender_id").notNull(),
-    senderRole: mysqlEnum("sender_role", ["customer", "driver"]).notNull(),
+    senderRole: pgEnum("sender_role", ["customer", "driver"]).notNull(),
     message: text("message").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -583,13 +584,13 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
 }));
 
 // ===== PRINT JOBS =====
-export const printJobs = mysqlTable(
+export const printJobs = pgTable(
   "print_jobs",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     storeId: int("store_id").notNull(),
     orderId: int("order_id").notNull(),
-    status: mysqlEnum("status", ["pending", "printing", "printed", "failed"]).notNull().default("pending"),
+    status: pgEnum("status", ["pending", "printing", "printed", "failed"]).notNull().default("pending"),
     receiptContent: text("receipt_content").notNull(), // Pre-formatted receipt text
     printedAt: timestamp("printed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -615,10 +616,10 @@ export const printJobsRelations = relations(printJobs, ({ one }) => ({
 
 
 // ===== CONTACT MESSAGES =====
-export const contactMessages = mysqlTable(
+export const contactMessages = pgTable(
   "contact_messages",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     subject: varchar("subject", { length: 500 }).notNull(),
@@ -637,13 +638,13 @@ export type InsertContactMessage = typeof contactMessages.$inferInsert;
 
 // ===== MODIFIER GROUPS =====
 // A group of modifiers attached to a product, e.g. "Choose your side", "Add toppings"
-export const modifierGroups = mysqlTable(
+export const modifierGroups = pgTable(
   "modifier_groups",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     productId: int("product_id").notNull(),
     name: varchar("name", { length: 255 }).notNull(), // e.g. "Choose your side", "Add toppings"
-    type: mysqlEnum("type", ["single", "multi"]).notNull().default("single"), // single = radio, multi = checkboxes
+    type: pgEnum("type", ["single", "multi"]).notNull().default("single"), // single = radio, multi = checkboxes
     required: boolean("required").default(false), // Must customer pick at least one?
     minSelections: int("min_selections").default(0), // For multi: minimum picks
     maxSelections: int("max_selections").default(0), // For multi: max picks (0 = unlimited)
@@ -665,10 +666,10 @@ export const modifierGroupsRelations = relations(modifierGroups, ({ one, many })
 
 // ===== MODIFIERS =====
 // Individual options within a modifier group, e.g. "Rice (+€1.50)", "Lettuce (free)"
-export const modifiers = mysqlTable(
+export const modifiers = pgTable(
   "modifiers",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     groupId: int("group_id").notNull(),
     name: varchar("name", { length: 255 }).notNull(), // e.g. "Basmati Rice", "Lettuce"
     price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0.00"), // Extra cost (0 = free)
@@ -691,10 +692,10 @@ export const modifiersRelations = relations(modifiers, ({ one }) => ({
 
 // ===== MULTI-BUY DEALS =====
 // e.g. "2 for €2.50" on a product that normally costs €1.50 each
-export const multiBuyDeals = mysqlTable(
+export const multiBuyDeals = pgTable(
   "multi_buy_deals",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     productId: int("product_id").notNull(),
     quantity: int("quantity").notNull(), // e.g. 2
     dealPrice: decimal("deal_price", { precision: 10, scale: 2 }).notNull(), // e.g. 2.50
@@ -716,10 +717,10 @@ export const multiBuyDealsRelations = relations(multiBuyDeals, ({ one }) => ({
 
 // ===== ORDER ITEM MODIFIERS =====
 // Snapshot of selected modifiers at time of order (denormalized for history)
-export const orderItemModifiers = mysqlTable(
+export const orderItemModifiers = pgTable(
   "order_item_modifiers",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     orderItemId: int("order_item_id").notNull(),
     modifierId: int("modifier_id"), // Reference to original modifier (nullable if deleted)
     groupName: varchar("group_name", { length: 255 }).notNull(), // Snapshot: "Choose your side"
@@ -754,10 +755,10 @@ export type InsertOrderItemModifier = typeof orderItemModifiers.$inferInsert;
 
 // ===== MODIFIER TEMPLATES =====
 // Reusable modifier group templates that can be linked to categories or individual products
-export const modifierTemplates = mysqlTable("modifier_templates", {
-  id: int("id").primaryKey().autoincrement(),
+export const modifierTemplates = pgTable("modifier_templates", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(), // e.g. "Chinese Sides", "Deli Fillings", "Dinner Sides"
-  type: mysqlEnum("type", ["single", "multi"]).notNull().default("single"),
+  type: pgEnum("type", ["single", "multi"]).notNull().default("single"),
   required: boolean("required").default(false),
   minSelections: int("min_selections").default(0),
   maxSelections: int("max_selections").default(0),
@@ -774,10 +775,10 @@ export const modifierTemplatesRelations = relations(modifierTemplates, ({ many }
 
 // ===== MODIFIER TEMPLATE OPTIONS =====
 // Individual options within a template, e.g. "Boiled Rice (€0.00)", "Chips (+€0.50)"
-export const modifierTemplateOptions = mysqlTable(
+export const modifierTemplateOptions = pgTable(
   "modifier_template_options",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     templateId: int("template_id").notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     price: decimal("price", { precision: 10, scale: 2 }).notNull().default("0.00"),
@@ -800,10 +801,10 @@ export const modifierTemplateOptionsRelations = relations(modifierTemplateOption
 
 // ===== CATEGORY MODIFIER TEMPLATES =====
 // Link templates to categories — all products in the category inherit these
-export const categoryModifierTemplates = mysqlTable(
+export const categoryModifierTemplates = pgTable(
   "category_modifier_templates",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     categoryId: int("category_id").notNull(),
     templateId: int("template_id").notNull(),
     sortOrder: int("sort_order").default(0),
@@ -828,10 +829,10 @@ export const categoryModifierTemplatesRelations = relations(categoryModifierTemp
 
 // ===== PRODUCT MODIFIER TEMPLATES =====
 // Manually link templates to individual products (in addition to category-level)
-export const productModifierTemplates = mysqlTable(
+export const productModifierTemplates = pgTable(
   "product_modifier_templates",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     productId: int("product_id").notNull(),
     templateId: int("template_id").notNull(),
     sortOrder: int("sort_order").default(0),
@@ -856,10 +857,10 @@ export const productModifierTemplatesRelations = relations(productModifierTempla
 
 // ===== PRODUCT TEMPLATE EXCLUSIONS =====
 // Opt out of a category-level template for a specific product
-export const productTemplateExclusions = mysqlTable(
+export const productTemplateExclusions = pgTable(
   "product_template_exclusions",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     productId: int("product_id").notNull(),
     templateId: int("template_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -888,14 +889,14 @@ export type InsertModifierTemplateOption = typeof modifierTemplateOptions.$infer
 
 
 // ===== DISCOUNT CODES =====
-export const discountCodes = mysqlTable(
+export const discountCodes = pgTable(
   "discount_codes",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     code: varchar("code", { length: 50 }).notNull().unique(),
     description: varchar("description", { length: 255 }),
     // Type: percentage, fixed_amount, free_delivery
-    discountType: mysqlEnum("discount_type", ["percentage", "fixed_amount", "free_delivery"]).notNull(),
+    discountType: pgEnum("discount_type", ["percentage", "fixed_amount", "free_delivery"]).notNull(),
     // Value: percentage (e.g. 10 for 10%) or fixed amount (e.g. 5 for €5). Ignored for free_delivery.
     discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0"),
     // Minimum order value required to use this code
@@ -914,7 +915,7 @@ export const discountCodes = mysqlTable(
     // Status
     isActive: boolean("is_active").default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     codeIdx: index("dc_code_idx").on(table.code),
@@ -922,10 +923,10 @@ export const discountCodes = mysqlTable(
   })
 );
 
-export const discountUsage = mysqlTable(
+export const discountUsage = pgTable(
   "discount_usage",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     discountCodeId: int("discount_code_id").notNull(),
     customerId: int("customer_id").notNull(),
     orderId: int("order_id"),
@@ -964,8 +965,8 @@ export type InsertDiscountUsage = typeof discountUsage.$inferInsert;
 
 
 // ===== PROMOTIONAL BANNERS =====
-export const promotionalBanners = mysqlTable("promotional_banners", {
-  id: int("id").primaryKey().autoincrement(),
+export const promotionalBanners = pgTable("promotional_banners", {
+  id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   subtitle: varchar("subtitle", { length: 500 }),
   discountCode: varchar("discount_code", { length: 100 }),
@@ -976,21 +977,21 @@ export const promotionalBanners = mysqlTable("promotional_banners", {
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type PromotionalBanner = typeof promotionalBanners.$inferSelect;
 export type InsertPromotionalBanner = typeof promotionalBanners.$inferInsert;
 
 
 // ===== DRIVER SHIFTS =====
-export const driverShifts = mysqlTable(
+export const driverShifts = pgTable(
   "driver_shifts",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     driverId: int("driver_id").notNull(), // User ID of the driver
     startedAt: timestamp("started_at").notNull(),
     endedAt: timestamp("ended_at"),
-    status: mysqlEnum("status", ["active", "ended"]).notNull().default("active"),
+    status: pgEnum("status", ["active", "ended"]).notNull().default("active"),
     // Settlement tracking
     totalJobs: int("total_jobs").default(0),
     cashCollected: decimal("cash_collected", { precision: 10, scale: 2 }).default("0.00"),
@@ -1023,14 +1024,14 @@ export type DriverShift = typeof driverShifts.$inferSelect;
 export type InsertDriverShift = typeof driverShifts.$inferInsert;
 
 // ===== APP SETTINGS =====
-export const appSettings = mysqlTable(
+export const appSettings = pgTable(
   "app_settings",
   {
-    id: int("id").primaryKey().autoincrement(),
+    id: serial("id").primaryKey(),
     key: varchar("key", { length: 255 }).notNull().unique(),
     value: text("value").notNull(),
     description: text("description"),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     keyIdx: index("key_idx").on(table.key),
