@@ -53,15 +53,15 @@ async function build() {
       // Log the environment variable to confirm it's being passed
       console.log('[build] EXPO_PUBLIC_API_BASE_URL from environment:', env.EXPO_PUBLIC_API_BASE_URL || 'NOT SET');
       
-      // Ensure EXPO_PUBLIC_API_BASE_URL is set for web build
-      if (!env.EXPO_PUBLIC_API_BASE_URL) {
-        // Default to Railway production backend if not set
-        env.EXPO_PUBLIC_API_BASE_URL = 'https://weshop4uie-production.up.railway.app';
-        console.log('[build] Using default Railway backend: https://weshop4uie-production.up.railway.app');
+      // For web builds on Render, we DON'T set EXPO_PUBLIC_API_BASE_URL
+      // This allows the web app to use relative URLs (/api/...) which call the local server
+      // For APK builds, the environment variable will be set by the build system
+      if (env.EXPO_PUBLIC_API_BASE_URL) {
+        console.log('[build] Building with explicit API base URL:', env.EXPO_PUBLIC_API_BASE_URL);
+      } else {
+        console.log('[build] Building without explicit API base URL (web will use relative URLs)');
       }
-      
-      console.log('[build] Building web with EXPO_PUBLIC_API_BASE_URL:', env.EXPO_PUBLIC_API_BASE_URL);
-      execSync('pnpm build:web', { stdio: 'inherit', env });
+      execSync('pnpm build:web', { stdio: 'inherit', env: { ...env, NODE_ENV: 'production' } });
       console.log('[build] ✓ Web frontend built successfully');
     } catch (error) {
       console.warn('[build] ⚠ Web frontend build failed, continuing with backend...');
