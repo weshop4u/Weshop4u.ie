@@ -49,16 +49,23 @@ async function build() {
     try {
       // Pass environment variables to web build
       const env = { ...process.env };
+      
+      // Log the environment variable to confirm it's being passed
+      console.log('[build] EXPO_PUBLIC_API_BASE_URL from environment:', env.EXPO_PUBLIC_API_BASE_URL || 'NOT SET');
+      
       // Ensure EXPO_PUBLIC_API_BASE_URL is set for web build
-      if (!env.EXPO_PUBLIC_API_BASE_URL && typeof window === 'undefined') {
-        // If not set and we're in Node (build time), try to infer it
-        // For Railway, it will be set by the environment
-        console.log('[build] EXPO_PUBLIC_API_BASE_URL:', env.EXPO_PUBLIC_API_BASE_URL || 'not set');
+      if (!env.EXPO_PUBLIC_API_BASE_URL) {
+        // Default to Railway production backend if not set
+        env.EXPO_PUBLIC_API_BASE_URL = 'https://weshop4uie-production.up.railway.app';
+        console.log('[build] Using default Railway backend: https://weshop4uie-production.up.railway.app');
       }
+      
+      console.log('[build] Building web with EXPO_PUBLIC_API_BASE_URL:', env.EXPO_PUBLIC_API_BASE_URL);
       execSync('pnpm build:web', { stdio: 'inherit', env });
       console.log('[build] ✓ Web frontend built successfully');
     } catch (error) {
       console.warn('[build] ⚠ Web frontend build failed, continuing with backend...');
+      console.error('[build] Web build error details:', error.message);
     }
 
     // Build backend
