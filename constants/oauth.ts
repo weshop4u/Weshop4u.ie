@@ -27,9 +27,9 @@ export const API_BASE_URL = env.apiBaseUrl;
 /**
  * Get the API base URL.
  * 
- * On web (Metro preview at :8081):
- * - Derive from current hostname by replacing :8081 with :3000
- * - This converts the public Manus URL to the API server URL
+ * On web:
+ * - For dev (Metro at :8081): Derive API URL by replacing :8081 with :3000
+ * - For production (custom domain): Use relative URLs (same domain)
  * - Never use localhost URLs on web (browser can't access them from remote URLs)
  * 
  * On native (APK):
@@ -41,7 +41,7 @@ export function getApiBaseUrl(): string {
   if (ReactNative.Platform.OS === "web") {
     if (typeof window !== "undefined" && window.location) {
       const url = window.location.origin;
-      // Manus URLs have port in hostname prefix: https://8081-xxx.manus.computer
+      // Manus dev URLs have port in hostname prefix: https://8081-xxx.manus.computer
       // Replace 8081- with 3000- to get the API server URL
       if (url.includes("8081-")) {
         return url.replace("8081-", "3000-");
@@ -52,7 +52,8 @@ export function getApiBaseUrl(): string {
       }
     }
 
-    // Fallback to relative URL
+    // For production domains (weshop4u-hh4skdej.manus.space, etc.),
+    // use relative URLs to call the same server (no CORS issues)
     return "";
   }
 
