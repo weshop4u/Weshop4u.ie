@@ -19,8 +19,9 @@ COPY . .
 ARG BUILD_TIMESTAMP=unknown
 RUN echo "Build timestamp: $BUILD_TIMESTAMP"
 
-# Build the project
-RUN pnpm run build
+# Build the project - force no cache
+RUN --mount=type=cache,target=/app/node_modules/.cache \
+    pnpm run build
 
 # Expose port
 EXPOSE 8080

@@ -33,24 +33,12 @@ let _currentMode: "primary" | "backup" | "offline" = "offline";
 export async function initializeDualDatabases() {
   try {
     // Initialize primary Manus database (MySQL)
-    // Check PRIMARY_DATABASE_URL first (custom variable), then fall back to DATABASE_URL
-    // If neither exists, use hardcoded fallback for production
-    const primaryDbUrl = process.env.PRIMARY_DATABASE_URL || process.env.DATABASE_URL || 'mysql://TRWPPSjpVsMrzts.root:6u6DKIK69yYYzUvaMY42@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/HH4sKdeJGjocgFW8dJxnCN?ssl={"rejectUnauthorized":true}';
-    console.log("[DualDB] Attempting to connect with URL:", primaryDbUrl.substring(0, 50) + '...');
-    if (primaryDbUrl) {
+    if (process.env.DATABASE_URL) {
       try {
-        _primaryDb = drizzleMysql(primaryDbUrl);
-        // Test the connection by running a simple query
-        try {
-          await _primaryDb.execute(sql`SELECT 1`);
-          _activeDb = _primaryDb;
-          console.log("[DualDB] ✓ Primary Manus database initialized and connected");
-          _primaryDbHealthy = true;
-        } catch (connError) {
-          console.warn("[DualDB] ⚠ Primary database connection test failed, will use backup:", connError.message);
-          _primaryDb = null;
-          _primaryDbHealthy = false;
-        }
+        _primaryDb = drizzleMysql(process.env.DATABASE_URL);
+        _activeDb = _primaryDb;
+        console.log("[DualDB] ✓ Primary Manus database initialized");
+        _primaryDbHealthy = true;
       } catch (error) {
         console.error("[DualDB] ✗ Failed to initialize primary database:", error);
         _primaryDb = null;
@@ -79,7 +67,7 @@ export async function initializeDualDatabases() {
     }
 
     // Determine initial mode and set active DB
-    if (false) { // Skip MySQL for production
+    if (_primaryDb && _primaryDbHealthy) {
       _currentMode = "primary";
       _activeDb = _primaryDb;
       console.log("[DualDB] Mode: PRIMARY-ACTIVE");

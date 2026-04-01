@@ -1,11 +1,27 @@
-// Use the unified dual-write database module
-// This properly handles both MySQL (TiDB) and PostgreSQL (Railway) connections
-import { getDb as getDualWriteDb } from "./db-dual-write";
-import { users } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
+import { users } from "../drizzle/schema";
 
-// Re-export the unified getDb function
-export const getDb = getDualWriteDb;
+let _db: any = null;
+// Railway PostgreSQL deployment - v1.0.4 - Force rebuild
+
+// Lazily create the drizzle instance for MySQL
+export async function getDb() {
+  const dbUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_BACKUP;
+  
+  if (!_db && dbUrl) {
+    try {
+      const connection = await mysql.createConnection(dbUrl);
+      _db = drizzle(connection);
+      console.log(`[Database] ✅ Connected to MySQL`);
+    } catch (error) {
+      console.warn("[Database] Failed to connect:", error);
+      _db = null;
+    }
+  }
+  return _db;
+}
 
 // Type for inserting a new user
 export type InsertUser = typeof users.$inferInsert;

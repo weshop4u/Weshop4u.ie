@@ -1,12 +1,208 @@
 {
-  "version": "5",
-  "dialect": "postgresql",
+  "version": "7",
+  "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
       "version": "5",
-      "when": 1775037699449,
-      "tag": "0000_right_hex",
+      "when": 1763372440610,
+      "tag": "0000_elite_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770861216787,
+      "tag": "0001_windy_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770864271141,
+      "tag": "0002_closed_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1770869909864,
+      "tag": "0003_romantic_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1770871162551,
+      "tag": "0004_opposite_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1770956659057,
+      "tag": "0005_melodic_black_tom",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771322313086,
+      "tag": "0006_cloudy_big_bertha",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1771394834066,
+      "tag": "0007_dapper_absorbing_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1771408910434,
+      "tag": "0008_lumpy_ben_urich",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1771589459998,
+      "tag": "0009_perpetual_omega_flight",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771590566467,
+      "tag": "0010_woozy_thing",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771731010162,
+      "tag": "0011_complete_siren",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1771737345365,
+      "tag": "0012_loving_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1771825163022,
+      "tag": "0013_cloudy_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1771975410290,
+      "tag": "0014_conscious_scalphunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1771983247804,
+      "tag": "0015_secret_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1771988096692,
+      "tag": "0016_lowly_blindfold",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1771992440865,
+      "tag": "0017_eminent_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1772075863770,
+      "tag": "0018_clean_hedge_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772261429696,
+      "tag": "0019_nifty_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1772265253624,
+      "tag": "0021_kind_kinsey_walden",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1772265417209,
+      "tag": "0022_eager_shooting_star",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1772415710541,
+      "tag": "0023_curly_photon",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1772420765696,
+      "tag": "0024_red_hemingway",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1772435559088,
+      "tag": "0025_loud_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1772435707188,
+      "tag": "0026_bitter_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1772502910762,
+      "tag": "0027_hard_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1772601214248,
+      "tag": "0028_first_blur",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1774411859381,
+      "tag": "0029_soft_wendell_rand",
       "breakpoints": true
     }
   ]
