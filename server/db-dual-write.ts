@@ -33,9 +33,11 @@ let _currentMode: "primary" | "backup" | "offline" = "offline";
 export async function initializeDualDatabases() {
   try {
     // Initialize primary Manus database (MySQL)
-    if (process.env.DATABASE_URL) {
+    // Check PRIMARY_DATABASE_URL first (custom variable), then fall back to DATABASE_URL
+    const primaryDbUrl = process.env.PRIMARY_DATABASE_URL || process.env.DATABASE_URL;
+    if (primaryDbUrl) {
       try {
-        _primaryDb = drizzleMysql(process.env.DATABASE_URL);
+        _primaryDb = drizzleMysql(primaryDbUrl);
         _activeDb = _primaryDb;
         console.log("[DualDB] ✓ Primary Manus database initialized");
         _primaryDbHealthy = true;
