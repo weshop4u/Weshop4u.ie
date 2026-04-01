@@ -79,7 +79,7 @@ export async function initializeDualDatabases() {
     }
 
     // Determine initial mode and set active DB
-    if (_primaryDb && _primaryDbHealthy) {
+    if (false) { // Skip MySQL for production
       _currentMode = "primary";
       _activeDb = _primaryDb;
       console.log("[DualDB] Mode: PRIMARY-ACTIVE");
