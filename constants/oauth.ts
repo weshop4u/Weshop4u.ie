@@ -25,23 +25,36 @@ export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
 
 /**
- * Get the API base URL, deriving from current hostname if not set.
- * Metro runs on 8081, API server runs on 3000.
- * URL pattern: https://PORT-sandboxid.region.domain
+ * Get the API base URL.
  * 
- * On web, we use relative URLs (/api/...) because the web frontend and API
- * are served from the same server (same origin).
+ * On web (Metro preview at :8081):
+ * - Derive from current hostname by replacing :8081 with :3000
+ * - This converts the public Manus URL to the API server URL
+ * - Never use localhost URLs on web (browser can't access them from remote URLs)
+ * 
+ * On native (APK):
+ * - Use EXPO_PUBLIC_API_BASE_URL if set
+ * - Otherwise, use relative URLs
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set (e.g., for APK builds), use it
-  if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
+  // On web, derive API URL from current hostname
+  if (ReactNative.Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.location) {
+      const url = window.location.origin;
+      // Replace :8081 with :3000 to get the API server URL
+      // This works for Manus URLs: https://8081-xxx.manus.computer → https://3000-xxx.manus.computer
+      if (url.includes(":8081")) {
+        return url.replace(":8081", ":3000");
+      }
+    }
+
+    // Fallback to relative URL
+    return "";
   }
 
-  // On web, always use relative URLs (empty string means relative)
-  // This works because web frontend and API are on the same server
-  if (ReactNative.Platform.OS === "web") {
-    return "";
+  // For native platforms (APK), use the API_BASE_URL if set
+  if (API_BASE_URL) {
+    return API_BASE_URL.replace(/\/$/, "");
   }
 
   // Fallback to empty (will use relative URL)
