@@ -50,26 +50,28 @@ async function build() {
       // Pass environment variables to web build
       const env = { ...process.env };
       
-      // Log the environment variable to confirm it's being passed
+      // CRITICAL: For web builds, we MUST unset EXPO_PUBLIC_API_BASE_URL
+      // This forces the web app to use relative URLs (/api/...) which call the local server
+      // The APK will have this set by its build system, but Render web should NOT have it
       console.log('[build] EXPO_PUBLIC_API_BASE_URL from environment:', env.EXPO_PUBLIC_API_BASE_URL || 'NOT SET');
+      delete env.EXPO_PUBLIC_API_BASE_URL;
+      console.log('[build] Explicitly unsetting EXPO_PUBLIC_API_BASE_URL for web build');
+      console.log('[build] Web app will use relative URLs (/api/...) to call local Render server');
       
-      // For web builds on Render, we DON'T set EXPO_PUBLIC_API_BASE_URL
-      // This allows the web app to use relative URLs (/api/...) which call the local server
-      // For APK builds, the environment variable will be set by the build system
-      if (env.EXPO_PUBLIC_API_BASE_URL) {
-        console.log('[build] Building with explicit API base URL:', env.EXPO_PUBLIC_API_BASE_URL);
-      } else {
-        console.log('[build] Building without explicit API base URL (web will use relative URLs)');
-      }
       execSync('pnpm build:web', { stdio: 'inherit', env: { ...env, NODE_ENV: 'production' } });
-      console.log('[build] ✓ Web frontend built successfully');
+      console.log('[build] ✓ Web frontend built successfully (using relative URLs)');
     } catch (error) {
       console.warn('[build] ⚠ Web frontend build failed, continuing with backend...');
       console.error('[build] Web build error details:', error.message);
+      console.error('[build] Note: Web build should NOT have EXPO_PUBLIC_API_BASE_URL set');
     }
 
     // Build backend
     console.log('[build] Building backend with esbuild...');
+    // Restore EXPO_PUBLIC_API_BASE_URL for backend if needed
+    if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+      console.log('[build] Note: EXPO_PUBLIC_API_BASE_URL is set for backend context');
+    }
     await esbuild.build({
       entryPoints: ['server/_core/index.ts'],
       bundle: true,
