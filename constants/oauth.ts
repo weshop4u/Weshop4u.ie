@@ -41,8 +41,12 @@ export function getApiBaseUrl(): string {
   if (ReactNative.Platform.OS === "web") {
     if (typeof window !== "undefined" && window.location) {
       const url = window.location.origin;
-      // Replace :8081 with :3000 to get the API server URL
-      // This works for Manus URLs: https://8081-xxx.manus.computer → https://3000-xxx.manus.computer
+      // Manus URLs have port in hostname prefix: https://8081-xxx.manus.computer
+      // Replace 8081- with 3000- to get the API server URL
+      if (url.includes("8081-")) {
+        return url.replace("8081-", "3000-");
+      }
+      // Also handle :8081 format if present
       if (url.includes(":8081")) {
         return url.replace(":8081", ":3000");
       }
