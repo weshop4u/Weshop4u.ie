@@ -20,7 +20,7 @@ ARG BUILD_TIMESTAMP=unknown
 RUN echo "Build timestamp: $BUILD_TIMESTAMP"
 
 # Build the project - force no cache
-RUN --mount=type=cache,target=/app/node_modules/.cache \
+RUN --mount=type=cache,id=pnpm-cache,target=/app/node_modules/.cache \
     pnpm run build
 
 # Expose port
