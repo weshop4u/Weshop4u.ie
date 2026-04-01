@@ -34,7 +34,9 @@ export async function initializeDualDatabases() {
   try {
     // Initialize primary Manus database (MySQL)
     // Check PRIMARY_DATABASE_URL first (custom variable), then fall back to DATABASE_URL
-    const primaryDbUrl = process.env.PRIMARY_DATABASE_URL || process.env.DATABASE_URL;
+    // If neither exists, use hardcoded fallback for production
+    const primaryDbUrl = process.env.PRIMARY_DATABASE_URL || process.env.DATABASE_URL || 'mysql://TRWPPSjpVsMrzts.root:6u6DKIK69yYYzUvaMY42@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/HH4sKdeJGjocgFW8dJxnCN?ssl={"rejectUnauthorized":true}';
+    console.log("[DualDB] Attempting to connect with URL:", primaryDbUrl.substring(0, 50) + '...');
     if (primaryDbUrl) {
       try {
         _primaryDb = drizzleMysql(primaryDbUrl);
