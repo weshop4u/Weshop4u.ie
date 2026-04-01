@@ -40,9 +40,17 @@ export async function initializeDualDatabases() {
     if (primaryDbUrl) {
       try {
         _primaryDb = drizzleMysql(primaryDbUrl);
-        _activeDb = _primaryDb;
-        console.log("[DualDB] ✓ Primary Manus database initialized");
-        _primaryDbHealthy = true;
+        // Test the connection by running a simple query
+        try {
+          await _primaryDb.execute(sql`SELECT 1`);
+          _activeDb = _primaryDb;
+          console.log("[DualDB] ✓ Primary Manus database initialized and connected");
+          _primaryDbHealthy = true;
+        } catch (connError) {
+          console.warn("[DualDB] ⚠ Primary database connection test failed, will use backup:", connError.message);
+          _primaryDb = null;
+          _primaryDbHealthy = false;
+        }
       } catch (error) {
         console.error("[DualDB] ✗ Failed to initialize primary database:", error);
         _primaryDb = null;
