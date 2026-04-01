@@ -25,24 +25,41 @@ export const OWNER_NAME = env.ownerName;
 export const API_BASE_URL = env.apiBaseUrl;
 
 /**
- * Get the API base URL, deriving from current hostname if not set.
- * Metro runs on 8081, API server runs on 3000.
- * URL pattern: https://PORT-sandboxid.region.domain
+ * Get the API base URL.
+ * 
+ * On web:
+ * - For dev (Metro at :8081): Derive API URL by replacing :8081 with :3000
+ * - For production (custom domain): Use relative URLs (same domain)
+ * - Never use localhost URLs on web (browser can't access them from remote URLs)
+ * 
+ * On native (APK):
+ * - Use EXPO_PUBLIC_API_BASE_URL if set
+ * - Otherwise, use relative URLs
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set, use it
-  if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
+  // On web, derive API URL from current hostname
+  if (ReactNative.Platform.OS === "web") {
+    if (typeof window !== "undefined" && window.location) {
+      const url = window.location.origin;
+      // Manus dev URLs have port in hostname prefix: https://8081-xxx.manus.computer
+      // Replace 8081- with 3000- to get the API server URL
+      if (url.includes("8081-")) {
+        return url.replace("8081-", "3000-");
+      }
+      // Also handle :8081 format if present
+      if (url.includes(":8081")) {
+        return url.replace(":8081", ":3000");
+      }
+    }
+
+    // For production domains (weshop4u-hh4skdej.manus.space, etc.),
+    // use relative URLs to call the same server (no CORS issues)
+    return "";
   }
 
-  // On web, derive from current hostname by replacing port 8081 with 3000
-  if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
-    const { protocol, hostname } = window.location;
-    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
-    const apiHostname = hostname.replace(/^8081-/, "3000-");
-    if (apiHostname !== hostname) {
-      return `${protocol}//${apiHostname}`;
-    }
+  // For native platforms (APK), use the API_BASE_URL if set
+  if (API_BASE_URL) {
+    return API_BASE_URL.replace(/\/$/, "");
   }
 
   // Fallback to empty (will use relative URL)
