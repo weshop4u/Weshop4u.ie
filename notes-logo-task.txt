@@ -1,5 +1,0 @@
-Logo file: /home/ubuntu/weshop4u/assets/images/Weshop4ulogo.jpg
-- Neon style logo with delivery truck, clock, "WeShop4U" text, "24/7" at bottom
-- Dark background, cyan and magenta/purple neon colors
-- User wants this logo to replace the shopping cart icon on the Profile/Login screen
-- The cart icon is in a cyan circle at the top of the login screen

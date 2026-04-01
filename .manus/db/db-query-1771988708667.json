@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO products (store_id, category_id, name, description, price, stock_status, is_active) VALUES (1, 60001, 'Create Your Own', 'Build your perfect sandwich, roll or wrap. Choose your base, sauces, meat and fillings.', '0.00', 'in_stock', true);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO products (store_id, category_id, name, description, price, stock_status, is_active) VALUES (1, 60001, 'Create Your Own', 'Build your perfect sandwich, roll or wrap. Choose your base, sauces, meat and fillings.', '0.00', 'in_stock', true);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 374
-}

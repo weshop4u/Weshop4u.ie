@@ -1,8 +1,0 @@
-{
-  "query": "INSERT INTO products (name, description, price, category_id, store_id, images, is_active, sort_order) VALUES ('Create Your Own Breakfast Roll', 'Build your perfect breakfast roll — choose your base, sauces, and fillings', '0.00', 60001, 1, '[\"https://manus-storage.s3.us-east-1.amazonaws.com/e71a3e3b-d2c7-4f6f-b1b3-f5f06f1b8e6c/deliimage.jpg\"]', true, 2);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO products (name, description, price, category_id, store_id, images, is_active, sort_order) VALUES ('Create Your Own Breakfast Roll', 'Build your perfect breakfast roll — choose your base, sauces, and fillings', '0.00', 60001, 1, '[\"https://manus-storage.s3.us-east-1.amazonaws.com/e71a3e3b-d2c7-4f6f-b1b3-f5f06f1b8e6c/deliimage.jpg\"]', true, 2);",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1054 (42S22) at line 1: Unknown column 'sort_order' in 'field list'"
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "query": "CREATE TABLE IF NOT EXISTS `driver_queue` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `driver_id` int NOT NULL,\n  `position` int NOT NULL,\n  `went_online_at` timestamp NOT NULL DEFAULT (now()),\n  `last_completed_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `driver_queue_id` PRIMARY KEY(`id`),\n  INDEX `dq_driver_id_idx` (`driver_id`),\n  INDEX `dq_position_idx` (`position`)\n);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute CREATE TABLE IF NOT EXISTS `driver_queue` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `driver_id` int NOT NULL,\n  `position` int NOT NULL,\n  `went_online_at` timestamp NOT NULL DEFAULT (now()),\n  `last_completed_at` timestamp NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `driver_queue_id` PRIMARY KEY(`id`),\n  INDEX `dq_driver_id_idx` (`driver_id`),\n  INDEX `dq_position_idx` (`position`)\n);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 270
-}

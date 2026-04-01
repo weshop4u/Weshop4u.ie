@@ -1,8 +1,0 @@
-{
-  "query": "UPDATE products SET is_active = false WHERE store_id = 1 AND category_id = (SELECT id FROM product_categories WHERE name = 'Gifts' AND store_id = 1); DELETE FROM product_categories WHERE name = 'Gifts' AND store_id = 1;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute UPDATE products SET is_active = false WHERE store_id = 1 AND category_id = (SELECT id FROM product_categories WHERE name = 'Gifts' AND store_id = 1); DELETE FROM product_categories WHERE name = 'Gifts' AND store_id = 1;",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1054 (42S22) at line 1: Unknown column 'store_id' in 'where clause'"
-  ]
-}

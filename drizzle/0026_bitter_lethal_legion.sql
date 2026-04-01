@@ -1,1 +1,0 @@
-ALTER TABLE `order_offers` ADD `is_batch_offer` boolean DEFAULT false;

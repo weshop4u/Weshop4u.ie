@@ -1,6 +1,6 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import type { Express, Request, Response } from "express";
-import { getUserByEmail, upsertUser, type SelectUser } from "../db";
+import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 
@@ -9,54 +9,55 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-async function syncUser(userInfo: { email?: string | null; name?: string | null }): Promise<SelectUser> {
-  console.log("[syncUser] Called with:", userInfo);
-  
-  if (!userInfo.email) {
-    console.log("[syncUser] No email provided, throwing error");
-    throw new Error("Email is required for user sync");
+async function syncUser(userInfo: {
+  openId?: string | null;
+  name?: string | null;
+  email?: string | null;
+  loginMethod?: string | null;
+  platform?: string | null;
+}) {
+  if (!userInfo.openId) {
+    throw new Error("openId missing from user info");
   }
-  
-  let user = await getUserByEmail(userInfo.email);
-  console.log("[syncUser] getUserByEmail result:", user ? `Found user id=${user.id}, email=${user.email}` : "null");
-  
-  if (!user) {
-    // User doesn't exist in database - create a new customer account
-    console.log("[syncUser] Creating new user for:", userInfo.email);
-    await upsertUser({
+
+  const lastSignedIn = new Date();
+  await upsertUser({
+    openId: userInfo.openId,
+    name: userInfo.name || null,
+    email: userInfo.email ?? null,
+    loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+    lastSignedIn,
+  });
+  const saved = await getUserByOpenId(userInfo.openId);
+  return (
+    saved ?? {
+      openId: userInfo.openId,
+      name: userInfo.name,
       email: userInfo.email,
-      name: userInfo.name || "User",
-    });
-    // Fetch the newly created user
-    user = await getUserByEmail(userInfo.email);
-    console.log("[syncUser] After upsert, user:", user ? `id=${user.id}` : "null");
-    if (!user) {
-      throw new Error("Failed to create user");
+      loginMethod: userInfo.loginMethod ?? null,
+      lastSignedIn,
     }
-  }
-  
-  // Return existing or newly created user
-  console.log("[syncUser] Returning user:", user.id, user.email);
-  return user;
+  );
 }
 
 function buildUserResponse(
-  user: {
-    id?: number;
-    email?: string | null;
-    name?: string | null;
-    phone?: string | null;
-    role?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-  },
+  user:
+    | Awaited<ReturnType<typeof getUserByOpenId>>
+    | {
+        openId: string;
+        name?: string | null;
+        email?: string | null;
+        loginMethod?: string | null;
+        lastSignedIn?: Date | null;
+      },
 ) {
   return {
-    id: user?.id ?? null,
-    email: user?.email ?? null,
+    id: (user as any)?.id ?? null,
+    openId: user?.openId ?? null,
     name: user?.name ?? null,
-    phone: user?.phone ?? null,
-    role: user?.role ?? null,
+    email: user?.email ?? null,
+    loginMethod: user?.loginMethod ?? null,
+    lastSignedIn: (user?.lastSignedIn ?? new Date()).toISOString(),
   };
 }
 
@@ -127,65 +128,9 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
-  // Email/password login endpoint that creates a session cookie
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
-    const { email } = req.body;
-    
-    if (!email) {
-      res.status(400).json({ error: "Email is required" });
-      return;
-    }
-    
-    try {
-      // Look up user in database
-      const user = await getUserByEmail(email);
-      
-      if (!user) {
-        res.status(401).json({ error: "User not found" });
-        return;
-      }
-      
-      // Create session token using user's email as identifier
-      const sessionToken = await sdk.createSessionToken(email, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-      
-      console.log("[Login] Session created for:", email);
-      res.json({ success: true, user: buildUserResponse(user), sessionToken });
-    } catch (error) {
-      console.error("[Login] Failed:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  });
-
   app.post("/api/auth/logout", (req: Request, res: Response) => {
-    console.log("[Logout] Backend logout called");
-    
     const cookieOptions = getSessionCookieOptions(req);
-    
-    // Strategy: Instead of clearing (which might fail due to domain mismatch),
-    // OVERWRITE the cookie with an invalid token and immediate expiry
-    // This ensures even if the cookie persists, it won't be valid
-    res.cookie(COOKIE_NAME, "LOGGED_OUT", {
-      ...cookieOptions,
-      maxAge: 0, // Expire immediately
-    });
-    
-    // Also try to clear it (belt and suspenders)
-    res.clearCookie(COOKIE_NAME, cookieOptions);
-    res.clearCookie(COOKIE_NAME, {
-      path: "/",
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    });
-    res.clearCookie(COOKIE_NAME, { path: "/" });
-    
-    console.log("[Logout] Cookie invalidated and cleared");
+    res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     res.json({ success: true });
   });
 

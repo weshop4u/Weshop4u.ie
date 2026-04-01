@@ -2,17 +2,10 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { initializeDualDatabases, getDatabaseHealth } from "../db-dual-write";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -34,12 +27,6 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  // Initialize dual database system (Manus primary + Railway PostgreSQL backup)
-  // Force Railway redeploy - v2
-  await initializeDualDatabases();
-  const dbHealth = getDatabaseHealth();
-  console.log("[Server] Database health:", dbHealth);
-
   const app = express();
   const server = createServer(app);
 
@@ -70,76 +57,7 @@ async function startServer() {
   registerOAuthRoutes(app);
 
   app.get("/api/health", (_req, res) => {
-    const dbHealth = getDatabaseHealth();
-    res.json({ 
-      ok: true, 
-      timestamp: Date.now(),
-      database: dbHealth
-    });
-  });
-
-  // Public order tracking page (no auth required)
-  const { trackingRouter } = await import("../routers/tracking");
-  app.use(trackingRouter);
-
-  // Quick test print endpoint - no login required
-  // Usage: GET /api/test-print?storeId=1
-  app.get("/api/test-print", async (req, res) => {
-    try {
-      const storeId = parseInt(req.query.storeId as string) || 1;
-      const { getDb } = await import("../db");
-      const { printJobs, stores } = await import("../../drizzle/schema");
-      const { formatReceipt } = await import("../routers/print");
-      const { eq } = await import("drizzle-orm");
-      const db = await getDb();
-      if (!db) { res.status(500).json({ error: "Database not available" }); return; }
-
-      // Get store info
-      const [store] = await db.select().from(stores).where(eq(stores.id, storeId));
-      if (!store) { res.status(404).json({ error: `Store ${storeId} not found` }); return; }
-
-      // Create a test order object
-      const testOrder = {
-        id: 99999,
-        orderNumber: `WS4U/${store.shortCode || 'TST'}/TEST`,
-        createdAt: new Date(),
-        paymentMethod: 'cash',
-        deliveryAddress: '123 Test Street, Balbriggan, Ireland',
-        deliveryEircode: 'K32XE94',
-        notes: 'This is a TEST PRINT - not a real order',
-        allowSubstitutions: true,
-        subtotal: '12.99',
-        serviceFee: '1.30',
-        deliveryFee: '3.50',
-        total: '17.79',
-      };
-      const testItems = [
-        { productName: 'Test Item 1 (Large)', quantity: 2, price: '4.99' },
-        { productName: 'Test Item 2 (Small)', quantity: 1, price: '3.01' },
-      ];
-      const testCustomer = 'Test Customer';
-      const testPhone = '089-4 626262';
-
-      const content = formatReceipt(testOrder, store, testItems, testCustomer, testPhone);
-
-      // Insert print job
-      await db.insert(printJobs).values({
-        storeId,
-        orderId: 0,
-        receiptContent: content,
-        status: 'pending',
-      });
-
-      res.json({
-        success: true,
-        message: `Test print job created for ${store.name}. The POS should print it within 5 seconds.`,
-        store: store.name,
-        storeId,
-      });
-    } catch (error: any) {
-      console.error('[TestPrint] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
+    res.json({ ok: true, timestamp: Date.now() });
   });
 
   app.use(
@@ -149,54 +67,6 @@ async function startServer() {
       createContext,
     }),
   );
-
-  // Redirect root /api/ to /api/web/ so users always land on the web app
-  app.get("/api", (_req, res) => res.redirect("/api/web/"));
-
-  // Serve static web files - the deployment platform only routes /api/* to Express,
-  // so we serve the web app under /api/web/ prefix
-  {
-    const webDistPath = path.resolve(__dirname, "..", "web-dist");
-    if (fs.existsSync(webDistPath)) {
-      console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
-      // Serve static assets under /api/web/
-      app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
-      // Root /api/web/ serves index.html
-      app.get("/api/web", (_req, res) => {
-        const rootIndex = path.join(webDistPath, "index.html");
-        if (fs.existsSync(rootIndex)) {
-          res.sendFile(rootIndex);
-        } else {
-          res.status(404).send("Web app not found");
-        }
-      });
-      // For any /api/web/* route, serve the matching HTML file or fall back to index.html
-      app.get("/api/web/*", (req, res) => {
-        const subPath = req.path.replace(/^\/api\/web/, "") || "/";
-        // Try to find an exact HTML file for this route
-        const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
-        if (fs.existsSync(htmlPath)) {
-          res.sendFile(htmlPath);
-          return;
-        }
-        // Try index.html in a subdirectory
-        const dirIndexPath = path.join(webDistPath, subPath, "index.html");
-        if (fs.existsSync(dirIndexPath)) {
-          res.sendFile(dirIndexPath);
-          return;
-        }
-        // Fall back to root index.html for client-side routing
-        const rootIndex = path.join(webDistPath, "index.html");
-        if (fs.existsSync(rootIndex)) {
-          res.sendFile(rootIndex);
-          return;
-        }
-        res.status(404).send("Not Found");
-      });
-    } else {
-      console.log(`[web] No web-dist directory found at ${webDistPath}, skipping static file serving`);
-    }
-  }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
@@ -211,5 +81,3 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
-// Force Railway rebuild - 1774948853
-// Cache buster: 1774956851884318274

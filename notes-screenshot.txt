@@ -1,1 +1,0 @@
-Screenshot check: App running fine, home screen shows WESHOP4U header, Log In button, search bar, Browse Stores with Spar Balbriggan and Open All Ours listed. Tab bar at bottom with Home, Orders, Profile. No errors visible. TypeScript: 0 errors. LSP: No errors.

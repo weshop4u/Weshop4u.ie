@@ -1,9 +1,0 @@
-{
-  "query": "UPDATE products SET store_id = 3 WHERE id IN (62607, 62608, 62605, 62604, 62606, 62603, 62610, 62609) AND store_id = 1;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute UPDATE products SET store_id = 3 WHERE id IN (62607, 62608, 62605, 62604, 62606, 62603, 62610, 62609) AND store_id = 1;",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 72
-}

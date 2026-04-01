@@ -131,7 +131,6 @@ export async function getMe(): Promise<{
   email: string | null;
   loginMethod: string | null;
   lastSignedIn: string;
-  role?: string | null;
 } | null> {
   try {
     const result = await apiCall<{ user: any }>("/api/auth/me");

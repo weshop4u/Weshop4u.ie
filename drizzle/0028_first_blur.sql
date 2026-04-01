@@ -1,1 +1,0 @@
-ALTER TABLE `orders` ADD `driver_arrived_at` timestamp;

@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO modifier_template_options (template_id, name, price, is_default, sort_order) VALUES \n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Boiled Rice', '0.00', true, 0),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Fried Rice', '0.50', false, 1),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Chips', '0.50', false, 2),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Fried Noodle', '2.00', false, 3),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Yung Chow Fried Rice (Small)', '2.00', false, 4);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO modifier_template_options (template_id, name, price, is_default, sort_order) VALUES \n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Boiled Rice', '0.00', true, 0),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Fried Rice', '0.50', false, 1),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Chips', '0.50', false, 2),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Fried Noodle', '2.00', false, 3),\n((SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' LIMIT 1), 'Yung Chow Fried Rice (Small)', '2.00', false, 4);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 396
-}

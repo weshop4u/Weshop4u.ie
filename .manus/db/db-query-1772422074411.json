@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO discount_codes (code, description, discount_type, discount_value, min_order_value, max_discount_amount, store_id, max_uses_total, max_uses_per_customer, current_uses_total, is_active, created_at, updated_at) VALUES ('FREE100', 'Free delivery on any order — all stores', 'free_delivery', '0.00', '0.00', NULL, NULL, NULL, 1, 0, true, NOW(), NOW());",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO discount_codes (code, description, discount_type, discount_value, min_order_value, max_discount_amount, store_id, max_uses_total, max_uses_per_customer, current_uses_total, is_active, created_at, updated_at) VALUES ('FREE100', 'Free delivery on any order — all stores', 'free_delivery', '0.00', '0.00', NULL, NULL, NULL, 1, 0, true, NOW(), NOW());",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 450
-}

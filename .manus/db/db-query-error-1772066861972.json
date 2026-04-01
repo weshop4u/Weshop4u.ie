@@ -1,8 +1,0 @@
-{
-  "query": "DELETE FROM product_modifiers WHERE product_id IN (SELECT id FROM products WHERE store_id = 1 AND (name LIKE 'Halloween%' OR name LIKE 'Spooked%' OR name LIKE 'Trick%' OR name LIKE 'trick%'));",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute DELETE FROM product_modifiers WHERE product_id IN (SELECT id FROM products WHERE store_id = 1 AND (name LIKE 'Halloween%' OR name LIKE 'Spooked%' OR name LIKE 'Trick%' OR name LIKE 'trick%'));",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1146 (42S02) at line 1: Table 'hh4skdejgjocgfw8djxncn.product_modifiers' doesn't exist"
-  ]
-}

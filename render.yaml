@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: weshop4u
-    runtime: docker
-    plan: free
-    dockerfile: ./Dockerfile
-    dockerfilePath: ./Dockerfile

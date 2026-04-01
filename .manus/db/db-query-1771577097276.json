@@ -1,9 +1,0 @@
-{
-  "query": "SELECT oo.id, oo.order_id, oo.driver_id, oo.status, oo.expires_at FROM order_offers oo WHERE oo.order_id IN (SELECT o.id FROM orders o WHERE o.driver_id IS NULL AND o.status NOT IN ('delivered', 'cancelled')) ORDER BY oo.id DESC LIMIT 20;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT oo.id, oo.order_id, oo.driver_id, oo.status, oo.expires_at FROM order_offers oo WHERE oo.order_id IN (SELECT o.id FROM orders o WHERE o.driver_id IS NULL AND o.status NOT IN ('delivered', 'cancelled')) ORDER BY oo.id DESC LIMIT 20;",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 377
-}

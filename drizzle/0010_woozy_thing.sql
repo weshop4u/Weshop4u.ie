@@ -1,1 +1,0 @@
-ALTER TABLE `stores` ADD `sort_position` int DEFAULT 999;
