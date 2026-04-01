@@ -4,6 +4,10 @@
 
 FROM node:25-alpine
 
+# Accept build arguments for environment variables
+ARG EXPO_PUBLIC_API_BASE_URL=https://weshop4uie-production.up.railway.app
+ARG DATABASE_URL
+
 # Set working directory
 WORKDIR /app
 
@@ -15,6 +19,10 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 # Copy entire project
 COPY . .
+
+# Set environment variables for build
+ENV EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
+ENV DATABASE_URL=${DATABASE_URL}
 
 # Build the backend
 RUN pnpm run build
