@@ -1,0 +1,41 @@
+{
+  "query": "SELECT * FROM orders WHERE status IN ('pending', 'accepted', 'ready_for_pickup') AND driver_id IS NULL LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT * FROM orders WHERE status IN ('pending', 'accepted', 'ready_for_pickup') AND driver_id IS NULL LIMIT 1",
+  "rows": [
+    {
+      "id": "240001",
+      "order_number": "WS4U-1770862718207-814",
+      "customer_id": "30001",
+      "store_id": "2",
+      "driver_id": "NULL",
+      "status": "pending",
+      "payment_method": "cash_on_delivery",
+      "payment_status": "pending",
+      "subtotal": "10.00",
+      "service_fee": "1.00",
+      "delivery_fee": "3.50",
+      "total": "14.50",
+      "delivery_address": "5 full tce, K32XE94, Ireland",
+      "delivery_latitude": "53.6089826",
+      "delivery_longitude": "-6.1885485",
+      "delivery_distance": "0.49",
+      "customer_notes": "plebty of salt n vinegar",
+      "allow_substitution": "1",
+      "driver_assigned_at": "NULL",
+      "accepted_at": "NULL",
+      "picked_up_at": "NULL",
+      "delivered_at": "NULL",
+      "cancelled_at": "NULL",
+      "cancellation_reason": "NULL",
+      "created_at": "2026-02-12 02:18:38",
+      "updated_at": "2026-02-12 02:35:55",
+      "guest_name": "NULL",
+      "guest_phone": "NULL",
+      "guest_email": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tcustomer_id\tstore_id\tdriver_id\tstatus\tpayment_method\tpayment_status\tsubtotal\tservice_fee\tdelivery_fee\ttotal\tdelivery_address\tdelivery_latitude\tdelivery_longitude\tdelivery_distance\tcustomer_notes\tallow_substitution\tdriver_assigned_at\taccepted_at\tpicked_up_at\tdelivered_at\tcancelled_at\tcancellation_reason\tcreated_at\tupdated_at\tguest_name\tguest_phone\tguest_email\n240001\tWS4U-1770862718207-814\t30001\t2\tNULL\tpending\tcash_on_delivery\tpending\t10.00\t1.00\t3.50\t14.50\t5 full tce, K32XE94, Ireland\t53.6089826\t-6.1885485\t0.49\tplebty of salt n vinegar\t1\tNULL\tNULL\tNULL\tNULL\tNULL\tNULL\t2026-02-12 02:18:38\t2026-02-12 02:35:55\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

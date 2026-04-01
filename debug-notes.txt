@@ -1,0 +1,68 @@
+ROUTING ANALYSIS:
+=================
+
+1. order-confirmation/[orderId].tsx pushes to: router.push(`/order-tracking/${orderId}`)
+   - orderId is a STRING from useLocalSearchParams
+
+2. There are TWO files in order-tracking/:
+   - [id].tsx - a redirect/fallback screen
+   - [orderId].tsx - the main tracking screen
+
+3. PROBLEM: When pushing to /order-tracking/123, Expo Router has TWO dynamic routes:
+   - [id].tsx matches with id=123
+   - [orderId].tsx matches with orderId=123
+   
+   Having TWO dynamic route files in the same directory creates AMBIGUITY.
+   Expo Router may pick [id].tsx first, which then does router.replace to /order-tracking/123,
+   which again matches [id].tsx, creating an INFINITE REDIRECT LOOP.
+   
+   This infinite redirect loop causes the NavigationContainer to re-render infinitely,
+   which triggers "Maximum update depth exceeded" - and CartProvider is at the top of the
+   component tree so it appears in the error stack.
+
+4. SOLUTION: Delete [id].tsx entirely. The order-confirmation screen already pushes to
+   /order-tracking/${orderId} which should match [orderId].tsx directly.
+   Or rename [orderId].tsx to [id].tsx and update all references.
+
+5. The cart-provider error is a RED HERRING - it's not the cart that's looping,
+   it's the NAVIGATION that's looping, and CartProvider is just the top-level component
+   that React reports the error on.
+
+
+PRINT BUTTON ISSUE (Feb 18):
+============================
+User sees tabs: All Active | Pending | Preparing (1) | Ready (1) | Completed
+The tab-filtered views likely render order cards differently from renderOrderCard.
+Need to find the tab rendering code that shows individual order views.
+The renderOrderCard with the Print button is only used in the "All Active" section at the bottom.
+
+
+GUEST CHECKOUT BUG (Feb 24):
+============================
+User reports: In incognito mode, saved address still shows. No guest modal appearing.
+Header shows "Log In"/"Sign Up" = user NOT logged in.
+BUT: "Home ★ 5 Fullam Terrace Balbriggan K32XE94" saved address card is visible.
+
+Root cause: The auth.me query (line 21) likely returns stale/cached data OR the server session cookie
+persists in a way that returns user data even in incognito. Server log shows "Invalid session cookie"
+error, but TanStack Query may cache the previous successful response.
+
+The meData from trpc.auth.me.useQuery() might be returning the user even though the session is invalid,
+making isGuest=false, which:
+1. Hides the guest choice modal (line 148 check fails)
+2. Shows the saved address picker (line 725 condition passes)
+3. Fetches saved addresses from DB (line 112-115)
+
+Fix approach: Check how auth.me handles errors and ensure isGuest is truly false only when auth succeeds.
+
+
+PLACE ORDER BUTTON DISABLED BUG (Feb 24, second report):
+=========================================================
+User screenshot shows: Place Order button greyed out, delivery fee calculated (€3.50), 
+total €6.46, Cash on Delivery selected, incognito mode.
+
+The guest info section (name, phone, OTP) is rendered above but user scrolled past it.
+Phone was never verified via OTP, so (isGuest && !phoneVerified) keeps button disabled.
+
+Need to add a visible error/hint near the Place Order button when phone isn't verified.
+Also need to check if the guest form is actually visible or if there's a rendering issue.

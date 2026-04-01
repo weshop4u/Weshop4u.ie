@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT 'store_staff' as tbl, count(*) as cnt FROM store_staff WHERE store_id = 30001\nUNION ALL\nSELECT 'products', count(*) FROM products WHERE store_id = 30001\nUNION ALL\nSELECT 'product_categories', count(*) FROM product_categories WHERE store_id = 30001\nUNION ALL\nSELECT 'modifier_templates', count(*) FROM modifier_templates WHERE store_id = 30001\nUNION ALL\nSELECT 'category_modifier_templates', count(*) FROM category_modifier_templates WHERE store_id = 30001;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute \nSELECT 'store_staff' as tbl, count(*) as cnt FROM store_staff WHERE store_id = 30001\nUNION ALL\nSELECT 'products', count(*) FROM products WHERE store_id = 30001\nUNION ALL\nSELECT 'product_categories', count(*) FROM product_categories WHERE store_id = 30001\nUNION ALL\nSELECT 'modifier_templates', count(*) FROM modifier_templates WHERE store_id = 30001\nUNION ALL\nSELECT 'category_modifier_templates', count(*) FROM category_modifier_templates WHERE store_id = 30001;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 'store_id' in 'where clause'"
+  ]
+}

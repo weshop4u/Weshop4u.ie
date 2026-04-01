@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, name, is_open_247, LEFT(opening_hours, 80) as hours_preview FROM stores;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, is_open_247, LEFT(opening_hours, 80) as hours_preview FROM stores;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Spar Balbriggan",
+      "is_open_247": "1",
+      "hours_preview": "{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23"
+    },
+    {
+      "id": "2",
+      "name": "Open All Ours",
+      "is_open_247": "1",
+      "hours_preview": "{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23"
+    },
+    {
+      "id": "3",
+      "name": "Apple Green Balbriggan",
+      "is_open_247": "1",
+      "hours_preview": "{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23"
+    },
+    {
+      "id": "4",
+      "name": "The Hammer",
+      "is_open_247": "1",
+      "hours_preview": "{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23"
+    },
+    {
+      "id": "5",
+      "name": "Millfield Groceries",
+      "is_open_247": "0",
+      "hours_preview": "{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tis_open_247\thours_preview\n1\tSpar Balbriggan\t1\t{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23\n2\tOpen All Ours\t1\t{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23\n3\tApple Green Balbriggan\t1\t{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23\n4\tThe Hammer\t1\t{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23\n5\tMillfield Groceries\t0\t{\"monday\":{\"open\":\"07:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"07:00\",\"close\":\"23\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

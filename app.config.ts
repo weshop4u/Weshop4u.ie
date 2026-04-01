@@ -28,11 +28,11 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "WESHOP4U - 24/7 Delivery Platform",
+  appName: "WESHOP4U",
   appSlug: "weshop4u",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "https://private-us-east-1.manuscdn.com/sessionFile/2pl4Z34K2XdpOowI8TGoDF/sandbox/EFeOhwoALVAKAePLACKpGv-img-1_1770348854000_na1fn_d2VzaG9wNHUtaWNvbg.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -46,7 +46,8 @@ const config: ExpoConfig = {
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
-  newArchEnabled: true,
+  // New Architecture disabled — causes cascading remounts with NativeWind on native Android
+  newArchEnabled: false,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -56,7 +57,7 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
+      backgroundColor: "#0F172A",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
@@ -83,6 +84,12 @@ const config: ExpoConfig = {
     bundler: "metro",
     output: "static",
     favicon: "./assets/images/favicon.png",
+    name: "WESHOP4U - 24/7 Delivery Platform",
+    shortName: "WESHOP4U",
+    description: "Order groceries, food, and essentials from local stores in Balbriggan. Delivered to your door within minutes!",
+    themeColor: "#0F172A",
+    backgroundColor: "#0F172A",
+    lang: "en-IE",
   },
   plugins: [
     "expo-router",
@@ -123,7 +130,10 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
-    reactCompiler: true,
+    // React Compiler disabled — causes cascading remounts with NativeWind on native Android,
+    // leading to TextInput focus loss and component flickering
+    reactCompiler: false,
+    baseUrl: "/api/web",
   },
 };
 

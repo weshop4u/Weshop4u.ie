@@ -1,0 +1,64 @@
+{
+  "query": "SELECT p.id, p.name, p.store_id, p.is_active FROM products p WHERE p.category_id = 90049 LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT p.id, p.name, p.store_id, p.is_active FROM products p WHERE p.category_id = 90049 LIMIT 20;",
+  "rows": [
+    {
+      "id": "62818",
+      "name": "SK4 Ultimate Smart Watch",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62819",
+      "name": "3 in 1 Multi Charger",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62820",
+      "name": "Lightning to USB 1M",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62821",
+      "name": "USB C to Lightning",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62824",
+      "name": "USB Fast Charger Power Adaptor",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62825",
+      "name": "EarPods Lightning Connector",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62826",
+      "name": "EarPods Type C",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62827",
+      "name": "JBL Wave Beam Ear Buds",
+      "store_id": "1",
+      "is_active": "0"
+    },
+    {
+      "id": "62828",
+      "name": "JBL Charge 6 Bluetooth Wireless Speaker Black",
+      "store_id": "1",
+      "is_active": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tstore_id\tis_active\n62818\tSK4 Ultimate Smart Watch\t1\t0\n62819\t3 in 1 Multi Charger\t1\t0\n62820\tLightning to USB 1M\t1\t0\n62821\tUSB C to Lightning\t1\t0\n62824\tUSB Fast Charger Power Adaptor\t1\t0\n62825\tEarPods Lightning Connector\t1\t0\n62826\tEarPods Type C\t1\t0\n62827\tJBL Wave Beam Ear Buds\t1\t0\n62828\tJBL Charge 6 Bluetooth Wireless Speaker Black\t1\t0\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

@@ -1,0 +1,8 @@
+{
+  "query": "SELECT o.id as order_id, o.driver_id FROM orders WHERE driver_id IS NOT NULL LIMIT 3; SELECT id, user_id, display_number FROM drivers LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT o.id as order_id, o.driver_id FROM orders WHERE driver_id IS NOT NULL LIMIT 3; SELECT id, user_id, display_number FROM drivers LIMIT 3;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'o.id' in 'field list'"
+  ]
+}

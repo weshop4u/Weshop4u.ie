@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO promotional_banners (title, subtitle, discount_code, background_color, accent_color, is_active, sort_position) VALUES ('Sign Up & Get 10% Off Your First Order', 'Create your account and use the code below at checkout to save on your first delivery from any store.', 'WELCOME10', '#0F172A', '#00E5FF', true, 0);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO promotional_banners (title, subtitle, discount_code, background_color, accent_color, is_active, sort_position) VALUES ('Sign Up & Get 10% Off Your First Order', 'Create your account and use the code below at checkout to save on your first delivery from any store.', 'WELCOME10', '#0F172A', '#00E5FF', true, 0);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 580
+}

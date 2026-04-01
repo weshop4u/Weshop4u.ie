@@ -1,0 +1,24 @@
+{
+  "query": "SELECT id, name, address, eircode, phone FROM stores WHERE id IN (3, 30001);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, address, eircode, phone FROM stores WHERE id IN (3, 30001);",
+  "rows": [
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "address": "Dublin Road, Balbriggan, Co. Dublin, Ireland",
+      "eircode": "K32Y180",
+      "phone": "+353894626262"
+    },
+    {
+      "id": "30001",
+      "name": "Treasure Bowl Balbriggan",
+      "address": "Balbriggan, Co. Dublin, Ireland",
+      "eircode": "K32",
+      "phone": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\taddress\teircode\tphone\n3\tAppleGreen Balbriggan\tDublin Road, Balbriggan, Co. Dublin, Ireland\tK32Y180\t+353894626262\n30001\tTreasure Bowl Balbriggan\tBalbriggan, Co. Dublin, Ireland\tK32\t\n",
+  "stderr": "",
+  "execution_time_ms": 945
+}

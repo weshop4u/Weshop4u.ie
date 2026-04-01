@@ -1,0 +1,190 @@
+{
+  "query": "SELECT id, order_id, driver_id, status, offered_at, expires_at, responded_at FROM order_offers ORDER BY offered_at DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_id, driver_id, status, offered_at, expires_at, responded_at FROM order_offers ORDER BY offered_at DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "90003",
+      "order_id": "360003",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 06:30:25",
+      "expires_at": "2026-02-13 06:30:40",
+      "responded_at": "2026-02-13 06:30:33"
+    },
+    {
+      "id": "90002",
+      "order_id": "360002",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 06:28:01",
+      "expires_at": "2026-02-13 06:28:16",
+      "responded_at": "2026-02-13 06:28:09"
+    },
+    {
+      "id": "90001",
+      "order_id": "360001",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 06:20:10",
+      "expires_at": "2026-02-13 06:20:25",
+      "responded_at": "2026-02-13 06:20:20"
+    },
+    {
+      "id": "60005",
+      "order_id": "300005",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 02:56:57",
+      "expires_at": "2026-02-13 02:57:12",
+      "responded_at": "2026-02-13 02:56:59"
+    },
+    {
+      "id": "60003",
+      "order_id": "300003",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 02:45:19",
+      "expires_at": "2026-02-13 02:45:34",
+      "responded_at": "2026-02-13 02:45:21"
+    },
+    {
+      "id": "60002",
+      "order_id": "300001",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-13 02:38:07",
+      "expires_at": "2026-02-13 02:38:22",
+      "responded_at": "2026-02-13 02:38:10"
+    },
+    {
+      "id": "30002",
+      "order_id": "240018",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 07:18:35",
+      "expires_at": "2026-02-12 07:18:50",
+      "responded_at": "2026-02-12 07:18:43"
+    },
+    {
+      "id": "51",
+      "order_id": "240018",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:49:12",
+      "expires_at": "2026-02-12 03:49:27",
+      "responded_at": "2026-02-12 03:49:14"
+    },
+    {
+      "id": "49",
+      "order_id": "240018",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:45:45",
+      "expires_at": "2026-02-12 03:46:00",
+      "responded_at": "2026-02-12 03:45:47"
+    },
+    {
+      "id": "48",
+      "order_id": "240018",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:44:45",
+      "expires_at": "2026-02-12 03:45:00",
+      "responded_at": "2026-02-12 03:44:47"
+    },
+    {
+      "id": "47",
+      "order_id": "240017",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:43:49",
+      "expires_at": "2026-02-12 03:44:04",
+      "responded_at": "2026-02-12 03:43:58"
+    },
+    {
+      "id": "46",
+      "order_id": "240015",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:40:18",
+      "expires_at": "2026-02-12 03:40:33",
+      "responded_at": "2026-02-12 03:40:21"
+    },
+    {
+      "id": "44",
+      "order_id": "240011",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:32:29",
+      "expires_at": "2026-02-12 03:32:44",
+      "responded_at": "2026-02-12 03:32:31"
+    },
+    {
+      "id": "42",
+      "order_id": "240007",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:31:48",
+      "expires_at": "2026-02-12 03:32:03",
+      "responded_at": "2026-02-12 03:31:51"
+    },
+    {
+      "id": "40",
+      "order_id": "240010",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:28:49",
+      "expires_at": "2026-02-12 03:29:04",
+      "responded_at": "2026-02-12 03:28:52"
+    },
+    {
+      "id": "38",
+      "order_id": "240006",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:28:26",
+      "expires_at": "2026-02-12 03:28:41",
+      "responded_at": "2026-02-12 03:28:30"
+    },
+    {
+      "id": "33",
+      "order_id": "240003",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:21:03",
+      "expires_at": "2026-02-12 03:21:18",
+      "responded_at": "2026-02-12 03:21:07"
+    },
+    {
+      "id": "27",
+      "order_id": "240002",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:18:04",
+      "expires_at": "2026-02-12 03:18:19",
+      "responded_at": "2026-02-12 03:18:06"
+    },
+    {
+      "id": "25",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:13:06",
+      "expires_at": "2026-02-12 03:13:21",
+      "responded_at": "2026-02-12 03:13:07"
+    },
+    {
+      "id": "21",
+      "order_id": "240008",
+      "driver_id": "30001",
+      "status": "accepted",
+      "offered_at": "2026-02-12 03:05:37",
+      "expires_at": "2026-02-12 03:05:52",
+      "responded_at": "2026-02-12 03:05:37"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_id\tdriver_id\tstatus\toffered_at\texpires_at\tresponded_at\n90003\t360003\t30001\taccepted\t2026-02-13 06:30:25\t2026-02-13 06:30:40\t2026-02-13 06:30:33\n90002\t360002\t30001\taccepted\t2026-02-13 06:28:01\t2026-02-13 06:28:16\t2026-02-13 06:28:09\n90001\t360001\t30001\taccepted\t2026-02-13 06:20:10\t2026-02-13 06:20:25\t2026-02-13 06:20:20\n60005\t300005\t30001\taccepted\t2026-02-13 02:56:57\t2026-02-13 02:57:12\t2026-02-13 02:56:59\n60003\t300003\t30001\taccepted\t2026-02-13 02:45:19\t2026-02-13 02:45:34\t2026-02-13 02:45:21\n60002\t300001\t30001\taccepted\t2026-02-13 02:38:07\t2026-02-13 02:38:22\t2026-02-13 02:38:10\n30002\t240018\t30001\taccepted\t2026-02-12 07:18:35\t2026-02-12 07:18:50\t2026-02-12 07:18:43\n51\t240018\t30001\taccepted\t2026-02-12 03:49:12\t2026-02-12 03:49:27\t2026-02-12 03:49:14\n49\t240018\t30001\taccepted\t2026-02-12 03:45:45\t2026-02-12 03:46:00\t2026-02-12 03:45:47\n48\t240018\t30001\taccepted\t2026-02-12 03:44:45\t2026-02-12 03:45:00\t2026-02-12 03:44:47\n47\t240017\t30001\taccepted\t2026-02-12 03:43:49\t2026-02-12 03:44:04\t2026-02-12 03:43:58\n46\t240015\t30001\taccepted\t2026-02-12 03:40:18\t2026-02-12 03:40:33\t2026-02-12 03:40:21\n44\t240011\t30001\taccepted\t2026-02-12 03:32:29\t2026-02-12 03:32:44\t2026-02-12 03:32:31\n42\t240007\t30001\taccepted\t2026-02-12 03:31:48\t2026-02-12 03:32:03\t2026-02-12 03:31:51\n40\t240010\t30001\taccepted\t2026-02-12 03:28:49\t2026-02-12 03:29:04\t2026-02-12 03:28:52\n38\t240006\t30001\taccepted\t2026-02-12 03:28:26\t2026-02-12 03:28:41\t2026-02-12 03:28:30\n33\t240003\t30001\taccepted\t2026-02-12 03:21:03\t2026-02-12 03:21:18\t2026-02-12 03:21:07\n27\t240002\t30001\taccepted\t2026-02-12 03:18:04\t2026-02-12 03:18:19\t2026-02-12 03:18:06\n25\t240001\t30001\taccepted\t2026-02-12 03:13:06\t2026-02-12 03:13:21\t2026-02-12 03:13:07\n21\t240008\t30001\taccepted\t2026-02-12 03:05:37\t2026-02-12 03:05:52\t2026-02-12 03:05:37\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

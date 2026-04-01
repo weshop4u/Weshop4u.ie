@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `chat_messages` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `order_id` int NOT NULL,\n  `sender_id` int NOT NULL,\n  `sender_role` enum('customer','driver') NOT NULL,\n  `message` text NOT NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `chat_messages_id` PRIMARY KEY(`id`)\n);\nCREATE INDEX `chat_order_id_idx` ON `chat_messages` (`order_id`);\nCREATE INDEX `chat_sender_id_idx` ON `chat_messages` (`sender_id`);\nCREATE INDEX `chat_created_at_idx` ON `chat_messages` (`created_at`);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute CREATE TABLE IF NOT EXISTS `chat_messages` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `order_id` int NOT NULL,\n  `sender_id` int NOT NULL,\n  `sender_role` enum('customer','driver') NOT NULL,\n  `message` text NOT NULL,\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `chat_messages_id` PRIMARY KEY(`id`)\n);\nCREATE INDEX `chat_order_id_idx` ON `chat_messages` (`order_id`);\nCREATE INDEX `chat_sender_id_idx` ON `chat_messages` (`sender_id`);\nCREATE INDEX `chat_created_at_idx` ON `chat_messages` (`created_at`);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2895
+}

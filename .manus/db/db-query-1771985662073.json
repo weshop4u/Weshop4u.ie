@@ -1,0 +1,13 @@
+{
+  "query": "SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id FROM modifier_templates WHERE name = 'Chinese Sides' ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\n1\n",
+  "stderr": "",
+  "execution_time_ms": 358
+}

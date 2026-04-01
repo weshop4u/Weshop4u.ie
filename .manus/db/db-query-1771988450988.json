@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO modifier_templates (name, type, required, min_selections, max_selections) VALUES \n('Choose Your Base', 'single', true, 0, 0),\n('Butter & Sauces', 'multi', false, 0, 0),\n('Choose Your Meat', 'multi', true, 1, 0),\n('Choose Your Fillings', 'multi', false, 0, 0);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO modifier_templates (name, type, required, min_selections, max_selections) VALUES \n('Choose Your Base', 'single', true, 0, 0),\n('Butter & Sauces', 'multi', false, 0, 0),\n('Choose Your Meat', 'multi', true, 1, 0),\n('Choose Your Fillings', 'multi', false, 0, 0);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 508
+}

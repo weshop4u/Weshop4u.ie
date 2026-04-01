@@ -1,0 +1,31 @@
+{
+  "query": "SELECT o.id as order_id, o.driver_id, d.id as drivers_table_id, d.user_id, d.display_number FROM orders o LEFT JOIN drivers d ON d.user_id = o.driver_id WHERE o.driver_id IS NOT NULL LIMIT 3",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT o.id as order_id, o.driver_id, d.id as drivers_table_id, d.user_id, d.display_number FROM orders o LEFT JOIN drivers d ON d.user_id = o.driver_id WHERE o.driver_id IS NOT NULL LIMIT 3",
+  "rows": [
+    {
+      "order_id": "2",
+      "driver_id": "30001",
+      "drivers_table_id": "1",
+      "user_id": "30001",
+      "display_number": "01"
+    },
+    {
+      "order_id": "60002",
+      "driver_id": "30001",
+      "drivers_table_id": "1",
+      "user_id": "30001",
+      "display_number": "01"
+    },
+    {
+      "order_id": "90001",
+      "driver_id": "30001",
+      "drivers_table_id": "1",
+      "user_id": "30001",
+      "display_number": "01"
+    }
+  ],
+  "messages": [],
+  "stdout": "order_id\tdriver_id\tdrivers_table_id\tuser_id\tdisplay_number\n2\t30001\t1\t30001\t01\n60002\t30001\t1\t30001\t01\n90001\t30001\t1\t30001\t01\n",
+  "stderr": "",
+  "execution_time_ms": 361
+}

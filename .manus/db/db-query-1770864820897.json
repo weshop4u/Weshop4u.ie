@@ -1,0 +1,13 @@
+{
+  "query": "SELECT CONCAT('order_id=', id) as info FROM orders WHERE status = 'pending' AND driver_id IS NULL LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT('order_id=', id) as info FROM orders WHERE status = 'pending' AND driver_id IS NULL LIMIT 1",
+  "rows": [
+    {
+      "info": "order_id=240001"
+    }
+  ],
+  "messages": [],
+  "stdout": "info\norder_id=240001\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

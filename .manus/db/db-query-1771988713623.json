@@ -1,0 +1,13 @@
+{
+  "query": "SELECT id FROM products WHERE name = 'Create Your Own' AND store_id = 1 AND category_id = 60001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id FROM products WHERE name = 'Create Your Own' AND store_id = 1 AND category_id = 60001;",
+  "rows": [
+    {
+      "id": "360001"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\n360001\n",
+  "stderr": "",
+  "execution_time_ms": 360
+}

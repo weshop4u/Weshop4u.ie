@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO modifier_template_options (template_id, name, price, is_default, available, sort_order) VALUES\n(60001, 'Sausage', '0.90', false, true, 0),\n(60001, 'Rashers', '0.90', false, true, 1),\n(60001, 'White Pudding', '0.90', false, true, 2),\n(60001, 'Black Pudding', '0.90', false, true, 3),\n(60001, 'Fried Egg', '0.90', false, true, 4),\n(60001, 'Hash Brown', '0.90', false, true, 5),\n(60001, 'Cheese', '0.90', false, true, 6),\n(60001, 'Red Onion', '0.90', false, true, 7),\n(60001, 'White Onion', '0.90', false, true, 8);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO modifier_template_options (template_id, name, price, is_default, available, sort_order) VALUES\n(60001, 'Sausage', '0.90', false, true, 0),\n(60001, 'Rashers', '0.90', false, true, 1),\n(60001, 'White Pudding', '0.90', false, true, 2),\n(60001, 'Black Pudding', '0.90', false, true, 3),\n(60001, 'Fried Egg', '0.90', false, true, 4),\n(60001, 'Hash Brown', '0.90', false, true, 5),\n(60001, 'Cheese', '0.90', false, true, 6),\n(60001, 'Red Onion', '0.90', false, true, 7),\n(60001, 'White Onion', '0.90', false, true, 8);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 372
+}

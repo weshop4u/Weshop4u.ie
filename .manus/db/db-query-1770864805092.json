@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, order_id, driver_id, status, offered_at, expires_at FROM order_offers WHERE driver_id = 30001 ORDER BY id DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_id, driver_id, status, offered_at, expires_at FROM order_offers WHERE driver_id = 30001 ORDER BY id DESC LIMIT 10",
+  "rows": [
+    {
+      "id": "15",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "expired",
+      "offered_at": "2026-02-12 02:46:30",
+      "expires_at": "2026-02-12 02:46:45"
+    },
+    {
+      "id": "14",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "expired",
+      "offered_at": "2026-02-12 02:46:14",
+      "expires_at": "2026-02-12 02:46:29"
+    },
+    {
+      "id": "13",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "expired",
+      "offered_at": "2026-02-12 02:45:58",
+      "expires_at": "2026-02-12 02:46:13"
+    },
+    {
+      "id": "12",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "expired",
+      "offered_at": "2026-02-12 02:45:42",
+      "expires_at": "2026-02-12 02:45:57"
+    },
+    {
+      "id": "11",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "expired",
+      "offered_at": "2026-02-12 02:45:26",
+      "expires_at": "2026-02-12 02:45:41"
+    },
+    {
+      "id": "10",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "declined",
+      "offered_at": "2026-02-12 02:45:22",
+      "expires_at": "2026-02-12 02:45:37"
+    },
+    {
+      "id": "9",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "declined",
+      "offered_at": "2026-02-12 02:45:21",
+      "expires_at": "2026-02-12 02:45:36"
+    },
+    {
+      "id": "8",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "declined",
+      "offered_at": "2026-02-12 02:45:18",
+      "expires_at": "2026-02-12 02:45:33"
+    },
+    {
+      "id": "7",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "declined",
+      "offered_at": "2026-02-12 02:45:16",
+      "expires_at": "2026-02-12 02:45:31"
+    },
+    {
+      "id": "6",
+      "order_id": "240001",
+      "driver_id": "30001",
+      "status": "declined",
+      "offered_at": "2026-02-12 02:45:12",
+      "expires_at": "2026-02-12 02:45:27"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_id\tdriver_id\tstatus\toffered_at\texpires_at\n15\t240001\t30001\texpired\t2026-02-12 02:46:30\t2026-02-12 02:46:45\n14\t240001\t30001\texpired\t2026-02-12 02:46:14\t2026-02-12 02:46:29\n13\t240001\t30001\texpired\t2026-02-12 02:45:58\t2026-02-12 02:46:13\n12\t240001\t30001\texpired\t2026-02-12 02:45:42\t2026-02-12 02:45:57\n11\t240001\t30001\texpired\t2026-02-12 02:45:26\t2026-02-12 02:45:41\n10\t240001\t30001\tdeclined\t2026-02-12 02:45:22\t2026-02-12 02:45:37\n9\t240001\t30001\tdeclined\t2026-02-12 02:45:21\t2026-02-12 02:45:36\n8\t240001\t30001\tdeclined\t2026-02-12 02:45:18\t2026-02-12 02:45:33\n7\t240001\t30001\tdeclined\t2026-02-12 02:45:16\t2026-02-12 02:45:31\n6\t240001\t30001\tdeclined\t2026-02-12 02:45:12\t2026-02-12 02:45:27\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}

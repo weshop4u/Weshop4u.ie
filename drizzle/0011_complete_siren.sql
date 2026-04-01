@@ -1,0 +1,1 @@
+ALTER TABLE `stores` ADD `is_featured` boolean DEFAULT false;

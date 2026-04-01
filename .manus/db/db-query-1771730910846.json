@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO stores (name, slug, description, category, address, eircode, phone, is_open_247, opening_hours, is_active, short_code, order_counter, sort_position) VALUES ('Treasure Bowl Balbriggan', 'treasure-bowl-balbriggan', 'Authentic Chinese restaurant with takeaway and delivery', 'restaurant', 'Balbriggan, Co. Dublin, Ireland', 'K32', '', false, '{\"monday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"wednesday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"thursday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"friday\":{\"open\":\"16:00\",\"close\":\"23:30\"},\"saturday\":{\"open\":\"16:00\",\"close\":\"23:30\"},\"sunday\":{\"open\":\"16:00\",\"close\":\"22:00\"}}', true, 'TBB', 0, 4);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO stores (name, slug, description, category, address, eircode, phone, is_open_247, opening_hours, is_active, short_code, order_counter, sort_position) VALUES ('Treasure Bowl Balbriggan', 'treasure-bowl-balbriggan', 'Authentic Chinese restaurant with takeaway and delivery', 'restaurant', 'Balbriggan, Co. Dublin, Ireland', 'K32', '', false, '{\"monday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"tuesday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"wednesday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"thursday\":{\"open\":\"16:00\",\"close\":\"23:00\"},\"friday\":{\"open\":\"16:00\",\"close\":\"23:30\"},\"saturday\":{\"open\":\"16:00\",\"close\":\"23:30\"},\"sunday\":{\"open\":\"16:00\",\"close\":\"22:00\"}}', true, 'TBB', 0, 4);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 376
+}

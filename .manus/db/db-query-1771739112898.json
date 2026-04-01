@@ -1,0 +1,46 @@
+{
+  "query": "SELECT id, name, logo, is_active FROM stores ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, logo, is_active FROM stores ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Spar Balbriggan",
+      "logo": "https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771392935692-qlw4ph.jpeg",
+      "is_active": "1"
+    },
+    {
+      "id": "2",
+      "name": "Open All Ours",
+      "logo": "https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771392948335-eq11m6.jpeg",
+      "is_active": "1"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "logo": "https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771732575990-r81dm9.jpeg",
+      "is_active": "1"
+    },
+    {
+      "id": "4",
+      "name": "The Hamlet Bar",
+      "logo": "NULL",
+      "is_active": "0"
+    },
+    {
+      "id": "5",
+      "name": "Millfield Groceries",
+      "logo": "NULL",
+      "is_active": "0"
+    },
+    {
+      "id": "30001",
+      "name": "Treasure Bowl Balbriggan",
+      "logo": "https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771732914625-y0jl6d.jpeg",
+      "is_active": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tlogo\tis_active\n1\tSpar Balbriggan\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771392935692-qlw4ph.jpeg\t1\n2\tOpen All Ours\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771392948335-eq11m6.jpeg\t1\n3\tAppleGreen Balbriggan\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771732575990-r81dm9.jpeg\t1\n4\tThe Hamlet Bar\tNULL\t0\n5\tMillfield Groceries\tNULL\t0\n30001\tTreasure Bowl Balbriggan\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/store-logos/store-logo-1771732914625-y0jl6d.jpeg\t1\n",
+  "stderr": "",
+  "execution_time_ms": 482
+}

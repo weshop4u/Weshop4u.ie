@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE products ADD COLUMN sort_order INT DEFAULT 999;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute ALTER TABLE products ADD COLUMN sort_order INT DEFAULT 999;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 416
+}

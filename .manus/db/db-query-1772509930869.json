@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, product_id, name FROM modifier_groups WHERE product_id IN (121070, 121071) ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, product_id, name FROM modifier_groups WHERE product_id IN (121070, 121071) ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "product_id": "121070",
+      "name": "Choose Drink"
+    },
+    {
+      "id": "2",
+      "product_id": "121071",
+      "name": "Choose Drink"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tproduct_id\tname\n1\t121070\tChoose Drink\n2\t121071\tChoose Drink\n",
+  "stderr": "",
+  "execution_time_ms": 350
+}

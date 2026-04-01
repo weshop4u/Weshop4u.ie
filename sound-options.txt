@@ -1,0 +1,23 @@
+Sound options from Mixkit (free, royalty-free):
+
+1. Classic alarm - 0:05 - classic alarm clock sound
+2. Facility alarm sound - 0:17 - industrial facility alarm
+3. Retro game emergency alarm - 0:25 - retro game style
+4. Alert alarm - 0:06 - generic alert
+5. Digital clock digital alarm buzzer - 0:08 - digital buzzer
+6. Sound alert in hall - 0:13 - hall alert
+7. Interface hint notification - 0:01 - short notification
+8. Game notification wave alarm - 0:01 - short game notification
+9. Vintage warning alarm - 0:08 - vintage style
+10. Emergency alert alarm - 0:04 - emergency alert
+11. Warning alarm buzzer - 0:08 - warning buzzer
+12. Security facility breach alarm - 0:04 - security breach
+13. Battleship alarm - 0:26 - battleship style
+14. Critical alarm - 0:03 - critical alert
+
+Best candidates for delivery app:
+- Classic alarm (0:05) - recognizable, not too long
+- Alert alarm (0:06) - clean alert sound
+- Emergency alert alarm (0:04) - urgent but short
+- Security facility breach alarm (0:04) - attention-grabbing
+- Critical alarm (0:03) - short and urgent

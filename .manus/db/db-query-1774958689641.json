@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, name, slug, is_active FROM stores WHERE is_active = 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, slug, is_active FROM stores WHERE is_active = 1;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Spar Balbriggan",
+      "slug": "spar-balbriggan",
+      "is_active": "1"
+    },
+    {
+      "id": "2",
+      "name": "Open All Ours",
+      "slug": "open-all-ours",
+      "is_active": "1"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "slug": "apple-green-balbriggan",
+      "is_active": "1"
+    },
+    {
+      "id": "4",
+      "name": "The Hamlet Bar",
+      "slug": "the-hammer",
+      "is_active": "1"
+    },
+    {
+      "id": "6",
+      "name": "Treasure Bowl Balbriggan",
+      "slug": "treasure-bowl-balbriggan",
+      "is_active": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tslug\tis_active\n1\tSpar Balbriggan\tspar-balbriggan\t1\n2\tOpen All Ours\topen-all-ours\t1\n3\tAppleGreen Balbriggan\tapple-green-balbriggan\t1\n4\tThe Hamlet Bar\tthe-hammer\t1\n6\tTreasure Bowl Balbriggan\ttreasure-bowl-balbriggan\t1\n",
+  "stderr": "",
+  "execution_time_ms": 116
+}

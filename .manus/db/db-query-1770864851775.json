@@ -1,0 +1,40 @@
+{
+  "query": "SELECT CONCAT(oo.order_id, '|', oo.driver_id, '|', oo.status) as offer_info FROM order_offers oo WHERE oo.driver_id = 30001 ORDER BY oo.id DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT(oo.order_id, '|', oo.driver_id, '|', oo.status) as offer_info FROM order_offers oo WHERE oo.driver_id = 30001 ORDER BY oo.id DESC LIMIT 10",
+  "rows": [
+    {
+      "offer_info": "240001|30001|expired"
+    },
+    {
+      "offer_info": "240001|30001|expired"
+    },
+    {
+      "offer_info": "240001|30001|expired"
+    },
+    {
+      "offer_info": "240001|30001|expired"
+    },
+    {
+      "offer_info": "240001|30001|expired"
+    },
+    {
+      "offer_info": "240001|30001|declined"
+    },
+    {
+      "offer_info": "240001|30001|declined"
+    },
+    {
+      "offer_info": "240001|30001|declined"
+    },
+    {
+      "offer_info": "240001|30001|declined"
+    },
+    {
+      "offer_info": "240001|30001|declined"
+    }
+  ],
+  "messages": [],
+  "stdout": "offer_info\n240001|30001|expired\n240001|30001|expired\n240001|30001|expired\n240001|30001|expired\n240001|30001|expired\n240001|30001|declined\n240001|30001|declined\n240001|30001|declined\n240001|30001|declined\n240001|30001|declined\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}

@@ -1,17 +1,52 @@
 import * as Api from "@/lib/_core/api";
 import * as Auth from "@/lib/_core/auth";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Platform } from "react-native";
 
 type UseAuthOptions = {
   autoFetch?: boolean;
 };
 
+// Shared auth state across all useAuth instances
+// This ensures logout in one component is reflected everywhere
+type AuthListener = (user: Auth.User | null) => void;
+const listeners = new Set<AuthListener>();
+let sharedUser: Auth.User | null | undefined = undefined; // undefined = not yet loaded
+
+function notifyListeners(user: Auth.User | null) {
+  sharedUser = user;
+  listeners.forEach((listener) => listener(user));
+}
+
 export function useAuth(options?: UseAuthOptions) {
   const { autoFetch = true } = options ?? {};
-  const [user, setUser] = useState<Auth.User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<Auth.User | null>(sharedUser ?? null);
+  const [loading, setLoading] = useState(sharedUser === undefined);
   const [error, setError] = useState<Error | null>(null);
+  const mountedRef = useRef(true);
+
+  // Subscribe to shared auth state changes
+  useEffect(() => {
+    mountedRef.current = true;
+    const listener: AuthListener = (newUser) => {
+      if (mountedRef.current) {
+        setUser(newUser);
+        setLoading(false);
+      }
+    };
+    listeners.add(listener);
+
+    // If shared user is already loaded, sync immediately
+    if (sharedUser !== undefined) {
+      setUser(sharedUser);
+      setLoading(false);
+    }
+
+    return () => {
+      mountedRef.current = false;
+      listeners.delete(listener);
+    };
+  }, []);
 
   const fetchUser = useCallback(async () => {
     console.log("[useAuth] fetchUser called");
@@ -33,15 +68,15 @@ export function useAuth(options?: UseAuthOptions) {
             email: apiUser.email,
             loginMethod: apiUser.loginMethod,
             lastSignedIn: new Date(apiUser.lastSignedIn),
+            role: apiUser.role || null,
           };
-          setUser(userInfo);
-          // Cache user info in localStorage for faster subsequent loads
           await Auth.setUserInfo(userInfo);
+          notifyListeners(userInfo);
           console.log("[useAuth] Web user set from API:", userInfo);
         } else {
           console.log("[useAuth] Web: No authenticated user from API");
-          setUser(null);
           await Auth.clearUserInfo();
+          notifyListeners(null);
         }
         return;
       }
@@ -55,25 +90,46 @@ export function useAuth(options?: UseAuthOptions) {
       );
       if (!sessionToken) {
         console.log("[useAuth] No session token, setting user to null");
-        setUser(null);
+        notifyListeners(null);
         return;
       }
 
-      // Use cached user info for native (token validates the session)
-      const cachedUser = await Auth.getUserInfo();
-      console.log("[useAuth] Cached user:", cachedUser);
-      if (cachedUser) {
-        console.log("[useAuth] Using cached user info");
-        setUser(cachedUser);
-      } else {
-        console.log("[useAuth] No cached user, setting user to null");
-        setUser(null);
+      // Always validate against API on native to ensure session is still valid
+      console.log("[useAuth] Native: validating session via API...");
+      try {
+        const apiUser = await Api.getMe();
+        if (apiUser) {
+          const userInfo: Auth.User = {
+            id: apiUser.id,
+            openId: apiUser.openId,
+            name: apiUser.name,
+            email: apiUser.email,
+            loginMethod: apiUser.loginMethod,
+            lastSignedIn: new Date(apiUser.lastSignedIn),
+            role: apiUser.role || null,
+          };
+          await Auth.setUserInfo(userInfo);
+          notifyListeners(userInfo);
+          console.log("[useAuth] User validated from API:", userInfo);
+        } else {
+          // Session is invalid, clean up
+          console.log("[useAuth] Session invalid, clearing");
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
+          notifyListeners(null);
+        }
+      } catch {
+        // API call failed, session might be expired
+        console.log("[useAuth] API validation failed, clearing session");
+        await Auth.removeSessionToken();
+        await Auth.clearUserInfo();
+        notifyListeners(null);
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Failed to fetch user");
       console.error("[useAuth] fetchUser error:", error);
       setError(error);
-      setUser(null);
+      notifyListeners(null);
     } finally {
       setLoading(false);
       console.log("[useAuth] fetchUser completed, loading:", false);
@@ -81,6 +137,7 @@ export function useAuth(options?: UseAuthOptions) {
   }, []);
 
   const logout = useCallback(async () => {
+    console.log("[useAuth] logout called");
     try {
       await Api.logout();
     } catch (err) {
@@ -89,8 +146,10 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
-      setUser(null);
+      // Notify ALL useAuth instances that user is now null
+      notifyListeners(null);
       setError(null);
+      console.log("[useAuth] logout completed, all instances notified");
     }
   }, []);
 
@@ -98,28 +157,44 @@ export function useAuth(options?: UseAuthOptions) {
 
   useEffect(() => {
     console.log("[useAuth] useEffect triggered, autoFetch:", autoFetch, "platform:", Platform.OS);
-    if (autoFetch) {
-      if (Platform.OS === "web") {
-        // Web: fetch user from API directly (user will login manually if needed)
-        console.log("[useAuth] Web: fetching user from API...");
-        fetchUser();
-      } else {
-        // Native: check for cached user info first for faster initial load
-        Auth.getUserInfo().then((cachedUser) => {
-          console.log("[useAuth] Native cached user check:", cachedUser);
-          if (cachedUser) {
-            console.log("[useAuth] Native: setting cached user immediately");
-            setUser(cachedUser);
-            setLoading(false);
-          } else {
-            // No cached user, check session token
-            fetchUser();
-          }
-        });
-      }
-    } else {
+    if (!autoFetch) {
       console.log("[useAuth] autoFetch disabled, setting loading to false");
       setLoading(false);
+      return;
+    }
+
+    // If shared state is already loaded, don't fetch again
+    if (sharedUser !== undefined) {
+      console.log("[useAuth] Using existing shared auth state");
+      setUser(sharedUser);
+      setLoading(false);
+      return;
+    }
+
+    // First load: check cache then fetch
+    if (Platform.OS === "web") {
+      Auth.getUserInfo().then((cachedUser) => {
+        if (cachedUser) {
+          console.log("[useAuth] Web: setting cached user immediately for fast display");
+          notifyListeners(cachedUser);
+          // Then validate in background
+          fetchUser();
+        } else {
+          fetchUser();
+        }
+      });
+    } else {
+      Auth.getUserInfo().then((cachedUser) => {
+        console.log("[useAuth] Native cached user check:", cachedUser);
+        if (cachedUser) {
+          console.log("[useAuth] Native: setting cached user immediately, then validating...");
+          notifyListeners(cachedUser);
+          // Always validate cached user against API in background
+          fetchUser();
+        } else {
+          fetchUser();
+        }
+      });
     }
   }, [autoFetch, fetchUser]);
 

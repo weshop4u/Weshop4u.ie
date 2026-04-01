@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `sort_order` int DEFAULT 999;

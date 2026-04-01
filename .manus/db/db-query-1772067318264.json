@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, name, price, stock_status FROM products WHERE store_id = 1 AND name LIKE 'Wotsits Giants Cheese%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, price, stock_status FROM products WHERE store_id = 1 AND name LIKE 'Wotsits Giants Cheese%';",
+  "rows": [
+    {
+      "id": "61323",
+      "name": "Wotsits Giants Cheese 140g",
+      "price": "3.49",
+      "stock_status": "in_stock"
+    },
+    {
+      "id": "61688",
+      "name": "Wotsits Giants Cheese 130g",
+      "price": "3.89",
+      "stock_status": "out_of_stock"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tprice\tstock_status\n61323\tWotsits Giants Cheese 140g\t3.49\tin_stock\n61688\tWotsits Giants Cheese 130g\t3.89\tout_of_stock\n",
+  "stderr": "",
+  "execution_time_ms": 64
+}
