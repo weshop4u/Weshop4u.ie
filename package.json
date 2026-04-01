@@ -8,7 +8,7 @@
     "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:metro\"",
     "dev:server": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
     "dev:metro": "cross-env EXPO_USE_METRO_WORKSPACE_ROOT=1 npx expo start --web --port ${EXPO_PORT:-8081}",
-    "build": "rm -rf dist && pnpm build:web && pnpm build:server",
+    "build": "rm -rf dist && ([ -d web-dist ] || pnpm build:web) && pnpm build:server",
     "build:server": "node scripts/build-backend.js",
     "build:web": "expo export --platform web --output-dir web-dist",
     "start": "NODE_ENV=production node dist/index.js",
