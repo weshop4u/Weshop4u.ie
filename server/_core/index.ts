@@ -167,7 +167,15 @@ async function startServer() {
     if (!fs.existsSync(webDistPath)) {
       webDistPath = path.resolve(__dirname, "..", "..", "web-dist");
     }
+    console.log(`[web] __dirname = ${__dirname}`);
+    let location1 = path.resolve(__dirname, "web-dist");
+    console.log(`[web] Checking location 1: ${location1} - exists: ${fs.existsSync(location1)}`);
+    let location2 = path.resolve(__dirname, "..", "web-dist");
+    console.log(`[web] Checking location 2: ${location2} - exists: ${fs.existsSync(location2)}`);
+    let location3 = path.resolve(__dirname, "..", "..", "web-dist");
+    console.log(`[web] Checking location 3: ${location3} - exists: ${fs.existsSync(location3)}`);
     if (fs.existsSync(webDistPath)) {
+      console.log(`[web] ✓ Found web-dist at ${webDistPath}`);
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
       // Serve static assets under /api/web/
       app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
