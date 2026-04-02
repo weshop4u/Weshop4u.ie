@@ -78,6 +78,22 @@ async function startServer() {
     });
   });
 
+  // Debug endpoint to check server environment
+  app.get("/api/debug", (_req, res) => {
+    res.json({
+      __dirname: __dirname,
+      cwd: process.cwd(),
+      env: process.env.NODE_ENV,
+      files: {
+        webDistInDirname: fs.existsSync(path.resolve(__dirname, "web-dist")),
+        webDistInCwd: fs.existsSync(path.resolve(process.cwd(), "web-dist")),
+        webDistInCwdDist: fs.existsSync(path.resolve(process.cwd(), "dist", "web-dist")),
+        distFolderInCwd: fs.existsSync(path.resolve(process.cwd(), "dist")),
+      }
+    });
+  });
+
+
   // Public order tracking page (no auth required)
   const { trackingRouter } = await import("../routers/tracking");
   app.use(trackingRouter);
