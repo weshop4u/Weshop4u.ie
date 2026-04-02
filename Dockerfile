@@ -33,6 +33,9 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod
 # Copy built dist folder from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy web-dist folder for serving the web app under /api/web/
+COPY --from=builder /app/web-dist ./web-dist
+
 # Expose port
 EXPOSE 3000
 
