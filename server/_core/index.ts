@@ -156,7 +156,12 @@ async function startServer() {
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
   {
-    const webDistPath = path.resolve(__dirname, "..", "web-dist");
+    // Look for web-dist in the same directory as the compiled server (dist/web-dist)
+    // or in the parent directory (web-dist) for dev environments
+    let webDistPath = path.resolve(__dirname, "web-dist");
+    if (!fs.existsSync(webDistPath)) {
+      webDistPath = path.resolve(__dirname, "..", "web-dist");
+    }
     if (fs.existsSync(webDistPath)) {
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
       // Serve static assets under /api/web/
