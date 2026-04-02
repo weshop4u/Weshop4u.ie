@@ -1,5 +1,6 @@
 # WeShop4U - Production Backend Deployment
 # Multi-stage build to handle environment variables properly
+# Build version: 2026-04-02-web-dist-fix-v1
 
 FROM node:18-alpine AS builder
 
