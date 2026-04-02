@@ -40,13 +40,26 @@ async function startServer() {
   const dbHealth = getDatabaseHealth();
   console.log("[Server] Database health:", dbHealth);
 
-  // web-dist should be pre-built and committed to git
-  // Building on startup causes memory issues in production
-  const webDistPath = path.resolve(process.cwd(), "web-dist");
-  if (fs.existsSync(webDistPath)) {
-    console.log("[Server] ✓ web-dist found at", webDistPath);
-  } else {
-    console.warn("[Server] ⚠ web-dist not found - web app will not be available");
+  // web-dist is embedded in server/public for deployment
+  // This ensures it gets deployed with the backend service
+  const locations = [
+    path.resolve(__dirname, "public"),                    // Production: server/public
+    path.resolve(__dirname, "..", "web-dist"),          // Dev: root web-dist
+    path.resolve(process.cwd(), "server", "public"),     // Dev: server/public
+    path.resolve(process.cwd(), "web-dist"),             // Dev: cwd web-dist
+  ];
+  
+  let webDistPath = "";
+  for (const loc of locations) {
+    if (fs.existsSync(loc)) {
+      webDistPath = loc;
+      console.log("[Server] ✓ web-dist found at", loc);
+      break;
+    }
+  }
+  
+  if (!webDistPath) {
+    console.warn("[Server] ⚠ web-dist not found in any location - web app will not be available");
   }
 
   const app = express();
