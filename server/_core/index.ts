@@ -80,6 +80,8 @@ async function startServer() {
 
   // Debug endpoint to check server environment
   app.get("/api/debug", (_req, res) => {
+    const cwdContents = fs.readdirSync(process.cwd()).filter(f => !f.startsWith('.')).slice(0, 20);
+    const dirnameContents = fs.readdirSync(__dirname).filter(f => !f.startsWith('.')).slice(0, 20);
     res.json({
       __dirname: __dirname,
       cwd: process.cwd(),
@@ -89,7 +91,9 @@ async function startServer() {
         webDistInCwd: fs.existsSync(path.resolve(process.cwd(), "web-dist")),
         webDistInCwdDist: fs.existsSync(path.resolve(process.cwd(), "dist", "web-dist")),
         distFolderInCwd: fs.existsSync(path.resolve(process.cwd(), "dist")),
-      }
+      },
+      cwdContents: cwdContents,
+      dirnameContents: dirnameContents,
     });
   });
 
