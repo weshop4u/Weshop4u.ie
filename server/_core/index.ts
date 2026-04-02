@@ -156,25 +156,29 @@ async function startServer() {
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
   {
-    // Try multiple locations for web-dist:
-    // 1. Production: dist/web-dist (when running from dist/index.js)
-    // 2. Dev: ../web-dist (when running from server/_core/index.ts)
-    // 3. Dev root: ../../web-dist (fallback)
-    let webDistPath = path.resolve(__dirname, "web-dist");
-    if (!fs.existsSync(webDistPath)) {
-      webDistPath = path.resolve(__dirname, "..", "web-dist");
-    }
-    if (!fs.existsSync(webDistPath)) {
-      webDistPath = path.resolve(__dirname, "..", "..", "web-dist");
-    }
+    // Try multiple locations for web-dist
     console.log(`[web] __dirname = ${__dirname}`);
-    let location1 = path.resolve(__dirname, "web-dist");
-    console.log(`[web] Checking location 1: ${location1} - exists: ${fs.existsSync(location1)}`);
-    let location2 = path.resolve(__dirname, "..", "web-dist");
-    console.log(`[web] Checking location 2: ${location2} - exists: ${fs.existsSync(location2)}`);
-    let location3 = path.resolve(__dirname, "..", "..", "web-dist");
-    console.log(`[web] Checking location 3: ${location3} - exists: ${fs.existsSync(location3)}`);
-    if (fs.existsSync(webDistPath)) {
+    console.log(`[web] process.cwd() = ${process.cwd()}`);
+    
+    // Check all possible locations
+    const locations = [
+      path.resolve(__dirname, "web-dist"),                    // Production: dist/web-dist
+      path.resolve(__dirname, "..", "web-dist"),             // Dev: server/../web-dist
+      path.resolve(__dirname, "..", "..", "web-dist"),      // Dev root: server/../../web-dist
+      path.resolve(process.cwd(), "web-dist"),                // From cwd
+      path.resolve(process.cwd(), "dist", "web-dist"),        // From cwd/dist
+    ];
+    
+    let webDistPath = "";
+    for (const loc of locations) {
+      console.log(`[web] Checking: ${loc} - exists: ${fs.existsSync(loc)}`);
+      if (fs.existsSync(loc)) {
+        webDistPath = loc;
+        break;
+      }
+    }
+    
+    if (webDistPath && fs.existsSync(webDistPath)) {
       console.log(`[web] ✓ Found web-dist at ${webDistPath}`);
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
       // Serve static assets under /api/web/
