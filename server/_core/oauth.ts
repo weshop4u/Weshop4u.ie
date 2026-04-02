@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import { getUserByEmail, upsertUser, type SelectUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import jwt from "jsonwebtoken";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -127,7 +128,7 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
-  // Email/password login endpoint that creates a session cookie
+  // Email/password login endpoint that creates a JWT session token
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     const { email } = req.body;
     
@@ -145,16 +146,27 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
       
-      // Create session token using user's email as identifier
-      const sessionToken = await sdk.createSessionToken(email, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
+      // Create JWT token using JWT_SECRET
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET environment variable not set");
+      }
+      
+      const sessionToken = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+        jwtSecret,
+        { expiresIn: "1y" }
+      );
       
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       
-      console.log("[Login] Session created for:", email);
+      console.log("[Login] JWT session created for:", email);
       res.json({ success: true, user: buildUserResponse(user), sessionToken });
     } catch (error) {
       console.error("[Login] Failed:", error);
@@ -192,11 +204,19 @@ export function registerOAuthRoutes(app: Express) {
   // Get current authenticated user - works with both cookie (web) and Bearer token (mobile)
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     try {
+      // Try SDK authentication first
       const user = await sdk.authenticateRequest(req);
       res.json({ user: buildUserResponse(user) });
     } catch (error) {
-      console.error("[Auth] /api/auth/me failed:", error);
-      res.status(401).json({ error: "Not authenticated", user: null });
+      // Fall back to JWT authentication
+      try {
+        const { authenticateRequestWithJwt } = await import("./jwt-auth.js");
+        const user = await authenticateRequestWithJwt(req);
+        res.json({ user: buildUserResponse(user) });
+      } catch (jwtError) {
+        console.error("[Auth] /api/auth/me failed (SDK and JWT):", error);
+        res.status(401).json({ error: "Not authenticated", user: null });
+      }
     }
   });
 
@@ -205,8 +225,15 @@ export function registerOAuthRoutes(app: Express) {
   // to get a proper Set-Cookie response from the backend (3000-xxx domain)
   app.post("/api/auth/session", async (req: Request, res: Response) => {
     try {
-      // Authenticate using Bearer token from Authorization header
-      const user = await sdk.authenticateRequest(req);
+      // Try SDK authentication first
+      let user;
+      try {
+        user = await sdk.authenticateRequest(req);
+      } catch (sdkError) {
+        // Fall back to JWT authentication
+        const { authenticateRequestWithJwt } = await import("./jwt-auth.js");
+        user = await authenticateRequestWithJwt(req);
+      }
 
       // Get the token from the Authorization header to set as cookie
       const authHeader = req.headers.authorization || req.headers.Authorization;
