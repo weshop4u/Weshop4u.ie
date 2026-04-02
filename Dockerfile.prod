@@ -1,5 +1,6 @@
-# WeShop4U - Production Backend Deployment
-# Uses pre-built dist folder to avoid build failures with environment variables
+# WeShop4U - Production Backend Only
+# This Dockerfile is for backend-only deployments without rebuilding the web app
+# The web-dist is pre-built and included in the dist folder
 
 FROM node:18-alpine
 
@@ -8,7 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only (no build tools)
+# Install dependencies (production only to reduce image size)
 RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod
 
 # Copy pre-built dist folder (includes backend + web-dist)
