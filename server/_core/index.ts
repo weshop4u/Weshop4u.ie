@@ -156,11 +156,16 @@ async function startServer() {
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
   {
-    // Look for web-dist in the same directory as the compiled server (dist/web-dist)
-    // or in the parent directory (web-dist) for dev environments
+    // Try multiple locations for web-dist:
+    // 1. Production: dist/web-dist (when running from dist/index.js)
+    // 2. Dev: ../web-dist (when running from server/_core/index.ts)
+    // 3. Dev root: ../../web-dist (fallback)
     let webDistPath = path.resolve(__dirname, "web-dist");
     if (!fs.existsSync(webDistPath)) {
       webDistPath = path.resolve(__dirname, "..", "web-dist");
+    }
+    if (!fs.existsSync(webDistPath)) {
+      webDistPath = path.resolve(__dirname, "..", "..", "web-dist");
     }
     if (fs.existsSync(webDistPath)) {
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
