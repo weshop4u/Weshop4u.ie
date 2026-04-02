@@ -40,21 +40,13 @@ async function startServer() {
   const dbHealth = getDatabaseHealth();
   console.log("[Server] Database health:", dbHealth);
 
-  // Check if web-dist exists, if not try to build it
+  // web-dist should be pre-built and committed to git
+  // Building on startup causes memory issues in production
   const webDistPath = path.resolve(process.cwd(), "web-dist");
-  if (!fs.existsSync(webDistPath)) {
-    console.log("[Server] web-dist not found, attempting to build...");
-    try {
-      // Try to run the web build script
-      const { execSync } = await import("child_process");
-      console.log("[Server] Running pnpm build:web...");
-      execSync("pnpm build:web", { cwd: process.cwd(), stdio: "inherit" });
-      console.log("[Server] ✓ web-dist built successfully");
-    } catch (error) {
-      console.warn("[Server] ⚠ Failed to build web-dist:", error instanceof Error ? error.message : error);
-    }
-  } else {
+  if (fs.existsSync(webDistPath)) {
     console.log("[Server] ✓ web-dist found at", webDistPath);
+  } else {
+    console.warn("[Server] ⚠ web-dist not found - web app will not be available");
   }
 
   const app = express();
