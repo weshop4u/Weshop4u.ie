@@ -89,6 +89,13 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // Import admin auth middleware
+  const { adminAuthMiddleware } = await import("./admin-auth-middleware.js");
+
+  // Protect admin routes at server level - MUST be before static file middleware
+  // This prevents non-admin users from accessing /api/web/admin* pages
+  app.use("/api/web/admin", adminAuthMiddleware);
+
   registerOAuthRoutes(app);
 
   app.get("/api/health", (_req, res) => {
@@ -195,8 +202,13 @@ async function startServer() {
   // Redirect root /api/ to /api/web/ so users always land on the web app
   app.get("/api", (_req, res) => res.redirect("/api/web/"));
 
+  // Redirect /api/web/ (with trailing slash) to /api/web (without slash) to normalize URLs
+  // This ensures the admin auth middleware catches both /api/web/admin and /api/web/admin/
+  app.get("/api/web/", (_req, res) => res.redirect("/api/web"));
+
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
+  // NOTE: Admin routes are already protected by adminAuthMiddleware above
   {
     // Try multiple locations for web-dist
     console.log(`[web] __dirname = ${__dirname}`);
@@ -225,7 +237,7 @@ async function startServer() {
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
       // Serve static assets under /api/web/
       app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
-      // Root /api/web/ serves index.html
+      // Root /api/web serves index.html (note: /api/web/ is redirected to /api/web above)
       app.get("/api/web", (_req, res) => {
         const rootIndex = path.join(webDistPath, "index.html");
         if (fs.existsSync(rootIndex)) {
@@ -235,6 +247,7 @@ async function startServer() {
         }
       });
       // For any /api/web/* route, serve the matching HTML file or fall back to index.html
+      // Note: Admin routes are already protected by adminAuthMiddleware, so this won't be reached for /api/web/admin*
       app.get("/api/web/*", (req, res) => {
         const subPath = req.path.replace(/^\/api\/web/, "") || "/";
         // Try to find an exact HTML file for this route
