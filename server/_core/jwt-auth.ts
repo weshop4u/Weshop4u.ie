@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
+import * as cookieModule from "cookie";
 import { COOKIE_NAME } from "../../shared/const.js";
 import { getUserById } from "../db.js";
 
@@ -22,10 +23,13 @@ export function extractToken(req: Request): string | null {
     return authHeader.slice("Bearer ".length).trim();
   }
 
-  // Try cookie
-  const cookies = req.cookies as Record<string, string> | undefined;
-  if (cookies && COOKIE_NAME in cookies) {
-    return cookies[COOKIE_NAME];
+  // Try cookie - parse from Cookie header manually
+  const cookieHeader = req.headers.cookie;
+  if (typeof cookieHeader === "string") {
+    const cookies = cookieModule.parse(cookieHeader);
+    if (COOKIE_NAME in cookies) {
+      return cookies[COOKIE_NAME];
+    }
   }
 
   return null;
