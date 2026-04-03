@@ -39,6 +39,7 @@ const externalPackages = [
   'react-native-maps',
   'nativewind',
   'expo-server-sdk',
+  'cookie-parser',
 ];
 
 async function build() {
