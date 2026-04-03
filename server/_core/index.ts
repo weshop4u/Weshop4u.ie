@@ -235,8 +235,14 @@ async function startServer() {
     if (webDistPath && fs.existsSync(webDistPath)) {
       console.log(`[web] ✓ Found web-dist at ${webDistPath}`);
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
-      // Serve static assets under /api/web/
-      app.use("/api/web", express.static(webDistPath, { maxAge: "1d" }));
+      // Serve static assets under /api/web/ but skip /api/web/admin* (protected by middleware)
+      app.use("/api/web", (req, res, next) => {
+        // Skip static file serving for admin routes - they're protected by middleware
+        if (req.path.startsWith("/admin")) {
+          return next();
+        }
+        express.static(webDistPath, { maxAge: "1d" })(req, res, next);
+      });
       // Root /api/web serves index.html (note: /api/web/ is redirected to /api/web above)
       app.get("/api/web", (_req, res) => {
         const rootIndex = path.join(webDistPath, "index.html");
@@ -249,6 +255,10 @@ async function startServer() {
       // For any /api/web/* route, serve the matching HTML file or fall back to index.html
       // Note: Admin routes are already protected by adminAuthMiddleware, so this won't be reached for /api/web/admin*
       app.get("/api/web/*", (req, res) => {
+        // Skip serving HTML for admin routes - they should have been blocked by middleware
+        if (req.path.startsWith("/api/web/admin")) {
+          return res.status(403).json({ error: "Forbidden: Admin access required" });
+        }
         const subPath = req.path.replace(/^\/api\/web/, "") || "/";
         // Try to find an exact HTML file for this route
         const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
