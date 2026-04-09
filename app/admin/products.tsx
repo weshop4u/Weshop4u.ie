@@ -138,6 +138,27 @@ function ProductsManagementScreenContent() {
     return allCats.filter((c: any) => c.name?.toLowerCase().includes(q));
   }, [categories, categorySearch]);
 
+  // Filtered categories for add product form - prioritize store categories, then fall back to global
+  const filteredAddCategories = useMemo(() => {
+    const allCats = categories || [];
+    const storeIds = storeCategories.map((c: any) => c.id);
+    
+    if (!addCategorySearch.trim()) {
+      // No search: show store categories first, then other global categories
+      const storeFirst = allCats.filter((c: any) => storeIds.includes(c.id));
+      const others = allCats.filter((c: any) => !storeIds.includes(c.id));
+      return [...storeFirst, ...others];
+    }
+    
+    const q = addCategorySearch.toLowerCase();
+    // First try to match in store categories
+    const storeMatches = allCats.filter((c: any) => storeIds.includes(c.id) && c.name?.toLowerCase().includes(q));
+    if (storeMatches.length > 0) return storeMatches;
+    
+    // If no store matches, fall back to global categories
+    return allCats.filter((c: any) => c.name?.toLowerCase().includes(q));
+  }, [categories, storeCategories, addCategorySearch]);
+
   // Get current store name for edit modal
   const currentStoreName = useMemo(() => {
     if (!editingProduct?.storeId) return stores?.find(s => s.id === selectedStore)?.name || "";
@@ -1673,10 +1694,7 @@ function ProductsManagementScreenContent() {
                 />
                 <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled showsVerticalScrollIndicator>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {(addCategorySearch.trim()
-                      ? storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim()))
-                      : storeCategories
-                    ).map((cat: any) => (
+                    {filteredAddCategories?.map((cat: any) => (
                       <TouchableOpacity
                         key={cat.id}
                         onPress={() => { setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id }); setAddCategorySearch(""); }}
@@ -1698,7 +1716,7 @@ function ProductsManagementScreenContent() {
                         >{cat.name}</Text>
                       </TouchableOpacity>
                     ))}
-                    {addCategorySearch.trim() && storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim())).length === 0 && (
+                    {addCategorySearch.trim() && filteredAddCategories?.length === 0 && (
                       <Text style={{ color: colors.muted, fontSize: 12, padding: 8 }}>No categories match "{addCategorySearch}"</Text>
                     )}
                   </View>

@@ -1,17 +1,22 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 
-const config = getDefaultConfig(__dirname);
+let config = getDefaultConfig(__dirname);
 
-// Exclude cache directories from Metro bundler to prevent build failures
+// Apply NativeWind
+// WORKAROUND: Set forceWriteFileSystem to false to prevent cache file recreation
+// This stops the SHA-1 hashing error in Metro
+config = withNativeWind(config, {
+  input: "./global.css",
+  forceWriteFileSystem: false,
+});
+
+// Then set blockList using Metro's proper format
 config.resolver.blockList = [
   ...(config.resolver.blockList || []),
-  /node_modules\/react-native-css-interop\/.cache\/.*/,
+  // Exclude react-native-css-interop cache to prevent SHA-1 hashing errors
+  /.*\/react-native-css-interop\/\.cache\/.*/,
+  /.*react-native-css-interop\/\.cache\/web\.css$/,
 ];
 
-module.exports = withNativeWind(config, {
-  input: "./global.css",
-  // Force write CSS to file system instead of virtual modules
-  // This fixes iOS styling issues in development mode
-  forceWriteFileSystem: true,
-});
+module.exports = config;
