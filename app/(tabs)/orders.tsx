@@ -592,11 +592,14 @@ export default function OrderHistoryScreen() {
 
   const rateDriverMutation = trpc.orders.rateDriver.useMutation({
     onSuccess: (_, variables) => {
-      setRatingSubmitted((prev) => ({ ...prev, [variables.orderId]: true }));
+      setRatingSubmitted((prev) => ({ ...prev, [(variables as any).orderId]: true }));
       setRatingOrderId(null);
       setSelectedRating(0);
       setRatingComment("");
       refetch();
+    },
+    onError: (error) => {
+      setInlineMessage({ type: "error", text: error.message || "Failed to rate driver." });
     },
   });
 

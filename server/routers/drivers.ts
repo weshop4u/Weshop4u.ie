@@ -1153,10 +1153,10 @@ export const driversRouter = router({
           const orderCheck = await db
             .select({ driverId: orders.driverId, status: orders.status })
             .from(orders)
-            .where(eq(orders.id, orderId))
+            .where(eq(orders.id, orderId as number))
             .limit(1);
           if (orderCheck.length > 0 && !orderCheck[0].driverId && ["pending", "accepted", "preparing", "ready_for_pickup"].includes(orderCheck[0].status)) {
-            await offerToNextDriver(orderId);
+            await offerToNextDriver(orderId as number);
           }
         }
       }

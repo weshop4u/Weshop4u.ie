@@ -58,6 +58,7 @@ export default function StoreDetailScreen() {
   const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
   const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({}); // "groupId_modId" -> quantity (for allowOptionQuantity groups)
   const { cart, addToCart, clearCart, getItemCount, getProductQuantity: cartGetProductQuantity } = useCart();
+  const insets = useSafeAreaInsets();
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId, limit: 5000 });
@@ -144,36 +145,36 @@ export default function StoreDetailScreen() {
     }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>);
   }, [products]);
 
-  const categories = useMemo(() => Object.values(categoriesWithProducts), [categoriesWithProducts]);
+  const categories = useMemo(() => Object.values(categoriesWithProducts) as Array<{ id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>, [categoriesWithProducts]);
 
   // Filter and sort categories
   const filteredCategories = useMemo(() => {
-    let result = [...categories];
+    let result = [...categories] as Array<{ id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>;
     const searchTerm = globalSearch.trim() || categorySearch.trim();
     if (searchTerm) {
       const query = searchTerm.toLowerCase();
-      result = result.filter((category) =>
-        category.name.toLowerCase().includes(query)
+      result = result.filter((category: any) =>
+        (category.name as string).toLowerCase().includes(query)
       );
     }
     // Sort categories
     switch (categorySortBy) {
       case "popular":
         // Use custom priority order: priority categories first, then rest alphabetically
-        result.sort((a, b) => {
-          const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name);
-          const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name);
+        result.sort((a: any, b: any) => {
+          const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name as string);
+          const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name as string);
           if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
           if (aIdx !== -1) return -1;
           if (bIdx !== -1) return 1;
-          return a.name.localeCompare(b.name);
+          return (a.name as string).localeCompare(b.name as string);
         });
         break;
       case "az":
-        result.sort((a, b) => a.name.localeCompare(b.name));
+        result.sort((a: any, b: any) => (a.name as string).localeCompare(b.name as string));
         break;
       case "za":
-        result.sort((a, b) => b.name.localeCompare(a.name));
+        result.sort((a: any, b: any) => (b.name as string).localeCompare(a.name as string));
         break;
     }
     return result;
@@ -185,16 +186,16 @@ export default function StoreDetailScreen() {
     const query = globalSearch.toLowerCase().trim();
     const results: Array<{ product: any; categoryName: string; categoryId: number; categorySchedule: string | null }> = [];
     for (const cat of categories) {
-      for (const product of cat.products) {
+      for (const product of (cat as any).products) {
         if (
-          product.name.toLowerCase().includes(query) ||
-          (product.description?.toLowerCase().includes(query) || false)
+          (product.name as string).toLowerCase().includes(query) ||
+          ((product.description as string)?.toLowerCase().includes(query) || false)
         ) {
           results.push({
             product,
-            categoryName: cat.name,
-            categoryId: cat.id,
-            categorySchedule: cat.availabilitySchedule,
+            categoryName: (cat as any).name as string,
+            categoryId: (cat as any).id as number,
+            categorySchedule: (cat as any).availabilitySchedule as string | null,
           });
         }
       }
