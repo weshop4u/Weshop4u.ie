@@ -1841,6 +1841,14 @@ function ProductsManagementScreenContent() {
                   })}
                 </View>
               </View>
+
+              {/* Modifiers Info */}
+              <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 8 }}>
+                <Text style={[editStyles.label, { color: colors.foreground, marginBottom: 0 }]}>Add Modifiers/Variables</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 18 }}>
+                  Modifiers (size, toppings, etc.) can be added after creating the product. Create the product first, then edit it to add modifiers.
+                </Text>
+              </View>
             </ScrollView>
 
             {/* Buttons */}

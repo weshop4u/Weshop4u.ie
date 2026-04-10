@@ -1,4 +1,5 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform } from "react-native";
+import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -54,16 +55,15 @@ export default function StoreDetailScreen() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
-  const insets = useSafeAreaInsets();
   const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({}); // groupId -> modifierIds
   const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({}); // "groupId_modId" -> quantity (for allowOptionQuantity groups)
   const { cart, addToCart, clearCart, getItemCount, getProductQuantity: cartGetProductQuantity } = useCart();
-  
   const storeId = parseInt(id);
   const { data: store, isLoading: storeLoading } = trpc.stores.getById.useQuery({ id: storeId });
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId, limit: 5000 });
   const products = productsData?.items || [];
   const { data: trendingProducts } = trpc.store.getTrendingProducts.useQuery({ storeId, limit: 10 });
+  const mainScrollViewRef = useRef<ScrollView>(null);
 
   const storeOpen = store ? isStoreOpen(store) : true;
   const todayHours = store ? getTodayHours(store) : null;
@@ -322,6 +322,19 @@ export default function StoreDetailScreen() {
     }
     setSelectedModifiers(defaults);
   }, [modifierData, selectedProduct?.id, modalVisible]);
+
+  // Scroll to top when category is selected
+  useEffect(() => {
+    if (selectedCategoryId !== null) {
+      if (Platform.OS === 'web') {
+        // On web, use window.scrollTo
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (mainScrollViewRef.current) {
+        // On native, use ScrollView ref
+        mainScrollViewRef.current.scrollTo({ y: 0, animated: true });
+      }
+    }
+  }, [selectedCategoryId]);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -1398,7 +1411,7 @@ export default function StoreDetailScreen() {
         )}
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView ref={mainScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-2">
           <View className="flex-row items-center gap-2">
