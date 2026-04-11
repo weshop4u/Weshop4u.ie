@@ -219,4 +219,51 @@ export const analyticsRouter = router({
         conversionRate: summary?.totalOrders ? ((summary?.deliveredOrders || 0) / (summary?.totalOrders || 1) * 100).toFixed(1) : "0",
       };
     }),
+
+  // Get most viewed/trending products (based on order frequency)
+  getMostViewedProducts: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().optional().default(10),
+        days: z.number().optional().default(30),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - input.days);
+
+      // Get most frequently ordered products (trending)
+      const trendingProducts = await db
+        .select({
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          productPrice: orderItems.productPrice,
+          orderCount: sql<number>`COUNT(DISTINCT ${orderItems.orderId})`,
+          totalQuantity: sql<number>`SUM(${orderItems.quantity})`,
+          totalRevenue: sql<string>`SUM(${orderItems.subtotal})`,
+        })
+        .from(orderItems)
+        .innerJoin(orders, eq(orderItems.orderId, orders.id))
+        .where(
+          and(
+            gte(orders.createdAt, daysAgo),
+            eq(orders.status, "delivered")
+          )
+        )
+        .groupBy(orderItems.productId, orderItems.productName, orderItems.productPrice)
+        .orderBy(desc(sql`COUNT(DISTINCT ${orderItems.orderId})`))
+        .limit(input.limit);
+
+      return trendingProducts.map(p => ({
+        productId: p.productId,
+        productName: p.productName,
+        productPrice: parseFloat(p.productPrice),
+        views: p.orderCount, // Number of orders containing this product
+        totalQuantity: p.totalQuantity,
+        totalRevenue: parseFloat(p.totalRevenue || "0"),
+      }));
+    }),
 });

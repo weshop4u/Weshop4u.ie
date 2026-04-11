@@ -1040,3 +1040,4 @@ export const appSettings = mysqlTable(
 
 export type AppSetting = typeof appSettings.$inferSelect;
 export type InsertAppSetting = typeof appSettings.$inferInsert;
+
