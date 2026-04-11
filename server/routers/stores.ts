@@ -150,6 +150,7 @@ export const storesRouter = router({
           pinnedToTrending: products.pinnedToTrending,
           sortOrder: products.sortOrder,
           priceVerified: products.priceVerified,
+          wss: products.wss,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
