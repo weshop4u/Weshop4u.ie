@@ -184,7 +184,9 @@ export const ordersRouter = router({
 
       // Get product details and calculate subtotal
       let subtotal = 0;
+      let storeReceiptSubtotal = 0; // Subtotal for store receipt (excluding WSS items)
       const orderItemsData = [];
+      let hasWssItems = false; // Track if order has WSS items
 
       for (const item of input.items) {
         const product = await db
@@ -206,6 +208,13 @@ export const ordersRouter = router({
         const itemSubtotal = unitPrice * item.quantity;
         subtotal += itemSubtotal;
 
+        // Track WSS items and calculate store receipt subtotal
+        if (productData.wss) {
+          hasWssItems = true;
+        } else {
+          storeReceiptSubtotal += itemSubtotal;
+        }
+
         orderItemsData.push({
           productId: item.productId,
           productName: productData.name,
@@ -213,6 +222,7 @@ export const ordersRouter = router({
           quantity: item.quantity,
           subtotal: itemSubtotal.toFixed(2),
           modifiers: item.modifiers || [],
+          isWss: productData.wss || false,
         });
       }
 
@@ -345,45 +355,61 @@ export const ordersRouter = router({
         // Don't fail the order if notification fails
       }
 
-      // Send push notification to ALL store staff for this store
+      // Send push notification to ALL store staff for this store (only if there are non-WSS items)
       try {
-        const storeStaffMembers = await db
-          .select({
-            userId: storeStaffTable.userId,
-            pushToken: users.pushToken,
-          })
-          .from(storeStaffTable)
-          .innerJoin(users, eq(storeStaffTable.userId, users.id))
-          .where(eq(storeStaffTable.storeId, storeData.id));
+        // Only send to store if there are non-WSS items
+        const storeItems = orderItemsData.filter((item: any) => !item.isWss);
+        
+        if (storeItems.length > 0) {
+          const storeStaffMembers = await db
+            .select({
+              userId: storeStaffTable.userId,
+              pushToken: users.pushToken,
+            })
+            .from(storeStaffTable)
+            .innerJoin(users, eq(storeStaffTable.userId, users.id))
+            .where(eq(storeStaffTable.storeId, storeData.id));
 
-        // Get customer name
-        let customerName = "Customer";
-        if (input.customerId) {
-          const customer = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, input.customerId))
-            .limit(1);
-          customerName = customer.length > 0 ? customer[0].name : "Customer";
-        } else if (input.guestName) {
-          customerName = input.guestName;
-        }
+          // Get customer name
+          let customerName = "Customer";
+          if (input.customerId) {
+            const customer = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, input.customerId))
+              .limit(1);
+            customerName = customer.length > 0 ? customer[0].name : "Customer";
+          } else if (input.guestName) {
+            customerName = input.guestName;
+          }
 
-        // Send to each staff member with a push token
-        for (const staff of storeStaffMembers) {
-          if (staff.pushToken) {
-            await sendNewOrderNotification(
-              staff.pushToken,
-              Number(orderId),
-              customerName,
-              input.items.length,
-              total
-            );
-            console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+          // Send to each staff member with a push token
+          for (const staff of storeStaffMembers) {
+            if (staff.pushToken) {
+              await sendNewOrderNotification(
+                staff.pushToken,
+                Number(orderId),
+                customerName,
+                storeItems.length,
+                storeReceiptSubtotal
+              );
+              console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+            }
           }
         }
       } catch (pushError) {
         console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
+      }
+
+      // Send driver notification if order contains WSS items
+      if (hasWssItems) {
+        try {
+          // Get the driver who will be assigned to this order (from driver queue)
+          // For now, we'll send a notification that will be shown when driver accepts the order
+          console.log(`[WSS] Order ${orderId} contains WSS items - driver will see 'Contact Office' notification`);
+        } catch (driverError) {
+          console.error(`[WSS] Failed to handle WSS notification:`, driverError);
+        }
       }
 
       // Trigger driver queue - offer to first available driver
@@ -437,6 +463,7 @@ export const ordersRouter = router({
           subtotal: orderItems.subtotal,
           notes: orderItems.notes,
           productName: products.name,
+          isWss: products.wss,
         })
         .from(orderItems)
         .leftJoin(products, eq(orderItems.productId, products.id))

@@ -764,6 +764,7 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PV</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>WSS</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
@@ -889,6 +890,62 @@ function ProductsManagementScreenContent() {
                       >
                         <Text style={{ color: product.priceVerified ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
                           {product.priceVerified ? "✓" : "✗"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newWssStatus = !product.wss;
+                        queryClient.setQueryData(
+                          ['stores', 'getProducts'],
+                          (oldData: any) => {
+                            if (!oldData) return oldData;
+                            return {
+                              ...oldData,
+                              items: oldData.items.map((p: any) =>
+                                p.id === product.id ? { ...p, wss: newWssStatus } : p
+                              ),
+                            };
+                          }
+                        );
+                        updateMutation.mutate(
+                          { id: product.id, wss: newWssStatus },
+                          {
+                            onSuccess: () => {
+                            },
+                            onError: (err) => {
+                              queryClient.setQueryData(
+                                ['stores', 'getProducts'],
+                                (oldData: any) => {
+                                  if (!oldData) return oldData;
+                                  return {
+                                    ...oldData,
+                                    items: oldData.items.map((p: any) =>
+                                      p.id === product.id ? { ...p, wss: product.wss } : p
+                                    ),
+                                  };
+                                }
+                              );
+                            },
+                          }
+                        );
+                      }}
+                      style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
+                    >
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: product.wss ? "#22C55E" : "#EF4444",
+                          backgroundColor: product.wss ? "#22C55E20" : "#EF444420",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: product.wss ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
+                          {product.wss ? "✓" : "✗"}
                         </Text>
                       </View>
                     </TouchableOpacity>
