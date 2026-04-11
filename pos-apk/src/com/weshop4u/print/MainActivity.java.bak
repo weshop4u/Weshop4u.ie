@@ -990,16 +990,12 @@ public class MainActivity extends Activity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String port = "/dev/ttyMT1"; // Default port
-                final SerialPrinter printer = new SerialPrinter(port);
-                appendLog("Opening port: " + port);
+                SerialPrinter printer = new SerialPrinter();
                 if (!printer.open()) {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
                             appendLog("ERROR: Could not open printer port");
-                            final String errorMsg = printer.getLastError();
-                            appendLog("Details: " + errorMsg);
                         }
                     });
                     return;

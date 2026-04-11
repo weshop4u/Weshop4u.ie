@@ -1,6 +1,6 @@
-/home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/SerialPrinter.java
 /home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/ApiClient.java
 /home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/BootReceiver.java
-/home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/OrderPollingService.java
 /home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/MainActivity.java
+/home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/OrderPollingService.java
+/home/ubuntu/weshop4u/pos-apk/src/com/weshop4u/print/SerialPrinter.java
 /home/ubuntu/weshop4u/pos-apk/build/gen/com/weshop4u/print/R.java

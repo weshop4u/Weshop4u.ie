@@ -11,12 +11,13 @@ import java.io.IOException;
  */
 public class SerialPrinter {
 
-    private static final String SERIAL_PORT = "/dev/ttyMT1";
     private static final int BAUD_RATE = 115200;
     private static final int MAX_CHARS_PER_LINE = 32;
 
+    private String serialPort = "/dev/ttyMT1"; // Default port
     private FileOutputStream outputStream;
     private FileInputStream inputStream;
+    private String lastError = "";
 
     private static final byte[] CMD_INIT = {0x1B, 0x40};
     private static final byte[] CMD_BOLD_ON = {0x1B, 0x45, 0x01};
@@ -28,29 +29,59 @@ public class SerialPrinter {
     private static final byte[] CMD_FEED_5 = {0x1B, 0x64, 0x05};
     private static final byte[] CMD_CUT = {0x1D, 0x56, 0x42, 0x00};
 
-    public boolean open() {
-        try {
-            Process process = Runtime.getRuntime().exec(
-                new String[]{"/system/bin/stty", "-F", SERIAL_PORT,
-                    String.valueOf(BAUD_RATE), "cs8", "-cstopb", "-parenb"}
-            );
-            process.waitFor();
-            File serialFile = new File(SERIAL_PORT);
-            if (!serialFile.exists()) return openDirect();
-            outputStream = new FileOutputStream(serialFile);
-            inputStream = new FileInputStream(serialFile);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return openDirect();
+    public SerialPrinter() {
+        this.serialPort = "/dev/ttyMT1";
+    }
+
+    public SerialPrinter(String port) {
+        this.serialPort = port != null ? port : "/dev/ttyMT1";
+    }
+
+    public void setPort(String port) {
+        if (port != null && !port.isEmpty()) {
+            this.serialPort = port;
         }
     }
 
-    private boolean openDirect() {
+    public String getLastError() {
+        return lastError;
+    }
+
+    public boolean open() {
         try {
-            outputStream = new FileOutputStream(new File(SERIAL_PORT));
-            return true;
+            // Try to configure the serial port with stty
+            try {
+                Process process = Runtime.getRuntime().exec(
+                    new String[]{"/system/bin/stty", "-F", serialPort,
+                        String.valueOf(BAUD_RATE), "cs8", "-cstopb", "-parenb"}
+                );
+                int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    lastError = "stty configuration failed with exit code " + exitCode;
+                }
+            } catch (Exception sttyError) {
+                lastError = "stty not available: " + sttyError.getMessage();
+                // Continue anyway, try direct open
+            }
+
+            // Try to open the port
+            File serialFile = new File(serialPort);
+            if (!serialFile.exists()) {
+                lastError = "Serial port file does not exist: " + serialPort;
+                return false;
+            }
+
+            try {
+                outputStream = new FileOutputStream(serialFile);
+                inputStream = new FileInputStream(serialFile);
+                lastError = "";
+                return true;
+            } catch (IOException ioError) {
+                lastError = "Failed to open port " + serialPort + ": " + ioError.getMessage();
+                return false;
+            }
         } catch (Exception e) {
+            lastError = "Unexpected error opening port: " + e.getMessage();
             e.printStackTrace();
             return false;
         }
@@ -58,15 +89,45 @@ public class SerialPrinter {
 
     public void close() {
         try {
-            if (outputStream != null) { outputStream.flush(); outputStream.close(); outputStream = null; }
-            if (inputStream != null) { inputStream.close(); inputStream = null; }
-        } catch (IOException e) { e.printStackTrace(); }
+            if (outputStream != null) {
+                try {
+                    outputStream.flush();
+                } catch (Exception e) {
+                    // Ignore flush errors
+                }
+                try {
+                    outputStream.close();
+                } catch (Exception e) {
+                    // Ignore close errors
+                }
+                outputStream = null;
+            }
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (Exception e) {
+                    // Ignore close errors
+                }
+                inputStream = null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public boolean isConnected() { return outputStream != null; }
 
     private void writeBytes(byte[] data) throws IOException {
-        if (outputStream != null) { outputStream.write(data); outputStream.flush(); }
+        if (outputStream == null) {
+            throw new IOException("Serial port not connected. Error: " + lastError);
+        }
+        try {
+            outputStream.write(data);
+            outputStream.flush();
+        } catch (IOException e) {
+            lastError = "Write failed: " + e.getMessage();
+            throw e;
+        }
     }
 
     private void writeString(String text) throws IOException {
@@ -125,7 +186,7 @@ public class SerialPrinter {
         printSeparator();
         printCenteredBold("Printer OK");
         printEmptyLine();
-        printText("Port: " + SERIAL_PORT);
+        printText("Port: " + serialPort);
         printText("Baud: " + BAUD_RATE);
         printText("Width: " + MAX_CHARS_PER_LINE + " chars");
         printSeparator();
