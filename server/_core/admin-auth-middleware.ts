@@ -29,15 +29,16 @@ export async function adminAuthMiddleware(req: Request, res: Response, next: Nex
         console.log("[AdminAuth] Authenticated via JWT:", user?.email, "role:", user?.role);
       } catch (jwtError) {
         console.log("[AdminAuth] Authentication failed (SDK and JWT)");
-        // Not authenticated - deny access
-        return res.status(401).json({ error: "Unauthorized: Please log in" });
+        // Not authenticated - redirect to login page
+        return res.redirect("/api/web/auth/login");
       }
     }
 
     // Check if user has admin role
     if (user?.role !== "admin") {
       console.log("[AdminAuth] Access denied - user role is:", user?.role, "email:", user?.email);
-      return res.status(403).json({ error: "Forbidden: Admin access required" });
+      // Redirect non-admin users to login page
+      return res.redirect("/api/web/auth/login");
     }
 
     // User is authenticated and is admin - allow access
