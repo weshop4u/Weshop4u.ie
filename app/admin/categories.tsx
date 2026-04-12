@@ -4,7 +4,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useState, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useColors } from "@/hooks/use-colors";
@@ -46,7 +45,6 @@ const ALCOHOL_SCHEDULE: AvailabilitySchedule = {
 function CategoriesScreenContent() {
   const router = useRouter();
   const colors = useColors();
-  const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
   const [editMode, setEditMode] = useState<"image" | "settings" | null>(null);
   const [imageUrl, setImageUrl] = useState("");
@@ -67,7 +65,7 @@ function CategoriesScreenContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const { data: categories, refetch } = trpc.categories.getAll.useQuery();
+  const { data: categories, refetch } = trpc.categories.getAllWithCounts.useQuery({ storeId: 1 });
   const updateImageMutation = trpc.categories.updateImage.useMutation();
   const uploadMutation = trpc.categories.uploadImage.useMutation();
   const renameMutation = trpc.categories.rename.useMutation();
@@ -294,8 +292,7 @@ function CategoriesScreenContent() {
       setMessage('Category created successfully!');
       setMessageType('success');
       setNewCategoryName('');
-      // Invalidate the query cache to force a fresh fetch
-      await queryClient.invalidateQueries({ queryKey: ['categories', 'getAll'] });
+      refetch();
       setTimeout(() => setShowCreateModal(false), 1000);
     } catch (error: any) {
       setMessage(error.message || 'Failed to create category');

@@ -24,7 +24,7 @@ export function createTRPCClient() {
       httpBatchLink({
         url: `${getApiBaseUrl()}/api/trpc`,
         // tRPC v11: transformer MUST be inside httpBatchLink, not at root
-        transformer: superjson as any,
+        transformer: superjson,
         async headers() {
           const token = await Auth.getSessionToken();
           return token ? { Authorization: `Bearer ${token}` } : {};

@@ -150,7 +150,6 @@ export const storesRouter = router({
           pinnedToTrending: products.pinnedToTrending,
           sortOrder: products.sortOrder,
           priceVerified: products.priceVerified,
-          wss: products.wss,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
@@ -380,7 +379,6 @@ export const storesRouter = router({
         isDrs: z.boolean().optional(),
         pinnedToTrending: z.boolean().optional(),
         priceVerified: z.boolean().optional(),
-        wss: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -427,7 +425,6 @@ export const storesRouter = router({
       if (input.isDrs !== undefined) updateData.isDrs = input.isDrs;
       if (input.pinnedToTrending !== undefined) updateData.pinnedToTrending = input.pinnedToTrending;
       if (input.priceVerified !== undefined) updateData.priceVerified = input.priceVerified;
-      if (input.wss !== undefined) updateData.wss = input.wss;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 

@@ -138,27 +138,6 @@ function ProductsManagementScreenContent() {
     return allCats.filter((c: any) => c.name?.toLowerCase().includes(q));
   }, [categories, categorySearch]);
 
-  // Filtered categories for add product form - prioritize store categories, then fall back to global
-  const filteredAddCategories = useMemo(() => {
-    const allCats = categories || [];
-    const storeIds = storeCategories.map((c: any) => c.id);
-    
-    if (!addCategorySearch.trim()) {
-      // No search: show store categories first, then other global categories
-      const storeFirst = allCats.filter((c: any) => storeIds.includes(c.id));
-      const others = allCats.filter((c: any) => !storeIds.includes(c.id));
-      return [...storeFirst, ...others];
-    }
-    
-    const q = addCategorySearch.toLowerCase();
-    // First try to match in store categories
-    const storeMatches = allCats.filter((c: any) => storeIds.includes(c.id) && c.name?.toLowerCase().includes(q));
-    if (storeMatches.length > 0) return storeMatches;
-    
-    // If no store matches, fall back to global categories
-    return allCats.filter((c: any) => c.name?.toLowerCase().includes(q));
-  }, [categories, storeCategories, addCategorySearch]);
-
   // Get current store name for edit modal
   const currentStoreName = useMemo(() => {
     if (!editingProduct?.storeId) return stores?.find(s => s.id === selectedStore)?.name || "";
@@ -764,7 +743,6 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PV</Text>
-                <Text style={[tableStyles.headerCell, { width: 50 }]}>WSS</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
@@ -890,62 +868,6 @@ function ProductsManagementScreenContent() {
                       >
                         <Text style={{ color: product.priceVerified ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
                           {product.priceVerified ? "✓" : "✗"}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => {
-                        const newWssStatus = !product.wss;
-                        queryClient.setQueryData(
-                          ['stores', 'getProducts'],
-                          (oldData: any) => {
-                            if (!oldData) return oldData;
-                            return {
-                              ...oldData,
-                              items: oldData.items.map((p: any) =>
-                                p.id === product.id ? { ...p, wss: newWssStatus } : p
-                              ),
-                            };
-                          }
-                        );
-                        updateMutation.mutate(
-                          { id: product.id, wss: newWssStatus },
-                          {
-                            onSuccess: () => {
-                            },
-                            onError: (err) => {
-                              queryClient.setQueryData(
-                                ['stores', 'getProducts'],
-                                (oldData: any) => {
-                                  if (!oldData) return oldData;
-                                  return {
-                                    ...oldData,
-                                    items: oldData.items.map((p: any) =>
-                                      p.id === product.id ? { ...p, wss: product.wss } : p
-                                    ),
-                                  };
-                                }
-                              );
-                            },
-                          }
-                        );
-                      }}
-                      style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
-                    >
-                      <View
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 6,
-                          borderWidth: 2,
-                          borderColor: product.wss ? "#22C55E" : "#EF4444",
-                          backgroundColor: product.wss ? "#22C55E20" : "#EF444420",
-                          justifyContent: "center",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Text style={{ color: product.wss ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
-                          {product.wss ? "✓" : "✗"}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1751,7 +1673,10 @@ function ProductsManagementScreenContent() {
                 />
                 <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled showsVerticalScrollIndicator>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {filteredAddCategories?.map((cat: any) => (
+                    {(addCategorySearch.trim()
+                      ? storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim()))
+                      : storeCategories
+                    ).map((cat: any) => (
                       <TouchableOpacity
                         key={cat.id}
                         onPress={() => { setAddForm({ ...addForm, categoryId: addForm.categoryId === cat.id ? null : cat.id }); setAddCategorySearch(""); }}
@@ -1773,7 +1698,7 @@ function ProductsManagementScreenContent() {
                         >{cat.name}</Text>
                       </TouchableOpacity>
                     ))}
-                    {addCategorySearch.trim() && filteredAddCategories?.length === 0 && (
+                    {addCategorySearch.trim() && storeCategories.filter((c: any) => c.name?.toLowerCase().includes(addCategorySearch.toLowerCase().trim())).length === 0 && (
                       <Text style={{ color: colors.muted, fontSize: 12, padding: 8 }}>No categories match "{addCategorySearch}"</Text>
                     )}
                   </View>
@@ -1897,14 +1822,6 @@ function ProductsManagementScreenContent() {
                     );
                   })}
                 </View>
-              </View>
-
-              {/* Modifiers Info */}
-              <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, gap: 8 }}>
-                <Text style={[editStyles.label, { color: colors.foreground, marginBottom: 0 }]}>Add Modifiers/Variables</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 18 }}>
-                  Modifiers (size, toppings, etc.) can be added after creating the product. Create the product first, then edit it to add modifiers.
-                </Text>
               </View>
             </ScrollView>
 

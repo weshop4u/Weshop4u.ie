@@ -17,58 +17,6 @@ function StatCard({ label, value, subValue, color }: { label: string; value: str
 
 const webCursor = Platform.OS === "web" ? { cursor: "pointer" as any } : {};
 
-function PopularProductsSection() {
-  const { data: popularProducts, isLoading } = trpc.analytics.getPopularProducts.useQuery({ limit: 10, days: 30 });
-
-  if (isLoading) {
-    return (
-      <View>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Popular Products</Text>
-        <View className="bg-surface rounded-xl p-4 border border-border items-center justify-center" style={{ height: 200 }}>
-          <ActivityIndicator size="large" color="#00E5FF" />
-        </View>
-      </View>
-    );
-  }
-
-  if (!popularProducts || popularProducts.length === 0) {
-    return (
-      <View>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Popular Products</Text>
-        <View className="bg-surface rounded-xl p-4 border border-border items-center justify-center" style={{ height: 100 }}>
-          <Text style={{ color: "#94A3B8", fontSize: 14 }}>No sales data yet</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A" }}>Popular Products (Last 30 Days)</Text>
-      </View>
-      <View className="bg-surface rounded-xl border border-border" style={{ overflow: "hidden" }}>
-        {/* Table Header */}
-        <View style={{ flexDirection: "row", paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "#F8FAFC", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
-          <Text style={{ flex: 1.5, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Product</Text>
-          <Text style={{ flex: 0.8, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Qty Sold</Text>
-          <Text style={{ flex: 0.8, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>Orders</Text>
-          <Text style={{ flex: 1, fontSize: 11, fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "right" }}>Revenue</Text>
-        </View>
-        {/* Rows */}
-        {popularProducts.slice(0, 10).map((product: any, idx: number) => (
-          <View key={product.productId} style={{ flexDirection: "row", paddingVertical: 10, paddingHorizontal: 16, alignItems: "center", backgroundColor: idx % 2 === 0 ? "#fff" : "#FAFBFC", borderBottomWidth: idx < 9 ? 1 : 0, borderBottomColor: "#F1F5F9" }}>
-            <Text style={{ flex: 1.5, fontSize: 13, color: "#0F172A", fontWeight: "600" }} numberOfLines={1}>{product.productName}</Text>
-            <Text style={{ flex: 0.8, fontSize: 13, color: "#334155", textAlign: "center" }}>{product.totalQuantity}</Text>
-            <Text style={{ flex: 0.8, fontSize: 13, color: "#334155", textAlign: "center" }}>{product.orderCount}</Text>
-            <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: "#22C55E", textAlign: "right" }}>€{product.totalRevenue.toFixed(2)}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function StatusBadge({ status, count, onPress }: { status: string; count: number; onPress?: () => void }) {
   const colors: Record<string, { bg: string; text: string }> = {
     pending: { bg: "#FEF3C7", text: "#D97706" },
@@ -359,9 +307,6 @@ function DashboardContent() {
           </View>
         </View>
 
-        {/* Popular Products */}
-        <PopularProductsSection />
-
         {/* Recent Orders Preview */}
         <View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -641,4 +586,3 @@ export default function AdminPanel() {
     </AdminDesktopLayout>
   );
 }
-// Trigger deployment

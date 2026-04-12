@@ -64,12 +64,6 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
-        name="analytics"
-        options={{
-          title: "Analytics",
-        }}
-      />
-      <Stack.Screen
         name="orders"
         options={{
           title: "All Orders",

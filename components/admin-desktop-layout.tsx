@@ -11,7 +11,6 @@ interface AdminDesktopLayoutProps {
 
 const NAV_ITEMS = [
   { path: "/admin", label: "Dashboard", icon: "📊", exact: true },
-  { path: "/admin/analytics", label: "Analytics", icon: "📈", exact: false },
   { path: "/admin/orders", label: "All Orders", icon: "📋", exact: false },
   { path: "/admin/phone-order", label: "Phone Order", icon: "📞", exact: false },
   { path: "/admin/manage-stores", label: "Manage Stores", icon: "🏪", exact: false },
