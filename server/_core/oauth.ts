@@ -83,13 +83,25 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      // Redirect to the frontend URL (Expo web on port 8081)
-      // Cookie is set with parent domain so it works across both 3000 and 8081 subdomains
+      // Get the synced user for response
+      const user = await syncUser(userInfo);
+
+      // Redirect to the frontend URL with session token and user data in query params
+      // This allows the web app to store the session token locally since it can't access the cookie from a different domain
       const frontendUrl =
         process.env.EXPO_WEB_PREVIEW_URL ||
         process.env.EXPO_PACKAGER_PROXY_URL ||
         "http://localhost:8081";
-      res.redirect(302, frontendUrl);
+      
+      // Encode user data as base64 to pass in URL
+      const userJson = JSON.stringify(buildUserResponse(user));
+      const userBase64 = Buffer.from(userJson).toString("base64");
+      
+      const redirectUrl = new URL("/oauth/callback", frontendUrl);
+      redirectUrl.searchParams.set("sessionToken", sessionToken);
+      redirectUrl.searchParams.set("user", userBase64);
+      
+      res.redirect(302, redirectUrl.toString());
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });

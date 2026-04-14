@@ -286,7 +286,29 @@ async function startServer() {
         res.status(404).send("Not Found");
       });
     } else {
-      console.log(`[web] No web-dist directory found at ${webDistPath}, skipping static file serving`);
+      console.log(`[web] No web-dist directory found, setting up Metro proxy for development`);
+      // In development, proxy to Metro bundler on port 8081
+      const METRO_PORT = process.env.EXPO_PORT || 8081;
+      app.all("/api/web*", (req, res) => {
+        const metroUrl = `http://localhost:${METRO_PORT}${req.path.replace(/^\/api\/web/, "") || "/"}`;
+        console.log(`[web] Proxying to Metro: ${metroUrl}`);
+        fetch(metroUrl, {
+          method: req.method,
+          headers: req.headers as Record<string, string>,
+          body: req.method !== "GET" && req.method !== "HEAD" ? req : undefined,
+        })
+          .then((response) => {
+            res.status(response.status);
+            response.headers.forEach((value, name) => {
+              res.setHeader(name, value);
+            });
+            response.body?.pipe(res);
+          })
+          .catch((err) => {
+            console.error(`[web] Metro proxy error: ${err.message}`);
+            res.status(503).send("Metro bundler not available");
+          });
+      });
     }
   }
 

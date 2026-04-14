@@ -54,29 +54,62 @@ export function useAuth(options?: UseAuthOptions) {
       setLoading(true);
       setError(null);
 
-      // Web platform: use cookie-based auth, fetch user from API
+      // Web platform: check for stored session token first (from OAuth callback)
       if (Platform.OS === "web") {
-        console.log("[useAuth] Web platform: fetching user from API...");
-        const apiUser = await Api.getMe();
-        console.log("[useAuth] API user response:", apiUser);
-
-        if (apiUser) {
-          const userInfo: Auth.User = {
-            id: apiUser.id,
-            openId: apiUser.openId,
-            name: apiUser.name,
-            email: apiUser.email,
-            loginMethod: apiUser.loginMethod,
-            lastSignedIn: new Date(apiUser.lastSignedIn),
-            role: apiUser.role || null,
-          };
-          await Auth.setUserInfo(userInfo);
-          notifyListeners(userInfo);
-          console.log("[useAuth] Web user set from API:", userInfo);
+        console.log("[useAuth] Web platform: checking for stored session token...");
+        // On web, we store the session token in localStorage after OAuth callback
+        const storedUser = await Auth.getUserInfo();
+        if (storedUser) {
+          console.log("[useAuth] Web: Found stored user info, using it");
+          notifyListeners(storedUser);
+          // Then validate in background
+          try {
+            const apiUser = await Api.getMe();
+            if (apiUser) {
+              const userInfo: Auth.User = {
+                id: apiUser.id,
+                openId: apiUser.openId,
+                name: apiUser.name,
+                email: apiUser.email,
+                loginMethod: apiUser.loginMethod,
+                lastSignedIn: new Date(apiUser.lastSignedIn),
+                role: apiUser.role || null,
+              };
+              await Auth.setUserInfo(userInfo);
+              notifyListeners(userInfo);
+              console.log("[useAuth] Web user validated from API:", userInfo);
+            } else {
+              console.log("[useAuth] Web: Stored user validation failed, clearing");
+              await Auth.clearUserInfo();
+              notifyListeners(null);
+            }
+          } catch (error) {
+            console.error("[useAuth] Web: Background validation failed:", error);
+            // Keep the stored user even if validation fails
+          }
         } else {
-          console.log("[useAuth] Web: No authenticated user from API");
-          await Auth.clearUserInfo();
-          notifyListeners(null);
+          console.log("[useAuth] Web platform: fetching user from API...");
+          const apiUser = await Api.getMe();
+          console.log("[useAuth] API user response:", apiUser);
+
+          if (apiUser) {
+            const userInfo: Auth.User = {
+              id: apiUser.id,
+              openId: apiUser.openId,
+              name: apiUser.name,
+              email: apiUser.email,
+              loginMethod: apiUser.loginMethod,
+              lastSignedIn: new Date(apiUser.lastSignedIn),
+              role: apiUser.role || null,
+            };
+            await Auth.setUserInfo(userInfo);
+            notifyListeners(userInfo);
+            console.log("[useAuth] Web user set from API:", userInfo);
+          } else {
+            console.log("[useAuth] Web: No authenticated user from API");
+            await Auth.clearUserInfo();
+            notifyListeners(null);
+          }
         }
         return;
       }
