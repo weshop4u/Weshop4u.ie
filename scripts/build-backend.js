@@ -2,6 +2,7 @@ import esbuild from 'esbuild';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,8 +43,53 @@ const externalPackages = [
   'cookie-parser',
 ];
 
+async function cleanMetroCache() {
+  console.log('[build] 🧹 Cleaning Metro cache before build...');
+  const cacheDirs = [
+    'node_modules/.cache',
+    'node_modules/react-native-css-interop/.cache',
+    '.expo',
+    '.next',
+    '.metro-cache',
+  ];
+
+  cacheDirs.forEach((dir) => {
+    const fullPath = path.join(process.cwd(), dir);
+    try {
+      if (fs.existsSync(fullPath)) {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        console.log(`[build]   ✓ Removed: ${dir}`);
+      }
+    } catch (error) {
+      console.warn(`[build]   ⚠ Failed to remove ${dir}:`, error.message);
+    }
+  });
+  console.log('[build] ✓ Metro cache cleanup complete\n');
+}
+
+async function buildWebApp() {
+  console.log('[build] Building web app with expo export...');
+  try {
+    // Clean cache first
+    await cleanMetroCache();
+    
+    // Build web app
+    execSync('expo export --platform web --output-dir web-dist', {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+    });
+    console.log('[build] ✓ Web app built successfully');
+  } catch (error) {
+    console.error('[build] ✗ Web app build failed:', error.message);
+    throw error;
+  }
+}
+
 async function build() {
   try {
+    // Build web app first (with cache cleaning)
+    await buildWebApp();
+
     // Build backend
     console.log('[build] Building backend with esbuild...');
     await esbuild.build({

@@ -88,10 +88,7 @@ export function registerOAuthRoutes(app: Express) {
 
       // Redirect to the frontend URL with session token and user data in query params
       // This allows the web app to store the session token locally since it can't access the cookie from a different domain
-      const frontendUrl =
-        process.env.EXPO_WEB_PREVIEW_URL ||
-        process.env.EXPO_PACKAGER_PROXY_URL ||
-        "http://localhost:8081";
+      const frontendUrl = `${req.protocol}://${req.get('host')}/api/web`;
       
       // Encode user data as base64 to pass in URL
       const userJson = JSON.stringify(buildUserResponse(user));
