@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator,
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -164,6 +164,13 @@ export default function ProductManagementScreen() {
     }
     return filtered;
   }, [productsData, filterCategory, searchQuery, stockFilter]);
+
+  // Scroll to top when products are filtered (web only, when products exist)
+  useEffect(() => {
+    if (Platform.OS === "web" && filteredProducts.length > 0) {
+      window.scrollTo(0, 0);
+    }
+  }, [filteredProducts]);
 
   const totalProducts = productsData?.filter((p) => p.isActive !== false).length || 0;
   const inStockCount = productsData?.filter((p) => p.isActive !== false && p.stockStatus === "in_stock").length || 0;
