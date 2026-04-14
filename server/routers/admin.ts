@@ -2442,7 +2442,10 @@ export const adminRouter = router({
               topProducts[p.id] = { name: p.name, quantity: 0, revenue: 0 };
             }
             topProducts[p.id].quantity += item.quantity;
-            topProducts[p.id].revenue += parseFloat(item.price) * item.quantity;
+            // Safely parse price, default to 0 if invalid
+            const price = item.price ? parseFloat(String(item.price)) : 0;
+            const itemRevenue = isNaN(price) ? 0 : price * item.quantity;
+            topProducts[p.id].revenue += itemRevenue;
           }
         }
       }
