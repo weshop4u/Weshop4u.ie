@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenWrapper } from "@/components/native-wrapper";
 import { HighlightText } from "@/components/highlight-text";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WebLayoutScrollRef } from "@/components/web-layout";
 
 type SortOption = "az" | "za" | "price_low" | "price_high";
 type CategorySortOption = "popular" | "az" | "za";
@@ -49,7 +50,7 @@ export default function StoreDetailScreen() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showRecentSearches, setShowRecentSearches] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
- const categoryScrollRef = useRef<ScrollView>(null);
+  const categoryScrollRef = useRef<ScrollView>(null);
   const mainScrollViewRef = useRef<ScrollView>(null);
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
@@ -245,554 +246,178 @@ export default function StoreDetailScreen() {
         case "price_high":
           return parseFloat(b.price) - parseFloat(a.price);
         default:
-          return a.name.localeCompare(b.name);
+          return 0;
       }
     });
-
-    // In Deli category, push chicken wings to the bottom
-    if (selectedCategory?.name === "Deli") {
-      const isWings = (name: string) => name.toLowerCase().includes("chicken wings");
-      const nonWings = sorted.filter((p) => !isWings(p.name));
-      const wings = sorted.filter((p) => isWings(p.name));
-      return [...nonWings, ...wings];
-    }
-    
     return sorted;
-  }, [categoryProducts, productSearch, sortBy, selectedCategory]);
+  }, [categoryProducts, productSearch, sortBy]);
 
-  // Get quantity for a product from cart (sum across all modifier variants)
-  const getProductQuantity = useCallback((productId: number) => {
-    return cart.items
-      .filter(i => i.productId === productId)
-      .reduce((sum, i) => sum + i.quantity, 0);
-  }, [cart.items]);
-
-  // Get product image helper
-  const getProductImage = useCallback((product: any): string | null => {
-    const productImages = Array.isArray(product.images) ? product.images : [];
-    return productImages.length > 0 ? productImages[0] : null;
-  }, []);
-
-  // Open product detail modal
-  const openProductDetail = useCallback((product: any) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const getProductImage = (product: any): string | null => {
+    // Try images array first
+    if (product.images && product.images.length > 0) {
+      return product.images[0];
     }
-    setModalQuantity(1);
-    setSelectedModifiers({});
-    setOptionQuantities({});
+    // Fallback to image field (single image)
+    if (product.image) {
+      return product.image;
+    }
+    // Fallback to imageUrl field
+    if (product.imageUrl) {
+      return product.imageUrl;
+    }
+    return null;
+  };
+
+  const getProductQuantity = (productId: number): number => {
+    const qty = cartGetProductQuantity(productId);
+    return qty || 0;
+  };
+
+  const saveRecentSearch = (term: string) => {
+    const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
+    setRecentSearches(updated);
+    AsyncStorage.setItem(`recentSearches_${storeId}`, JSON.stringify(updated));
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    AsyncStorage.removeItem(`recentSearches_${storeId}`);
+  };
+
+  const openProductDetail = (product: any) => {
     setSelectedProduct(product);
     setModalVisible(true);
-  }, []);
+  };
 
-  // Close product detail modal
-  const closeProductDetail = useCallback(() => {
-    setModalVisible(false);
-    // Reset the defaults ref so next open will set defaults again
-    lastDefaultsProductIdRef.current = null;
-    // Delay clearing data so modal animates out cleanly
-    setTimeout(() => setSelectedProduct(null), 300);
-  }, []);
-
-
-
-  // Fetch merged modifiers for selected product (category-inherited + product-assigned templates + custom)
-  const { data: modifierData } = trpc.modifierTemplates.getAllForProduct.useQuery(
-    { productId: selectedProduct?.id ?? 0 },
-    { enabled: !!selectedProduct }
-  );
-
-  // Track which product we last set defaults for to avoid re-running
-  const lastDefaultsProductIdRef = useRef<number | null>(null);
-
-  // Set defaults when modifier data loads - only once per product open
-  useEffect(() => {
-    if (!modifierData?.groups || !selectedProduct || !modalVisible) return;
-    // Only set defaults once per product modal open
-    if (lastDefaultsProductIdRef.current === selectedProduct.id) return;
-    lastDefaultsProductIdRef.current = selectedProduct.id;
-
-    const defaults: Record<number, number[]> = {};
-    for (const group of modifierData.groups) {
-      const availableMods = group.modifiers.filter((m: any) => m.available !== false);
-      const defaultMods = availableMods.filter((m: any) => m.isDefault);
-      if (defaultMods.length > 0) {
-        defaults[group.id] = defaultMods.map((m: any) => m.id);
-      } else if (group.required && group.type === "single" && availableMods.length > 0) {
-        defaults[group.id] = [availableMods[0].id];
-      }
-    }
-    setSelectedModifiers(defaults);
-  }, [modifierData, selectedProduct?.id, modalVisible]);
-
-  // Scroll to top when category selection changes (web only)
-  useEffect(() => {
-    if (Platform.OS === "web" && selectedCategoryId !== null) {
-      // Use 300ms timeout to ensure the page is fully rendered before scrolling
-      setTimeout(() => {
-        // Find the WebLayout ScrollView element and scroll it to top
-        const scrollableElement = document.querySelector('[class*="r-overflowY-1rnoaur"]');
-        if (scrollableElement) {
-          scrollableElement.scrollTop = 0;
-        }
-      }, 800);
-    }
-  }, [selectedCategoryId]);
-
-  // Load recent searches on mount
-  useEffect(() => {
-    AsyncStorage.getItem(`recentSearches_${storeId}`).then((data) => {
-      if (data) setRecentSearches(JSON.parse(data));
-    }).catch(() => {});
-  }, [storeId]);
-
-  const saveRecentSearch = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) return;
-    const updated = [trimmed, ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
-    setRecentSearches(updated);
-    await AsyncStorage.setItem(`recentSearches_${storeId}`, JSON.stringify(updated)).catch(() => {});
-  }, [recentSearches, storeId]);
-
-  const clearRecentSearches = useCallback(async () => {
-    setRecentSearches([]);
-    await AsyncStorage.removeItem(`recentSearches_${storeId}`).catch(() => {});
-  }, [storeId]);
-
-  // Build selected modifiers list for cart
-  const getSelectedModifiersList = useCallback((): CartItemModifier[] => {
-    if (!modifierData?.groups) return [];
-    const result: CartItemModifier[] = [];
-    for (const group of modifierData.groups) {
-      const selectedIds = selectedModifiers[group.id] || [];
-      const isQuantityGroup = group.allowOptionQuantity;
-      for (const mod of group.modifiers) {
-        if (selectedIds.includes(mod.id)) {
-          if (isQuantityGroup) {
-            // For quantity-enabled groups, add one entry per quantity
-            const qty = optionQuantities[`${group.id}_${mod.id}`] || 1;
-            for (let i = 0; i < qty; i++) {
-              result.push({
-                groupName: group.name,
-                modifierId: mod.id,
-                modifierName: qty > 1 ? `${mod.name} ×${qty}` : mod.name,
-                modifierPrice: mod.price,
-              });
-            }
-          } else {
-            result.push({
-              groupName: group.name,
-              modifierId: mod.id,
-              modifierName: mod.name,
-              modifierPrice: mod.price,
-            });
-          }
-        }
-      }
-    }
-    return result;
-  }, [modifierData, selectedModifiers, optionQuantities]);
-
-  // Calculate total price including modifiers
-  const getModalTotalPrice = useCallback((): number => {
-    if (!selectedProduct) return 0;
-    const basePrice = parseFloat(selectedProduct.price);
-    const modifierTotal = getSelectedModifiersList().reduce(
-      (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
-    );
-    // Check for multi-buy deal
-    const deal = modifierData?.deals?.[0];
-    const unitPrice = basePrice + modifierTotal;
-    if (deal && modalQuantity >= deal.quantity) {
-      const dealSets = Math.floor(modalQuantity / deal.quantity);
-      const remainder = modalQuantity % deal.quantity;
-      return dealSets * parseFloat(deal.dealPrice) + remainder * unitPrice;
-    }
-    return unitPrice * modalQuantity;
-  }, [selectedProduct, getSelectedModifiersList, modifierData, modalQuantity]);
-
-  // Check if all required modifier groups have selections
-  const allRequiredModifiersSelected = useCallback((): boolean => {
-    if (!modifierData?.groups) return true;
-    for (const group of modifierData.groups) {
-      if (group.required) {
-        const selected = selectedModifiers[group.id] || [];
-        if (selected.length === 0) return false;
-        if (group.minSelections && selected.length < group.minSelections) return false;
-      }
-    }
-    return true;
-  }, [modifierData, selectedModifiers]);
-
-  // Handle option quantity change for allowOptionQuantity groups
-  const changeOptionQuantity = useCallback((groupId: number, modifierId: number, delta: number, maxQty: number) => {
-    const key = `${groupId}_${modifierId}`;
-    setOptionQuantities(prev => {
-      const current = prev[key] || 0;
-      const next = Math.max(0, Math.min(maxQty, current + delta));
-      const updated = { ...prev, [key]: next };
-      // Also update selectedModifiers to keep required-check working
-      setSelectedModifiers(prevMods => {
-        const currentIds = prevMods[groupId] || [];
-        if (next > 0 && !currentIds.includes(modifierId)) {
-          return { ...prevMods, [groupId]: [...currentIds, modifierId] };
-        } else if (next === 0 && currentIds.includes(modifierId)) {
-          return { ...prevMods, [groupId]: currentIds.filter(id => id !== modifierId) };
-        }
-        return prevMods;
-      });
-      return updated;
-    });
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, []);
-
-  // Handle modifier toggle
-  const toggleModifier = useCallback((groupId: number, modifierId: number, groupType: string, maxSelections: number) => {
-    setSelectedModifiers(prev => {
-      const current = prev[groupId] || [];
-      if (groupType === "single") {
-        // Radio: replace selection
-        return { ...prev, [groupId]: [modifierId] };
-      } else {
-        // Multi: toggle
-        if (current.includes(modifierId)) {
-          return { ...prev, [groupId]: current.filter(id => id !== modifierId) };
-        } else {
-          // Check max selections
-          if (maxSelections > 0 && current.length >= maxSelections) {
-            return prev; // At max, don't add
-          }
-          return { ...prev, [groupId]: [...current, modifierId] };
-        }
-      }
-    });
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, []);
-
-  // Product detail modal — works from both category view and search results
-  // Defined here (before early returns) so it can be rendered in all views
   const renderProductModal = () => {
-    if (!selectedProduct) return null;
-    const productImage = getProductImage(selectedProduct);
-    const productCatSchedule = selectedProduct.category?.availabilitySchedule ?? selectedCategory?.availabilitySchedule ?? null;
-    const productCatAvailable = isCategoryAvailable(productCatSchedule);
-    const productCatAvailMsg = getAvailabilityMessage(productCatSchedule);
-    const productCatAgeRestricted = selectedProduct.category?.ageRestricted ?? selectedCategory?.ageRestricted ?? false;
-    const isRestricted = !productCatAvailable;
-    const isOutOfStock = selectedProduct.stockStatus === "out_of_stock";
-    const canAdd = !isRestricted && storeOpen && !isOutOfStock;
-    const quantity = getProductQuantity(selectedProduct.id);
-    const hasModifiers = (modifierData?.groups?.length ?? 0) > 0;
-    const hasDeal = (modifierData?.deals?.length ?? 0) > 0;
-    const deal = modifierData?.deals?.[0];
-    const requiredMet = allRequiredModifiersSelected();
+    if (!selectedProduct || !modalVisible) return null;
+    const modifierGroups = selectedProduct.modifierGroups || [];
+    const modifierData = modifierGroups.map((group: any) => ({
+      ...group,
+      selectedModifiers: selectedModifiers[group.id] || [],
+    }));
 
     return (
-      <Modal
-        visible={modalVisible}
-        animationType="none"
-        transparent={true}
-        onRequestClose={closeProductDetail}
-        statusBarTranslucent={true}
-      >
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={closeProductDetail}
-          />
           <View style={styles.modalContent}>
-            <View style={styles.handleBar} />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              <TouchableOpacity onPress={closeProductDetail} style={styles.closeButton}>
-                <Text style={{ fontSize: 18, color: "#687076", fontWeight: "600" }}>✕</Text>
-              </TouchableOpacity>
-              {productImage ? (
-                <View style={styles.modalImageContainer}>
-                  <Image
-                    source={{ uri: productImage }}
-                    style={styles.modalImage}
-                    contentFit="contain"
-                    recyclingKey={selectedProduct?.id?.toString()}
-                    cachePolicy="memory-disk"
-                    transition={0}
-                  />
-                </View>
-              ) : (
-                <View style={[styles.modalImageContainer, styles.modalImagePlaceholder]}>
-                  <Text style={{ fontSize: 64 }}>📦</Text>
-                </View>
-              )}
-              <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <Text style={styles.modalProductName}>{selectedProduct.name}</Text>
-                  {productCatAgeRestricted && (
-                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.modalPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
-                {selectedProduct.isDrs && (
-                  <Text style={{ fontSize: 12, color: "#0EA5E9", fontWeight: "600", marginTop: 4 }}>Price incl. DRS deposit</Text>
-                )}
-                {/* Multi-buy deal badge */}
-                {hasDeal && deal && (
-                  <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: "flex-start", marginTop: 8, borderWidth: 1, borderColor: "#FDE68A" }}>
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#92400E" }}>🏷️ {deal.label || `${deal.quantity} for €${parseFloat(deal.dealPrice).toFixed(2)}`}</Text>
-                  </View>
-                )}
-                {isOutOfStock && (
-                  <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 }}>
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#DC2626" }}>Out of Stock</Text>
-                  </View>
-                )}
-                {isRestricted && productCatAvailMsg && (
-                  <View style={{ backgroundColor: "#FEF3C7", padding: 12, borderRadius: 10, marginTop: 12, borderWidth: 1, borderColor: "#FDE68A" }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>🕐 {productCatAvailMsg}</Text>
-                  </View>
-                )}
-                {selectedProduct.description ? (
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", marginBottom: 6 }}>Description</Text>
-                    <Text style={{ fontSize: 14, color: "#687076", lineHeight: 21 }}>{selectedProduct.description}</Text>
-                  </View>
-                ) : null}
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
 
-                {/* Modifier Groups */}
-                {hasModifiers && modifierData?.groups?.map((group: any) => {
-                  const selectedIds = selectedModifiers[group.id] || [];
-                  return (
-                    <View key={group.id} style={{ marginTop: 20 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>{group.name}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          {group.required && (
-                            <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                              <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>REQUIRED</Text>
-                            </View>
-                          )}
-                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>
-                            {group.type === "single" ? "Pick one" : group.maxSelections > 0 ? `Pick up to ${group.maxSelections}` : "Pick any"}
-                          </Text>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+              {selectedProduct.images && selectedProduct.images[0] && (
+                <Image source={{ uri: selectedProduct.images[0] }} style={styles.productImage} contentFit="cover" />
+              )}
+
+              <View style={styles.productDetails}>
+                <Text style={styles.productName}>{selectedProduct.name}</Text>
+                {selectedProduct.description && (
+                  <Text style={styles.productDescription}>{selectedProduct.description}</Text>
+                )}
+                <Text style={styles.productPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
+
+                {modifierData.length > 0 && (
+                  <View style={styles.modifiersContainer}>
+                    {modifierData.map((group: any) => (
+                      <View key={group.id} style={styles.modifierGroup}>
+                        <Text style={styles.modifierGroupTitle}>
+                          {group.name} {group.required ? "*" : ""}
+                        </Text>
+                        <View style={styles.modifierOptions}>
+                          {group.modifiers.map((modifier: any) => {
+                            const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
+                            const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
+                            return (
+                              <TouchableOpacity
+                                key={modifier.id}
+                                onPress={() => {
+                                  const updated = isSelected
+                                    ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
+                                    : [...(selectedModifiers[group.id] || []), modifier.id];
+                                  setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
+                                }}
+                                style={[styles.modifierOption, isSelected && styles.modifierOptionSelected]}
+                              >
+                                <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
+                                  {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
+                                </Text>
+                                {isSelected && group.allowOptionQuantity && (
+                                  <View style={styles.quantityControl}>
+                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
+                                      <Text style={styles.quantityButtonText}>−</Text>
+                                    </TouchableOpacity>
+                                    <Text style={styles.quantityText}>{quantity}</Text>
+                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 })}>
+                                      <Text style={styles.quantityButtonText}>+</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
                       </View>
-                      {group.modifiers.map((mod: any) => {
-                        const isSelected = selectedIds.includes(mod.id);
-                        const modPrice = parseFloat(mod.price);
-                        const isUnavailable = mod.available === false;
-                        const isQuantityGroup = group.allowOptionQuantity;
-                        const optQty = isQuantityGroup ? (optionQuantities[`${group.id}_${mod.id}`] || 0) : 0;
-                        const maxOptQty = group.maxOptionQuantity || 6;
-
-                        if (isQuantityGroup) {
-                          // Quantity stepper row
-                          return (
-                            <View
-                              key={mod.id}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                paddingVertical: 10,
-                                paddingHorizontal: 12,
-                                marginBottom: 4,
-                                borderRadius: 10,
-                                borderWidth: 1.5,
-                                borderColor: isUnavailable ? "#E5E7EB" : optQty > 0 ? "#00E5FF" : "#E5E7EB",
-                                backgroundColor: isUnavailable ? "#F3F4F6" : optQty > 0 ? "#F0FDFF" : "#FFFFFF",
-                                opacity: isUnavailable ? 0.5 : 1,
-                              }}
-                            >
-                              <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 14, fontWeight: "500", color: isUnavailable ? "#9CA3AF" : "#11181C", textDecorationLine: isUnavailable ? "line-through" : "none" }}>{mod.name}</Text>
-                                {isUnavailable && (
-                                  <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 1 }}>Unavailable</Text>
-                                )}
-                                {!isUnavailable && optQty > 0 && modPrice > 0 && (
-                                  <Text style={{ fontSize: 11, color: "#00B8D4", fontWeight: "600", marginTop: 1 }}>€{(modPrice * optQty).toFixed(2)}</Text>
-                                )}
-                              </View>
-                              {!isUnavailable && modPrice > 0 && (
-                                <Text style={{ fontSize: 13, fontWeight: "600", color: "#00B8D4", marginRight: 10 }}>+€{modPrice.toFixed(2)}</Text>
-                              )}
-                              {!isUnavailable && modPrice === 0 && (
-                                <Text style={{ fontSize: 12, color: "#9BA1A6", marginRight: 10 }}>Free</Text>
-                              )}
-                              {!isUnavailable && (
-                                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#F5F5F5", borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB" }}>
-                                  <TouchableOpacity
-                                    onPress={() => changeOptionQuantity(group.id, mod.id, -1, maxOptQty)}
-                                    style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", opacity: optQty <= 0 ? 0.3 : 1 }}
-                                    disabled={optQty <= 0}
-                                  >
-                                    <Text style={{ fontSize: 18, fontWeight: "600", color: "#11181C" }}>−</Text>
-                                  </TouchableOpacity>
-                                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C", minWidth: 24, textAlign: "center" }}>{optQty}</Text>
-                                  <TouchableOpacity
-                                    onPress={() => changeOptionQuantity(group.id, mod.id, 1, maxOptQty)}
-                                    style={{ width: 34, height: 34, alignItems: "center", justifyContent: "center", opacity: optQty >= maxOptQty ? 0.3 : 1 }}
-                                    disabled={optQty >= maxOptQty}
-                                  >
-                                    <Text style={{ fontSize: 18, fontWeight: "600", color: "#11181C" }}>+</Text>
-                                  </TouchableOpacity>
-                                </View>
-                              )}
-                            </View>
-                          );
-                        }
-
-                        // Standard checkbox/radio row
-                        return (
-                          <TouchableOpacity
-                            key={mod.id}
-                            onPress={() => !isUnavailable && toggleModifier(group.id, mod.id, group.type, group.maxSelections || 0)}
-                            disabled={isUnavailable}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              paddingVertical: 10,
-                              paddingHorizontal: 12,
-                              marginBottom: 4,
-                              borderRadius: 10,
-                              borderWidth: 1.5,
-                              borderColor: isUnavailable ? "#E5E7EB" : isSelected ? "#00E5FF" : "#E5E7EB",
-                              backgroundColor: isUnavailable ? "#F3F4F6" : isSelected ? "#F0FDFF" : "#FFFFFF",
-                              opacity: isUnavailable ? 0.5 : 1,
-                            }}
-                            activeOpacity={isUnavailable ? 1 : 0.7}
-                          >
-                            {/* Radio/Checkbox indicator */}
-                            <View style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: group.type === "single" ? 11 : 4,
-                              borderWidth: 2,
-                              borderColor: isUnavailable ? "#D1D5DB" : isSelected ? "#00E5FF" : "#D1D5DB",
-                              backgroundColor: isUnavailable ? "#E5E7EB" : isSelected ? "#00E5FF" : "transparent",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginRight: 10,
-                            }}>
-                              {isSelected && !isUnavailable && (
-                                <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>
-                              )}
-                              {isUnavailable && (
-                                <Text style={{ color: "#9CA3AF", fontSize: 12, fontWeight: "700" }}>✕</Text>
-                              )}
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 14, fontWeight: "500", color: isUnavailable ? "#9CA3AF" : "#11181C", textDecorationLine: isUnavailable ? "line-through" : "none" }}>{mod.name}</Text>
-                              {isUnavailable && (
-                                <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 1 }}>Unavailable</Text>
-                              )}
-                            </View>
-                            {!isUnavailable && modPrice > 0 && (
-                              <Text style={{ fontSize: 13, fontWeight: "600", color: "#00B8D4" }}>+€{modPrice.toFixed(2)}</Text>
-                            )}
-                            {!isUnavailable && modPrice === 0 && (
-                              <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Free</Text>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-
-                {selectedProduct.sku ? (
-                  <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 12 }}>SKU: {selectedProduct.sku}</Text>
-                ) : null}
-                {quantity > 0 && (
-                  <View style={{ backgroundColor: "#DCFCE7", padding: 10, borderRadius: 10, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={{ fontSize: 13, color: "#16A34A", fontWeight: "600" }}>✓ {quantity} already in cart</Text>
+                    ))}
                   </View>
                 )}
               </View>
             </ScrollView>
-            {canAdd && (
-              <View style={[styles.modalBottom, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-                <View style={styles.quantitySelector}>
-                  <TouchableOpacity
-                    onPress={() => { if (modalQuantity > 1) { setModalQuantity(modalQuantity - 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
-                    style={[styles.quantityButton, modalQuantity <= 1 && { opacity: 0.3 }]}
-                    disabled={modalQuantity <= 1}
-                  >
-                    <Text style={styles.quantityButtonText}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.quantityText}>{modalQuantity}</Text>
-                  <TouchableOpacity
-                    onPress={() => { setModalQuantity(modalQuantity + 1); if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                    style={styles.quantityButton}
-                  >
-                    <Text style={styles.quantityButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (!requiredMet) {
-                      Alert.alert("Required Options", "Please select all required options before adding to cart.");
-                      return;
-                    }
-                    const mods = getSelectedModifiersList();
-                    const deal = modifierData?.deals?.[0];
-                    const cartDeal = deal ? { dealId: deal.id, quantity: deal.quantity, dealPrice: deal.dealPrice, label: deal.label || `${deal.quantity} for €${parseFloat(deal.dealPrice).toFixed(2)}` } : null;
-                    const success = addToCart(storeId, store?.name || "Store", {
-                      productId: selectedProduct.id,
-                      productName: selectedProduct.name,
-                      productPrice: selectedProduct.price,
-                      quantity: modalQuantity,
-                      modifiers: mods.length > 0 ? mods : undefined,
-                      deal: cartDeal,
-                    });
-                    if (!success) {
-                      Alert.alert(
-                        "Replace cart items?",
-                        `You have items from ${cart.storeName} in your cart.\n\nAdding items from ${store?.name} will remove your current cart.`,
-                        [
-                          { text: "Keep Current Cart", style: "cancel" },
-                          {
-                            text: "Start New Cart",
-                            onPress: () => {
-                              clearCart();
-                              addToCart(storeId, store?.name || "Store", {
-                                productId: selectedProduct.id,
-                                productName: selectedProduct.name,
-                                productPrice: selectedProduct.price,
-                                quantity: modalQuantity,
-                                modifiers: mods.length > 0 ? mods : undefined,
-                                deal: cartDeal,
-                              });
-                            },
-                          },
-                        ]
-                      );
-                    }
-                    closeProductDetail();
-                  }}
-                  style={[styles.addToCartButton, !requiredMet && { opacity: 0.5 }]}
-                >
-                  <Text style={styles.addToCartText}>Add to Cart · €{getModalTotalPrice().toFixed(2)}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {!canAdd && (
-              <View style={[styles.modalBottom, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-                <View style={[styles.addToCartButton, { backgroundColor: "#9BA1A6", flex: 1 }]}>
-                  <Text style={styles.addToCartText}>
-                    {isOutOfStock ? "Out of Stock" : !storeOpen ? "Store Closed" : "Not Available Right Now"}
-                  </Text>
-                </View>
-              </View>
-            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                const modifierPrice = modifierData.reduce((sum: number, group: any) => {
+                  return sum + (group.selectedModifiers || []).reduce((groupSum: number, modId: number) => {
+                    const mod = group.modifiers.find((m: any) => m.id === modId);
+                    const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                    return groupSum + (mod ? parseFloat(mod.price) * qty : 0);
+                  }, 0);
+                }, 0);
+
+                const totalPrice = (parseFloat(selectedProduct.price) + modifierPrice).toFixed(2);
+                handleAddToCart(selectedProduct.id, selectedProduct.name, totalPrice, selectedCategory?.availabilitySchedule, modalQuantity);
+                setModalVisible(false);
+                setSelectedModifiers({});
+                setOptionQuantities({});
+                setModalQuantity(1);
+              }}
+              style={styles.addToCartButton}
+            >
+              <Text style={styles.addToCartText}>Add to Cart</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
     );
   };
+
+  useEffect(() => {
+    const defaults: Record<number, number[]> = {};
+    const modifierGroups = selectedProduct?.modifierGroups || [];
+    for (const group of modifierGroups) {
+      if (group.required && group.modifiers.length > 0) {
+        defaults[group.id] = [group.modifiers[0].id];
+      }
+    }
+    setSelectedModifiers(defaults);
+  }, [selectedProduct?.id, modalVisible]);
+
+  // Scroll to top when category selection changes
+  useEffect(() => {
+    if (selectedCategoryId !== null) {
+      setTimeout(() => {
+        WebLayoutScrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 50);
+    }
+  }, [selectedCategoryId]);
+
+
+  // Load recent searches on mount
+  useEffect(() => {
+    AsyncStorage.getItem(`recentSearches_${storeId}`).then((data) => {
+      if (data) setRecentSearches(JSON.parse(data));
+    });
+  }, [storeId]);
 
   if (storeLoading || productsLoading) {
     return (
@@ -838,21 +463,25 @@ export default function StoreDetailScreen() {
     );
   };
 
-  // Main return with single ScreenWrapper - category list or products view
   return (
     <ScreenWrapper>
       <ScreenContainer className="bg-background">
-        {selectedCategoryId === null ? (
-          // Category List View
-          <>
-        {/* Header with Cart Icon */}
+        {renderProductModal()}
+
+        {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="active:opacity-70"
-          >
-            <Text className="text-primary text-2xl">‹ Back</Text>
-          </TouchableOpacity>
+          {selectedCategoryId === null ? (
+            <TouchableOpacity onPress={() => router.back()} className="active:opacity-70">
+              <Text className="text-primary text-2xl">‹ Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={() => { setSelectedCategoryId(null); setProductSearch(""); setSortBy("az"); }}
+              className="active:opacity-70"
+            >
+              <Text className="text-primary text-2xl">‹ Categories</Text>
+            </TouchableOpacity>
+          )}
 
           {cartItemCount > 0 && (
             <TouchableOpacity
@@ -869,717 +498,481 @@ export default function StoreDetailScreen() {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-          {/* Store Header */}
-          <View className="px-4 pt-4 pb-2">
-            <View className="flex-row items-center gap-3 mb-2">
-              <Text className="text-3xl font-bold text-foreground">{store.name}</Text>
-              {/* Open/Closed Badge */}
-              <View
-                style={{
-                  backgroundColor: storeOpen ? "#DCFCE7" : "#FEF2F2",
-                  paddingHorizontal: 10,
-                  paddingVertical: 3,
-                  borderRadius: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "700",
-                    color: storeOpen ? "#16A34A" : "#DC2626",
-                  }}
-                >
-                  {storeOpen ? "Open" : "Closed"}
-                </Text>
-              </View>
-            </View>
-            {store.address && (
-              <Text className="text-sm text-muted mb-1">{store.address}</Text>
-            )}
-          </View>
-
-          {/* Store Hours Section */}
-          <View className="px-4 pb-4">
-            <TouchableOpacity
-              onPress={() => setShowHours(!showHours)}
-              className="active:opacity-70"
-            >
-              <View className="flex-row items-center gap-2">
-                <Text style={{ fontSize: 13, color: storeOpen ? "#16A34A" : "#DC2626", fontWeight: "600" }}>
-                  {todayHours || "Hours not set"}
-                </Text>
-                <Text className="text-muted text-xs">{showHours ? "▲" : "▼"}</Text>
-              </View>
-              {!storeOpen && nextOpen && (
-                <Text style={{ fontSize: 12, color: "#DC2626", marginTop: 2 }}>
-                  {nextOpen}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Weekly Hours Dropdown */}
-            {showHours && weeklyHours.length > 0 && (
-              <View className="mt-3 bg-surface rounded-xl p-3 border border-border">
-                {weeklyHours.map((item, index) => {
-                  const isToday = index === new Date().getDay();
-                  return (
-                    <View
-                      key={item.day}
-                      className="flex-row justify-between py-1.5"
-                      style={isToday ? { backgroundColor: "rgba(0,229,255,0.08)", marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 6 } : undefined}
-                    >
-                      <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: isToday ? "#00E5FF" : "#687076" }}>
-                        {item.day}{isToday ? " (Today)" : ""}
-                      </Text>
-                      <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: item.hours === "Closed" ? "#DC2626" : (isToday ? "#00E5FF" : "#687076") }}>
-                        {item.hours}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* Closed Store Banner */}
-          {!storeOpen && (
-            <View className="mx-4 mb-4 p-4 rounded-xl" style={{ backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#DC2626", marginBottom: 2 }}>
-                This store is currently closed
-              </Text>
-              <Text style={{ fontSize: 13, color: "#991B1B" }}>
-                You can browse the menu but ordering is not available right now.{nextOpen ? ` ${nextOpen}.` : ""}
-              </Text>
-            </View>
-          )}
-
-          {/* Search Bar — categories + products */}
-          <View className="px-4 mb-4">
-            <TextInput
-              style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
-              placeholder="Search products and categories..."
-              placeholderTextColor="#9BA1A6"
-              value={globalSearch}
-              onChangeText={(text) => {
-                setGlobalSearch(text);
-                setCategorySearch("");
-                if (text.trim().length > 0) setShowRecentSearches(false);
-              }}
-              onFocus={() => {
-                setSearchFocused(true);
-                if (globalSearch.trim().length === 0 && recentSearches.length > 0) setShowRecentSearches(true);
-              }}
-              onBlur={() => {
-                setTimeout(() => { setShowRecentSearches(false); setSearchFocused(false); }, 200);
-              }}
-              onSubmitEditing={() => {
-                if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {/* Recent Searches Dropdown */}
-            {showRecentSearches && recentSearches.length > 0 && globalSearch.trim().length === 0 && (
-              <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, paddingVertical: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingBottom: 6 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076" }}>Recent Searches</Text>
-                  <TouchableOpacity onPress={clearRecentSearches}>
-                    <Text style={{ fontSize: 12, color: "#00BCD4", fontWeight: "600" }}>Clear All</Text>
-                  </TouchableOpacity>
+        {/* Single ScrollView for both views */}
+        <ScrollView
+          ref={mainScrollViewRef}
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          {selectedCategoryId === null ? (
+            // ── CATEGORY LIST VIEW ──
+            <>
+              {/* Store Header */}
+              <View className="px-4 pt-4 pb-2">
+                <View className="flex-row items-center gap-3 mb-2">
+                  <Text className="text-3xl font-bold text-foreground">{store.name}</Text>
+                  <View style={{ backgroundColor: storeOpen ? "#DCFCE7" : "#FEF2F2", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: storeOpen ? "#16A34A" : "#DC2626" }}>
+                      {storeOpen ? "Open" : "Closed"}
+                    </Text>
+                  </View>
                 </View>
-                {recentSearches.map((term, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={() => {
-                      setGlobalSearch(term);
-                      setCategorySearch("");
-                      setShowRecentSearches(false);
-                    }}
-                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}
-                  >
-                    <Text style={{ fontSize: 16, color: "#9BA1A6" }}>🕒</Text>
-                    <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }}>{term}</Text>
-                    <Text style={{ fontSize: 14, color: "#9BA1A6" }}>↗</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {/* Autocomplete Suggestions Dropdown */}
-            {searchFocused && globalSearch.trim().length >= 1 && (filteredCategories.length > 0 || globalSearchResults.length > 0) && (
-              <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, paddingVertical: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, maxHeight: 300 }}>
-                {/* Category suggestions (top 3) */}
-                {filteredCategories.slice(0, 3).map((cat: any) => (
-                  <TouchableOpacity
-                    key={`sug-cat-${cat.id}`}
-                    onPress={() => {
-                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
-                      setGlobalSearch("");
-                      setSelectedCategoryId(cat.id);
-                      setSearchFocused(false);
-                    }}
-                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10, borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0" }}
-                  >
-                    <Text style={{ fontSize: 16 }}>📂</Text>
-                    <View style={{ flex: 1 }}>
-                      <HighlightText text={cat.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1} />
-                      <Text style={{ fontSize: 11, color: "#9BA1A6" }}>{cat.products?.length || 0} items</Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: "#00BCD4", fontWeight: "600" }}>Category</Text>
-                  </TouchableOpacity>
-                ))}
-                {/* Product suggestions (top 5) */}
-                {globalSearchResults.slice(0, 5).map(({ product, categoryName, categorySchedule }) => (
-                  <TouchableOpacity
-                    key={`sug-prod-${product.id}`}
-                    onPress={() => {
-                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
-                      openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } });
-                      setSearchFocused(false);
-                    }}
-                    style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10, borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0" }}
-                  >
-                    <Text style={{ fontSize: 16 }}>📦</Text>
-                    <View style={{ flex: 1 }}>
-                      <HighlightText text={product.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "500", color: "#11181C" }} numberOfLines={1} />
-                      <Text style={{ fontSize: 11, color: "#9BA1A6" }}>{categoryName}</Text>
-                    </View>
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(product.price).toFixed(2)}</Text>
-                  </TouchableOpacity>
-                ))}
-                {/* View all results link */}
-                {(globalSearchResults.length > 5 || filteredCategories.length > 3) && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSearchFocused(false);
-                      if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
-                    }}
-                    style={{ paddingHorizontal: 14, paddingVertical: 10, alignItems: "center" }}
-                  >
-                    <Text style={{ fontSize: 13, color: "#00BCD4", fontWeight: "600" }}>View all {globalSearchResults.length} results ↓</Text>
-                  </TouchableOpacity>
+                {store.address && (
+                  <Text className="text-sm text-muted mb-1">{store.address}</Text>
                 )}
               </View>
-            )}
-          </View>
 
-          {/* Matching Categories (shown first when searching) */}
-          {globalSearch.trim().length > 0 && filteredCategories.length > 0 && (
-            <View className="px-4 mb-4">
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <Text className="text-xl font-bold text-foreground">Matching Categories</Text>
-              </View>
-              {filteredCategories.map((cat: any) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => {
-                    if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch);
-                    setGlobalSearch("");
-                    setSelectedCategoryId(cat.id);
-                  }}
-                  className="bg-surface rounded-xl border border-border mb-2 active:opacity-70"
-                  style={{ flexDirection: "row", alignItems: "center", padding: 14, gap: 12 }}
-                >
-                  <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", overflow: "hidden" }}>
-                    {cat.imageUrl ? (
-                      <Image source={{ uri: cat.imageUrl }} style={{ width: 44, height: 44 }} contentFit="cover" />
-                    ) : (
-                      <Text style={{ fontSize: 20 }}>📦</Text>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <HighlightText text={cat.name} highlight={globalSearch} style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }} />
-                    <Text style={{ fontSize: 12, color: "#9BA1A6", marginTop: 2 }}>{cat.productCount ?? cat._count?.products ?? 0} items</Text>
-                  </View>
-                  <Text style={{ fontSize: 18, color: "#00E5FF" }}>›</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Product Search Results */}
-          {globalSearch.trim().length > 0 && globalSearchResults.length > 0 && (
-            <View className="px-4 mb-4">
-              <Text className="text-lg font-bold text-foreground mb-3">
-                Products ({globalSearchResults.length}{globalSearchResults.length >= 50 ? "+" : ""})
-              </Text>
-              <View className="gap-2">
-                {globalSearchResults.map(({ product, categoryName, categorySchedule }) => {
-                  const productImage = getProductImage(product);
-                  const qty = getProductQuantity(product.id);
-                  const catOk = isCategoryAvailable(categorySchedule);
-                  return (
-                    <TouchableOpacity
-                      key={product.id}
-                      onPress={() => openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } })}
-                      className="bg-surface rounded-xl border border-border active:opacity-70"
-                      style={{ flexDirection: "row", alignItems: "center", padding: 12, gap: 12, opacity: catOk ? 1 : 0.5 }}
-                    >
-                      {/* Product Image */}
-                      <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: "#f0f0f0", overflow: "hidden" }}>
-                        {productImage ? (
-                          <Image source={{ uri: productImage }} style={{ width: 52, height: 52 }} contentFit="cover" />
-                        ) : (
-                          <View style={{ width: 52, height: 52, justifyContent: "center", alignItems: "center" }}>
-                            <Text style={{ fontSize: 22 }}>📦</Text>
-                          </View>
-                        )}
-                      </View>
-                      {/* Product Info */}
-                      <View style={{ flex: 1 }}>
-                        <HighlightText text={product.name} highlight={globalSearch} style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }} numberOfLines={1} />
-                        <HighlightText text={categoryName} highlight={globalSearch} style={{ fontSize: 11, color: "#9BA1A6", marginTop: 1 }} numberOfLines={1} />
-                      </View>
-                      {/* Price + Add */}
-                      <View style={{ alignItems: "flex-end", gap: 4 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(product.price).toFixed(2)}</Text>
-                        {qty > 0 ? (
-                          <View style={{ backgroundColor: "#00E5FF", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{qty} in cart</Text>
-                          </View>
-                        ) : (
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              if (product.hasModifiers) {
-                                openProductDetail({ ...product, category: { ...product.category, availabilitySchedule: categorySchedule } });
-                              } else {
-                                handleAddToCart(product.id, product.name, product.price, categorySchedule);
-                              }
-                            }}
-                            style={{ backgroundColor: "#00E5FF", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 }}
-                          >
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{product.hasModifiers ? "Customise" : "+ Add"}</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {/* No results message */}
-          {globalSearch.trim().length > 0 && globalSearchResults.length === 0 && filteredCategories.length === 0 && (
-            <View className="px-4 mb-4 items-center py-8">
-              <Text style={{ fontSize: 40, marginBottom: 8 }}>🔍</Text>
-              <Text className="text-muted text-center" style={{ fontSize: 15 }}>
-                No products or categories match "{globalSearch}"
-              </Text>
-              <TouchableOpacity
-                onPress={() => setGlobalSearch("")}
-                className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
-              >
-                <Text className="text-background font-semibold">Clear Search</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Trending Now Section */}
-          {!globalSearch.trim() && trendingProducts && trendingProducts.length > 0 && !selectedCategoryId && (
-            <View className="px-4 mb-6">
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ fontSize: 20 }}>🔥</Text>
-                  <Text className="text-xl font-bold text-foreground">Trending Now</Text>
-                </View>
-                <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Based on recent orders</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
-                {trendingProducts.map((item: any, index: number) => {
-                  const itemImages = item.images ? (typeof item.images === "string" ? JSON.parse(item.images) : item.images) : [];
-                  const itemImage = itemImages.length > 0 ? itemImages[0] : null;
-                  const qty = cartGetProductQuantity(item.id);
-                  const fullProduct = products.find((p: any) => p.id === item.id);
-                  return (
-                    <TouchableOpacity
-                      key={`trending-${item.id}`}
-                      onPress={() => {
-                        if (fullProduct) {
-                          openProductDetail(fullProduct);
-                        }
-                      }}
-                      style={{
-                        width: 150,
-                        backgroundColor: "#fff",
-                        borderRadius: 14,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {/* Rank badge */}
-                      {index < 3 && (
-                        <View style={{
-                          position: "absolute",
-                          top: 8,
-                          left: 8,
-                          zIndex: 10,
-                          backgroundColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : "#CD7F32",
-                          borderRadius: 10,
-                          width: 22,
-                          height: 22,
-                          justifyContent: "center",
-                          alignItems: "center",
-                        }}>
-                          <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff" }}>#{index + 1}</Text>
-                        </View>
-                      )}
-                      {/* Product Image */}
-                      <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center" }}>
-                        {itemImage ? (
-                          <Image source={{ uri: itemImage }} style={{ width: 150, height: 110 }} contentFit="cover" />
-                        ) : (
-                          <Text style={{ fontSize: 36 }}>📦</Text>
-                        )}
-                      </View>
-                      {/* Product Info */}
-                      <View style={{ padding: 10, gap: 4 }}>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{item.name}</Text>
-                        <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-                          <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>
-                            €{parseFloat(item.price).toFixed(2)}
-                          </Text>
-                          {qty > 0 ? (
-                            <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
-                              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
-                            </View>
-                          ) : (
-                            <TouchableOpacity
-                              onPress={(e) => {
-                                e.stopPropagation?.();
-                                if (fullProduct?.hasModifiers) {
-                                  if (fullProduct) openProductDetail(fullProduct);
-                                } else {
-                                  handleAddToCart(item.id, item.name, item.price);
-                                }
-                              }}
-                              style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
-                            >
-                              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                        {/* Order count badge */}
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
-                          <Text style={{ fontSize: 10, color: "#9BA1A6" }}>🔥 {item.orderCount} ordered</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Categories (hidden when search has matching categories shown at top) */}
-          {!(globalSearch.trim().length > 0 && filteredCategories.length > 0) && (
-          <View className="px-4">
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <Text className="text-xl font-bold text-foreground">
-                Browse by Category
-              </Text>
-              <View style={{ flexDirection: "row", gap: 4 }}>
-                {(["popular", "az", "za"] as CategorySortOption[]).map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    onPress={() => setCategorySortBy(opt)}
-                    style={[{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                    }, categorySortBy === opt
-                      ? { backgroundColor: "#00BCD4", borderColor: "#00BCD4" }
-                      : { backgroundColor: "transparent", borderColor: "#9BA1A6" }
-                    ]}
-                  >
-                    <Text style={[{ fontSize: 11, fontWeight: "700" }, categorySortBy === opt ? { color: "#fff" } : { color: "#9BA1A6" }]}>
-                      {opt === "popular" ? "Popular" : opt === "az" ? "A → Z" : "Z → A"}
+              {/* Store Hours */}
+              <View className="px-4 pb-4">
+                <TouchableOpacity onPress={() => setShowHours(!showHours)} className="active:opacity-70">
+                  <View className="flex-row items-center gap-2">
+                    <Text style={{ fontSize: 13, color: storeOpen ? "#16A34A" : "#DC2626", fontWeight: "600" }}>
+                      {todayHours || "Hours not set"}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            
-            {filteredCategories.length > 0 ? (
-              <View className="gap-3">
-                {filteredCategories.map((category) => {
-                  const catAvailable = isCategoryAvailable(category.availabilitySchedule);
-                  const availMsg = getAvailabilityMessage(category.availabilitySchedule);
-                  const todayAvail = getTodayAvailability(category.availabilitySchedule);
-
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      onPress={() => setSelectedCategoryId(category.id)}
-                      className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
-                      style={!catAvailable ? { opacity: 0.55 } : undefined}
-                    >
-                      <View className="flex-row items-center gap-3">
-                        <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
-                          {category.icon ? (
-                            <Image
-                              source={{ uri: category.icon }}
-                              style={{ width: 56, height: 56 }}
-                              contentFit="cover"
-                            />
-                          ) : (
-                            <View className="w-full h-full items-center justify-center">
-                              <Text className="text-3xl">📦</Text>
-                            </View>
-                          )}
+                    <Text className="text-muted text-xs">{showHours ? "▲" : "▼"}</Text>
+                  </View>
+                  {!storeOpen && nextOpen && (
+                    <Text style={{ fontSize: 12, color: "#DC2626", marginTop: 2 }}>{nextOpen}</Text>
+                  )}
+                </TouchableOpacity>
+                {showHours && weeklyHours.length > 0 && (
+                  <View className="mt-3 bg-surface rounded-xl p-3 border border-border">
+                    {weeklyHours.map((item, index) => {
+                      const isToday = index === new Date().getDay();
+                      return (
+                        <View
+                          key={item.day}
+                          className="flex-row justify-between py-1.5"
+                          style={isToday ? { backgroundColor: "rgba(0,229,255,0.08)", marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 6 } : undefined}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: isToday ? "#00E5FF" : "#687076" }}>
+                            {item.day}{isToday ? " (Today)" : ""}
+                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: isToday ? "700" : "400", color: item.hours === "Closed" ? "#DC2626" : (isToday ? "#00E5FF" : "#687076") }}>
+                            {item.hours}
+                          </Text>
                         </View>
-                        
-                        <View className="flex-1">
-                          <View className="flex-row items-center gap-1.5">
-                            <Text className="text-lg font-semibold text-foreground" numberOfLines={1} style={{ flexShrink: 1 }}>
-                              {category.name}
-                            </Text>
-                            {category.ageRestricted && (
-                              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>18+</Text>
-                              </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
+              {/* Closed Banner */}
+              {!storeOpen && (
+                <View className="mx-4 mb-4 p-4 rounded-xl" style={{ backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#DC2626", marginBottom: 2 }}>
+                    This store is currently closed
+                  </Text>
+                  <Text style={{ fontSize: 13, color: "#991B1B" }}>
+                    You can browse the menu but ordering is not available right now.{nextOpen ? ` ${nextOpen}.` : ""}
+                  </Text>
+                </View>
+              )}
+
+              {/* Search Bar */}
+              <View className="px-4 mb-4">
+                <TextInput
+                  style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
+                  placeholder="Search products and categories..."
+                  placeholderTextColor="#9BA1A6"
+                  value={globalSearch}
+                  onChangeText={(text) => {
+                    setGlobalSearch(text);
+                    setCategorySearch("");
+                    if (text.trim().length > 0) setShowRecentSearches(false);
+                  }}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    if (globalSearch.trim().length === 0 && recentSearches.length > 0) setShowRecentSearches(true);
+                  }}
+                  onBlur={() => { setTimeout(() => { setShowRecentSearches(false); setSearchFocused(false); }, 200); }}
+                  onSubmitEditing={() => { if (globalSearch.trim().length >= 2) saveRecentSearch(globalSearch); }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {/* Recent Searches */}
+                {showRecentSearches && recentSearches.length > 0 && globalSearch.trim().length === 0 && (
+                  <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, paddingVertical: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingBottom: 6 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076" }}>Recent Searches</Text>
+                      <TouchableOpacity onPress={clearRecentSearches}>
+                        <Text style={{ fontSize: 12, color: "#00BCD4", fontWeight: "600" }}>Clear All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {recentSearches.map((term, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => { setGlobalSearch(term); setCategorySearch(""); setShowRecentSearches(false); }}
+                        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}
+                      >
+                        <Text style={{ fontSize: 16, color: "#9BA1A6" }}>🕒</Text>
+                        <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }}>{term}</Text>
+                        <Text style={{ fontSize: 14, color: "#9BA1A6" }}>↗</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {/* Autocomplete Results */}
+                {searchFocused && globalSearch.trim().length > 0 && globalSearchResults.length > 0 && (
+                  <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginTop: 4, maxHeight: 300, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
+                    <ScrollView>
+                      {globalSearchResults.map((result, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => {
+                            openProductDetail(result.product);
+                            setGlobalSearch("");
+                            setSearchFocused(false);
+                          }}
+                          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}
+                        >
+                          <Text style={{ fontSize: 16 }}>🔍</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>{result.product.name}</Text>
+                            <Text style={{ fontSize: 12, color: "#9BA1A6" }}>{result.categoryName}</Text>
+                          </View>
+                          <Text style={{ fontSize: 14, fontWeight: "600", color: "#00E5FF" }}>€{parseFloat(result.product.price).toFixed(2)}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Global Search Results */}
+              {globalSearch.trim().length > 0 && globalSearchResults.length > 0 && (
+                <View className="px-4">
+                  <Text className="text-lg font-bold text-foreground mb-3">Search Results</Text>
+                  <View className="gap-3">
+                    {globalSearchResults.map((result, idx) => {
+                      const qty = getProductQuantity(result.product.id);
+                      const itemImage = getProductImage(result.product);
+                      const fullProduct = result.product;
+                      return (
+                        <TouchableOpacity
+                          key={`search-${result.product.id}-${idx}`}
+                          onPress={() => { if (fullProduct) openProductDetail(fullProduct); }}
+                          style={{ backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}
+                        >
+                          <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center" }}>
+                            {itemImage ? (
+                              <Image source={{ uri: itemImage }} style={{ width: 150, height: 110 }} contentFit="cover" />
+                            ) : (
+                              <Text style={{ fontSize: 36 }}>📦</Text>
                             )}
                           </View>
-                          <Text className="text-sm text-muted">
-                            {category.products.length} {category.products.length === 1 ? 'item' : 'items'}
-                          </Text>
-                          {/* Availability message */}
-                          {!catAvailable && availMsg && (
-                            <View className="flex-row items-center gap-1 mt-1">
-                              <Text style={{ fontSize: 11, color: "#F59E0B", fontWeight: "600" }}>
-                                🕐 {availMsg}
-                              </Text>
+                          <View style={{ padding: 10, gap: 4 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{result.product.name}</Text>
+                            <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                              <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(result.product.price).toFixed(2)}</Text>
+                              {qty > 0 ? (
+                                <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                                  <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
+                                </View>
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={(e) => { e.stopPropagation?.(); if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(result.product.id, result.product.name, result.product.price, result.categorySchedule); } }}
+                                  style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
+                                >
+                                  <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
+                                </TouchableOpacity>
+                              )}
                             </View>
-                          )}
-                          {catAvailable && todayAvail && (
-                            <Text style={{ fontSize: 11, color: "#16A34A", marginTop: 2 }}>
-                              🕐 {todayAvail}
-                            </Text>
-                          )}
-                        </View>
-                        
-                        <Text className="text-primary text-2xl">›</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : (
-              !globalSearch.trim() ? (
-                <View className="items-center py-8">
-                  <Text className="text-muted text-center">No products available</Text>
-                </View>
-              ) : null
-            )}
-          </View>
-          )}
-        </ScrollView>
-      {/* Product Detail Modal — also rendered in category browsing/search view */}
-      {renderProductModal()}
-          </>
-        ) : (
-          // Products View
-          <>
-            {/* Product Detail Modal */}
-      {renderProductModal()}
-
-      {/* Header with Back Button and Cart Icon */}
-      <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
-        <TouchableOpacity
-          onPress={() => { setSelectedCategoryId(null); setProductSearch(""); setSortBy("az"); }}
-          className="active:opacity-70"
-        >
-          <Text className="text-primary text-2xl">‹ Categories</Text>
-        </TouchableOpacity>
-
-        {cartItemCount > 0 && (
-          <TouchableOpacity
-            onPress={() => router.push(`/cart/${cart.storeId}` as any)}
-            className="active:opacity-70"
-          >
-            <View className="relative">
-              <Text className="text-3xl">🛒</Text>
-              <View className="absolute -top-1 -right-1 bg-primary w-5 h-5 rounded-full items-center justify-center">
-                <Text className="text-background text-xs font-bold">{cartItemCount}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView ref={mainScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
-        {/* Category Header */}
-        <View className="px-4 pt-4 pb-2">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
-            {selectedCategory?.ageRestricted && (
-              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
-              </View>
-            )}
-          </View>
-          <View className="flex-row items-center gap-2 mt-1">
-            <Text className="text-sm text-muted">{store.name} · {filteredProducts.length} items</Text>
-            {!storeOpen && (
-              <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>Closed</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Category Availability Banner */}
-        {!catAvailable && catAvailMsg && (
-          <View className="mx-4 mb-3 p-3 rounded-xl" style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A" }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>
-              🕐 {catAvailMsg}
-            </Text>
-            <Text style={{ fontSize: 12, color: "#92400E", marginTop: 2 }}>
-              You can browse but these items cannot be added to your cart right now.
-            </Text>
-          </View>
-        )}
-
-        {/* Product Search Bar */}
-        <View className="px-4 pt-3 pb-2">
-          <TextInput
-            style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
-            placeholder="Search products..."
-            placeholderTextColor="#9BA1A6"
-            value={productSearch}
-            onChangeText={setProductSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-          />
-        </View>
-
-        {/* Sort Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}
-        >
-          <SortPill label="A → Z" value="az" />
-          <SortPill label="Z → A" value="za" />
-          <SortPill label="Price ↑" value="price_low" />
-          <SortPill label="Price ↓" value="price_high" />
-        </ScrollView>
-
-        {/* Products */}
-        <View className="px-4 pt-2">
-          {filteredProducts.length > 0 ? (
-            <View className="gap-3">
-              {filteredProducts.map((product) => {
-                const quantity = getProductQuantity(product.id);
-                const isRestricted = !catAvailable;
-                const productImage = getProductImage(product);
-
-                return (
-                  <TouchableOpacity
-                    key={product.id}
-                    onPress={() => openProductDetail(product)}
-                    activeOpacity={0.7}
-                    style={isRestricted ? { opacity: 0.45 } : undefined}
-                  >
-                    <View className="bg-surface rounded-xl p-4 border border-border">
-                      <View className="flex-row justify-between items-start">
-                        {/* Product Image */}
-                        {productImage && (
-                          <View style={{ width: 64, height: 64, borderRadius: 10, overflow: "hidden", marginRight: 12 }}>
-                            <Image
-                              source={{ uri: productImage }}
-                              style={{ width: 64, height: 64 }}
-                              contentFit="cover"
-                            />
                           </View>
-                        )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
-                        <View className="flex-1 pr-3">
-                          <Text className="text-base font-semibold text-foreground mb-1" numberOfLines={2}>
-                            {product.name}
-                          </Text>
-                          {product.description && (
-                            <Text className="text-sm text-muted mb-2" numberOfLines={2}>
-                              {product.description}
-                            </Text>
-                          )}
-                          <Text className="text-lg font-bold text-primary">
-                            €{parseFloat(product.price).toFixed(2)}
-                          </Text>
-                          {product.isDrs && (
-                            <Text style={{ fontSize: 10, color: "#0EA5E9", fontWeight: "600", marginTop: 1 }}>Price incl. DRS deposit</Text>
-                          )}
-                          {product.stockStatus === "out_of_stock" && (
-                            <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
-                          )}
-                        </View>
+              {/* Trending Section */}
+              {!(globalSearch.trim().length > 0 && globalSearchResults.length > 0) && (
+                <View className="px-4">
+                  {trendingProducts && trendingProducts.length > 0 && (
+                    <View>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <Text className="text-xl font-bold text-foreground">🔥 Trending Now</Text>
+                        <Text className="text-xs text-muted">Based on recent orders</Text>
+                      </View>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                        {trendingProducts.map((item, index) => {
+                          const itemImage = getProductImage(item);
+                          const qty = getProductQuantity(item.id);
+                          const fullProduct = item;
+                          return (
+                            <TouchableOpacity
+                              key={`trending-${item.id}`}
+                              onPress={() => { if (fullProduct) openProductDetail(fullProduct); }}
+                              style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}
+                            >
+                              {index < 3 && (
+                                <View style={{ position: "absolute", top: 8, left: 8, zIndex: 10, backgroundColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : "#CD7F32", borderRadius: 10, width: 22, height: 22, justifyContent: "center", alignItems: "center" }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "800", color: "#fff" }}>#{index + 1}</Text>
+                                </View>
+                              )}
+                              <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center", overflow: "hidden" }}>
+                                {itemImage ? (
+                                  <Image 
+                                    key={itemImage}
+                                    source={{ uri: itemImage }} 
+                                    style={{ width: 150, height: 110 }} 
+                                    contentFit="cover"
+                                    cachePolicy="memory-disk"
+                                  />
+                                ) : (
+                                  <Text style={{ fontSize: 36 }}>📦</Text>
+                                )}
+                              </View>
+                              <View style={{ padding: 10, gap: 4 }}>
+                                <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{item.name}</Text>
+                                <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
+                                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(item.price).toFixed(2)}</Text>
+                                  {qty > 0 ? (
+                                    <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
+                                      <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
+                                    </View>
+                                  ) : (
+                                    <TouchableOpacity
+                                      onPress={(e) => { e.stopPropagation?.(); if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(item.id, item.name, item.price); } }}
+                                      style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
+                                    >
+                                      <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
+                                  <Text style={{ fontSize: 10, color: "#9BA1A6" }}>🔥 {item.orderCount} ordered</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              )}
 
-                        {/* Add to Cart Button */}
+              {/* Browse by Category */}
+              {!(globalSearch.trim().length > 0 && globalSearchResults.length > 0) && (
+                <View className="px-4">
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                    <Text className="text-xl font-bold text-foreground">Browse by Category</Text>
+                    <View style={{ flexDirection: "row", gap: 4 }}>
+                      {(["popular", "az", "za"] as CategorySortOption[]).map((opt) => (
                         <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            if (product.hasModifiers) {
-                              openProductDetail(product);
-                            } else {
-                              handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
-                            }
-                          }}
-                          style={[
-                            styles.quickAddButton,
-                            {
-                              backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF",
-                            },
-                          ]}
-                          disabled={product.stockStatus === "out_of_stock"}
+                          key={opt}
+                          onPress={() => setCategorySortBy(opt)}
+                          style={[{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1 }, categorySortBy === opt ? { backgroundColor: "#00BCD4", borderColor: "#00BCD4" } : { backgroundColor: "transparent", borderColor: "#9BA1A6" }]}
                         >
-                          <Text className="text-background font-semibold">
-                            {product.stockStatus === "out_of_stock" ? "N/A" : product.hasModifiers ? "Customise" : quantity > 0 ? `+${quantity}` : "Add"}
+                          <Text style={[{ fontSize: 11, fontWeight: "700" }, categorySortBy === opt ? { color: "#fff" } : { color: "#9BA1A6" }]}>
+                            {opt === "popular" ? "Popular" : opt === "az" ? "A → Z" : "Z → A"}
                           </Text>
                         </TouchableOpacity>
-                      </View>
+                      ))}
                     </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <View className="items-center py-8">
-              <Text className="text-muted">
-                {productSearch ? "No products match your search" : "No products in this category"}
-              </Text>
-              {productSearch && (
-                <TouchableOpacity
-                  onPress={() => setProductSearch("")}
-                  className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70"
-                >
-                  <Text className="text-background font-semibold">Clear Search</Text>
-                </TouchableOpacity>
+                  </View>
+                  {filteredCategories.length > 0 ? (
+                    <View className="gap-3">
+                      {filteredCategories.map((category) => {
+                        const catAvailable = isCategoryAvailable(category.availabilitySchedule);
+                        const availMsg = getAvailabilityMessage(category.availabilitySchedule);
+                        const todayAvail = getTodayAvailability(category.availabilitySchedule);
+                        return (
+                          <TouchableOpacity
+                            key={category.id}
+                            onPress={() => setSelectedCategoryId(category.id)}
+                            className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
+                            style={!catAvailable ? { opacity: 0.55 } : undefined}
+                          >
+                            <View className="flex-row items-center gap-3">
+                              <View className="w-14 h-14 bg-primary/10 rounded-xl overflow-hidden">
+                                {category.icon ? (
+                                  <Image source={{ uri: category.icon }} style={{ width: 56, height: 56 }} contentFit="cover" />
+                                ) : (
+                                  <View className="w-full h-full items-center justify-center">
+                                    <Text className="text-3xl">📦</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <View className="flex-1">
+                                <View className="flex-row items-center gap-1.5">
+                                  <Text className="text-lg font-semibold text-foreground" numberOfLines={1} style={{ flexShrink: 1 }}>{category.name}</Text>
+                                  {category.ageRestricted && (
+                                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text className="text-sm text-muted">
+                                  {category.products.length} {category.products.length === 1 ? 'item' : 'items'}
+                                </Text>
+                                {!catAvailable && availMsg && (
+                                  <View className="flex-row items-center gap-1 mt-1">
+                                    <Text style={{ fontSize: 11, color: "#F59E0B", fontWeight: "600" }}>🕐 {availMsg}</Text>
+                                  </View>
+                                )}
+                                {catAvailable && todayAvail && (
+                                  <Text style={{ fontSize: 11, color: "#16A34A", marginTop: 2 }}>🕐 {todayAvail}</Text>
+                                )}
+                              </View>
+                              <Text className="text-primary text-2xl">›</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    !globalSearch.trim() ? (
+                      <View className="items-center py-8">
+                        <Text className="text-muted text-center">No products available</Text>
+                      </View>
+                    ) : null
+                  )}
+                </View>
               )}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            </>
+          ) : (
+            // ── PRODUCT LIST VIEW ──
+            <>
+              {/* Category Header */}
+              <View className="px-4 pt-4 pb-2">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-3xl font-bold text-foreground">{selectedCategory?.name}</Text>
+                  {selectedCategory?.ageRestricted && (
+                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                    </View>
+                  )}
+                </View>
+                <View className="flex-row items-center gap-2 mt-1">
+                  <Text className="text-sm text-muted">{store.name} · {filteredProducts.length} items</Text>
+                  {!storeOpen && (
+                    <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#DC2626" }}>Closed</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
 
-      {/* View Cart Button - Fixed at bottom with safe area padding */}
-      {cartItemCount > 0 && cart.storeId === storeId && (
-        <View style={[styles.cartButtonContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TouchableOpacity
-            onPress={() => router.push(`/cart/${storeId}` as any)}
-            style={styles.cartButton}
-          >
-            <Text style={styles.cartButtonText}>
-              View Cart ({cartItemCount} {cartItemCount === 1 ? 'item' : 'items'})
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-          </>
+              {/* Category Availability Banner */}
+              {!catAvailable && catAvailMsg && (
+                <View className="mx-4 mb-3 p-3 rounded-xl" style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E" }}>🕐 {catAvailMsg}</Text>
+                  <Text style={{ fontSize: 12, color: "#92400E", marginTop: 2 }}>You can browse but these items cannot be added to your cart right now.</Text>
+                </View>
+              )}
+
+              {/* Product Search */}
+              <View className="px-4 pt-3 pb-2">
+                <TextInput
+                  style={{ backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, color: '#11181C', fontSize: 16 }}
+                  placeholder="Search products..."
+                  placeholderTextColor="#9BA1A6"
+                  value={productSearch}
+                  onChangeText={setProductSearch}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                />
+              </View>
+
+              {/* Sort Pills */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+                <SortPill label="A → Z" value="az" />
+                <SortPill label="Z → A" value="za" />
+                <SortPill label="Price ↑" value="price_low" />
+                <SortPill label="Price ↓" value="price_high" />
+              </ScrollView>
+
+              {/* Products */}
+              <View className="px-4 pt-2">
+                {filteredProducts.length > 0 ? (
+                  <View className="gap-3">
+                    {filteredProducts.map((product) => {
+                      const quantity = getProductQuantity(product.id);
+                      const isRestricted = !catAvailable;
+                      const productImage = getProductImage(product);
+                      return (
+                        <TouchableOpacity
+                          key={product.id}
+                          onPress={() => openProductDetail(product)}
+                          activeOpacity={0.7}
+                          style={isRestricted ? { opacity: 0.45 } : undefined}
+                        >
+                          <View className="bg-surface rounded-xl p-4 border border-border">
+                            <View className="flex-row justify-between items-start">
+                              {productImage && (
+                                <View style={{ width: 64, height: 64, borderRadius: 10, overflow: "hidden", marginRight: 12 }}>
+                                  <Image source={{ uri: productImage }} style={{ width: 64, height: 64 }} contentFit="cover" />
+                                </View>
+                              )}
+                              <View className="flex-1 pr-3">
+                                <Text className="text-base font-semibold text-foreground mb-1" numberOfLines={2}>{product.name}</Text>
+                                {product.description && (
+                                  <Text className="text-sm text-muted mb-2" numberOfLines={2}>{product.description}</Text>
+                                )}
+                                <Text className="text-lg font-bold text-primary">€{parseFloat(product.price).toFixed(2)}</Text>
+                                {product.isDrs && (
+                                  <Text style={{ fontSize: 10, color: "#0EA5E9", fontWeight: "600", marginTop: 1 }}>Price incl. DRS deposit</Text>
+                                )}
+                                {product.stockStatus === "out_of_stock" && (
+                                  <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
+                                )}
+                              </View>
+                              <TouchableOpacity
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  if (product.hasModifiers) {
+                                    openProductDetail(product);
+                                  } else {
+                                    handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
+                                  }
+                                }}
+                                style={[styles.quickAddButton, { backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF" }]}
+                                disabled={product.stockStatus === "out_of_stock"}
+                              >
+                                <Text className="text-background font-semibold">
+                                  {product.stockStatus === "out_of_stock" ? "N/A" : product.hasModifiers ? "Customise" : quantity > 0 ? `+${quantity}` : "Add"}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View className="items-center py-8">
+                    <Text className="text-muted">
+                      {productSearch ? "No products match your search" : "No products in this category"}
+                    </Text>
+                    {productSearch && (
+                      <TouchableOpacity onPress={() => setProductSearch("")} className="mt-4 bg-primary px-6 py-2 rounded-lg active:opacity-70">
+                        <Text className="text-background font-semibold">Clear Search</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+        </ScrollView>
+
+        {/* View Cart Button */}
+        {cartItemCount > 0 && cart.storeId === storeId && (
+          <View style={[styles.cartButtonContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <TouchableOpacity onPress={() => router.push(`/cart/${storeId}` as any)} style={styles.cartButton}>
+              <Text style={styles.cartButtonText}>
+                View Cart ({cartItemCount} {cartItemCount === 1 ? 'item' : 'items'})
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScreenContainer>
     </ScreenWrapper>
@@ -1593,116 +986,121 @@ const styles = StyleSheet.create({
   sortPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#9BA1A6",
+    backgroundColor: "transparent",
   },
   sortPillActive: {
     backgroundColor: "#00E5FF",
     borderColor: "#00E5FF",
   },
   sortPillText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#687076",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9BA1A6",
   },
   sortPillTextActive: {
     color: "#ffffff",
   },
-  // Quick add button on list
-  quickAddButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignSelf: "center",
-  },
   // Modal styles
   modalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
     backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: "90%",
-    minHeight: "50%",
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#D1D5DB",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 8,
+    paddingTop: 16,
   },
   closeButton: {
-    position: "absolute",
-    top: 4,
-    right: 16,
-    zIndex: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
+    alignSelf: "flex-end",
+    paddingRight: 16,
+    paddingBottom: 8,
   },
-  modalImageContainer: {
+  closeButtonText: {
+    fontSize: 24,
+    color: "#11181C",
+  },
+  productImage: {
     width: "100%",
-    height: 260,
-    backgroundColor: "#f9f9f9",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
+    height: 250,
   },
-  modalImage: {
-    width: "100%",
-    height: 260,
+  productDetails: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  modalImagePlaceholder: {
-    backgroundColor: "#f0f0f0",
-  },
-  modalProductName: {
-    fontSize: 22,
+  productName: {
+    fontSize: 20,
     fontWeight: "700",
     color: "#11181C",
-    flexShrink: 1,
+    marginBottom: 8,
   },
-  modalPrice: {
-    fontSize: 24,
-    fontWeight: "800",
+  productDescription: {
+    fontSize: 14,
+    color: "#687076",
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  productPrice: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#00E5FF",
-    marginTop: 4,
+    marginBottom: 16,
   },
-  modalBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  modifiersContainer: {
+    marginTop: 16,
+    gap: 16,
+  },
+  modifierGroup: {
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-    gap: 12,
+    paddingTop: 12,
   },
-  quantitySelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+  modifierGroupTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#11181C",
+    marginBottom: 10,
+  },
+  modifierOptions: {
+    gap: 8,
+  },
+  modifierOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E5E7EB",
-  },
-  quantityButton: {
-    width: 44,
-    height: 44,
+    backgroundColor: "#f5f5f5",
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+  },
+  modifierOptionSelected: {
+    backgroundColor: "#E0F7FA",
+    borderColor: "#00E5FF",
+  },
+  modifierText: {
+    fontSize: 14,
+    color: "#11181C",
+    fontWeight: "500",
+  },
+  modifierTextSelected: {
+    color: "#00BCD4",
+    fontWeight: "600",
+  },
+  quantityControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   quantityButtonText: {
     fontSize: 20,
@@ -1746,5 +1144,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#ffffff",
+  },
+  quickAddButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 70,
   },
 });

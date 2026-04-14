@@ -743,7 +743,7 @@ export const storeRouter = router({
 
   // Get trending products for a store based on order frequency
   getTrendingProducts: publicProcedure
-    .input(z.object({ storeId: z.number(), limit: z.number().optional().default(10) }))
+    .input(z.object({ storeId: z.number(), limit: z.number().optional().default(10) }).strict())
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -846,17 +846,29 @@ export const storeRouter = router({
         categoryMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
       }
 
-      return allProducts.map((p) => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        images: p.images,
-        description: p.description,
-        stockStatus: p.stockStatus,
-        categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
-        orderCount: p.orderCount,
-        isPinned: "isPinned" in p ? p.isPinned : false,
-      }));
+      return allProducts.map((p) => {
+        // Parse images JSON string to array
+        let parsedImages: string[] = [];
+        if (p.images) {
+          try {
+            const parsed = JSON.parse(p.images as string);
+            parsedImages = Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            parsedImages = [p.images as string];
+          }
+        }
+        return {
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          images: parsedImages,
+          description: p.description,
+          stockStatus: p.stockStatus,
+          categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
+          orderCount: p.orderCount,
+          isPinned: "isPinned" in p ? p.isPinned : false,
+        };
+      });
     }),
 
   // Get pending orders for POS device (lightweight summary for small screens)
