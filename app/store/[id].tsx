@@ -335,7 +335,7 @@ export default function StoreDetailScreen() {
         if (scrollableElement) {
           scrollableElement.scrollTop = 0;
         }
-      }, 300);
+      }, 800);
     }
   }, [selectedCategoryId]);
 
