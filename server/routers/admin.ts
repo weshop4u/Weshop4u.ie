@@ -2418,7 +2418,7 @@ export const adminRouter = router({
 
   // Get top products analytics
   getTopProductsAnalytics: publicProcedure
-    .input(z.object({ days: z.number(), limit: z.number() }))
+    .input(z.object({ days: z.number(), limit: z.number(), storeId: z.number().nullable() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -2426,9 +2426,14 @@ export const adminRouter = router({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
 
-      const allOrders = await db.select().from(orders).where(
+      let allOrders = await db.select().from(orders).where(
         gte(orders.createdAt, startDate)
       );
+
+      // Filter by store if storeId is provided
+      if (input.storeId) {
+        allOrders = allOrders.filter(order => order.storeId === input.storeId);
+      }
 
       const topProducts: Record<number, { name: string; quantity: number; revenue: number }> = {};
 
@@ -2459,7 +2464,7 @@ export const adminRouter = router({
 
   // Get peak hours analytics
   getPeakHoursAnalytics: publicProcedure
-    .input(z.object({ days: z.number() }))
+    .input(z.object({ days: z.number(), storeId: z.number().nullable() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -2467,9 +2472,14 @@ export const adminRouter = router({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
 
-      const allOrders = await db.select().from(orders).where(
+      let allOrders = await db.select().from(orders).where(
         gte(orders.createdAt, startDate)
       );
+
+      // Filter by store if storeId is provided
+      if (input.storeId) {
+        allOrders = allOrders.filter(order => order.storeId === input.storeId);
+      }
 
       const peakHours: Record<number, number> = {};
       for (let i = 0; i < 24; i++) {
@@ -2491,7 +2501,7 @@ export const adminRouter = router({
 
   // Get daily sales analytics
   getDailySalesAnalytics: publicProcedure
-    .input(z.object({ days: z.number() }))
+    .input(z.object({ days: z.number(), storeId: z.number().nullable() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -2499,9 +2509,14 @@ export const adminRouter = router({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
 
-      const allOrders = await db.select().from(orders).where(
+      let allOrders = await db.select().from(orders).where(
         gte(orders.createdAt, startDate)
       );
+
+      // Filter by store if storeId is provided
+      if (input.storeId) {
+        allOrders = allOrders.filter(order => order.storeId === input.storeId);
+      }
 
       const dailySales: Record<string, { count: number; revenue: number }> = {};
 
@@ -2525,7 +2540,7 @@ export const adminRouter = router({
 
   // Get period-specific metrics (Total Orders, Revenue, Avg Order Value, Peak Hour)
   getPeriodMetrics: publicProcedure
-    .input(z.object({ days: z.number().nullable() })) // null = all time
+    .input(z.object({ days: z.number().nullable(), storeId: z.number().nullable() })) // null = all time
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
@@ -2537,6 +2552,11 @@ export const adminRouter = router({
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - input.days);
         allOrders = allOrders.filter(o => o.createdAt >= startDate);
+      }
+
+      // Filter by store if storeId is provided
+      if (input.storeId) {
+        allOrders = allOrders.filter(order => order.storeId === input.storeId);
       }
 
       // Calculate metrics

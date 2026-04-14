@@ -44,30 +44,35 @@ function MetricCard({
 
 export default function AdminAnalytics() {
   const [timePeriod, setTimePeriod] = useState<"7" | "30" | "90" | "all">("30");
+  const [selectedStore, setSelectedStore] = useState<number | null>(null);
+  const [productLimit, setProductLimit] = useState<number>(5);
   const isDesktopWeb = Platform.OS === "web";
 
   // Convert "all" to null for backend, otherwise use number of days
   const daysParam = timePeriod === "all" ? null : parseInt(timePeriod);
 
-  // Fetch analytics data for all stores
+  // Fetch stores for selector
+  const { data: stores } = trpc.admin.getAllStoresAdmin.useQuery(undefined, { refetchInterval: 60000 });
+
+  // Fetch analytics data for selected store or all stores
   const { data: topProducts, isLoading: topLoading } = trpc.admin.getTopProductsAnalytics.useQuery(
-    { days: daysParam || 365, limit: 10 }, // Use 365 days for "all time"
+    { days: daysParam || 365, limit: productLimit, storeId: selectedStore },
     { refetchInterval: 60000 }
   );
 
   const { data: peakHours, isLoading: hoursLoading } = trpc.admin.getPeakHoursAnalytics.useQuery(
-    { days: daysParam || 365 },
+    { days: daysParam || 365, storeId: selectedStore },
     { refetchInterval: 60000 }
   );
 
   const { data: dailySales, isLoading: dailyLoading } = trpc.admin.getDailySalesAnalytics.useQuery(
-    { days: daysParam || 365 },
+    { days: daysParam || 365, storeId: selectedStore },
     { refetchInterval: 60000 }
   );
 
   // Fetch period-specific metrics
   const { data: metrics, isLoading: metricsLoading } = trpc.admin.getPeriodMetrics.useQuery(
-    { days: daysParam },
+    { days: daysParam, storeId: selectedStore },
     { refetchInterval: 60000 }
   );
 
@@ -89,9 +94,69 @@ export default function AdminAnalytics() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
       {/* Header */}
       <View>
-        <Text style={{ fontSize: 24, fontWeight: "800", color: "#0F172A", marginBottom: 8 }}>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: "#0F172A", marginBottom: 16 }}>
           📊 Platform Analytics
         </Text>
+        
+        {/* Store Selector */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Store</Text>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            <Pressable
+              onPress={() => setSelectedStore(null)}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                backgroundColor: selectedStore === null ? "#00E5FF" : "#f5f5f5",
+                borderWidth: 1,
+                borderColor: selectedStore === null ? "#00E5FF" : "#E5E7EB",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === null ? "#fff" : "#0F172A" }}>General</Text>
+            </Pressable>
+            {stores?.map((store) => (
+              <Pressable
+                key={store.id}
+                onPress={() => setSelectedStore(store.id)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 6,
+                  backgroundColor: selectedStore === store.id ? "#00E5FF" : "#f5f5f5",
+                  borderWidth: 1,
+                  borderColor: selectedStore === store.id ? "#00E5FF" : "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === store.id ? "#fff" : "#0F172A" }}>{store.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Product Limit Selector */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Top Products</Text>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            {[5, 10, 20, 50].map((limit) => (
+              <Pressable
+                key={limit}
+                onPress={() => setProductLimit(limit)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 6,
+                  backgroundColor: productLimit === limit ? "#00E5FF" : "#f5f5f5",
+                  borderWidth: 1,
+                  borderColor: productLimit === limit ? "#00E5FF" : "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: productLimit === limit ? "#fff" : "#0F172A" }}>Top {limit}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
         <Text style={{ fontSize: 12, color: "#687076" }}>
           {getPeriodLabel()}
         </Text>

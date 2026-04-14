@@ -2641,3 +2641,15 @@
 - [x] Verify all metrics update correctly when changing time periods
 - [x] Test Platform Analytics button on admin dashboard
 - [ ] Push to GitHub with all analytics fixes
+
+
+## Analytics Enhancements (Apr 15, 2026)
+- [x] Add store selector dropdown (defaulting to "General" for all stores)
+- [x] Add top N products limit selector (5, 10, 20, 50, All)
+- [x] Update backend endpoints to support store-specific filtering
+- [x] Update frontend to display store-specific metrics when selected
+- [x] Test store selector with multiple stores
+- [x] Test product limit selector with different values
+- [x] Test on both mobile and desktop layouts
+- [x] Verify store-specific metrics update correctly
+- [x] Verify product limit changes update the top products list
