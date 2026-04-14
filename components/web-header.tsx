@@ -83,11 +83,6 @@ export function WebHeader() {
               </TouchableOpacity>
             )}
 
-            {/* Store Login link for store owners */}
-            <TouchableOpacity onPress={() => navigateTo("/auth/store-login")} style={styles.navLink}>
-              <Text style={styles.navText}>Store Login</Text>
-            </TouchableOpacity>
-
             {cartCount > 0 && cart.storeId && (
               <TouchableOpacity
                 onPress={() => navigateTo(`/cart/${cart.storeId}`)}
@@ -137,10 +132,6 @@ export function WebHeader() {
               <Text style={styles.menuItemText}>📋  My Orders</Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity onPress={() => navigateTo("/auth/store-login")} style={styles.menuItem}>
-            <Text style={styles.menuItemText}>🏪  Store Login</Text>
-          </TouchableOpacity>
 
           {user ? (
             <TouchableOpacity onPress={() => navigateTo("/profile")} style={styles.menuItem}>
