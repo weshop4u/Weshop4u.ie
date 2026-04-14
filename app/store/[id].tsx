@@ -1274,7 +1274,7 @@ export default function StoreDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={category.id}
-                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 500); }}
+                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 50); }}
                       className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                       style={!catAvailable ? { opacity: 0.55 } : undefined}
                     >
@@ -1399,7 +1399,7 @@ export default function StoreDetailScreen() {
         )}
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView ref={categoryScrollRef} className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-2">
           <View className="flex-row items-center gap-2">
