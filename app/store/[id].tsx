@@ -814,11 +814,37 @@ export default function StoreDetailScreen() {
     );
   }
 
-  // If no category selected, show category selection
-  if (selectedCategoryId === null) {
+  // Sort pill component - defined before return so it's available in both views
+  const SortPill = ({ label, value }: { label: string; value: SortOption }) => {
+    const isActive = sortBy === value;
     return (
-      <ScreenWrapper>
+      <TouchableOpacity
+        onPress={() => {
+          setSortBy(value);
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        style={[
+          styles.sortPill,
+          isActive && styles.sortPillActive,
+        ]}
+      >
+        <Text style={[
+          styles.sortPillText,
+          isActive && styles.sortPillTextActive,
+        ]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Main return with single ScreenWrapper - category list or products view
+  return (
+    <ScreenWrapper>
       <ScreenContainer className="bg-background">
+        {selectedCategoryId === null ? (
+          // Category List View
+          <>
         {/* Header with Cart Icon */}
         <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
           <TouchableOpacity
@@ -1355,39 +1381,11 @@ export default function StoreDetailScreen() {
         </ScrollView>
       {/* Product Detail Modal — also rendered in category browsing/search view */}
       {renderProductModal()}
-      </ScreenContainer>
-      </ScreenWrapper>
-    );
-  }
-
-  // Sort pill component
-  const SortPill = ({ label, value }: { label: string; value: SortOption }) => {
-    const isActive = sortBy === value;
-    return (
-      <TouchableOpacity
-        onPress={() => {
-          setSortBy(value);
-          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-        style={[
-          styles.sortPill,
-          isActive && styles.sortPillActive,
-        ]}
-      >
-        <Text style={[
-          styles.sortPillText,
-          isActive && styles.sortPillTextActive,
-        ]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  return (
-    <ScreenWrapper>
-    <ScreenContainer className="bg-background">
-      {/* Product Detail Modal */}
+          </>
+        ) : (
+          // Products View
+          <>
+            {/* Product Detail Modal */}
       {renderProductModal()}
 
       {/* Header with Back Button and Cart Icon */}
@@ -1581,7 +1579,9 @@ export default function StoreDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </ScreenContainer>
+          </>
+        )}
+      </ScreenContainer>
     </ScreenWrapper>
   );
 }
