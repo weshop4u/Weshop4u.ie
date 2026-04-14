@@ -2619,3 +2619,9 @@
 - [ ] Make review items pressable for inline editing
 - [ ] Add "Create New Product" option for unmatched items
 - [ ] Update bulk update logic to only process checked items
+
+## Store Page Scroll-to-Top Fix
+- [x] Fix scroll-to-top behavior when clicking category in store page
+- [x] Add useEffect hook to scroll when selectedCategoryId changes
+- [x] Remove inline scroll logic from onPress handler to avoid race conditions
+- [x] Ensure scroll happens after React renders new filtered products

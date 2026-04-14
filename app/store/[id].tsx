@@ -324,6 +324,16 @@ export default function StoreDetailScreen() {
     setSelectedModifiers(defaults);
   }, [modifierData, selectedProduct?.id, modalVisible]);
 
+  // Scroll to top when category selection changes (web only)
+  useEffect(() => {
+    if (Platform.OS === "web" && selectedCategoryId !== null) {
+      // Use setTimeout to ensure React has finished rendering the new content
+      setTimeout(() => {
+        categoryScrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 0);
+    }
+  }, [selectedCategoryId]);
+
   // Load recent searches on mount
   useEffect(() => {
     AsyncStorage.getItem(`recentSearches_${storeId}`).then((data) => {
@@ -1274,7 +1284,7 @@ export default function StoreDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={category.id}
-                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 50); }}
+                      onPress={() => setSelectedCategoryId(category.id)}
                       className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                       style={!catAvailable ? { opacity: 0.55 } : undefined}
                     >
