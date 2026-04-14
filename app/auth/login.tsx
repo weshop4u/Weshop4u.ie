@@ -121,7 +121,7 @@ export default function LoginScreen() {
         const sessionData = await sessionResponse.json();
 
         // Step 4: Store session token in SecureStore for native persistence
-        if (Platform.OS !== "web") {
+    
           if (sessionData.sessionToken) {
             try {
               await Auth.setSessionToken(sessionData.sessionToken);
@@ -129,7 +129,6 @@ export default function LoginScreen() {
               console.error("[Login] Failed to store session token:", e);
             }
           }
-        }
 
         // Step 5: Cache user info for quick session restore
         try {

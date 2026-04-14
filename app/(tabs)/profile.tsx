@@ -48,6 +48,13 @@ export default function ProfileScreen() {
       console.log("[Logout] Clearing AsyncStorage...");
       await AsyncStorage.multiRemove(["authToken", "userRole", "userId", "appMode", "user", "profile"]);
 
+      // Clear localStorage on web (session token)
+      if (Platform.OS === "web") {
+        try {
+          window.localStorage.clear();
+        } catch (e) {}
+      }
+
       // 3. Client-side cookie deletion as backup (for web)
       if (Platform.OS === "web" && typeof document !== "undefined") {
         console.log("[Logout] Deleting cookies client-side...");

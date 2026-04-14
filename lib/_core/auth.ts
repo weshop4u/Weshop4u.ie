@@ -90,8 +90,12 @@ export async function getSessionToken(): Promise<string | null> {
   try {
     // Web platform uses cookie-based auth, no manual token management needed
     if (Platform.OS === "web") {
-      return null;
-    }
+  try {
+    return window.localStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
     const token = await secureGet(SESSION_TOKEN_KEY);
     return token;
   } catch (error) {
@@ -103,6 +107,11 @@ export async function getSessionToken(): Promise<string | null> {
 export async function setSessionToken(token: string): Promise<void> {
   try {
     if (Platform.OS === "web") {
+      try {
+        window.localStorage.setItem(SESSION_TOKEN_KEY, token);
+      } catch {
+        // ignore
+      }
       return;
     }
     await secureSet(SESSION_TOKEN_KEY, token);

@@ -40,9 +40,5 @@ services:
         sync: false
       - key: VITE_FRONTEND_FORGE_API_URL
         sync: false
-      - key: PRIMARY_DATABASE_URL
-        sync: false
-      - key: DATABASE_URL_BACKUP
-        sync: false
       - key: EXPO_PUBLIC_API_BASE_URL
         sync: false

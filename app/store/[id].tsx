@@ -1273,7 +1273,7 @@ export default function StoreDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={category.id}
-                      onPress={() => setSelectedCategoryId(category.id)}
+                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { window.scrollTo(0, 0); }, 50); }}
                       className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                       style={!catAvailable ? { opacity: 0.55 } : undefined}
                     >
