@@ -49,6 +49,7 @@ export default function StoreDetailScreen() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [showRecentSearches, setShowRecentSearches] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+ const categoryScrollRef = useRef<ScrollView>(null);
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -827,7 +828,7 @@ export default function StoreDetailScreen() {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+        <ScrollView ref={categoryScrollRef} contentContainerStyle={{ paddingBottom: 20 }}>
           {/* Store Header */}
           <View className="px-4 pt-4 pb-2">
             <View className="flex-row items-center gap-3 mb-2">
@@ -1273,7 +1274,7 @@ export default function StoreDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={category.id}
-                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { window.scrollTo(0, 0); }, 50); }}
+                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 50); }}
                       className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                       style={!catAvailable ? { opacity: 0.55 } : undefined}
                     >
