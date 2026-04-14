@@ -199,12 +199,8 @@ async function startServer() {
     }),
   );
 
-  // Redirect root /api/ to /api/web/ so users always land on the web app
-  app.get("/api", (_req, res) => res.redirect("/api/web/"));
-
-  // Redirect /api/web/ (with trailing slash) to /api/web (without slash) to normalize URLs
-  // This ensures the admin auth middleware catches both /api/web/admin and /api/web/admin/
-  app.get("/api/web/", (_req, res) => res.redirect("/api/web"));
+  // Redirect root /api/ to /api/web so users always land on the web app
+  app.get("/api", (_req, res) => res.redirect("/api/web"));
 
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
@@ -243,8 +239,17 @@ async function startServer() {
         }
         express.static(webDistPath, { maxAge: "1d" })(req, res, next);
       });
-      // Root /api/web serves index.html (note: /api/web/ is redirected to /api/web above)
+      // Root /api/web serves index.html
       app.get("/api/web", (_req, res) => {
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+        } else {
+          res.status(404).send("Web app not found");
+        }
+      });
+      // Also handle /api/web/ (with trailing slash) by serving index.html
+      app.get("/api/web/", (_req, res) => {
         const rootIndex = path.join(webDistPath, "index.html");
         if (fs.existsSync(rootIndex)) {
           res.sendFile(rootIndex);
