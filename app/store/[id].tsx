@@ -328,9 +328,9 @@ export default function StoreDetailScreen() {
   // Scroll to top when category selection changes (web only)
   useEffect(() => {
     if (Platform.OS === "web" && selectedCategoryId !== null) {
-      // Use 300ms timeout to ensure the products ScrollView is fully rendered and mounted
+      // Use 300ms timeout to ensure the page is fully rendered before scrolling
       setTimeout(() => {
-        mainScrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        window.scrollTo({ top: 0, behavior: "auto" });
       }, 300);
     }
   }, [selectedCategoryId]);
