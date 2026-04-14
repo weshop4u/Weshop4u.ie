@@ -1274,7 +1274,7 @@ export default function StoreDetailScreen() {
                   return (
                     <TouchableOpacity
                       key={category.id}
-                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 50); }}
+                      onPress={() => { setSelectedCategoryId(category.id); setTimeout(() => { categoryScrollRef.current?.scrollTo({ y: 0, animated: false }); }, 500); }}
                       className="bg-surface rounded-xl p-4 border border-border active:opacity-70"
                       style={!catAvailable ? { opacity: 0.55 } : undefined}
                     >
