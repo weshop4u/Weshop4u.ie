@@ -330,7 +330,10 @@ export default function StoreDetailScreen() {
     if (Platform.OS === "web" && selectedCategoryId !== null) {
       // Use 300ms timeout to ensure the page is fully rendered before scrolling
       setTimeout(() => {
+        // Try scrolling both window and document.documentElement
         window.scrollTo({ top: 0, behavior: "auto" });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
       }, 300);
     }
   }, [selectedCategoryId]);
