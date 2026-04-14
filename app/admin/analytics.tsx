@@ -43,40 +43,47 @@ function MetricCard({
 }
 
 export default function AdminAnalytics() {
-  const [timePeriod, setTimePeriod] = useState<"7" | "30" | "90">("30");
+  const [timePeriod, setTimePeriod] = useState<"7" | "30" | "90" | "all">("30");
   const isDesktopWeb = Platform.OS === "web";
+
+  // Convert "all" to null for backend, otherwise use number of days
+  const daysParam = timePeriod === "all" ? null : parseInt(timePeriod);
 
   // Fetch analytics data for all stores
   const { data: topProducts, isLoading: topLoading } = trpc.admin.getTopProductsAnalytics.useQuery(
-    { days: parseInt(timePeriod), limit: 10 },
+    { days: daysParam || 365, limit: 10 }, // Use 365 days for "all time"
     { refetchInterval: 60000 }
   );
 
   const { data: peakHours, isLoading: hoursLoading } = trpc.admin.getPeakHoursAnalytics.useQuery(
-    { days: parseInt(timePeriod) },
+    { days: daysParam || 365 },
     { refetchInterval: 60000 }
   );
 
   const { data: dailySales, isLoading: dailyLoading } = trpc.admin.getDailySalesAnalytics.useQuery(
-    { days: parseInt(timePeriod) },
+    { days: daysParam || 365 },
     { refetchInterval: 60000 }
   );
 
-  const { data: stats } = trpc.admin.getDashboardStats.useQuery(undefined, {
-    refetchInterval: 30000,
-  });
+  // Fetch period-specific metrics
+  const { data: metrics, isLoading: metricsLoading } = trpc.admin.getPeriodMetrics.useQuery(
+    { days: daysParam },
+    { refetchInterval: 60000 }
+  );
 
-  // Calculate metrics
-  const totalOrders = stats?.orders.allTime.count || 0;
-  const totalRevenue = stats?.orders.allTime.revenue || 0;
-  const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
+  // Use period-specific metrics
+  const totalOrders = metrics?.totalOrders || 0;
+  const totalRevenue = metrics?.totalRevenue || 0;
+  const avgOrderValue = (metrics?.avgOrderValue || 0).toFixed(2);
+  const peakHour = { hour: metrics?.peakHour || 0, count: metrics?.peakHourCount || 0 };
 
-  // Find peak hour
-  const peakHour = peakHours?.peakHours?.reduce((max, curr) =>
-    (curr.count || 0) > (max.count || 0) ? curr : max
-  ) || { hour: 0, count: 0 };
+  const isLoading = topLoading || hoursLoading || dailyLoading || metricsLoading;
 
-  const isLoading = topLoading || hoursLoading || dailyLoading;
+  // Format period label
+  const getPeriodLabel = () => {
+    if (timePeriod === "all") return "All Time";
+    return `Last ${timePeriod} days`;
+  };
 
   const content = (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -86,13 +93,13 @@ export default function AdminAnalytics() {
           📊 Platform Analytics
         </Text>
         <Text style={{ fontSize: 12, color: "#687076" }}>
-          Last {timePeriod} days
+          {getPeriodLabel()}
         </Text>
       </View>
 
       {/* Time Period Selector */}
       <View style={{ flexDirection: "row", gap: 8 }}>
-        {(["7", "30", "90"] as const).map((period) => (
+        {(["7", "30", "90", "all"] as const).map((period) => (
           <Pressable
             key={period}
             onPress={() => setTimePeriod(period)}
@@ -114,7 +121,7 @@ export default function AdminAnalytics() {
                 textAlign: "center",
               }}
             >
-              {period}d
+              {period === "all" ? "All" : `${period}d`}
             </Text>
           </Pressable>
         ))}
@@ -180,7 +187,7 @@ export default function AdminAnalytics() {
                         {idx + 1}. {product.name}
                       </Text>
                       <Text style={{ fontSize: 12, color: "#687076", marginTop: 2 }}>
-                        {product.quantity} sold • €{product.revenue.toFixed(2)}
+                        {product.quantity} sold • €{typeof product.revenue === 'number' ? product.revenue.toFixed(2) : parseFloat(product.revenue || '0').toFixed(2)}
                       </Text>
                     </View>
                   </View>

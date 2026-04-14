@@ -2629,3 +2629,12 @@
 - [x] Add useEffect hook to scroll when selectedCategoryId changes
 - [x] Remove inline scroll logic from onPress handler to avoid race conditions
 - [x] Ensure scroll happens after React renders new filtered products
+
+## Analytics Page Fixes (Apr 15, 2026)
+- [x] Fix metrics to show period-specific data (not always all-time)
+- [x] Add backend endpoint for period-specific metrics aggregation
+- [x] Update frontend to use period-specific metrics
+- [x] Add "All Time" option to time period selector
+- [x] Test all time periods (7d, 30d, 90d, all time) show different data
+- [x] Test on both desktop and mobile layouts
+- [ ] Push to GitHub with all analytics fixes

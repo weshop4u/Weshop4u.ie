@@ -2519,4 +2519,49 @@ export const adminRouter = router({
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
       };
     }),
+
+  // Get period-specific metrics (Total Orders, Revenue, Avg Order Value, Peak Hour)
+  getPeriodMetrics: publicProcedure
+    .input(z.object({ days: z.number().nullable() })) // null = all time
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      let allOrders = await db.select().from(orders);
+
+      // Filter by days if specified
+      if (input.days !== null && input.days > 0) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - input.days);
+        allOrders = allOrders.filter(o => o.createdAt >= startDate);
+      }
+
+      // Calculate metrics
+      const deliveredOrders = allOrders.filter(o => o.status === "delivered");
+      const totalOrders = allOrders.length;
+      const totalRevenue = deliveredOrders.reduce((sum, o) => sum + parseFloat(o.total), 0);
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      // Find peak hour
+      const peakHours: Record<number, number> = {};
+      for (let i = 0; i < 24; i++) {
+        peakHours[i] = 0;
+      }
+      for (const order of allOrders) {
+        const hour = new Date(order.createdAt).getHours();
+        peakHours[hour]++;
+      }
+      const peakHour = Object.entries(peakHours).reduce((max, [hour, count]) =>
+        count > max[1] ? [parseInt(hour), count] : max,
+        [0, 0]
+      );
+
+      return {
+        totalOrders,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        avgOrderValue: Math.round(avgOrderValue * 100) / 100,
+        peakHour: peakHour[0],
+        peakHourCount: peakHour[1],
+      };
+    }),
 });
