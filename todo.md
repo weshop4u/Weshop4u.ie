@@ -141,6 +141,10 @@
 - [x] Create driver backend API endpoints
 - [x] Test complete driver flow
 
+## Analytics
+- [ ] Add analytics section to admin dashboard with key metrics
+- [ ] Improve analytics UI with better styling and layout
+
 ## Store Dashboard (Web Interface)
 - [x] Create store dashboard layout and navigation
 - [x] Build main counter view showing all incoming orders

@@ -535,7 +535,10 @@ function DashboardContent() {
         </View>
 
         <View className="px-4 pt-6">
-          <Text className="text-lg font-bold text-foreground mb-3">Management</Text>
+          <Text className="text-lg font-bold text-foreground mb-3">Analytics & Management</Text>
+          <TouchableOpacity onPress={() => router.push("/admin/analytics" as any)} style={{ backgroundColor: "#8B5CF6", padding: 16, borderRadius: 12, marginBottom: 12 }}>
+            <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center", fontSize: 16 }}>📊 Platform Analytics</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/admin/phone-order" as any)} style={{ backgroundColor: "#22C55E", padding: 16, borderRadius: 12, marginBottom: 12 }}>
             <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center", fontSize: 16 }}>📞 Create Phone Order</Text>
           </TouchableOpacity>

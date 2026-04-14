@@ -2415,4 +2415,108 @@ export const adminRouter = router({
       
       return { success: true, enabled: input.enabled };
     }),
+
+  // Get top products analytics
+  getTopProductsAnalytics: publicProcedure
+    .input(z.object({ days: z.number(), limit: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - input.days);
+
+      const allOrders = await db.select().from(orders).where(
+        gte(orders.createdAt, startDate)
+      );
+
+      const topProducts: Record<number, { name: string; quantity: number; revenue: number }> = {};
+
+      for (const order of allOrders) {
+        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+        for (const item of items) {
+          const product = await db.select().from(products).where(eq(products.id, item.productId));
+          if (product.length > 0) {
+            const p = product[0];
+            if (!topProducts[p.id]) {
+              topProducts[p.id] = { name: p.name, quantity: 0, revenue: 0 };
+            }
+            topProducts[p.id].quantity += item.quantity;
+            topProducts[p.id].revenue += parseFloat(item.price) * item.quantity;
+          }
+        }
+      }
+
+      const sorted = Object.values(topProducts)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, input.limit);
+
+      return { topProducts: sorted };
+    }),
+
+  // Get peak hours analytics
+  getPeakHoursAnalytics: publicProcedure
+    .input(z.object({ days: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - input.days);
+
+      const allOrders = await db.select().from(orders).where(
+        gte(orders.createdAt, startDate)
+      );
+
+      const peakHours: Record<number, number> = {};
+      for (let i = 0; i < 24; i++) {
+        peakHours[i] = 0;
+      }
+
+      for (const order of allOrders) {
+        const hour = new Date(order.createdAt).getHours();
+        peakHours[hour]++;
+      }
+
+      return {
+        peakHours: Object.entries(peakHours).map(([hour, count]) => ({
+          hour: parseInt(hour),
+          count,
+        })),
+      };
+    }),
+
+  // Get daily sales analytics
+  getDailySalesAnalytics: publicProcedure
+    .input(z.object({ days: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - input.days);
+
+      const allOrders = await db.select().from(orders).where(
+        gte(orders.createdAt, startDate)
+      );
+
+      const dailySales: Record<string, { count: number; revenue: number }> = {};
+
+      for (const order of allOrders) {
+        const date = new Date(order.createdAt).toISOString().split("T")[0];
+        if (!dailySales[date]) {
+          dailySales[date] = { count: 0, revenue: 0 };
+        }
+        dailySales[date].count++;
+        if (order.status === "delivered") {
+          dailySales[date].revenue += parseFloat(order.total);
+        }
+      }
+
+      return {
+        dailySales: Object.entries(dailySales)
+          .map(([date, data]) => ({ date, ...data }))
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+      };
+    }),
 });
