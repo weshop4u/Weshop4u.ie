@@ -50,6 +50,7 @@ export default function StoreDetailScreen() {
   const [showRecentSearches, setShowRecentSearches] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
  const categoryScrollRef = useRef<ScrollView>(null);
+  const mainScrollViewRef = useRef<ScrollView>(null);
   const [showHours, setShowHours] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("az");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -327,10 +328,10 @@ export default function StoreDetailScreen() {
   // Scroll to top when category selection changes (web only)
   useEffect(() => {
     if (Platform.OS === "web" && selectedCategoryId !== null) {
-      // Use setTimeout to ensure React has finished rendering the new content
+      // Use 300ms timeout to ensure the products ScrollView is fully rendered and mounted
       setTimeout(() => {
-        categoryScrollRef.current?.scrollTo({ y: 0, animated: false });
-      }, 0);
+        mainScrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      }, 300);
     }
   }, [selectedCategoryId]);
 
@@ -838,7 +839,7 @@ export default function StoreDetailScreen() {
           )}
         </View>
 
-        <ScrollView ref={categoryScrollRef} contentContainerStyle={{ paddingBottom: 20 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
           {/* Store Header */}
           <View className="px-4 pt-4 pb-2">
             <View className="flex-row items-center gap-3 mb-2">
@@ -1409,7 +1410,7 @@ export default function StoreDetailScreen() {
         )}
       </View>
 
-      <ScrollView ref={categoryScrollRef} className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView ref={mainScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Category Header */}
         <View className="px-4 pt-4 pb-2">
           <View className="flex-row items-center gap-2">
