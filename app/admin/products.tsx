@@ -98,6 +98,7 @@ function ProductsManagementScreenContent() {
 
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const togglePvMutation = trpc.stores.togglePriceVerified.useMutation();
+  const toggleWssMutation = trpc.stores.toggleWss.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
   const bulkStockMutation = trpc.stores.bulkUpdateStock.useMutation();
@@ -888,7 +889,7 @@ function ProductsManagementScreenContent() {
                             };
                           }
                         );
-                        trpc.stores.toggleWss.useMutation().mutate({ productId: product.id, isWss: newWssStatus }, {
+                        toggleWssMutation.mutate({ productId: product.id, isWss: newWssStatus }, {
                           onError: (err) => {
                             queryClient.setQueryData(
                               ['stores', 'getProducts'],
