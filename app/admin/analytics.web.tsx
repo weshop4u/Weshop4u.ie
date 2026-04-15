@@ -3,7 +3,28 @@ import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import dynamic from "next/dynamic";
+
+// Dynamically import Recharts components only on web
+let LineChart: any, Line: any, BarChart: any, Bar: any, XAxis: any, YAxis: any, CartesianGrid: any, Tooltip: any, Legend: any, ResponsiveContainer: any;
+
+if (typeof window !== "undefined") {
+  try {
+    const recharts = require("recharts");
+    LineChart = recharts.LineChart;
+    Line = recharts.Line;
+    BarChart = recharts.BarChart;
+    Bar = recharts.Bar;
+    XAxis = recharts.XAxis;
+    YAxis = recharts.YAxis;
+    CartesianGrid = recharts.CartesianGrid;
+    Tooltip = recharts.Tooltip;
+    Legend = recharts.Legend;
+    ResponsiveContainer = recharts.ResponsiveContainer;
+  } catch (e) {
+    // Recharts not available, will skip chart rendering
+  }
+}
 
 function MetricCard({
   label,
@@ -77,16 +98,10 @@ export default function AdminAnalytics() {
     { refetchInterval: 60000 }
   );
 
-  // Fetch chart data
-  const { data: chartData, isLoading: chartLoading } = trpc.admin.getDailySalesChartData.useQuery(
-    { days: daysParam || 30, storeId: selectedStore },
-    { refetchInterval: 60000 }
-  );
-
-  // Fetch today's metrics for real-time widget
+  // Real-time Today's Metrics
   const { data: todayMetrics, isLoading: todayLoading } = trpc.admin.getTodayMetrics.useQuery(
     { storeId: selectedStore },
-    { refetchInterval: 300000 }
+    { refetchInterval: 5 * 60 * 1000 } // Auto-refresh every 5 minutes
   );
 
   // Use period-specific metrics
@@ -95,13 +110,20 @@ export default function AdminAnalytics() {
   const avgOrderValue = (metrics?.avgOrderValue || 0).toFixed(2);
   const peakHour = { hour: metrics?.peakHour || 0, count: metrics?.peakHourCount || 0 };
 
-  const isLoading = topLoading || hoursLoading || dailyLoading || metricsLoading || chartLoading || todayLoading;
+  const isLoading = topLoading || hoursLoading || dailyLoading || metricsLoading;
 
   // Format period label
   const getPeriodLabel = () => {
     if (timePeriod === "all") return "All Time";
     return `Last ${timePeriod} days`;
   };
+
+  // Prepare chart data from daily sales
+  const chartData = dailySales?.dailySales?.map((day) => ({
+    date: new Date(day.date).toLocaleDateString("en-IE", { month: "short", day: "numeric" }),
+    revenue: day.revenue,
+    orders: day.count,
+  })) || [];
 
   const content = (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -110,7 +132,7 @@ export default function AdminAnalytics() {
         <Text style={{ fontSize: 24, fontWeight: "800", color: "#0F172A", marginBottom: 16 }}>
           📊 Platform Analytics
         </Text>
-        
+
         {/* Store Selector */}
         <View style={{ marginBottom: 12 }}>
           <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Store</Text>
@@ -126,7 +148,9 @@ export default function AdminAnalytics() {
                 borderColor: selectedStore === null ? "#00E5FF" : "#E5E7EB",
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === null ? "#fff" : "#0F172A" }}>General</Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === null ? "#fff" : "#0F172A" }}>
+                All Stores
+              </Text>
             </Pressable>
             {stores?.map((store) => (
               <Pressable
@@ -141,76 +165,71 @@ export default function AdminAnalytics() {
                   borderColor: selectedStore === store.id ? "#00E5FF" : "#E5E7EB",
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === store.id ? "#fff" : "#0F172A" }}>{store.name}</Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === store.id ? "#fff" : "#0F172A" }}>
+                  {store.name}
+                </Text>
               </Pressable>
             ))}
           </View>
         </View>
 
-        <Text style={{ fontSize: 12, color: "#687076" }}>
-          {getPeriodLabel()}
-        </Text>
+        {/* Time Period Selector */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Last</Text>
+          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            {["7", "30", "90", "all"].map((period) => (
+              <Pressable
+                key={period}
+                onPress={() => setTimePeriod(period as "7" | "30" | "90" | "all")}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 6,
+                  backgroundColor: timePeriod === period ? "#00E5FF" : "#f5f5f5",
+                  borderWidth: 1,
+                  borderColor: timePeriod === period ? "#00E5FF" : "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: timePeriod === period ? "#fff" : "#0F172A" }}>
+                  {period === "all" ? "All" : `${period}d`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
       </View>
 
-      {/* Time Period Selector */}
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        {(["7", "30", "90", "all"] as const).map((period) => (
-          <Pressable
-            key={period}
-            onPress={() => setTimePeriod(period)}
-            style={{
-              flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              borderRadius: 8,
-              backgroundColor: timePeriod === period ? "#00E5FF" : "#f5f5f5",
-              borderWidth: 1,
-              borderColor: timePeriod === period ? "#00E5FF" : "#E5E7EB",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: "600",
-                color: timePeriod === period ? "#fff" : "#0F172A",
-                textAlign: "center",
-              }}
-            >
-              {period === "all" ? "All" : `${period}d`}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {/* Real-time Today's Metrics Widget */}
+      {todayMetrics && !todayLoading && (
+        <View style={{ backgroundColor: "#E8F4F8", borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: "#00E5FF" }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: "#0F172A" }}>📱 Today's Metrics</Text>
+            <Text style={{ fontSize: 10, color: "#00E5FF", fontWeight: "600" }}>Live</Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            <View style={{ flex: 1, minWidth: 120 }}>
+              <Text style={{ fontSize: 11, color: "#687076" }}>Orders</Text>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>{todayMetrics.totalOrders}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 120 }}>
+              <Text style={{ fontSize: 11, color: "#687076" }}>Revenue</Text>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>€{todayMetrics.totalRevenue.toFixed(2)}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 120 }}>
+              <Text style={{ fontSize: 11, color: "#687076" }}>Delivered</Text>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>{todayMetrics.deliveredOrders}</Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 10, color: "#999", marginTop: 8 }}>Updates every 5 minutes</Text>
+        </View>
+      )}
 
       {isLoading ? (
-        <View style={{ paddingVertical: 40, alignItems: "center" }}>
+        <View style={{ justifyContent: "center", alignItems: "center", paddingVertical: 40 }}>
           <ActivityIndicator size="large" color="#00E5FF" />
-          <Text style={{ color: "#687076", marginTop: 12 }}>Loading analytics...</Text>
         </View>
       ) : (
         <>
-          {/* Real-time Today's Metrics Widget */}
-          {todayMetrics && isDesktopWeb && (
-            <View style={{ backgroundColor: "#FFF8F0", borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: "#FF6B35" }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>🔴 Today's Metrics (Live)</Text>
-              <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
-                <View style={{ flex: 1, minWidth: 120 }}>
-                  <Text style={{ fontSize: 11, color: "#687076" }}>Orders</Text>
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>{todayMetrics.totalOrders}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 120 }}>
-                  <Text style={{ fontSize: 11, color: "#687076" }}>Revenue</Text>
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>€{todayMetrics.totalRevenue.toFixed(2)}</Text>
-                </View>
-                <View style={{ flex: 1, minWidth: 120 }}>
-                  <Text style={{ fontSize: 11, color: "#687076" }}>Delivered</Text>
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: "#FF6B35", marginTop: 4 }}>{todayMetrics.deliveredOrders}</Text>
-                </View>
-              </View>
-              <Text style={{ fontSize: 10, color: "#999", marginTop: 8 }}>Updates every 5 minutes</Text>
-            </View>
-          )}
-
           {/* Key Metrics */}
           <View style={{ gap: 12 }}>
             <MetricCard
@@ -329,8 +348,8 @@ export default function AdminAnalytics() {
             </View>
           )}
 
-          {/* Revenue Trend Chart */}
-          {chartData && isDesktopWeb && chartData.length > 0 && (
+          {/* Revenue Trend Chart - Only render if Recharts is available */}
+          {chartData && isDesktopWeb && chartData.length > 0 && ResponsiveContainer && LineChart && (
             <View style={{ backgroundColor: "#f5f5f5", borderRadius: 12, padding: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>
                 📈 Revenue Trend
@@ -348,8 +367,8 @@ export default function AdminAnalytics() {
             </View>
           )}
 
-          {/* Order Volume Chart */}
-          {chartData && isDesktopWeb && chartData.length > 0 && (
+          {/* Order Volume Chart - Only render if Recharts is available */}
+          {chartData && isDesktopWeb && chartData.length > 0 && ResponsiveContainer && BarChart && (
             <View style={{ backgroundColor: "#f5f5f5", borderRadius: 12, padding: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>
                 📊 Order Volume

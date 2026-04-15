@@ -2640,7 +2640,7 @@
 - [x] Fix revenue NaN issue in top products display
 - [x] Verify all metrics update correctly when changing time periods
 - [x] Test Platform Analytics button on admin dashboard
-- [ ] Push to GitHub with all analytics fixes
+- [x] Push to GitHub with all analytics fixes
 
 
 ## Analytics Enhancements (Apr 15, 2026)
@@ -2669,7 +2669,7 @@
 - [x] Verify charts update when store changes
 - [x] Verify real-time widget displays today's metrics
 - [x] Fix product limit selector to show correct number of products
-- [ ] Push to GitHub with all analytics features
+- [x] Push to GitHub with all analytics features
 
 
 ## Layout Reorganization (Apr 15, 2026)
@@ -2677,3 +2677,10 @@
 - [x] Test layout on web
 - [x] Test layout on mobile
 - [x] Verify selector positioning is correct and improves UX
+
+
+## Store Selector Label Update (Apr 15, 2026)
+- [x] Change "General" to "All Stores" in analytics store selector
+- [x] Update both web and native versions
+- [x] Test on both layouts
+- [x] Create checkpoint with updated label

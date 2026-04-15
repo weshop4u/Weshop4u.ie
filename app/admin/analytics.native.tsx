@@ -115,7 +115,7 @@ export default function AdminAnalytics() {
                 borderColor: selectedStore === null ? "#00E5FF" : "#E5E7EB",
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === null ? "#fff" : "#0F172A" }}>General</Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: selectedStore === null ? "#fff" : "#0F172A" }}>All Stores</Text>
             </Pressable>
             {stores?.map((store) => (
               <Pressable
