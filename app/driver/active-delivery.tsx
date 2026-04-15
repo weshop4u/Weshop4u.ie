@@ -382,6 +382,11 @@ export default function ActiveDeliveryScreen() {
   const paymentMethod = order.paymentMethod || "card";
   const customerNotes = order.customerNotes || null;
   const orderNumber = order.orderNumber || `Order #${order.id}`;
+  
+  // Get store receipt total for driver (excludes WSS items)
+  const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
+  const storeReceiptTotal = receiptData?.storeReceipt?.total || orderTotal;
+  const displayTotal = storeReceiptTotal; // Driver sees store receipt total
 
   return (
     <ScreenContainer>
@@ -884,8 +889,12 @@ export default function ActiveDeliveryScreen() {
         {/* Order Items */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
-          {order.items && order.items.length > 0 ? (
-            order.items.map((item: any, index: number) => (
+          {(() => {
+            // Use store receipt items for driver (excludes WSS items)
+            const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
+            const displayItems = receiptData?.storeReceipt?.items || order.items || [];
+            return displayItems && displayItems.length > 0 ? (
+              displayItems.map((item: any, index: number) => (
               <View key={index} className="py-2 border-b border-border">
                 <View className="flex-row justify-between">
                   <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
@@ -910,9 +919,10 @@ export default function ActiveDeliveryScreen() {
                 )}
               </View>
             ))
-          ) : (
-            <Text className="text-muted">No items available</Text>
-          )}
+            ) : (
+              <Text className="text-muted">No items available</Text>
+            );
+          })()}
         </View>
 
         {/* Payment Information */}
@@ -930,14 +940,14 @@ export default function ActiveDeliveryScreen() {
             <View className="bg-warning/10 border border-warning p-3 rounded-lg mt-2">
               <Text className="text-warning font-bold mb-1">💰 Collect Cash</Text>
               <Text className="text-foreground">
-                Collect <Text className="font-bold">€{orderTotal.toFixed(2)}</Text> from customer
+                Collect <Text className="font-bold">€{displayTotal.toFixed(2)}</Text> from customer
               </Text>
             </View>
           )}
 
           <View className="flex-row justify-between mt-3 pt-3 border-t border-border">
             <Text className="text-muted">Order Total</Text>
-            <Text className="text-foreground font-semibold">€{orderTotal.toFixed(2)}</Text>
+            <Text className="text-foreground font-semibold">€{displayTotal.toFixed(2)}</Text>
           </View>
           <View className="flex-row justify-between mt-2">
             <Text className="text-muted">Delivery Fee</Text>

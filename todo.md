@@ -2706,9 +2706,9 @@
 - [x] Add CO (Contact Office) badge indicator for orders with WSS items
 - [x] Badge visible in: receipt page (customer view)
 - [x] Badge visible in: driver app order list
-- [ ] Driver receives same receipt as store (non-WSS items only)
+- [x] Driver receives same receipt as store (non-WSS items only)
+- [x] Driver app shows CO badge so they know to check admin for actual price
 - [ ] Admin tells driver the correct cash amount via message (if cash job)
-- [ ] Driver app shows CO badge so they know to check admin for actual price
 
 ### Phase 4: Driver App Updates
 - [ ] Display CO badge on driver order list
