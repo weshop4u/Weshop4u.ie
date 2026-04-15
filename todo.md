@@ -2668,4 +2668,5 @@
 - [x] Verify charts update when time period changes
 - [x] Verify charts update when store changes
 - [x] Verify real-time widget displays today's metrics
+- [x] Fix product limit selector to show correct number of products
 - [ ] Push to GitHub with all analytics features

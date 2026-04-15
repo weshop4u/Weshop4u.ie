@@ -270,7 +270,7 @@ export default function AdminAnalytics() {
                 🏆 Top Selling Products
               </Text>
               <View style={{ gap: 12 }}>
-                {topProducts.topProducts.slice(0, 5).map((product, idx) => (
+                {topProducts.topProducts.slice(0, productLimit).map((product, idx) => (
                   <View
                     key={idx}
                     style={{
@@ -278,7 +278,7 @@ export default function AdminAnalytics() {
                       justifyContent: "space-between",
                       alignItems: "center",
                       paddingVertical: 10,
-                      borderBottomWidth: idx < 4 ? 1 : 0,
+                      borderBottomWidth: idx < productLimit - 1 ? 1 : 0,
                       borderBottomColor: "#E5E7EB",
                     }}
                   >
