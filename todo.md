@@ -2653,3 +2653,19 @@
 - [x] Test on both mobile and desktop layouts
 - [x] Verify store-specific metrics update correctly
 - [x] Verify product limit changes update the top products list
+
+
+## Analytics Charts & Real-Time Widget (Apr 15, 2026)
+- [x] Add Recharts library to project dependencies
+- [x] Create revenue trend chart (daily revenue over selected period)
+- [x] Create order volume chart (orders per day over selected period)
+- [x] Build real-time metrics widget showing today's metrics
+- [x] Implement auto-refresh for real-time widget (every 5 minutes)
+- [x] Test charts with different time periods and stores
+- [x] Test real-time widget updates correctly
+- [x] Test on both mobile and desktop layouts
+- [x] Create platform-specific files (analytics.web.tsx, analytics.native.tsx)
+- [x] Verify charts update when time period changes
+- [x] Verify charts update when store changes
+- [x] Verify real-time widget displays today's metrics
+- [ ] Push to GitHub with all analytics features

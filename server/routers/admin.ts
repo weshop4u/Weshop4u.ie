@@ -2587,4 +2587,81 @@ export const adminRouter = router({
         peakHourCount: peakHour[1],
       };
     }),
+
+  getDailySalesChartData: publicProcedure
+    .input((input: any) => ({
+      days: input?.days || 30,
+      storeId: input?.storeId || null,
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - input.days);
+
+      let allOrders = await db.select().from(orders);
+      allOrders = allOrders.filter(o => o.createdAt >= startDate && o.status === "delivered");
+
+      if (input.storeId) {
+        allOrders = allOrders.filter(o => o.storeId === input.storeId);
+      }
+
+      const dailyData: Record<string, { revenue: number; orders: number }> = {};
+
+      for (let i = 0; i <= input.days; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+        dailyData[dateStr] = { revenue: 0, orders: 0 };
+      }
+
+      for (const order of allOrders) {
+        const dateStr = new Date(order.createdAt).toISOString().split('T')[0];
+        if (dailyData[dateStr]) {
+          dailyData[dateStr].revenue += parseFloat(order.total);
+          dailyData[dateStr].orders += 1;
+        }
+      }
+
+      const chartData = Object.entries(dailyData).map(([date, data]) => ({
+        date,
+        revenue: Math.round(data.revenue * 100) / 100,
+        orders: data.orders,
+      }));
+
+      return chartData;
+    }),
+
+  getTodayMetrics: publicProcedure
+    .input((input: any) => ({
+      storeId: input?.storeId || null,
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      let todayOrders = await db.select().from(orders);
+      todayOrders = todayOrders.filter(o => o.createdAt >= todayStart);
+
+      if (input.storeId) {
+        todayOrders = todayOrders.filter(o => o.storeId === input.storeId);
+      }
+
+      const deliveredOrders = todayOrders.filter(o => o.status === "delivered");
+      const totalRevenue = deliveredOrders.reduce((sum, o) => sum + parseFloat(o.total), 0);
+      const totalOrders = todayOrders.length;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / deliveredOrders.length : 0;
+
+      return {
+        totalOrders,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        avgOrderValue: Math.round(avgOrderValue * 100) / 100,
+        deliveredOrders: deliveredOrders.length,
+      };
+    }),
 });
