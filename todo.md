@@ -2670,3 +2670,10 @@
 - [x] Verify real-time widget displays today's metrics
 - [x] Fix product limit selector to show correct number of products
 - [ ] Push to GitHub with all analytics features
+
+
+## Layout Reorganization (Apr 15, 2026)
+- [x] Move product limit selector (Top 5, 10, 20, 50) to be between Peak Hour metric and Top Selling Products section
+- [x] Test layout on web
+- [x] Test layout on mobile
+- [x] Verify selector positioning is correct and improves UX

@@ -147,29 +147,6 @@ export default function AdminAnalytics() {
           </View>
         </View>
 
-        {/* Product Limit Selector */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Top Products</Text>
-          <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-            {[5, 10, 20, 50].map((limit) => (
-              <Pressable
-                key={limit}
-                onPress={() => setProductLimit(limit)}
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  backgroundColor: productLimit === limit ? "#00E5FF" : "#f5f5f5",
-                  borderWidth: 1,
-                  borderColor: productLimit === limit ? "#00E5FF" : "#E5E7EB",
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: productLimit === limit ? "#fff" : "#0F172A" }}>Top {limit}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
         <Text style={{ fontSize: 12, color: "#687076" }}>
           {getPeriodLabel()}
         </Text>
@@ -261,6 +238,29 @@ export default function AdminAnalytics() {
               icon="⏰"
               color="#8B5CF6"
             />
+          </View>
+
+          {/* Product Limit Selector - Moved here */}
+          <View style={{ marginTop: 8, marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Top Products</Text>
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+              {[5, 10, 20, 50].map((limit) => (
+                <Pressable
+                  key={limit}
+                  onPress={() => setProductLimit(limit)}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 6,
+                    backgroundColor: productLimit === limit ? "#00E5FF" : "#f5f5f5",
+                    borderWidth: 1,
+                    borderColor: productLimit === limit ? "#00E5FF" : "#E5E7EB",
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: productLimit === limit ? "#fff" : "#0F172A" }}>Top {limit}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
 
           {/* Top Products */}
