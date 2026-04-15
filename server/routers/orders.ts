@@ -7,6 +7,8 @@ import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotifica
 import { sendOrderConfirmationSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
+import { calculateDualReceipts } from "../services/receipt-calculator";
+import type { ReceiptItem } from "../services/receipt-calculator";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
 
 // Helper function to generate sequential order number per store
@@ -185,6 +187,7 @@ export const ordersRouter = router({
       // Get product details and calculate subtotal
       let subtotal = 0;
       const orderItemsData = [];
+      const receiptItems: ReceiptItem[] = [];
 
       for (const item of input.items) {
         const product = await db
@@ -214,6 +217,20 @@ export const ordersRouter = router({
           subtotal: itemSubtotal.toFixed(2),
           modifiers: item.modifiers || [],
         });
+
+        // Build receipt item with WSS flag
+        receiptItems.push({
+          id: item.productId,
+          quantity: item.quantity,
+          productName: productData.name,
+          subtotal: itemSubtotal.toFixed(2),
+          isWss: productData.isWss || false,
+          modifiers: (item.modifiers || []).map(m => ({
+            groupName: m.groupName || "Options",
+            modifierName: m.modifierName,
+            modifierPrice: m.modifierPrice,
+          })),
+        });
       }
 
       // Calculate service fee (10% of subtotal)
@@ -224,6 +241,14 @@ export const ordersRouter = router({
       const discountAmt = input.discountAmount || 0;
       const effectiveDeliveryFee = input.isFreeDelivery ? 0 : deliveryFee;
       const total = Math.round((subtotal + serviceFee + effectiveDeliveryFee + tipAmount - discountAmt) * 100) / 100;
+
+      // Calculate dual receipts (customer vs store)
+      const receiptData = calculateDualReceipts(
+        receiptItems,
+        subtotal,
+        serviceFee,
+        effectiveDeliveryFee
+      );
 
       // Generate sequential order number per store
       const orderNumber = await generateOrderNumber(input.storeId);
@@ -255,6 +280,8 @@ export const ordersRouter = router({
         guestName: input.guestName || null,
         guestPhone: input.guestPhone || null,
         guestEmail: input.guestEmail || null,
+        // Store receipt data as JSON
+        receiptData: JSON.stringify(receiptData),
       });
 
       const orderId = order.insertId;
@@ -466,11 +493,26 @@ export const ordersRouter = router({
         modifiers: itemModsMap[item.id] || [],
       }));
 
+      // Parse receipt data if available
+      let receiptData = null;
+      let hasWssItems = false;
+      if (orderResult[0].orders.receiptData) {
+        try {
+          receiptData = JSON.parse(orderResult[0].orders.receiptData);
+          hasWssItems = receiptData.hasWssItems || false;
+        } catch (e) {
+          console.error("Failed to parse receipt data:", e);
+        }
+      }
+
       return {
         ...orderResult[0].orders,
         store: orderResult[0].stores,
         customer: orderResult[0].users ? { name: orderResult[0].users.name, phone: orderResult[0].users.phone } : null,
         items: itemsWithModifiers,
+        receiptData,
+        hasWssItems,
+        coIndicator: hasWssItems ? "CO" : null,
       };
     }),
 

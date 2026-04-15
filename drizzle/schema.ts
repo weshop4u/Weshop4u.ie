@@ -299,6 +299,9 @@ export const orders = mysqlTable(
     deliveredAt: timestamp("delivered_at"),
     cancelledAt: timestamp("cancelled_at"),
     cancellationReason: text("cancellation_reason"),
+    // WSS (WeShopStock) receipt data - stored as JSON
+    // Structure: { customerReceipt: {...}, storeReceipt: {...}, hasWssItems: boolean }
+    receiptData: text("receipt_data"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },

@@ -68,6 +68,11 @@ export default function ReceiptScreen() {
             <Text style={{ color: "#0a7ea4", fontSize: 16, fontWeight: "600" }}>← Back</Text>
           </TouchableOpacity>
           <Text style={{ flex: 1, fontSize: 18, fontWeight: "700", color: "#11181C", textAlign: "center" }}>Receipt</Text>
+          {order.coIndicator && (
+            <View style={{ backgroundColor: "#F59E0B", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8 }}>
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{order.coIndicator}</Text>
+            </View>
+          )}
           <TouchableOpacity onPress={handlePrint} style={{ marginLeft: 12 }}>
             <Text style={{ color: "#0a7ea4", fontSize: 14, fontWeight: "600" }}>🖨 Print</Text>
           </TouchableOpacity>

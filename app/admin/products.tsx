@@ -26,6 +26,7 @@ function ProductsManagementScreenContent() {
   const router = useRouter();
   const colors = useColors();
   const queryClient = useQueryClient();
+  const utils = trpc.useUtils();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
@@ -876,33 +877,14 @@ function ProductsManagementScreenContent() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
-                        const newWssStatus = !product.isWss;
-                        queryClient.setQueryData(
-                          ['stores', 'getProducts'],
-                          (oldData: any) => {
-                            if (!oldData) return oldData;
-                            return {
-                              ...oldData,
-                              items: oldData.items.map((p: any) =>
-                                p.id === product.id ? { ...p, isWss: newWssStatus } : p
-                              ),
-                            };
-                          }
-                        );
+                        const newWssStatus = !(product.isWss === true);
                         toggleWssMutation.mutate({ productId: product.id, isWss: newWssStatus }, {
+                          onSuccess: () => {
+                            // Invalidate and refetch the products query to get the updated data
+                            utils.stores.getProducts.invalidate();
+                          },
                           onError: (err) => {
-                            queryClient.setQueryData(
-                              ['stores', 'getProducts'],
-                              (oldData: any) => {
-                                if (!oldData) return oldData;
-                                return {
-                                  ...oldData,
-                                  items: oldData.items.map((p: any) =>
-                                    p.id === product.id ? { ...p, isWss: product.isWss } : p
-                                  ),
-                                };
-                              }
-                            );
+                            console.error('Failed to toggle WSS:', err);
                           },
                         });
                       }}

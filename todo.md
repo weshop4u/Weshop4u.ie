@@ -2687,12 +2687,38 @@
 
 
 ## WeShopStock (WSS) System - Apr 15, 2026
-- [ ] Add is_wss boolean column to products table (schema updated, migration pending)
-- [ ] Add WSS toggle UI in product management table (beside PV column)
+- [x] Add is_wss boolean column to products table (schema updated, migration pending)
+- [x] Add WSS toggle UI in product management table (beside PV column)
+- [x] Create toggleWss API endpoint to toggle is_wss flag
+- [x] Fix WSS toggle persistence - added isWss field to getProducts query
+- [x] Fix WSS toggle immediate UI update - use utils.stores.getProducts.invalidate()
 - [ ] Add WSS filter button in product list (WSS filter pill)
-- [ ] Create toggleWss API endpoint to toggle is_wss flag
-- [ ] Update order receipt logic to hide WSS items from store receipts
-- [ ] Add Contact Office notification for drivers when order has WSS items
-- [ ] Add WSS hint in order details backend (not visible to store staff)
-- [ ] Test WSS functionality: mark item, create order, verify receipt
-- [ ] Test driver notification appears when order has WSS items
+
+### Phase 2: Dual Receipt Logic
+- [x] Update receipt generation to create two versions
+- [x] Store receipt: excludes WSS items, recalculates fees based on non-WSS items only
+- [x] Customer receipt: includes all items with full fees
+- [x] Ensure service charge & delivery fee are proportional to item totals
+- [x] Backend stores both receipt versions in order data (JSON storage)
+- [x] Admin can view both receipts in order details
+
+### Phase 3: CO Badge & Driver Notifications
+- [x] Add CO (Contact Office) badge indicator for orders with WSS items
+- [x] Badge visible in: receipt page (customer view)
+- [ ] Badge visible in: admin order list, driver app
+- [ ] Driver receives same receipt as store (non-WSS items only)
+- [ ] Admin tells driver the correct cash amount via message (if cash job)
+- [ ] Driver app shows CO badge so they know to check admin for actual price
+
+### Phase 4: Driver App Updates
+- [ ] Display CO badge on driver order list
+- [ ] Show store receipt (non-WSS items) to driver
+- [ ] Driver can see admin message with correct cash amount
+
+### Phase 5: Testing
+- [ ] Test order with mix of WSS and non-WSS items
+- [ ] Verify store receipt excludes WSS items
+- [ ] Verify customer receipt includes all items
+- [ ] Verify fees are calculated correctly on both receipts
+- [ ] Verify CO badge appears for WSS orders
+- [ ] Verify driver sees correct receipt and badge
