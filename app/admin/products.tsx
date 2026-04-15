@@ -48,6 +48,7 @@ function ProductsManagementScreenContent() {
   const [duplicateTargetStoreIds, setDuplicateTargetStoreIds] = useState<number[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [pvFilter, setPvFilter] = useState<"all" | "verified" | "unverified">("all"); // PV filter state
+  const [wssFilter, setWssFilter] = useState<"all" | "wss" | "non_wss">("all"); // WSS filter state
   const [editingModifier, setEditingModifier] = useState<any>(null);
   const [showModifierEditor, setShowModifierEditor] = useState(false);
   const [modifierSelections, setModifierSelections] = useState<Map<number, number[]>>(new Map());
@@ -743,6 +744,7 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>DRS</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PV</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>WSS</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
@@ -868,6 +870,57 @@ function ProductsManagementScreenContent() {
                       >
                         <Text style={{ color: product.priceVerified ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
                           {product.priceVerified ? "✓" : "✗"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newWssStatus = !product.isWss;
+                        queryClient.setQueryData(
+                          ['stores', 'getProducts'],
+                          (oldData: any) => {
+                            if (!oldData) return oldData;
+                            return {
+                              ...oldData,
+                              items: oldData.items.map((p: any) =>
+                                p.id === product.id ? { ...p, isWss: newWssStatus } : p
+                              ),
+                            };
+                          }
+                        );
+                        trpc.stores.toggleWss.useMutation().mutate({ productId: product.id, isWss: newWssStatus }, {
+                          onError: (err) => {
+                            queryClient.setQueryData(
+                              ['stores', 'getProducts'],
+                              (oldData: any) => {
+                                if (!oldData) return oldData;
+                                return {
+                                  ...oldData,
+                                  items: oldData.items.map((p: any) =>
+                                    p.id === product.id ? { ...p, isWss: product.isWss } : p
+                                  ),
+                                };
+                              }
+                            );
+                          },
+                        });
+                      }}
+                      style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
+                    >
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: product.isWss ? "#8B5CF6" : "#EF4444",
+                          backgroundColor: product.isWss ? "#8B5CF620" : "#EF444420",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: product.isWss ? "#8B5CF6" : "✗", fontSize: 14, fontWeight: "700" }}>
+                          {product.isWss ? "✓" : "✗"}
                         </Text>
                       </View>
                     </TouchableOpacity>

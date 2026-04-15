@@ -171,6 +171,7 @@ export const products = pgTable(
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     priceVerified: boolean("price_verified").default(false), // PV - Price Verified flag for price checking
+    isWss: boolean("is_wss").default(false), // WSS - WeShopStock flag for admin-supplied items
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

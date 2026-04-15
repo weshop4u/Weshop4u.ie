@@ -721,4 +721,24 @@ export const storesRouter = router({
 
       return { ids: createdIds, success: true, count: createdIds.length };
     }),
+
+  // Toggle WSS flag for a product
+  toggleWss: publicProcedure
+    .input(z.object({
+      productId: z.number(),
+      isWss: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      const result = await db
+        .update(products)
+        .set({ isWss: input.isWss })
+        .where(eq(products.id, input.productId));
+
+      return { success: true, productId: input.productId, isWss: input.isWss };
+    }),
 });

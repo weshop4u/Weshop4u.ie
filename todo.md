@@ -2684,3 +2684,15 @@
 - [x] Update both web and native versions
 - [x] Test on both layouts
 - [x] Create checkpoint with updated label
+
+
+## WeShopStock (WSS) System - Apr 15, 2026
+- [ ] Add is_wss boolean column to products table (schema updated, migration pending)
+- [ ] Add WSS toggle UI in product management table (beside PV column)
+- [ ] Add WSS filter button in product list (WSS filter pill)
+- [ ] Create toggleWss API endpoint to toggle is_wss flag
+- [ ] Update order receipt logic to hide WSS items from store receipts
+- [ ] Add Contact Office notification for drivers when order has WSS items
+- [ ] Add WSS hint in order details backend (not visible to store staff)
+- [ ] Test WSS functionality: mark item, create order, verify receipt
+- [ ] Test driver notification appears when order has WSS items

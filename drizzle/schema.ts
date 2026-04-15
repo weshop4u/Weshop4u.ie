@@ -157,6 +157,7 @@ export const products = mysqlTable(
     priceVerified: boolean("price_verified").default(false), // Price has been verified
     sortOrder: int("sort_order").default(999), // Lower number = higher in category list
     pinnedToTrending: boolean("pinned_to_trending").default(false), // Manually pin to trending section
+    isWss: boolean("is_wss").default(false), // WeShopStock - product supplied by WESHOP4U, not the store
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
