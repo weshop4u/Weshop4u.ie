@@ -744,18 +744,16 @@ export const storesRouter = router({
       }
 
       try {
+        console.log(`[toggleWss] Updating product ${input.productId} to isWss=${input.isWss}`);
         const result = await db
           .update(products)
           .set({ isWss: input.isWss })
           .where(eq(products.id, input.productId));
 
+        console.log(`[toggleWss] Update result:`, result);
         return { success: true, productId: input.productId, isWss: input.isWss };
       } catch (error: any) {
-        // If column doesn't exist, return success anyway (will work once migration is applied)
-        if (error.message?.includes("Unknown column") || error.message?.includes("is_wss")) {
-          console.warn("is_wss column not found, but returning success for UI");
-          return { success: true, productId: input.productId, isWss: input.isWss };
-        }
+        console.error(`[toggleWss] Error updating product:`, error);
         throw error;
       }
     }),

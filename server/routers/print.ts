@@ -18,7 +18,7 @@ function getDisplayOrderNumber(order: any): string {
 }
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
-export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>): string {
+export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>, receiptData?: any): string {
   const LINE_WIDTH = 32;
   const lines: string[] = [];
 
@@ -159,12 +159,25 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
 
   lines.push(divider("-"));
 
-  // Totals
-  const subtotal = parseFloat(order.subtotal || "0");
-  const serviceFee = parseFloat(order.serviceFee || "0");
-  const deliveryFee = parseFloat(order.deliveryFee || "0");
+  // Totals - use store receipt totals if available, otherwise use order totals
+  let subtotal: number;
+  let serviceFee: number;
+  let deliveryFee: number;
+  let total: number;
+  
+  if (receiptData && receiptData.storeReceipt) {
+    subtotal = receiptData.storeReceipt.subtotal;
+    serviceFee = receiptData.storeReceipt.serviceFee;
+    deliveryFee = receiptData.storeReceipt.deliveryFee;
+    total = receiptData.storeReceipt.total;
+  } else {
+    subtotal = parseFloat(order.subtotal || "0");
+    serviceFee = parseFloat(order.serviceFee || "0");
+    deliveryFee = parseFloat(order.deliveryFee || "0");
+    total = parseFloat(order.total || "0");
+  }
+  
   const tipAmount = parseFloat(order.tipAmount || "0");
-  const total = parseFloat(order.total || "0");
 
   lines.push(leftRight("Subtotal:", `EUR${subtotal.toFixed(2)}`));
   lines.push(leftRight("Service Fee:", `EUR${serviceFee.toFixed(2)}`));
@@ -218,20 +231,45 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
 
     if (storeResult.length === 0) return;
 
-    // Get items
-    const items = await db
-      .select({
-        id: orderItems.id,
-        orderId: orderItems.orderId,
-        productId: orderItems.productId,
-        productName: orderItems.productName,
-        productPrice: orderItems.productPrice,
-        quantity: orderItems.quantity,
-        subtotal: orderItems.subtotal,
-        notes: orderItems.notes,
-      })
-      .from(orderItems)
-      .where(eq(orderItems.orderId, orderId));
+    // Get items - use store receipt from receiptData to exclude WSS items
+    let items: any[] = [];
+    if (order.receiptData) {
+      try {
+        const receiptData = JSON.parse(order.receiptData);
+        items = receiptData.storeReceipt.items;
+      } catch (e) {
+        console.warn(`[Print] Failed to parse receiptData for order ${orderId}, falling back to all items`);
+        // Fallback: get all items from database
+        items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            productPrice: orderItems.productPrice,
+            quantity: orderItems.quantity,
+            subtotal: orderItems.subtotal,
+            notes: orderItems.notes,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, orderId));
+      }
+    } else {
+      // Old orders without receiptData - get all items
+      items = await db
+        .select({
+          id: orderItems.id,
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          productPrice: orderItems.productPrice,
+          quantity: orderItems.quantity,
+          subtotal: orderItems.subtotal,
+          notes: orderItems.notes,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+    }
 
     // Get customer name and phone
     let customerName = "Guest";
@@ -267,8 +305,17 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
     }
     // Fetch modifiers for items
     const itemMods = await fetchItemModifiers(items.map(i => i.id));
-    // Format and create print jobb
-    const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
+    // Parse receiptData for correct totals
+    let receiptDataObj: any = null;
+    if (order.receiptData) {
+      try {
+        receiptDataObj = JSON.parse(order.receiptData);
+      } catch (e) {
+        console.warn(`[AutoPrint] Failed to parse receiptData for order ${orderId}`);
+      }
+    }
+    // Format and create print job with receiptData
+    const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
     await db.insert(printJobs).values({
       storeId,
       orderId,
@@ -317,20 +364,45 @@ export const printRouter = router({
         throw new Error("Store not found");
       }
 
-      // Get order items
-      const items = await db
-        .select({
-          id: orderItems.id,
-          orderId: orderItems.orderId,
-          productId: orderItems.productId,
-          productName: orderItems.productName,
-          productPrice: orderItems.productPrice,
-          quantity: orderItems.quantity,
-          subtotal: orderItems.subtotal,
-          notes: orderItems.notes,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, input.orderId));
+      // Get order items - use store receipt from receiptData to exclude WSS items
+      let items: any[] = [];
+      if (order.receiptData) {
+        try {
+          const receiptData = JSON.parse(order.receiptData);
+          items = receiptData.storeReceipt.items;
+        } catch (e) {
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to all items`);
+          // Fallback: get all items from database
+          items = await db
+            .select({
+              id: orderItems.id,
+              orderId: orderItems.orderId,
+              productId: orderItems.productId,
+              productName: orderItems.productName,
+              productPrice: orderItems.productPrice,
+              quantity: orderItems.quantity,
+              subtotal: orderItems.subtotal,
+              notes: orderItems.notes,
+            })
+            .from(orderItems)
+            .where(eq(orderItems.orderId, input.orderId));
+        }
+      } else {
+        // Old orders without receiptData - get all items
+        items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            productPrice: orderItems.productPrice,
+            quantity: orderItems.quantity,
+            subtotal: orderItems.subtotal,
+            notes: orderItems.notes,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, input.orderId));
+      }
 
       // Get customer name and phone
       let customerName = "Guest";
@@ -352,9 +424,17 @@ export const printRouter = router({
 
       // Fetch modifiers for items
       const itemMods = await fetchItemModifiers(items.map(i => i.id));
-
-      // Format receipt
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
+      // Parse receiptData for correct totals
+      let receiptDataObj: any = null;
+      if (order.receiptData) {
+        try {
+          receiptDataObj = JSON.parse(order.receiptData);
+        } catch (e) {
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}`);
+        }
+      }
+      // Format and create print job with receiptData
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
 
       // Create print job
       const [result] = await db.insert(printJobs).values({
@@ -486,20 +566,43 @@ export const printRouter = router({
         .where(eq(stores.id, input.storeId))
         .limit(1);
 
-      // Get items
-      const items = await db
-        .select({
-          id: orderItems.id,
-          orderId: orderItems.orderId,
-          productId: orderItems.productId,
-          productName: orderItems.productName,
-          productPrice: orderItems.productPrice,
-          quantity: orderItems.quantity,
-          subtotal: orderItems.subtotal,
-          notes: orderItems.notes,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, input.orderId));
+      // Get items - use store receipt from receiptData to exclude WSS items
+      let items: any[] = [];
+      if (order.receiptData) {
+        try {
+          const receiptData = JSON.parse(order.receiptData);
+          items = receiptData.storeReceipt.items;
+        } catch (e) {
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to all items`);
+          items = await db
+            .select({
+              id: orderItems.id,
+              orderId: orderItems.orderId,
+              productId: orderItems.productId,
+              productName: orderItems.productName,
+              productPrice: orderItems.productPrice,
+              quantity: orderItems.quantity,
+              subtotal: orderItems.subtotal,
+              notes: orderItems.notes,
+            })
+            .from(orderItems)
+            .where(eq(orderItems.orderId, input.orderId));
+        }
+      } else {
+        items = await db
+          .select({
+            id: orderItems.id,
+            orderId: orderItems.orderId,
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            productPrice: orderItems.productPrice,
+            quantity: orderItems.quantity,
+            subtotal: orderItems.subtotal,
+            notes: orderItems.notes,
+          })
+          .from(orderItems)
+          .where(eq(orderItems.orderId, input.orderId));
+      }
 
       // Get customer name and phone
       let customerName = "Guest";
@@ -521,8 +624,17 @@ export const printRouter = router({
 
       // Fetch modifiers for items
       const itemMods = await fetchItemModifiers(items.map(i => i.id));
+      // Parse receiptData for correct totals
+      let receiptDataObj: any = null;
+      if (order.receiptData) {
+        try {
+          receiptDataObj = JSON.parse(order.receiptData);
+        } catch (e) {
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}`);
+        }
+      }
 
-      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods);
+      const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
 
       return {
         receiptContent,

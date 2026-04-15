@@ -219,12 +219,13 @@ export const ordersRouter = router({
         });
 
         // Build receipt item with WSS flag
+        const isWssFlag = productData.isWss || false;
         receiptItems.push({
           id: item.productId,
           quantity: item.quantity,
           productName: productData.name,
           subtotal: itemSubtotal.toFixed(2),
-          isWss: productData.isWss || false,
+          isWss: isWssFlag,
           modifiers: (item.modifiers || []).map(m => ({
             groupName: m.groupName || "Options",
             modifierName: m.modifierName,

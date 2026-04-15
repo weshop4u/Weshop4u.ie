@@ -626,34 +626,53 @@ function AdminOrdersScreenContent() {
                           <Text style={[dtStyles.detailValue, { fontWeight: "700" }]}>{order.storeName}</Text>
                         </View>
                         <View style={{ minWidth: 260, flex: 1 }}>
-                          <Text style={dtStyles.detailLabel}>Items Ordered</Text>
-                          {(order as any).items && (order as any).items.length > 0 ? (
-                            (order as any).items.map((item: any, idx2: number) => (
-                              <View key={idx2} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                                <Text style={[dtStyles.detailValue, { flex: 1 }]}>
-                                  {item.quantity}x {item.productName}
-                                </Text>
-                                <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
-                                  €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
-                                </Text>
-                              </View>
-                            ))
-                          ) : (
-                            <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No items data</Text>
-                          )}
+                          <Text style={dtStyles.detailLabel}>Items for Store</Text>
+                          {(() => {
+                            const receiptData = (order as any).receiptData;
+                            const displayItems = receiptData?.storeReceipt?.items || (order as any).items || [];
+                            return displayItems && displayItems.length > 0 ? (
+                              displayItems.map((item: any, idx2: number) => (
+                                <View key={idx2} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                                  <Text style={[dtStyles.detailValue, { flex: 1 }]}>
+                                    {item.quantity}x {item.productName}
+                                  </Text>
+                                  <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
+                                    €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
+                                  </Text>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No items data</Text>
+                            );
+                          })()}
                         </View>
                         <View style={{ minWidth: 200 }}>
                           <Text style={dtStyles.detailLabel}>Delivery Address</Text>
                           <Text style={dtStyles.detailValue}>{order.deliveryAddress}</Text>
                         </View>
                         <View style={{ minWidth: 150 }}>
-                          <Text style={dtStyles.detailLabel}>Price Breakdown</Text>
-                          <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(order.subtotal).toFixed(2)}</Text>
-                          <Text style={dtStyles.detailValue}>Service: €{parseFloat(order.serviceFee).toFixed(2)}</Text>
-                          <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(order.deliveryFee).toFixed(2)}</Text>
-                          {parseFloat(order.tipAmount || "0") > 0 && (
-                            <Text style={[dtStyles.detailValue, { color: "#8B5CF6" }]}>Tip: €{parseFloat(order.tipAmount || "0").toFixed(2)}</Text>
-                          )}
+                          <Text style={dtStyles.detailLabel}>Store Receipt</Text>
+                          {(() => {
+                            const receiptData = (order as any).receiptData;
+                            const storeReceipt = receiptData?.storeReceipt;
+                            if (storeReceipt) {
+                              return (
+                                <>
+                                  <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(storeReceipt.subtotal).toFixed(2)}</Text>
+                                  <Text style={dtStyles.detailValue}>Service: €{parseFloat(storeReceipt.serviceFee).toFixed(2)}</Text>
+                                  <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(storeReceipt.deliveryFee).toFixed(2)}</Text>
+                                  <Text style={[dtStyles.detailValue, { fontWeight: "600", color: "#059669" }]}>Total: €{parseFloat(storeReceipt.total).toFixed(2)}</Text>
+                                </>
+                              );
+                            }
+                            return (
+                              <>
+                                <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(order.subtotal).toFixed(2)}</Text>
+                                <Text style={dtStyles.detailValue}>Service: €{parseFloat(order.serviceFee).toFixed(2)}</Text>
+                                <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(order.deliveryFee).toFixed(2)}</Text>
+                              </>
+                            );
+                          })()}
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
