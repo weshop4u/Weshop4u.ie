@@ -784,6 +784,11 @@ export default function DriverHomeScreen() {
                       <Text style={{ fontSize: 15, fontWeight: 'bold', color: textColor }}>
                         {orderNum} • {storeName}
                       </Text>
+                      {activeOrder.coIndicator && (
+                        <View style={{ backgroundColor: '#F59E0B', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
+                          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{activeOrder.coIndicator}</Text>
+                        </View>
+                      )}
                     </View>
                     {isFirstJob && (
                       <View style={{ marginLeft: allActiveOrders.length > 1 ? 30 : 0, marginBottom: 4 }}>

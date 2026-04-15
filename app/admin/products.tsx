@@ -81,7 +81,7 @@ function ProductsManagementScreenContent() {
   }, [searchQuery]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [activeFilter, selectedCategoryFilter]);
+  useEffect(() => { setPage(0); }, [activeFilter, selectedCategoryFilter, wssFilter]);
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: productsData, refetch, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
@@ -90,6 +90,7 @@ function ProductsManagementScreenContent() {
       search: debouncedSearch || undefined,
       filter: activeFilter !== "all" ? activeFilter : undefined,
       categoryId: selectedCategoryFilter !== "all" ? selectedCategoryFilter : undefined,
+      wssFilter: wssFilter !== "all" ? wssFilter : undefined,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
     },
@@ -130,6 +131,7 @@ function ProductsManagementScreenContent() {
   const outOfStockCount = productsData?.counts?.outOfStock || 0;
   const verifiedCount = useMemo(() => products.filter((p: any) => p.priceVerified).length, [products]);
   const unverifiedCount = useMemo(() => products.filter((p: any) => !p.priceVerified).length, [products]);
+  const wssCount = useMemo(() => products.filter((p: any) => p.isWss).length, [products]);
 
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
 
@@ -664,6 +666,16 @@ function ProductsManagementScreenContent() {
                 >
                   <Text style={{ color: pvFilter === "unverified" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
                     PV ✗ ({unverifiedCount})
+                  </Text>
+                </TouchableOpacity>
+
+                {/* WSS filter */}
+                <TouchableOpacity
+                  onPress={() => setWssFilter(wssFilter === "wss" ? "all" : "wss")}
+                  style={[itemStyles.filterPill, { backgroundColor: wssFilter === "wss" ? "#8B5CF6" : colors.surface, borderColor: wssFilter === "wss" ? "#8B5CF6" : colors.border }]}
+                >
+                  <Text style={{ color: wssFilter === "wss" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    WSS ({wssCount})
                   </Text>
                 </TouchableOpacity>
 

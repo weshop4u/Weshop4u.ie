@@ -88,6 +88,7 @@ export const storesRouter = router({
       search: z.string().optional(),
       categoryId: z.number().optional(),
       filter: z.enum(["all", "no_desc", "no_image", "drs", "out_of_stock"]).optional(),
+      wssFilter: z.enum(["wss", "non_wss"]).optional(),
       limit: z.number().optional().default(100),
       offset: z.number().optional().default(0),
     }))
@@ -122,6 +123,13 @@ export const storesRouter = router({
         conditions.push(eq(products.isDrs, true));
       } else if (input.filter === "out_of_stock") {
         conditions.push(eq(products.stockStatus, "out_of_stock"));
+      }
+
+      // WSS filter
+      if (input.wssFilter === "wss") {
+        conditions.push(eq(products.isWss, true));
+      } else if (input.wssFilter === "non_wss") {
+        conditions.push(eq(products.isWss, false));
       }
 
       // Get total count for this query

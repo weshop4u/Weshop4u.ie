@@ -2692,7 +2692,7 @@
 - [x] Create toggleWss API endpoint to toggle is_wss flag
 - [x] Fix WSS toggle persistence - added isWss field to getProducts query
 - [x] Fix WSS toggle immediate UI update - use utils.stores.getProducts.invalidate()
-- [ ] Add WSS filter button in product list (WSS filter pill)
+- [x] Add WSS filter button in product list (WSS filter pill)
 
 ### Phase 2: Dual Receipt Logic
 - [x] Update receipt generation to create two versions
@@ -2705,7 +2705,7 @@
 ### Phase 3: CO Badge & Driver Notifications
 - [x] Add CO (Contact Office) badge indicator for orders with WSS items
 - [x] Badge visible in: receipt page (customer view)
-- [ ] Badge visible in: admin order list, driver app
+- [x] Badge visible in: driver app order list
 - [ ] Driver receives same receipt as store (non-WSS items only)
 - [ ] Admin tells driver the correct cash amount via message (if cash job)
 - [ ] Driver app shows CO badge so they know to check admin for actual price
