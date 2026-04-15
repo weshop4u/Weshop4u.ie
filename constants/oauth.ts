@@ -44,16 +44,20 @@ export function getApiBaseUrl(): string {
       // Manus dev URLs have port in hostname prefix: https://8081-xxx.manus.computer
       // Replace 8081- with 3000- to get the API server URL
       if (url.includes("8081-")) {
-        return url.replace("8081-", "3000-");
+        const apiUrl = url.replace("8081-", "3000-");
+        console.log("[API] Dev URL detected, using:", apiUrl);
+        return apiUrl;
       }
       // Also handle :8081 format if present
       if (url.includes(":8081")) {
-        return url.replace(":8081", ":3000");
+        const apiUrl = url.replace(":8081", ":3000");
+        console.log("[API] Dev URL detected, using:", apiUrl);
+        return apiUrl;
       }
+      // For production domains (weshop4u-hh4skdej.manus.space, etc.),
+      // use relative URLs to call the same server (no CORS issues)
+      console.log("[API] Production domain detected, using relative URL");
     }
-
-    // For production domains (weshop4u-hh4skdej.manus.space, etc.),
-    // use relative URLs to call the same server (no CORS issues)
     return "";
   }
 
