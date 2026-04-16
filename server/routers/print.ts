@@ -366,6 +366,7 @@ export const printRouter = router({
 
       // Get order items - use store receipt from receiptData to exclude WSS items
       let items: any[] = [];
+      console.log(`[createPrintJob] Order ${input.orderId}: receiptData exists? ${!!order.receiptData}`);
       if (order.receiptData) {
         try {
           const receiptData = JSON.parse(order.receiptData);
