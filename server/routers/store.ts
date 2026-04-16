@@ -996,15 +996,20 @@ export const storeRouter = router({
       // For each order, get item count and total quantity
       const result = [];
       for (const order of pendingOrders) {
-        const items = await db
+        const allItems = await db
           .select({
             id: orderItems.id,
             productName: orderItems.productName,
             quantity: orderItems.quantity,
             subtotal: orderItems.subtotal,
+            isWss: products.isWss,
           })
           .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, order.id));
+
+        // Filter out WSS items for store staff (POS screen)
+        const items = allItems.filter(item => !item.isWss);
 
         const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
