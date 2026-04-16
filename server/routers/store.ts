@@ -1009,9 +1009,17 @@ export const storeRouter = router({
           .where(eq(orderItems.orderId, order.id));
 
         // Filter out WSS items for store staff (POS screen)
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: allItems=${allItems.length}, items with isWss:`, allItems.map(i => ({ name: i.productName, isWss: i.isWss })));
         const items = allItems.filter(item => !item.isWss);
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: filtered items=${items.length}`);
 
         const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Calculate adjusted total by subtracting WSS item prices
+        const wssItemsSubtotal = allItems
+          .filter(item => item.isWss)
+          .reduce((sum, item) => sum + parseFloat(item.subtotal || '0'), 0);
+        const adjustedTotal = parseFloat(order.total || '0') - wssItemsSubtotal;
 
         // Get customer name
         let customerName = order.guestName || "Guest";
@@ -1027,7 +1035,7 @@ export const storeRouter = router({
         result.push({
           id: order.id,
           orderNumber: order.orderNumber,
-          total: order.total,
+          total: adjustedTotal.toString(),
           paymentMethod: order.paymentMethod,
           status: order.status,
           itemCount: items.length,
