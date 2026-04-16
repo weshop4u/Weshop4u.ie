@@ -615,7 +615,7 @@ export const ordersRouter = router({
     // Get order items for each order (including modifiers)
     const ordersWithItems = await Promise.all(
       userOrders.map(async (order) => {
-        let items = await db
+        const allItems = await db
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
@@ -624,35 +624,15 @@ export const ordersRouter = router({
             productPrice: orderItems.productPrice,
             productName: orderItems.productName,
             subtotal: orderItems.subtotal,
+            isWss: products.isWss,
           })
           .from(orderItems)
           .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, order.id));
 
-        // If store staff viewing and order has receiptData with WSS items, filter items
-        console.log(`[WSS] Order ${order.id}, role: ${userRole}, hasData: ${!!order.receiptData}`);
-        if (userRole === "store_staff" && order.receiptData) {
-          try {
-            const receiptData = JSON.parse(order.receiptData);
-            if (receiptData.hasWssItems && receiptData.storeReceipt?.items) {
-              const storeItems = receiptData.storeReceipt.items;
-              console.log(`[WSS] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
-              items = items.filter(item => {
-                const match = storeItems.some(si => si.id === item.productId);
-                console.log(`[WSS] Checking productId ${item.productId}: ${match}`);
-                return match;
-              });
-              console.log(`[WSS] After filtering: ${items.length}`);
-              // Update order totals to store receipt totals
-              order.subtotal = receiptData.storeReceipt.subtotal.toString();
-              order.serviceFee = receiptData.storeReceipt.serviceFee.toString();
-              order.deliveryFee = receiptData.storeReceipt.deliveryFee.toString();
-              order.total = receiptData.storeReceipt.total.toString();
-            }
-          } catch (e) {
-            console.error(`Failed to parse receiptData for order ${order.id}:`, e);
-          }
-        }
+        let items = userRole === "store_staff"
+          ? allItems.filter(item => !item.isWss)
+          : allItems;
 
         // Fetch modifiers for all items in this order
         const itemIds = items.map(i => i.id);

@@ -281,9 +281,9 @@ export async function autoCreatePrintJob(orderId: number, storeId: number, recei
           .where(eq(orderItems.orderId, orderId));
       }
     } else {
-      // Old orders without receiptData - get all items
-      console.log(`[AutoPrint] Order ${order.orderNumber}: No receiptData, fetching all items from database`);
-      items = await db
+      // Old orders without receiptData - get all items and filter out WSS
+      console.log(`[AutoPrint] Order ${order.orderNumber}: No receiptData, fetching items from database`);
+      const allItems = await db
         .select({
           id: orderItems.id,
           orderId: orderItems.orderId,
@@ -293,9 +293,12 @@ export async function autoCreatePrintJob(orderId: number, storeId: number, recei
           quantity: orderItems.quantity,
           subtotal: orderItems.subtotal,
           notes: orderItems.notes,
+          isWss: products.isWss,
         })
         .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, orderId));
+      items = allItems.filter(item => !item.isWss);
     }
 
     // Get customer name and phone
@@ -391,9 +394,9 @@ export const printRouter = router({
           const receiptData = JSON.parse(order.receiptData);
           items = receiptData.storeReceipt.items;
         } catch (e) {
-          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to all items`);
-          // Fallback: get all items from database
-          items = await db
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to filtered items`);
+          // Fallback: get all items from database and filter out WSS
+          const allItems = await db
             .select({
               id: orderItems.id,
               orderId: orderItems.orderId,
@@ -403,13 +406,16 @@ export const printRouter = router({
               quantity: orderItems.quantity,
               subtotal: orderItems.subtotal,
               notes: orderItems.notes,
+              isWss: products.isWss,
             })
             .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
             .where(eq(orderItems.orderId, input.orderId));
+          items = allItems.filter(item => !item.isWss);
         }
       } else {
-        // Old orders without receiptData - get all items
-        items = await db
+        // Old orders without receiptData - get all items and filter out WSS
+        const allItems = await db
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
@@ -419,9 +425,12 @@ export const printRouter = router({
             quantity: orderItems.quantity,
             subtotal: orderItems.subtotal,
             notes: orderItems.notes,
+            isWss: products.isWss,
           })
           .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, input.orderId));
+        items = allItems.filter(item => !item.isWss);
       }
 
       // Get customer name and phone
@@ -593,8 +602,8 @@ export const printRouter = router({
           const receiptData = JSON.parse(order.receiptData);
           items = receiptData.storeReceipt.items;
         } catch (e) {
-          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to all items`);
-          items = await db
+          console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}, falling back to filtered items`);
+          const allItems = await db
             .select({
               id: orderItems.id,
               orderId: orderItems.orderId,
@@ -604,12 +613,15 @@ export const printRouter = router({
               quantity: orderItems.quantity,
               subtotal: orderItems.subtotal,
               notes: orderItems.notes,
+              isWss: products.isWss,
             })
             .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
             .where(eq(orderItems.orderId, input.orderId));
+          items = allItems.filter(item => !item.isWss);
         }
       } else {
-        items = await db
+        const allItems = await db
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
@@ -619,9 +631,12 @@ export const printRouter = router({
             quantity: orderItems.quantity,
             subtotal: orderItems.subtotal,
             notes: orderItems.notes,
+            isWss: products.isWss,
           })
           .from(orderItems)
+          .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, input.orderId));
+        items = allItems.filter(item => !item.isWss);
       }
 
       // Get customer name and phone
