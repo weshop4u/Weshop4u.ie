@@ -67,14 +67,48 @@ export const storeRouter = router({
       }
 
       let query = db
-        .select()
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          customerId: orders.customerId,
+          storeId: orders.storeId,
+          status: orders.status,
+          subtotal: orders.subtotal,
+          serviceFee: orders.serviceFee,
+          deliveryFee: orders.deliveryFee,
+          total: orders.total,
+          receiptData: orders.receiptData,
+          createdAt: orders.createdAt,
+          driverId: orders.driverId,
+          paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
+          deliveryAddress: orders.deliveryAddress,
+          customerNotes: orders.customerNotes,
+        })
         .from(orders)
         .where(eq(orders.storeId, input.storeId));
 
       // Filter by status if not "all"
       if (input.status !== "all") {
         query = db
-          .select()
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            customerId: orders.customerId,
+            storeId: orders.storeId,
+            status: orders.status,
+            subtotal: orders.subtotal,
+            serviceFee: orders.serviceFee,
+            deliveryFee: orders.deliveryFee,
+            total: orders.total,
+            receiptData: orders.receiptData,
+            createdAt: orders.createdAt,
+            driverId: orders.driverId,
+            paymentMethod: orders.paymentMethod,
+            paymentStatus: orders.paymentStatus,
+            deliveryAddress: orders.deliveryAddress,
+            customerNotes: orders.customerNotes,
+          })
           .from(orders)
           .where(
             and(
@@ -89,11 +123,30 @@ export const storeRouter = router({
       // Get order items for each order
       const ordersWithItems = await Promise.all(
         storeOrders.map(async (order) => {
-          const items = await db
+          let items = await db
             .select()
             .from(orderItems)
             .leftJoin(products, eq(orderItems.productId, products.id))
             .where(eq(orderItems.orderId, order.id));
+
+          // If order has receiptData with WSS items, use store receipt items instead
+          if (order.receiptData) {
+            try {
+              const receiptData = JSON.parse(order.receiptData);
+              console.log(`[getOrders] Order ${order.id} hasWssItems:`, receiptData.hasWssItems);
+              if (receiptData.hasWssItems && receiptData.storeReceipt?.items) {
+                // Map store receipt items back to the orderItems structure
+                const storeItems = receiptData.storeReceipt.items;
+                console.log(`[getOrders] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
+                items = items.filter(item => 
+                  storeItems.some(si => si.id === item.order_items.productId)
+                );
+                console.log(`[getOrders] After filtering: ${items.length}`);
+              }
+            } catch (e) {
+              console.error(`Failed to parse receiptData for order ${order.id}:`, e);
+            }
+          }
 
           // Get tracking events for this order (for driver_at_store detection)
           const tracking = await db
@@ -151,8 +204,24 @@ export const storeRouter = router({
             }
           }
 
+          // If order has receiptData with WSS items, use store receipt totals
+          let orderData = { ...order };
+          if (order.receiptData) {
+            try {
+              const receiptData = JSON.parse(order.receiptData);
+              if (receiptData.hasWssItems && receiptData.storeReceipt) {
+                orderData.subtotal = receiptData.storeReceipt.subtotal.toString();
+                orderData.serviceFee = receiptData.storeReceipt.serviceFee.toString();
+                orderData.deliveryFee = receiptData.storeReceipt.deliveryFee.toString();
+                orderData.total = receiptData.storeReceipt.total.toString();
+              }
+            } catch (e) {
+              console.error(`Failed to parse receiptData for order ${order.id}:`, e);
+            }
+          }
+
           return {
-            ...order,
+            ...orderData,
             driverName,
             customerName,
             customerPhone,

@@ -255,7 +255,8 @@ export const ordersRouter = router({
       const orderNumber = await generateOrderNumber(input.storeId);
 
       // Create order
-      const [order] = await db.insert(orders).values({
+      console.log('[Order Insert] receiptData:', receiptData);
+      const orderInsertResult = await db.insert(orders).values({
         orderNumber,
         customerId: input.customerId,
         storeId: input.storeId,
@@ -285,7 +286,11 @@ export const ordersRouter = router({
         receiptData: JSON.stringify(receiptData),
       });
 
-      const orderId = order.insertId;
+      // Extract the inserted ID from the result
+      const orderId = (orderInsertResult as any)[0]?.insertId || (orderInsertResult as any).insertId;
+      if (!orderId) {
+        throw new Error('Failed to get inserted order ID');
+      }
 
       // Create order items and their modifiers
       for (const item of orderItemsData) {
@@ -537,6 +542,7 @@ export const ordersRouter = router({
 
   // Get user's orders with full details (items, store, products)
   getUserOrders: publicProcedure.query(async ({ ctx }) => {
+    console.log("[getUserOrders] Query called");
     const db = await getDb();
     if (!db) {
       throw new Error("Database not available");
@@ -544,10 +550,12 @@ export const ordersRouter = router({
 
     // Get user info to determine role
     if (!ctx.user?.id) {
+      console.log("[getUserOrders] No user ID");
       return []; // Guest users have no order history
     }
     const userId = ctx.user.id;
     const userRole = ctx.user.role || "customer";
+    console.log(`[getUserOrders] userId=${userId}, userRole=${userRole}`);
 
     // If store staff, find their store and return store orders
     let whereCondition;
@@ -592,6 +600,7 @@ export const ordersRouter = router({
         driverAssignedAt: orders.driverAssignedAt,
         pickedUpAt: orders.pickedUpAt,
         deliveredAt: orders.deliveredAt,
+        receiptData: orders.receiptData,
         storeName: stores.name,
         driverName: users.name,
         driverDisplayNumber: drivers.displayNumber,
@@ -606,7 +615,7 @@ export const ordersRouter = router({
     // Get order items for each order (including modifiers)
     const ordersWithItems = await Promise.all(
       userOrders.map(async (order) => {
-        const items = await db
+        let items = await db
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
@@ -619,6 +628,27 @@ export const ordersRouter = router({
           .from(orderItems)
           .leftJoin(products, eq(orderItems.productId, products.id))
           .where(eq(orderItems.orderId, order.id));
+
+        // If store staff viewing and order has receiptData with WSS items, filter items
+        console.log(`[WSS] Order ${order.id}, role: ${userRole}, hasData: ${!!order.receiptData}`);
+        if (userRole === "store_staff" && order.receiptData) {
+          try {
+            const receiptData = JSON.parse(order.receiptData);
+            if (receiptData.hasWssItems && receiptData.storeReceipt?.items) {
+              const storeItems = receiptData.storeReceipt.items;
+              items = items.filter(item => 
+                storeItems.some(si => si.id === item.order_items.productId)
+              );
+              // Update order totals to store receipt totals
+              order.subtotal = receiptData.storeReceipt.subtotal.toString();
+              order.serviceFee = receiptData.storeReceipt.serviceFee.toString();
+              order.deliveryFee = receiptData.storeReceipt.deliveryFee.toString();
+              order.total = receiptData.storeReceipt.total.toString();
+            }
+          } catch (e) {
+            console.error(`Failed to parse receiptData for order ${order.id}:`, e);
+          }
+        }
 
         // Fetch modifiers for all items in this order
         const itemIds = items.map(i => i.id);
