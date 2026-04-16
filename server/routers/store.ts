@@ -138,9 +138,13 @@ export const storeRouter = router({
                 // Map store receipt items back to the orderItems structure
                 const storeItems = receiptData.storeReceipt.items;
                 console.log(`[getOrders] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
-                items = items.filter(item => 
-                  storeItems.some(si => si.id === item.order_items.productId || si.productId === item.order_items.productId)
-                );
+                console.log(`[getOrders] Store item IDs:`, storeItems.map(si => ({ id: si.id, productId: si.productId })));
+                console.log(`[getOrders] Order item productIds:`, items.map(i => i.order_items.productId));
+                items = items.filter(item => {
+                  const match = storeItems.some(si => si.id === item.order_items.productId);
+                  console.log(`[getOrders] Checking productId ${item.order_items.productId}: ${match}`);
+                  return match;
+                });
                 console.log(`[getOrders] After filtering: ${items.length}`);
               }
             } catch (e) {
@@ -343,9 +347,18 @@ export const storeRouter = router({
         throw new Error("Database not available");
       }
 
-      // Verify order belongs to this store
+      // Verify order belongs to this store - explicitly select receiptData
       const orderResult = await db
-        .select()
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          storeId: orders.storeId,
+          customerId: orders.customerId,
+          guestName: orders.guestName,
+          guestPhone: orders.guestPhone,
+          receiptData: orders.receiptData,
+          status: orders.status,
+        })
         .from(orders)
         .where(
           and(
@@ -397,7 +410,9 @@ export const storeRouter = router({
       }
 
       // Auto-create print job so POS prints receipt immediately on accept
-      await autoCreatePrintJob(input.orderId, input.storeId);
+      // Pass receiptData to avoid race condition where it might not be in DB yet
+      console.log(`[acceptOrder] Order ${orderResult[0].orderNumber}: receiptData=${!!orderResult[0].receiptData}`);
+      await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
 
       return { success: true };
     }),

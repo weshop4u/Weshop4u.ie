@@ -636,9 +636,13 @@ export const ordersRouter = router({
             const receiptData = JSON.parse(order.receiptData);
             if (receiptData.hasWssItems && receiptData.storeReceipt?.items) {
               const storeItems = receiptData.storeReceipt.items;
-              items = items.filter(item => 
-                storeItems.some(si => si.id === item.order_items.productId)
-              );
+              console.log(`[WSS] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
+              items = items.filter(item => {
+                const match = storeItems.some(si => si.id === item.productId);
+                console.log(`[WSS] Checking productId ${item.productId}: ${match}`);
+                return match;
+              });
+              console.log(`[WSS] After filtering: ${items.length}`);
               // Update order totals to store receipt totals
               order.subtotal = receiptData.storeReceipt.subtotal.toString();
               order.serviceFee = receiptData.storeReceipt.serviceFee.toString();

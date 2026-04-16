@@ -207,7 +207,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
 }
 
 // Helper function to auto-create a print job (called from other routers)
-export async function autoCreatePrintJob(orderId: number, storeId: number): Promise<void> {
+export async function autoCreatePrintJob(orderId: number, storeId: number, receiptDataParam?: string): Promise<void> {
   try {
     const db = await getDb();
     if (!db) return;
@@ -233,12 +233,36 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
 
     // Get items - use store receipt from receiptData to exclude WSS items
     let items: any[] = [];
-    console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData exists? ${!!order.receiptData}`);
-    if (order.receiptData) {
+    let receiptDataObj: any = null;
+    
+    // Use passed receiptDataParam if provided (to avoid race conditions)
+    let receiptDataStr = receiptDataParam || order.receiptData;
+    console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData exists? ${!!receiptDataStr}, fromParam? ${!!receiptDataParam}`);
+    
+    // If receiptData not available from param, retry fetching from DB (handle replication lag)
+    if (!receiptDataStr && !receiptDataParam) {
+      console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData missing, retrying...`);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+        const freshOrder = await db
+          .select({ receiptData: orders.receiptData })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+        if (freshOrder.length > 0 && freshOrder[0].receiptData) {
+          receiptDataStr = freshOrder[0].receiptData;
+          console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData found on attempt ${attempt}`);
+          break;
+        }
+      }
+    }
+    
+    if (receiptDataStr) {
       try {
-        const receiptData = JSON.parse(order.receiptData);
-        console.log(`[AutoPrint] Order ${order.orderNumber}: hasWssItems=${receiptData.hasWssItems}, storeItems=${receiptData.storeReceipt?.items?.length || 0}`);
-        items = receiptData.storeReceipt.items;
+        receiptDataObj = JSON.parse(receiptDataStr);
+        console.log(`[AutoPrint] Order ${order.orderNumber}: hasWssItems=${receiptDataObj.hasWssItems}, storeItems=${receiptDataObj.storeReceipt?.items?.length || 0}`);
+        console.log(`[AutoPrint] Store receipt items:`, JSON.stringify(receiptDataObj.storeReceipt?.items, null, 2));
+        items = receiptDataObj.storeReceipt.items;
       } catch (e) {
         console.warn(`[AutoPrint] Order ${order.orderNumber}: Failed to parse receiptData, falling back to all items`, e);
         // Fallback: get all items from database
@@ -308,15 +332,7 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
     }
     // Fetch modifiers for items
     const itemMods = await fetchItemModifiers(items.map(i => i.id));
-    // Parse receiptData for correct totals
-    let receiptDataObj: any = null;
-    if (order.receiptData) {
-      try {
-        receiptDataObj = JSON.parse(order.receiptData);
-      } catch (e) {
-        console.warn(`[AutoPrint] Failed to parse receiptData for order ${orderId}`);
-      }
-    }
+    // receiptDataObj is already parsed above, use it directly
     // Format and create print job with receiptData
     const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
     await db.insert(printJobs).values({
