@@ -233,12 +233,14 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
 
     // Get items - use store receipt from receiptData to exclude WSS items
     let items: any[] = [];
+    console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData exists? ${!!order.receiptData}`);
     if (order.receiptData) {
       try {
         const receiptData = JSON.parse(order.receiptData);
+        console.log(`[AutoPrint] Order ${order.orderNumber}: hasWssItems=${receiptData.hasWssItems}, storeItems=${receiptData.storeReceipt?.items?.length || 0}`);
         items = receiptData.storeReceipt.items;
       } catch (e) {
-        console.warn(`[Print] Failed to parse receiptData for order ${orderId}, falling back to all items`);
+        console.warn(`[AutoPrint] Order ${order.orderNumber}: Failed to parse receiptData, falling back to all items`, e);
         // Fallback: get all items from database
         items = await db
           .select({
@@ -256,6 +258,7 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
       }
     } else {
       // Old orders without receiptData - get all items
+      console.log(`[AutoPrint] Order ${order.orderNumber}: No receiptData, fetching all items from database`);
       items = await db
         .select({
           id: orderItems.id,
