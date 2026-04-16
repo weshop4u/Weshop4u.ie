@@ -207,7 +207,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
 }
 
 // Helper function to auto-create a print job (called from other routers)
-export async function autoCreatePrintJob(orderId: number, storeId: number): Promise<void> {
+export async function autoCreatePrintJob(orderId: number, storeId: number, receiptDataOverride?: any): Promise<void> {
   try {
     const db = await getDb();
     if (!db) return;
@@ -233,12 +233,20 @@ export async function autoCreatePrintJob(orderId: number, storeId: number): Prom
 
     // Get items - use store receipt from receiptData to exclude WSS items
     let items: any[] = [];
-    console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData exists? ${!!order.receiptData}`);
-    if (order.receiptData) {
+    // Use receiptDataOverride if provided (to avoid race conditions on order acceptance)
+    let effectiveReceiptData = receiptDataOverride;
+    if (!effectiveReceiptData && order.receiptData) {
       try {
-        const receiptData = JSON.parse(order.receiptData);
-        console.log(`[AutoPrint] Order ${order.orderNumber}: hasWssItems=${receiptData.hasWssItems}, storeItems=${receiptData.storeReceipt?.items?.length || 0}`);
-        items = receiptData.storeReceipt.items;
+        effectiveReceiptData = JSON.parse(order.receiptData);
+      } catch (e) {
+        console.warn(`[AutoPrint] Order ${order.orderNumber}: Failed to parse receiptData from DB`);
+      }
+    }
+    console.log(`[AutoPrint] Order ${order.orderNumber}: receiptData exists? ${!!effectiveReceiptData}`);
+    if (effectiveReceiptData) {
+      try {
+        console.log(`[AutoPrint] Order ${order.orderNumber}: hasWssItems=${effectiveReceiptData.hasWssItems}, storeItems=${effectiveReceiptData.storeReceipt?.items?.length || 0}`);
+        items = effectiveReceiptData.storeReceipt.items;
       } catch (e) {
         console.warn(`[AutoPrint] Order ${order.orderNumber}: Failed to parse receiptData, falling back to all items`, e);
         // Fallback: get all items from database

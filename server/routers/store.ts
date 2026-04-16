@@ -139,7 +139,7 @@ export const storeRouter = router({
                 const storeItems = receiptData.storeReceipt.items;
                 console.log(`[getOrders] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
                 items = items.filter(item => 
-                  storeItems.some(si => si.id === item.order_items.productId)
+                  storeItems.some(si => si.productId === item.order_items.productId)
                 );
                 console.log(`[getOrders] After filtering: ${items.length}`);
               }
@@ -397,7 +397,20 @@ export const storeRouter = router({
       }
 
       // Auto-create print job so POS prints receipt immediately on accept
-      await autoCreatePrintJob(input.orderId, input.storeId);
+      // Pass receiptData directly to avoid race condition
+      let receiptData = null;
+      if (orderResult[0].receiptData) {
+        try {
+          receiptData = JSON.parse(orderResult[0].receiptData);
+          console.log(`[acceptOrder] Order ${input.orderId}: receiptData parsed, hasWssItems=${receiptData.hasWssItems}, storeItems=${receiptData.storeReceipt?.items?.length || 0}`);
+        } catch (e) {
+          console.warn("Failed to parse receiptData");
+        }
+      } else {
+        console.log(`[acceptOrder] Order ${input.orderId}: NO receiptData found!`);
+      }
+      console.log(`[acceptOrder] Calling autoCreatePrintJob with receiptData=${!!receiptData}`);
+      await autoCreatePrintJob(input.orderId, input.storeId, receiptData);
 
       return { success: true };
     }),

@@ -11,10 +11,10 @@ import { autoCreatePrintJob } from "../server/routers/print";
       process.exit(1);
     }
 
-    console.log("Sending test print for order 1500019 (WS4U/SPR/127)...");
+    console.log("Sending test print for order 1500020 (WS4U/SPR/128)...");
     
     // Call autoCreatePrintJob directly
-    await autoCreatePrintJob(1500019, 1);
+    await autoCreatePrintJob(1500020, 1);
     
     console.log("✓ Test print sent successfully!");
     

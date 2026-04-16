@@ -222,6 +222,7 @@ export const ordersRouter = router({
         const isWssFlag = productData.isWss || false;
         receiptItems.push({
           id: item.productId,
+          productId: item.productId,
           quantity: item.quantity,
           productName: productData.name,
           subtotal: itemSubtotal.toFixed(2),

@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
     const result = await db
       .select()
       .from(orders)
-      .where(eq(orders.orderNumber, "WS4U/SPR/127"));
+      .where(eq(orders.orderNumber, "WS4U/SPR/128"));
 
     if (result.length > 0) {
       console.log("Found order ID:", result[0].id);
