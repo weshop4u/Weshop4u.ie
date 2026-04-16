@@ -5,7 +5,6 @@
 
 export interface ReceiptItem {
   id: number;
-  productId: number;
   quantity: number;
   productName: string;
   subtotal: string;
