@@ -139,7 +139,7 @@ export const storeRouter = router({
                 const storeItems = receiptData.storeReceipt.items;
                 console.log(`[getOrders] Filtering items. Before: ${items.length}, Store items: ${storeItems.length}`);
                 items = items.filter(item => 
-                  storeItems.some(si => si.id === item.order_items.productId)
+                  storeItems.some(si => si.id === item.order_items.productId || si.productId === item.order_items.productId)
                 );
                 console.log(`[getOrders] After filtering: ${items.length}`);
               }
