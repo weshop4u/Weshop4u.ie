@@ -1020,6 +1020,8 @@ export const storeRouter = router({
           .filter(item => item.isWss)
           .reduce((sum, item) => sum + parseFloat(item.subtotal || '0'), 0);
         const adjustedTotal = parseFloat(order.total || '0') - wssItemsSubtotal;
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: order.total=${order.total}, wssItemsSubtotal=${wssItemsSubtotal}, adjustedTotal=${adjustedTotal}`);
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: allItems details:`, allItems.map(i => ({ name: i.productName, subtotal: i.subtotal, isWss: i.isWss })));
 
         // Get customer name
         let customerName = order.guestName || "Guest";
@@ -1042,6 +1044,9 @@ export const storeRouter = router({
           totalQuantity,
           customerName,
           createdAt: order.createdAt,
+          subtotal: order.subtotal,
+          serviceFee: order.serviceFee,
+          deliveryFee: order.deliveryFee,
           items: items.map(i => ({
             name: i.productName,
             quantity: i.quantity,
