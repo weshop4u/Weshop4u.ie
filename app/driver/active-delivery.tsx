@@ -639,10 +639,12 @@ export default function ActiveDeliveryScreen() {
 
         {/* Status Header */}
         <View className="bg-primary/10 border-2 border-primary p-4 rounded-lg mb-6">
-          {/* CO Badge (Contact Office) - top right, larger and more visible */}
+          {/* CO Badge (Contact Office) - centered below order number */}
           {order?.coIndicator && (
-            <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: '#F59E0B', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, elevation: 5 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 }}>CO</Text>
+            <View style={{ alignItems: 'center', marginTop: 12 }}>
+              <View style={{ backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, elevation: 8 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', letterSpacing: 1 }}>CO</Text>
+              </View>
             </View>
           )}
           <View className="flex-row items-center justify-between">

@@ -1011,10 +1011,10 @@ export default function DriverHomeScreen() {
         {/* INCOMING ORDER OFFER - Full-width prominent card */}
         {hasOffer && offerData.offer && (
           <View className="bg-warning/10 border-2 border-warning p-4 rounded-lg mb-6">
-            {/* CO Badge (Contact Office) - top right */}
+            {/* CO Badge (Contact Office) - larger and more visible */}
             {offerData.offer.coIndicator && (
-              <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: '#F59E0B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>CO</Text>
+              <View style={{ position: 'absolute', top: 12, right: 12, backgroundColor: '#F59E0B', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 8 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', letterSpacing: 1 }}>CO</Text>
               </View>
             )}
             {/* Countdown Timer */}
