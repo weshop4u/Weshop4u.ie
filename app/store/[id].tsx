@@ -307,7 +307,7 @@ export default function StoreDetailScreen() {
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
               {selectedProduct.images && selectedProduct.images[0] && (
-                <Image source={{ uri: selectedProduct.images[0] }} style={styles.productImage} contentFit="cover" />
+                <Image source={{ uri: selectedProduct.images[0] }} style={styles.productImage} contentFit="contain" />
               )}
 
               <View style={styles.productDetails}>
@@ -1027,7 +1027,8 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: "100%",
-    height: 250,
+    height: 300,
+    backgroundColor: "#f5f5f5",
   },
   productDetails: {
     paddingHorizontal: 16,
