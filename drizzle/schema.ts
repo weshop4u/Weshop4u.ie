@@ -18,7 +18,7 @@ export const users = mysqlTable(
     id: int("id").primaryKey().autoincrement(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
-    phone: varchar("phone", { length: 20 }),
+    phone: varchar("phone", { length: 25 }),
     role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
     pushToken: varchar("push_token", { length: 255 }),
@@ -63,7 +63,7 @@ export const stores = mysqlTable(
     eircode: varchar("eircode", { length: 10 }),
     latitude: decimal("latitude", { precision: 10, scale: 7 }),
     longitude: decimal("longitude", { precision: 10, scale: 7 }),
-    phone: varchar("phone", { length: 20 }),
+    phone: varchar("phone", { length: 25 }),
     email: varchar("email", { length: 255 }),
     isOpen247: boolean("is_open_247").default(false),
     openingHours: text("opening_hours"), // JSON string
@@ -255,7 +255,7 @@ export const orders = mysqlTable(
     storeId: int("store_id").notNull(),
     // Guest order fields (only populated when customerId is null)
     guestName: varchar("guest_name", { length: 255 }),
-    guestPhone: varchar("guest_phone", { length: 20 }),
+    guestPhone: varchar("guest_phone", { length: 25 }),
     guestEmail: varchar("guest_email", { length: 255 }),
     driverId: int("driver_id"),
     status: mysqlEnum("status", [
