@@ -37,6 +37,30 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     return char.repeat(LINE_WIDTH);
   }
 
+  function wrapText(text: string, maxWidth: number): string[] {
+    const lines: string[] = [];
+    let remaining = text;
+    
+    while (remaining.length > 0) {
+      if (remaining.length <= maxWidth) {
+        lines.push(remaining);
+        break;
+      }
+      
+      // Find last space within maxWidth
+      let breakPoint = maxWidth;
+      const lastSpace = remaining.lastIndexOf(' ', maxWidth);
+      if (lastSpace > 0) {
+        breakPoint = lastSpace;
+      }
+      
+      lines.push(remaining.substring(0, breakPoint).trim());
+      remaining = remaining.substring(breakPoint).trim();
+    }
+    
+    return lines;
+  }
+
   // Header
   lines.push(center("WESHOP4U"));
   lines.push(center("24/7 Delivery Platform"));
@@ -121,8 +145,21 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     const price = parseFloat(item.subtotal || item.productPrice || "0") * (item.subtotal ? 1 : qty);
     const priceStr = `EUR${price.toFixed(2)}`;
 
-    // Item number and quantity
-    lines.push(`${i + 1}. ${qty}x ${name.length > LINE_WIDTH - 8 ? name.substring(0, LINE_WIDTH - 11) + "..." : name}`);
+    // Item number and quantity - wrap long names word by word
+    const prefix = `${i + 1}. ${qty}x `;
+    const nameWords = name.split(' ');
+    let nameLine = prefix;
+    let firstLine = true;
+    for (const word of nameWords) {
+      if ((nameLine + word).length > LINE_WIDTH) {
+        lines.push(nameLine.trimEnd());
+        nameLine = firstLine ? ' '.repeat(prefix.length) + word + ' ' : ' '.repeat(prefix.length) + word + ' ';
+        firstLine = false;
+      } else {
+        nameLine += word + ' ';
+      }
+    }
+    if (nameLine.trim()) lines.push(nameLine.trimEnd());
     lines.push(leftRight("", priceStr));
 
     // Show modifiers/add-ons for this item
