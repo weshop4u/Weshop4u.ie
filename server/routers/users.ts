@@ -12,6 +12,7 @@ export const usersRouter = router({
         name: z.string().min(1),
         email: z.string().email(),
         phone: z.string().optional(),
+        profilePicture: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -31,6 +32,7 @@ export const usersRouter = router({
           name: input.name,
           email: input.email,
           phone: input.phone,
+          profilePicture: input.profilePicture,
         })
         .where(eq(users.id, userId));
 

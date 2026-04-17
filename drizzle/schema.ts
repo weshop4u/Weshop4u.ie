@@ -19,6 +19,7 @@ export const users = mysqlTable(
     email: varchar("email", { length: 255 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     phone: varchar("phone", { length: 25 }),
+    profilePicture: varchar("profile_picture", { length: 500 }),
     role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
     pushToken: varchar("push_token", { length: 255 }),

@@ -8,6 +8,13 @@
       "when": 1775037699449,
       "tag": "0000_right_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1776407065543,
+      "tag": "0001_freezing_klaw",
+      "breakpoints": true
     }
   ]
 }
