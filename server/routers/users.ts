@@ -1,8 +1,9 @@
-import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
 
 export const usersRouter = router({
   // Update user profile
@@ -12,6 +13,8 @@ export const usersRouter = router({
         name: z.string().min(1),
         email: z.string().email(),
         phone: z.string().optional(),
+        profilePicture: z.string().optional(),
+        currentPassword: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -25,12 +28,40 @@ export const usersRouter = router({
       }
       const userId = ctx.user.id;
 
+      // If currentPassword is provided, verify it
+      if (input.currentPassword) {
+        const user = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+
+        if (user.length === 0) {
+          throw new Error("User not found");
+        }
+
+        const userRecord = user[0];
+        if (!userRecord.passwordHash) {
+          throw new Error("Password not set for this account");
+        }
+
+        const passwordMatch = await bcrypt.compare(
+          input.currentPassword,
+          userRecord.passwordHash
+        );
+
+        if (!passwordMatch) {
+          throw new Error("Current password is incorrect");
+        }
+      }
+
       await db
         .update(users)
         .set({
           name: input.name,
           email: input.email,
           phone: input.phone,
+          profilePicture: input.profilePicture,
         })
         .where(eq(users.id, userId));
 
@@ -55,6 +86,7 @@ export const usersRouter = router({
         name: users.name,
         email: users.email,
         phone: users.phone,
+        profilePicture: users.profilePicture,
         role: users.role,
       })
       .from(users)
