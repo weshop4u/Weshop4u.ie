@@ -68,10 +68,11 @@ export function calculateDualReceipts(
   const storeItems = items.filter(item => !item.isWss);
   const storeSubtotal = storeItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
 
-  // Calculate proportional fees for store receipt
+  // Calculate proportional service fee for store receipt (based on item ratio)
+  // But delivery fee stays full amount (it's location-based, not item-based)
   const itemRatio = storeSubtotal / subtotal;
   const storeServiceFee = Math.round(serviceFee * itemRatio * 100) / 100;
-  const storeDeliveryFee = Math.round(deliveryFee * itemRatio * 100) / 100;
+  const storeDeliveryFee = deliveryFee; // Keep full delivery fee, don't reduce proportionally
   const storeTotal = storeSubtotal + storeServiceFee + storeDeliveryFee;
 
   // Customer receipt includes all items with full fees

@@ -977,6 +977,9 @@ export const storeRouter = router({
           customerId: orders.customerId,
           status: orders.status,
           acceptedAt: orders.acceptedAt,
+          deliveryFee: orders.deliveryFee,
+          serviceFee: orders.serviceFee,
+          subtotal: orders.subtotal,
         })
         .from(orders)
         .where(
@@ -1023,12 +1026,20 @@ export const storeRouter = router({
         const adjustedServiceFee = Math.round(filteredSubtotal * serviceFeePercentage * 100) / 100;
         
         // Keep delivery fee as-is (it's location-based, not item-based)
-        const deliveryFee = parseFloat(order.deliveryFee || '0');
+        // Drizzle may return Decimal objects, so convert to string first then to number
+        let deliveryFee = 0;
+        if (order.deliveryFee) {
+          const feeStr = String(order.deliveryFee);
+          deliveryFee = parseFloat(feeStr);
+        }
         
         // Calculate new total: filtered subtotal + adjusted service fee + delivery fee
         const adjustedTotal = Math.round((filteredSubtotal + adjustedServiceFee + deliveryFee) * 100) / 100;
         
-        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: filteredSubtotal=${filteredSubtotal}, adjustedServiceFee=${adjustedServiceFee}, deliveryFee=${deliveryFee}, adjustedTotal=${adjustedTotal}`);
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}:`);
+        console.log(`  deliveryFee=${deliveryFee}`);
+        console.log(`  filteredSubtotal=${filteredSubtotal}, adjustedServiceFee=${adjustedServiceFee}`);
+        console.log(`  adjustedTotal=${adjustedTotal}`);
 
         // Get customer name
         let customerName = order.guestName || "Guest";
