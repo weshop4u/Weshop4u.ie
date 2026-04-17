@@ -471,7 +471,16 @@ export default function StoreDetailScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-4 border-b border-border">
           {selectedCategoryId === null ? (
-            <TouchableOpacity onPress={() => router.back()} className="active:opacity-70">
+            <TouchableOpacity onPress={() => {
+              // If there's an active search, clear it first instead of going back
+              if (globalSearch.trim().length > 0) {
+                setGlobalSearch("");
+                setShowRecentSearches(false);
+              } else {
+                // Otherwise go back to previous page
+                router.back();
+              }
+            }} className="active:opacity-70">
               <Text className="text-primary text-2xl">‹ Back</Text>
             </TouchableOpacity>
           ) : (
