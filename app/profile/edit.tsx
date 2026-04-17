@@ -112,7 +112,6 @@ export default function EditProfileScreen() {
     updateProfileMutation.mutate({
       name: name.trim(),
       phone: phone.trim() || undefined,
-      profilePicture: profilePictureUrl || undefined,
     });
   };
 
