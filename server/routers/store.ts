@@ -972,14 +972,15 @@ export const storeRouter = router({
           orderNumber: orders.orderNumber,
           total: orders.total,
           paymentMethod: orders.paymentMethod,
+          status: orders.status,
           createdAt: orders.createdAt,
           guestName: orders.guestName,
           customerId: orders.customerId,
-          status: orders.status,
           acceptedAt: orders.acceptedAt,
-          deliveryFee: orders.deliveryFee,
-          serviceFee: orders.serviceFee,
           subtotal: orders.subtotal,
+          serviceFee: orders.serviceFee,
+          deliveryFee: orders.deliveryFee,
+          receiptData: orders.receiptData,
         })
         .from(orders)
         .where(
@@ -1021,25 +1022,21 @@ export const storeRouter = router({
         // Calculate adjusted subtotal for non-WSS items only
         const filteredSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || '0'), 0);
         
-        // Recalculate service fee (10%) based on filtered subtotal
-        const serviceFeePercentage = 0.10;
-        const adjustedServiceFee = Math.round(filteredSubtotal * serviceFeePercentage * 100) / 100;
+        // Extract store receipt total from receiptData JSON
+        // The POS should display the same total as the store receipt (non-WSS items only)
+        let adjustedTotal = parseFloat(String(order.total || '0'));
         
-        // Keep delivery fee as-is (it's location-based, not item-based)
-        // Drizzle may return Decimal objects, so convert to string first then to number
-        let deliveryFee = 0;
-        if (order.deliveryFee) {
-          const feeStr = String(order.deliveryFee);
-          deliveryFee = parseFloat(feeStr);
+        if (order.receiptData) {
+          try {
+            const receiptData = JSON.parse(String(order.receiptData));
+            if (receiptData.storeReceipt && receiptData.storeReceipt.total) {
+              adjustedTotal = parseFloat(String(receiptData.storeReceipt.total));
+            }
+          } catch (e) {
+            // If parsing fails, fall back to order.total
+            console.log(`[getPendingOrdersForPOS] Failed to parse receiptData for order ${order.orderNumber}:`, e);
+          }
         }
-        
-        // Calculate new total: filtered subtotal + adjusted service fee + delivery fee
-        const adjustedTotal = Math.round((filteredSubtotal + adjustedServiceFee + deliveryFee) * 100) / 100;
-        
-        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}:`);
-        console.log(`  deliveryFee=${deliveryFee}`);
-        console.log(`  filteredSubtotal=${filteredSubtotal}, adjustedServiceFee=${adjustedServiceFee}`);
-        console.log(`  adjustedTotal=${adjustedTotal}`);
 
         // Get customer name
         let customerName = order.guestName || "Guest";
