@@ -1222,6 +1222,19 @@ export const driversRouter = router({
         .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, offer.orderId));
 
+      // Extract coIndicator from receiptData if available
+      let coIndicator: string | null = null;
+      if (order.orders.receiptData) {
+        try {
+          const receiptData = JSON.parse(String(order.orders.receiptData));
+          if (receiptData.hasWssItems) {
+            coIndicator = "CO";
+          }
+        } catch (e) {
+          // If parsing fails, coIndicator remains null
+        }
+      }
+
       // Calculate estimated distance between store and delivery address
       let estimatedDistanceKm: number | null = null;
       const storeLat = order.stores?.latitude ? parseFloat(order.stores.latitude) : null;
@@ -1257,6 +1270,7 @@ export const driversRouter = router({
           items: items.map(i => ({ quantity: i.quantity, name: i.productName || "Item" })),
           estimatedDistanceKm,
           allowSubstitution: order.orders.allowSubstitution || false,
+          coIndicator,
         },
       };
     }),

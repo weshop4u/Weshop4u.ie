@@ -45,6 +45,7 @@ export function calculateDualReceipts(
   serviceFee: number,
   deliveryFee: number
 ): ReceiptData {
+  console.log('[calculateDualReceipts] Input - subtotal:', subtotal, 'serviceFee:', serviceFee, 'deliveryFee:', deliveryFee);
   // Check if order has any WSS items
   const hasWssItems = items.some(item => item.isWss);
 
