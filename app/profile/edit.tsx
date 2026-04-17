@@ -5,14 +5,34 @@ import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 
+// Toast notification component
+function Toast({ message, visible, onHide }: { message: string; visible: boolean; onHide: () => void }) {
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(onHide, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, onHide]);
+
+  if (!visible) return null;
+
+  return (
+    <View className="absolute bottom-8 left-4 right-4 bg-success px-6 py-4 rounded-xl z-50">
+      <Text className="text-white font-semibold text-center">{message}</Text>
+    </View>
+  );
+}
+
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, refetch } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [profilePicture, setProfilePicture] = useState("");
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Pre-fill form with existing user data
   useEffect(() => {
@@ -20,18 +40,31 @@ export default function EditProfileScreen() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPhone(user.phone || "");
-      setProfilePicture(user.profilePicture || "");
+      setProfilePictureUrl(user.profilePicture || "");
       if (user.profilePicture) {
         setPreviewUrl(user.profilePicture);
       }
     }
   }, [user]);
 
+  // Upload profile picture mutation
+  const uploadProfilePictureMutation = trpc.users.uploadProfilePicture.useMutation({
+    onSuccess: (data) => {
+      setProfilePictureUrl(data.url);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to upload profile picture");
+    },
+  });
+
+  // Update profile mutation
   const updateProfileMutation = trpc.users.updateProfile.useMutation({
     onSuccess: () => {
-      Alert.alert("Success", "Profile updated successfully");
+      setShowSuccessToast(true);
       refetch();
-      router.back();
+      setTimeout(() => {
+        router.back();
+      }, 1000);
     },
     onError: (error: any) => {
       Alert.alert("Error", error.message || "Failed to update profile");
@@ -48,10 +81,16 @@ export default function EditProfileScreen() {
         const file = e.target.files?.[0];
         if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => {
+          reader.onload = async (event) => {
             const base64 = event.target?.result as string;
             setPreviewUrl(base64);
-            setProfilePicture(base64);
+            setIsUploading(true);
+
+            // Upload to storage
+            uploadProfilePictureMutation.mutate({
+              base64,
+              mimeType: file.type || "image/jpeg",
+            });
           };
           reader.readAsDataURL(file);
         }
@@ -60,7 +99,7 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "Name is required");
       return;
@@ -68,11 +107,12 @@ export default function EditProfileScreen() {
 
     updateProfileMutation.mutate({
       name: name.trim(),
-      email: email.trim(),
       phone: phone.trim() || undefined,
-      profilePicture: profilePicture || undefined,
+      profilePicture: profilePictureUrl || undefined,
     });
   };
+
+  const isSaving = updateProfileMutation.isPending || isUploading;
 
   return (
     <ScreenContainer>
@@ -105,9 +145,14 @@ export default function EditProfileScreen() {
             )}
             <TouchableOpacity
               onPress={handleImageUpload}
+              disabled={uploadProfilePictureMutation.isPending}
               className="bg-primary px-6 py-2 rounded-full active:opacity-70"
             >
-              <Text className="text-white font-semibold">Change Picture</Text>
+              {uploadProfilePictureMutation.isPending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text className="text-white font-semibold">Change Picture</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -156,10 +201,10 @@ export default function EditProfileScreen() {
           {/* Save Button */}
           <TouchableOpacity
             onPress={handleSave}
-            disabled={updateProfileMutation.isPending}
+            disabled={isSaving}
             className="bg-primary py-4 rounded-xl active:opacity-70 mt-4"
           >
-            {updateProfileMutation.isPending ? (
+            {isSaving ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-background text-center font-semibold text-base">
@@ -169,6 +214,13 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Success Toast */}
+      <Toast
+        message="Profile updated successfully!"
+        visible={showSuccessToast}
+        onHide={() => setShowSuccessToast(false)}
+      />
     </ScreenContainer>
   );
 }

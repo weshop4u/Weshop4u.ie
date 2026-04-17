@@ -3,14 +3,41 @@ import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { storagePut } from "../storage";
 
 export const usersRouter = router({
+  // Upload profile picture to storage
+  uploadProfilePicture: publicProcedure
+    .input(
+      z.object({
+        base64: z.string(),
+        mimeType: z.string().default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        // Strip data URL prefix if present (e.g. "data:image/jpeg;base64,...")
+        let rawBase64 = input.base64;
+        if (rawBase64.includes(",")) {
+          rawBase64 = rawBase64.split(",")[1];
+        }
+        const buffer = Buffer.from(rawBase64, "base64");
+        const ext = input.mimeType.split("/")[1] || "jpg";
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const filename = `profile-picture-${timestamp}-${random}.${ext}`;
+        const result = await storagePut(`profile-pictures/${filename}`, buffer, input.mimeType);
+        return { url: result.url };
+      } catch (error: any) {
+        throw new Error(`Failed to upload profile picture: ${error.message}`);
+      }
+    }),
+
   // Update user profile
   updateProfile: publicProcedure
     .input(
       z.object({
         name: z.string().min(1),
-        email: z.string().email(),
         phone: z.string().optional(),
         profilePicture: z.string().optional(),
       })
@@ -30,7 +57,6 @@ export const usersRouter = router({
         .update(users)
         .set({
           name: input.name,
-          email: input.email,
           phone: input.phone,
           profilePicture: input.profilePicture,
         })
