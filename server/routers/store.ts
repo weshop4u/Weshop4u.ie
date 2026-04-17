@@ -1015,13 +1015,20 @@ export const storeRouter = router({
 
         const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
-        // Calculate adjusted total by subtracting WSS item prices
-        const wssItemsSubtotal = allItems
-          .filter(item => item.isWss)
-          .reduce((sum, item) => sum + parseFloat(item.subtotal || '0'), 0);
-        const adjustedTotal = parseFloat(order.total || '0') - wssItemsSubtotal;
-        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: order.total=${order.total}, wssItemsSubtotal=${wssItemsSubtotal}, adjustedTotal=${adjustedTotal}`);
-        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: allItems details:`, allItems.map(i => ({ name: i.productName, subtotal: i.subtotal, isWss: i.isWss })));
+        // Calculate adjusted subtotal for non-WSS items only
+        const filteredSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || '0'), 0);
+        
+        // Recalculate service fee (10%) based on filtered subtotal
+        const serviceFeePercentage = 0.10;
+        const adjustedServiceFee = Math.round(filteredSubtotal * serviceFeePercentage * 100) / 100;
+        
+        // Keep delivery fee as-is (it's location-based, not item-based)
+        const deliveryFee = parseFloat(order.deliveryFee || '0');
+        
+        // Calculate new total: filtered subtotal + adjusted service fee + delivery fee
+        const adjustedTotal = Math.round((filteredSubtotal + adjustedServiceFee + deliveryFee) * 100) / 100;
+        
+        console.log(`[getPendingOrdersForPOS] Order ${order.orderNumber}: filteredSubtotal=${filteredSubtotal}, adjustedServiceFee=${adjustedServiceFee}, deliveryFee=${deliveryFee}, adjustedTotal=${adjustedTotal}`);
 
         // Get customer name
         let customerName = order.guestName || "Guest";
