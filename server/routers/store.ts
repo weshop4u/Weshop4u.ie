@@ -913,9 +913,35 @@ export const storeRouter = router({
         }
       }
 
-      // 3. Combine: pinned first, then auto-trending
+      // 3. Get order counts for pinned products
+      let pinnedOrderCounts: Record<number, number> = {};
+      if (pinnedIds.length > 0) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const pinnedCounts = await db
+          .select({
+            productId: orderItems.productId,
+            orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .where(
+            and(
+              eq(orders.storeId, input.storeId),
+              gte(orders.createdAt, thirtyDaysAgo),
+              sql`${orders.status} != 'cancelled'`,
+              inArray(orderItems.productId, pinnedIds)
+            )
+          )
+          .groupBy(orderItems.productId);
+        
+        pinnedOrderCounts = Object.fromEntries(pinnedCounts.map((p) => [p.productId, Number(p.orderCount)]));
+      }
+      
+      // 4. Combine: pinned first, then auto-trending
       const allProducts = [
-        ...pinnedProducts.map((p) => ({ ...p, orderCount: 0, isPinned: true })),
+        ...pinnedProducts.map((p) => ({ ...p, orderCount: pinnedOrderCounts[p.id] || 0, isPinned: true })),
         ...autoTrending.map((p) => ({ ...p, isPinned: false })),
       ];
 
