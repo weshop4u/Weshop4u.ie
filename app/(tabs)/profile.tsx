@@ -180,18 +180,11 @@ export default function ProfileScreen() {
         <View className="gap-6">
           {/* Header */}
           <View className="items-center mb-4">
-            {user?.profilePicture ? (
-              <Image
-                source={{ uri: user.profilePicture }}
-                style={{ width: 96, height: 96, borderRadius: 48, marginBottom: 12 }}
-              />
-            ) : (
-              <View className="w-24 h-24 bg-primary rounded-full items-center justify-center mb-3">
-                <Text className="text-background text-4xl font-bold">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
-                </Text>
-              </View>
-            )}
+            <View className="w-24 h-24 bg-primary rounded-full items-center justify-center mb-3">
+              <Text className="text-background text-4xl font-bold">
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </Text>
+            </View>
             <Text className="text-foreground font-bold text-2xl">{user?.name || "User Profile"}</Text>
             <Text className="text-muted text-sm">{user?.email || "user@example.com"}</Text>
           </View>
