@@ -30,11 +30,23 @@ export function createTRPCClient() {
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
         // Custom fetch to include credentials for cookie-based auth
-        fetch(url, options) {
-          return fetch(url, {
-            ...options,
-            credentials: "include",
-          });
+        async fetch(url, options) {
+          try {
+            const response = await fetch(url, {
+              ...options,
+              credentials: "include",
+            });
+            
+            // Ensure response is valid before returning
+            if (!response.ok && response.status >= 400) {
+              console.error(`[tRPC] HTTP ${response.status}:`, response.statusText);
+            }
+            
+            return response;
+          } catch (error) {
+            console.error("[tRPC] Fetch error:", error);
+            throw error;
+          }
         },
       }),
     ],

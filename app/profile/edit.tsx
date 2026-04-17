@@ -25,7 +25,7 @@ function Toast({ message, visible, onHide }: { message: string; visible: boolean
 
 export default function EditProfileScreen() {
   const router = useRouter();
-  const { user, refetch } = useAuth();
+  const { user, refresh } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -60,14 +60,18 @@ export default function EditProfileScreen() {
   // Update profile mutation
   const updateProfileMutation = trpc.users.updateProfile.useMutation({
     onSuccess: () => {
+      console.log("[updateProfile] Success");
       setShowSuccessToast(true);
-      refetch();
+      // Refresh auth state to get updated profile
+      refresh();
       setTimeout(() => {
         router.back();
       }, 1000);
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to update profile");
+      console.error("[updateProfile] Error:", error);
+      const errorMsg = error?.message || error?.data?.message || "Failed to update profile";
+      Alert.alert("Error", errorMsg);
     },
   });
 

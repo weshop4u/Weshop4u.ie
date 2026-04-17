@@ -38,8 +38,11 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API requests - always go to network
-  if (event.request.url.includes('/api/') || event.request.url.includes('/trpc/')) return;
+  // Skip API and tRPC requests - always go to network without caching
+  if (event.request.url.includes('/api/') || event.request.url.includes('/trpc/')) {
+    // Let tRPC requests pass through without service worker interference
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)
