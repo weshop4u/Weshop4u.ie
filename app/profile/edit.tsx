@@ -26,6 +26,7 @@ function Toast({ message, visible, onHide }: { message: string; visible: boolean
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, refresh } = useAuth();
+  const { data: profileData } = trpc.users.getProfile.useQuery();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,6 +47,14 @@ export default function EditProfileScreen() {
       }
     }
   }, [user]);
+
+  // Load existing profile picture from database on page open
+  useEffect(() => {
+    if (profileData?.profilePicture && !previewUrl) {
+      setPreviewUrl(profileData.profilePicture);
+      setProfilePictureUrl(profileData.profilePicture);
+    }
+  }, [profileData]);
 
   // Upload profile picture mutation
   const uploadProfilePictureMutation = trpc.users.uploadProfilePicture.useMutation({
