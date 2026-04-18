@@ -107,30 +107,48 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // If there's a pending picture, upload it first
-    if (pendingPictureBase64) {
-      uploadProfilePictureMutation.mutate(
-        {
-          base64: pendingPictureBase64,
-          mimeType: "image/jpeg",
-        },
-        {
-          onSuccess: (data) => {
-            // After upload succeeds, save the profile with the new URL
-            updateProfileMutation.mutate({
-              name: name.trim(),
-              phone: phone.trim() || undefined,
-              profilePicture: data.url,
-            });
-          },
-        }
-      );
-    } else {
-      // No pending picture, just save the profile
-      updateProfileMutation.mutate({
-        name: name.trim(),
-        phone: phone.trim() || undefined,
-      });
+    try {
+      // If there's a pending picture, upload it first
+      if (pendingPictureBase64) {
+        console.log("[handleSave] Uploading profile picture...");
+        // Upload and wait for completion
+        const uploadedUrl = await new Promise<string>((resolve, reject) => {
+          uploadProfilePictureMutation.mutate(
+            {
+              base64: pendingPictureBase64,
+              mimeType: "image/jpeg",
+            },
+            {
+              onSuccess: (data) => {
+                console.log("[handleSave] Upload succeeded, URL:", data.url);
+                resolve(data.url);
+              },
+              onError: (error) => {
+                console.error("[handleSave] Upload failed:", error);
+                reject(error);
+              },
+            }
+          );
+        });
+
+        console.log("[handleSave] Calling updateProfile with profilePicture:", uploadedUrl);
+        // After upload succeeds, save the profile with the new URL
+        updateProfileMutation.mutate({
+          name: name.trim(),
+          phone: phone.trim() || undefined,
+          profilePicture: uploadedUrl,
+        });
+      } else {
+        // No pending picture, just save the profile
+        console.log("[handleSave] No pending picture, updating profile without image");
+        updateProfileMutation.mutate({
+          name: name.trim(),
+          phone: phone.trim() || undefined,
+        });
+      }
+    } catch (error) {
+      console.error("[handleSave] Error:", error);
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to save profile");
     }
   };
 
