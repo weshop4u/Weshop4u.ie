@@ -2722,3 +2722,18 @@
 - [ ] Verify fees are calculated correctly on both receipts
 - [ ] Verify CO badge appears for WSS orders
 - [ ] Verify driver sees correct receipt and badge
+
+
+## Profile Picture Feature (Apr 18, 2026)
+- [x] Add profile_picture column to users table in database
+- [x] Create uploadProfilePicture mutation (uploads to S3, returns URL)
+- [x] Update updateProfile mutation to save profile picture URL
+- [x] Update Auth.User type to include profilePicture field
+- [x] Update useAuth hook to map profilePicture field
+- [x] Modify Profile screen to fetch fresh profile data via tRPC
+- [x] Update Edit Profile screen to preview images locally
+- [x] Implement S3 upload on save in Edit Profile screen
+- [x] Add success notification (green toast) after saving
+- [x] Issue 1: Edit page showing existing picture on open (COMPLETED)
+- [x] Issue 2: Update navbar/header to show profile picture instead of 'F' initial (COMPLETED)
+- [x] Issue 3: Verify profile picture displays consistently across all screens (COMPLETED)

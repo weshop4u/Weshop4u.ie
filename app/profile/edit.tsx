@@ -26,6 +26,7 @@ function Toast({ message, visible, onHide }: { message: string; visible: boolean
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, refresh } = useAuth();
+  const { data: profile } = trpc.users.getProfile.useQuery();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -41,11 +42,11 @@ export default function EditProfileScreen() {
       setEmail(user.email || "");
       setPhone(user.phone || "");
       setProfilePictureUrl(user.profilePicture || "");
-      if (user.profilePicture) {
-        setPreviewUrl(user.profilePicture);
-      }
     }
-  }, [user]);
+    if (profile?.profilePicture) {
+      setPreviewUrl(profile.profilePicture);
+    }
+  }, [user, profile]);
 
   // Upload profile picture mutation
   const uploadProfilePictureMutation = trpc.users.uploadProfilePicture.useMutation({
