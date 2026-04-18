@@ -1,9 +1,9 @@
-import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { storagePut } from "../storage";
+import { z } from "zod";
 
 export const usersRouter = router({
   // Upload profile picture to storage
@@ -45,6 +45,12 @@ export const usersRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        console.log("[updateProfile] Input received:", {
+          name: input.name,
+          phone: input.phone,
+          hasProfilePicture: !!input.profilePicture,
+        });
+        
         const db = await getDb();
         if (!db) {
           throw new Error("Database not available");
@@ -54,6 +60,7 @@ export const usersRouter = router({
           throw new Error("Authentication required to update profile");
         }
         const userId = ctx.user.id;
+        console.log("[updateProfile] Updating user ID:", userId);
 
         const updateData: Record<string, any> = {
           name: input.name,
@@ -64,14 +71,19 @@ export const usersRouter = router({
           updateData.phone = input.phone;
         }
         if (input.profilePicture !== undefined && input.profilePicture !== null) {
-          updateData.profilePicture = input.profilePicture;
+          updateData.profile_picture = input.profilePicture;
+          console.log("[updateProfile] Will update profile_picture");
         }
 
+        console.log("[updateProfile] Update data keys:", Object.keys(updateData));
+        
         const result = await db
           .update(users)
           .set(updateData)
           .where(eq(users.id, userId));
 
+        console.log("[updateProfile] Update completed successfully");
+        
         // Ensure we return plain JSON, not Drizzle objects
         return JSON.parse(JSON.stringify({ success: true }));
       } catch (error: any) {
@@ -80,7 +92,7 @@ export const usersRouter = router({
       }
     }),
 
-  // Get current user profile
+  // Get user profile
   getProfile: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) {
@@ -99,6 +111,7 @@ export const usersRouter = router({
         email: users.email,
         phone: users.phone,
         role: users.role,
+        profilePicture: users.profilePicture,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -107,6 +120,12 @@ export const usersRouter = router({
     if (user.length === 0) {
       throw new Error("User not found");
     }
+
+    console.log("[getProfile] Returning user profile:", {
+      id: user[0].id,
+      email: user[0].email,
+      hasProfilePicture: !!user[0].profilePicture,
+    });
 
     return user[0];
   }),

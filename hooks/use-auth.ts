@@ -74,6 +74,7 @@ export function useAuth(options?: UseAuthOptions) {
                 loginMethod: apiUser.loginMethod,
                 lastSignedIn: new Date(apiUser.lastSignedIn),
                 role: apiUser.role || null,
+                profilePicture: apiUser.profilePicture || undefined,
               };
               await Auth.setUserInfo(userInfo);
               notifyListeners(userInfo);
@@ -101,6 +102,7 @@ export function useAuth(options?: UseAuthOptions) {
               loginMethod: apiUser.loginMethod,
               lastSignedIn: new Date(apiUser.lastSignedIn),
               role: apiUser.role || null,
+              profilePicture: apiUser.profilePicture || undefined,
             };
             await Auth.setUserInfo(userInfo);
             notifyListeners(userInfo);
@@ -140,6 +142,7 @@ export function useAuth(options?: UseAuthOptions) {
             loginMethod: apiUser.loginMethod,
             lastSignedIn: new Date(apiUser.lastSignedIn),
             role: apiUser.role || null,
+            profilePicture: apiUser.profilePicture || undefined,
           };
           await Auth.setUserInfo(userInfo);
           notifyListeners(userInfo);

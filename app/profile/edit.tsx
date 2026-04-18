@@ -31,8 +31,8 @@ export default function EditProfileScreen() {
   const [phone, setPhone] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingPictureBase64, setPendingPictureBase64] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
 
   // Pre-fill form with existing user data
   useEffect(() => {
@@ -51,9 +51,11 @@ export default function EditProfileScreen() {
   const uploadProfilePictureMutation = trpc.users.uploadProfilePicture.useMutation({
     onSuccess: (data) => {
       setProfilePictureUrl(data.url);
+      setPendingPictureBase64(null);
     },
     onError: (error: any) => {
       Alert.alert("Error", error.message || "Failed to upload profile picture");
+      setPendingPictureBase64(null);
     },
   });
 
@@ -87,14 +89,9 @@ export default function EditProfileScreen() {
           const reader = new FileReader();
           reader.onload = async (event) => {
             const base64 = event.target?.result as string;
+            // Only preview locally, don't upload yet
             setPreviewUrl(base64);
-            setIsUploading(true);
-
-            // Upload to storage
-            uploadProfilePictureMutation.mutate({
-              base64,
-              mimeType: file.type || "image/jpeg",
-            });
+            setPendingPictureBase64(base64);
           };
           reader.readAsDataURL(file);
         }
@@ -109,13 +106,34 @@ export default function EditProfileScreen() {
       return;
     }
 
-    updateProfileMutation.mutate({
-      name: name.trim(),
-      phone: phone.trim() || undefined,
-    });
+    // If there's a pending picture, upload it first
+    if (pendingPictureBase64) {
+      uploadProfilePictureMutation.mutate(
+        {
+          base64: pendingPictureBase64,
+          mimeType: "image/jpeg",
+        },
+        {
+          onSuccess: (data) => {
+            // After upload succeeds, save the profile with the new URL
+            updateProfileMutation.mutate({
+              name: name.trim(),
+              phone: phone.trim() || undefined,
+              profilePicture: data.url,
+            });
+          },
+        }
+      );
+    } else {
+      // No pending picture, just save the profile
+      updateProfileMutation.mutate({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+      });
+    }
   };
 
-  const isSaving = updateProfileMutation.isPending || isUploading;
+  const isSaving = updateProfileMutation.isPending || uploadProfilePictureMutation.isPending;
 
   return (
     <ScreenContainer>
@@ -148,14 +166,10 @@ export default function EditProfileScreen() {
             )}
             <TouchableOpacity
               onPress={handleImageUpload}
-              disabled={uploadProfilePictureMutation.isPending}
+              disabled={isSaving}
               className="bg-primary px-6 py-2 rounded-full active:opacity-70"
             >
-              {uploadProfilePictureMutation.isPending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text className="text-white font-semibold">Change Picture</Text>
-              )}
+              <Text className="text-white font-semibold">Change Picture</Text>
             </TouchableOpacity>
           </View>
 
