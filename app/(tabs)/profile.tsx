@@ -13,6 +13,9 @@ export default function ProfileScreen() {
   const { user, logout: authLogout } = useAuth();
   const utils = trpc.useUtils();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
+  
+  // Fetch fresh profile data from server to ensure we have latest profilePicture
+  const { data: profileData } = trpc.users.getProfile.useQuery();
 
   useEffect(() => {
     // Load current mode from storage
@@ -180,9 +183,9 @@ export default function ProfileScreen() {
         <View className="gap-6">
           {/* Header */}
           <View className="items-center mb-4">
-            {user?.profilePicture ? (
+            {profileData?.profilePicture ? (
               <Image
-                source={{ uri: user.profilePicture }}
+                source={{ uri: profileData.profilePicture }}
                 style={{ width: 96, height: 96, borderRadius: 48, marginBottom: 12 }}
               />
             ) : (

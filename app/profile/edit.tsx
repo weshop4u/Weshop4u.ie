@@ -61,11 +61,11 @@ export default function EditProfileScreen() {
 
   // Update profile mutation
   const updateProfileMutation = trpc.users.updateProfile.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log("[updateProfile] Success");
       setShowSuccessToast(true);
       // Refresh auth state to get updated profile
-      refresh();
+      await refresh();
       setTimeout(() => {
         router.back();
       }, 1000);

@@ -25,6 +25,7 @@ export type User = {
   loginMethod: string | null;
   lastSignedIn: Date;
   role?: string | null;
+  profilePicture?: string | null;
 };
 
 // Helper: get item from SecureStore with AsyncStorage fallback
