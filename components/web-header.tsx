@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/lib/cart-provider";
 import { useColors } from "@/hooks/use-colors";
-import { trpc } from "@/lib/trpc";
 
 /**
  * Website header for web platform only.
@@ -20,9 +19,6 @@ export function WebHeader() {
   const cartCount = getItemCount();
   const { width } = useWindowDimensions();
   const [menuOpen, setMenuOpen] = useState(false);
-  
-  // Fetch fresh profile data from server to ensure we have latest profilePicture
-  const { data: profileData } = trpc.users.getProfile.useQuery();
 
   if (Platform.OS !== "web") return null;
 
@@ -102,17 +98,9 @@ export function WebHeader() {
             {user ? (
               <TouchableOpacity onPress={() => navigateTo("/profile")} style={styles.profileButton}>
                 <View style={styles.avatar}>
-                  {profileData?.profilePicture ? (
-                    <Image
-                      source={{ uri: profileData.profilePicture }}
-                      style={{ width: 30, height: 30, borderRadius: 15 }}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <Text style={styles.avatarText}>
-                      {user.name?.charAt(0).toUpperCase() || "U"}
-                    </Text>
-                  )}
+                  <Text style={styles.avatarText}>
+                    {user.name?.charAt(0).toUpperCase() || "U"}
+                  </Text>
                 </View>
                 <Text style={styles.profileName} numberOfLines={1}>
                   {user.name?.split(" ")[0] || "Account"}
