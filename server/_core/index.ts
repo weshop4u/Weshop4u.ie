@@ -190,7 +190,14 @@ async function startServer() {
       res.status(500).json({ error: error.message });
     }
   });
-
+app.get("/favicon.ico", (req, res) => {
+  const faviconPath = path.join(webDistPath, "favicon.ico");
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    res.status(404).end();
+  }
+});
   app.use(
     "/api/trpc",
     createExpressMiddleware({
