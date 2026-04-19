@@ -1,4 +1,4 @@
-import { publicProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -35,7 +35,7 @@ export const usersRouter = router({
     }),
 
   // Update user profile
-  updateProfile: publicProcedure
+  updateProfile: protectedProcedure
     .input(
       z.object({
         name: z.string().min(1),
@@ -45,6 +45,8 @@ export const usersRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        console.log("[updateProfile] ctx.user:", JSON.stringify(ctx.user));
+        console.log("[updateProfile] profilePicture value:", input.profilePicture);
         console.log("[updateProfile] Input received:", {
           name: input.name,
           phone: input.phone,
@@ -71,16 +73,19 @@ export const usersRouter = router({
           updateData.phone = input.phone;
         }
         if (input.profilePicture !== undefined && input.profilePicture !== null) {
-          updateData.profile_picture = input.profilePicture;
-          console.log("[updateProfile] Will update profile_picture");
+          updateData.profilePicture = input.profilePicture;
+          console.log("[updateProfile] Will update profilePicture");
         }
 
         console.log("[updateProfile] Update data keys:", Object.keys(updateData));
+        console.log("[updateProfile] Full updateData:", JSON.stringify(updateData));
         
         const result = await db
           .update(users)
           .set(updateData)
           .where(eq(users.id, userId));
+        
+        console.log("[updateProfile] DB result:", JSON.stringify(result));
 
         console.log("[updateProfile] Update completed successfully");
         

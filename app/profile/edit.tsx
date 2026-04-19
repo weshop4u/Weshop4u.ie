@@ -27,6 +27,7 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { user, refresh } = useAuth();
   const { data: profile } = trpc.users.getProfile.useQuery();
+  const utils = trpc.useUtils();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -50,13 +51,8 @@ export default function EditProfileScreen() {
 
   // Upload profile picture mutation
   const uploadProfilePictureMutation = trpc.users.uploadProfilePicture.useMutation({
-    onSuccess: (data) => {
-      setProfilePictureUrl(data.url);
-      setPendingPictureBase64(null);
-    },
     onError: (error: any) => {
       Alert.alert("Error", error.message || "Failed to upload profile picture");
-      setPendingPictureBase64(null);
     },
   });
 
@@ -65,6 +61,8 @@ export default function EditProfileScreen() {
     onSuccess: async () => {
       console.log("[updateProfile] Success");
       setShowSuccessToast(true);
+      // Invalidate getProfile query to force refresh of profile picture
+      await utils.users.getProfile.invalidate();
       // Refresh auth state to get updated profile
       await refresh();
       setTimeout(() => {
@@ -106,46 +104,25 @@ export default function EditProfileScreen() {
       Alert.alert("Error", "Name is required");
       return;
     }
-
     try {
-      // If there's a pending picture, upload it first
+      let pictureUrl: string | undefined = profilePictureUrl || undefined;
       if (pendingPictureBase64) {
-        console.log("[handleSave] Uploading profile picture...");
-        // Upload and wait for completion
-        const uploadedUrl = await new Promise<string>((resolve, reject) => {
-          uploadProfilePictureMutation.mutate(
-            {
-              base64: pendingPictureBase64,
-              mimeType: "image/jpeg",
-            },
-            {
-              onSuccess: (data) => {
-                console.log("[handleSave] Upload succeeded, URL:", data.url);
-                resolve(data.url);
-              },
-              onError: (error) => {
-                console.error("[handleSave] Upload failed:", error);
-                reject(error);
-              },
-            }
-          );
+        console.log("[handleSave] Uploading picture...");
+        const uploadResult = await uploadProfilePictureMutation.mutateAsync({
+          base64: pendingPictureBase64,
+          mimeType: "image/jpeg",
         });
-
-        console.log("[handleSave] Calling updateProfile with profilePicture:", uploadedUrl);
-        // After upload succeeds, save the profile with the new URL
-        updateProfileMutation.mutate({
-          name: name.trim(),
-          phone: phone.trim() || undefined,
-          profilePicture: uploadedUrl,
-        });
-      } else {
-        // No pending picture, just save the profile
-        console.log("[handleSave] No pending picture, updating profile without image");
-        updateProfileMutation.mutate({
-          name: name.trim(),
-          phone: phone.trim() || undefined,
-        });
+        pictureUrl = uploadResult.url;
+        setProfilePictureUrl(pictureUrl);
+        setPendingPictureBase64(null);
+        console.log("[handleSave] Upload done, URL:", pictureUrl);
       }
+      console.log("[handleSave] Saving profile with pictureUrl:", pictureUrl);
+      await updateProfileMutation.mutateAsync({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        profilePicture: pictureUrl,
+      });
     } catch (error) {
       console.error("[handleSave] Error:", error);
       Alert.alert("Error", error instanceof Error ? error.message : "Failed to save profile");

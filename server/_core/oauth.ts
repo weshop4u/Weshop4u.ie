@@ -48,6 +48,7 @@ function buildUserResponse(
     name?: string | null;
     phone?: string | null;
     role?: string;
+    profilePicture?: string | null;
     createdAt?: Date;
     updatedAt?: Date;
   },
@@ -58,6 +59,7 @@ function buildUserResponse(
     name: user?.name ?? null,
     phone: user?.phone ?? null,
     role: user?.role ?? null,
+    profilePicture: (user as any)?.profile_picture ?? null,
   };
 }
 
@@ -214,14 +216,18 @@ export function registerOAuthRoutes(app: Express) {
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     try {
       // Try SDK authentication first
-      const user = await sdk.authenticateRequest(req);
-      res.json({ user: buildUserResponse(user) });
+      let user = await sdk.authenticateRequest(req);
+      // Fetch fresh user data from database to include latest profile_picture
+      const freshUser = await getUserByEmail(user.email!);
+      res.json({ user: buildUserResponse(freshUser || user) });
     } catch (error) {
       // Fall back to JWT authentication
       try {
         const { authenticateRequestWithJwt } = await import("./jwt-auth.js");
-        const user = await authenticateRequestWithJwt(req);
-        res.json({ user: buildUserResponse(user) });
+        let user = await authenticateRequestWithJwt(req);
+        // Fetch fresh user data from database to include latest profile_picture
+        const freshUser = await getUserByEmail(user.email!);
+        res.json({ user: buildUserResponse(freshUser || user) });
       } catch (jwtError) {
         console.error("[Auth] /api/auth/me failed (SDK and JWT):", error);
         res.status(401).json({ error: "Not authenticated", user: null });
