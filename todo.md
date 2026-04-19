@@ -2737,3 +2737,13 @@
 - [x] Issue 1: Edit page showing existing picture on open (COMPLETED)
 - [x] Issue 2: Update navbar/header to show profile picture instead of 'F' initial (COMPLETED)
 - [x] Issue 3: Verify profile picture displays consistently across all screens (COMPLETED)
+
+## Testing & Verification (Apr 19, 2026)
+- [x] Test Reorder button on My Orders page (cancelled orders)
+- [x] Test Reorder button on My Orders page (payment_failed orders)
+- [x] Test Payment Methods page displays clean content (no "Coming Soon" labels)
+- [x] Test password visibility toggle (👁️ emoji) on Login page
+- [x] Test password visibility toggle on Edit Profile page
+- [x] Verify all changes work end-to-end on dev server
+- [x] Push all changes to GitHub (single commit to save Render builds)
+- [x] Render deployment successful - all features live in production
