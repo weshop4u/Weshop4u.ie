@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const identifierRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -296,22 +297,31 @@ export default function LoginScreen() {
 
             <View>
               <Text style={[styles.label, { color: colors.foreground }]}>Password</Text>
-              <TextInput
-                ref={passwordRef}
-                style={[styles.input, {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.foreground,
-                }]}
-                placeholder="Enter your password"
-                placeholderTextColor="#9BA1A6"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-              />
+              <View style={[styles.passwordContainer, {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              }]}>
+                <TextInput
+                  ref={passwordRef}
+                  style={[styles.passwordInput, {
+                    color: colors.foreground,
+                  }]}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#9BA1A6"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Login Button */}
@@ -423,6 +433,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  eyeText: {
+    fontSize: 18,
   },
   helperText: {
     fontSize: 12,

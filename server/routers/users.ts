@@ -1,4 +1,5 @@
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import bcrypt from "bcryptjs";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -134,4 +135,59 @@ export const usersRouter = router({
 
     return user[0];
   }),
+
+  // Change password
+  changePassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(6),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        if (!ctx.user?.id) {
+          throw new Error("Authentication required");
+        }
+
+        const db = await getDb();
+        if (!db) {
+          throw new Error("Database not available");
+        }
+
+        // Get user with password hash
+        const user = await db
+          .select({
+            id: users.id,
+            passwordHash: users.passwordHash,
+          })
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1);
+
+        if (user.length === 0) {
+          throw new Error("User not found");
+        }
+
+        // Verify current password
+        const isValid = await bcrypt.compare(input.currentPassword, user[0].passwordHash);
+        if (!isValid) {
+          throw new Error("Current password is incorrect");
+        }
+
+        // Hash new password
+        const hashedNewPassword = await bcrypt.hash(input.newPassword, 10);
+
+        // Update password
+        await db
+          .update(users)
+          .set({ passwordHash: hashedNewPassword })
+          .where(eq(users.id, ctx.user.id));
+
+        return JSON.parse(JSON.stringify({ success: true }));
+      } catch (error: any) {
+        console.error("[changePassword] Error:", error);
+        throw new Error(error.message || "Failed to change password");
+      }
+    }),
 });

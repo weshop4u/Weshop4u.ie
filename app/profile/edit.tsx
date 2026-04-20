@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useEffect } from "react";
@@ -35,6 +35,14 @@ export default function EditProfileScreen() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingPictureBase64, setPendingPictureBase64] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [passwordToastMessage, setPasswordToastMessage] = useState("");
+  const [showPasswordToast, setShowPasswordToast] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Pre-fill form with existing user data
   useEffect(() => {
@@ -46,6 +54,9 @@ export default function EditProfileScreen() {
     }
     if (profile?.profilePicture) {
       setPreviewUrl(profile.profilePicture);
+    }
+    if (profile?.phone) {
+      setPhone(profile.phone);
     }
   }, [user, profile]);
 
@@ -72,6 +83,21 @@ export default function EditProfileScreen() {
     onError: (error: any) => {
       console.error("[updateProfile] Error:", error);
       const errorMsg = error?.message || error?.data?.message || "Failed to update profile";
+      Alert.alert("Error", errorMsg);
+    },
+  });
+
+  // Change password mutation
+  const changePasswordMutation = trpc.users.changePassword.useMutation({
+    onSuccess: () => {
+      setPasswordToastMessage("Password changed successfully!");
+      setShowPasswordToast(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (error: any) => {
+      const errorMsg = error?.message || error?.data?.message || "Failed to change password";
       Alert.alert("Error", errorMsg);
     },
   });
@@ -129,7 +155,36 @@ export default function EditProfileScreen() {
     }
   };
 
+  const handleChangePassword = async () => {
+    console.log("Change Password button pressed");
+    if (!currentPassword.trim()) {
+      Alert.alert("Error", "Current password is required");
+      return;
+    }
+    if (!newPassword.trim()) {
+      Alert.alert("Error", "New password is required");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters");
+      return;
+    }
+    try {
+      await changePasswordMutation.mutateAsync({
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
+      });
+    } catch (error) {
+      console.error("[handleChangePassword] Error:", error);
+    }
+  };
+
   const isSaving = updateProfileMutation.isPending || uploadProfilePictureMutation.isPending;
+  const isChangingPassword = changePasswordMutation.isPending;
 
   return (
     <ScreenContainer>
@@ -144,7 +199,8 @@ export default function EditProfileScreen() {
         <Text className="text-xl font-bold text-foreground">Edit Profile</Text>
       </View>
 
-      <View className="flex-1 p-6">
+      <ScrollView className="flex-1">
+      <View className="p-6">
         <View className="gap-4">
           {/* Profile Picture Section */}
           <View className="items-center gap-4 mb-6">
@@ -225,14 +281,94 @@ export default function EditProfileScreen() {
               </Text>
             )}
           </TouchableOpacity>
+          {/* Change Password Section */}
+          <View className="border-t border-border pt-6 mt-6">
+            <Text className="text-lg font-bold text-foreground mb-4">Change Password</Text>
+
+            {/* Current Password */}
+            <View className="mb-4">
+              <Text className="text-foreground font-semibold mb-2">Current Password</Text>
+              <View className="flex-row items-center bg-white border border-border rounded-lg px-4">
+                <TextInput
+                  style={{ flex: 1, color: '#11181C', padding: 16, fontSize: 16 }}
+                  placeholder="Enter current password"
+                  placeholderTextColor="#9BA1A6"
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  secureTextEntry={!showCurrentPassword}
+                />
+                <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} className="p-2">
+                  <Text className="text-xl">{showCurrentPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* New Password */}
+            <View className="mb-4">
+              <Text className="text-foreground font-semibold mb-2">New Password</Text>
+              <View className="flex-row items-center bg-white border border-border rounded-lg px-4">
+                <TextInput
+                  style={{ flex: 1, color: '#11181C', padding: 16, fontSize: 16 }}
+                  placeholder="Enter new password"
+                  placeholderTextColor="#9BA1A6"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                />
+                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} className="p-2">
+                  <Text className="text-xl">{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Confirm Password */}
+            <View className="mb-4">
+              <Text className="text-foreground font-semibold mb-2">Confirm Password</Text>
+              <View className="flex-row items-center bg-white border border-border rounded-lg px-4">
+                <TextInput
+                  style={{ flex: 1, color: '#11181C', padding: 16, fontSize: 16 }}
+                  placeholder="Confirm new password"
+                  placeholderTextColor="#9BA1A6"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-2">
+                  <Text className="text-xl">{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Change Password Button */}
+            <TouchableOpacity
+              onPress={handleChangePassword}
+              disabled={isChangingPassword}
+              className="bg-primary py-4 rounded-xl active:opacity-70 mt-4"
+            >
+              {isChangingPassword ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-background text-center font-semibold text-base">
+                  Change Password
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
+      </ScrollView>
 
       {/* Success Toast */}
       <Toast
         message="Profile updated successfully!"
         visible={showSuccessToast}
         onHide={() => setShowSuccessToast(false)}
+      />
+      {/* Password Toast */}
+      <Toast
+        message={passwordToastMessage}
+        visible={showPasswordToast}
+        onHide={() => setShowPasswordToast(false)}
       />
     </ScreenContainer>
   );
