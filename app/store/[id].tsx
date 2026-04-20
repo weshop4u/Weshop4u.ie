@@ -284,9 +284,16 @@ export default function StoreDetailScreen() {
     AsyncStorage.removeItem(`recentSearches_${storeId}`);
   };
 
+  const trackProductViewMutation = trpc.users.trackProductView.useMutation();
+
   const openProductDetail = (product: any) => {
     setSelectedProduct(product);
     setModalVisible(true);
+    // Track product view
+    trackProductViewMutation.mutate({
+      productId: product.id,
+      storeId: storeId,
+    });
   };
 
   const renderProductModal = () => {

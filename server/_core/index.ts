@@ -40,6 +40,30 @@ async function startServer() {
   const dbHealth = getDatabaseHealth();
   console.log("[Server] Database health:", dbHealth);
 
+  // Initialize product_views table if it doesn't exist
+  try {
+    const { getDb } = await import("../db");
+    const db = await getDb();
+    if (db) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS product_views (
+          id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
+          product_id INT NOT NULL,
+          user_id INT,
+          store_id INT NOT NULL,
+          viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX product_id_idx (product_id),
+          INDEX user_id_idx (user_id),
+          INDEX store_id_idx (store_id),
+          INDEX viewed_at_idx (viewed_at)
+        )
+      `);
+      console.log("[Server] ✓ product_views table initialized");
+    }
+  } catch (err) {
+    console.error("[Server] Error initializing product_views table:", err);
+  }
+
   // web-dist is embedded in server/public for deployment
   // This ensures it gets deployed with the backend service
   const locations = [

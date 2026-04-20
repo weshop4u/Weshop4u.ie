@@ -15,6 +15,13 @@
       "when": 1776407065543,
       "tag": "0001_freezing_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1776727246722,
+      "tag": "0002_natural_vapor",
+      "breakpoints": true
     }
   ]
 }

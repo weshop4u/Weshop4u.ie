@@ -1044,3 +1044,39 @@ export const appSettings = mysqlTable(
 
 export type AppSetting = typeof appSettings.$inferSelect;
 export type InsertAppSetting = typeof appSettings.$inferInsert;
+
+// ===== PRODUCT VIEWS =====
+export const productViews = mysqlTable(
+  "product_views",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    productId: int("product_id").notNull(),
+    userId: int("user_id"), // Nullable for anonymous views
+    storeId: int("store_id").notNull(),
+    viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    productIdIdx: index("product_id_idx").on(table.productId),
+    userIdIdx: index("user_id_idx").on(table.userId),
+    storeIdIdx: index("store_id_idx").on(table.storeId),
+    viewedAtIdx: index("viewed_at_idx").on(table.viewedAt),
+  })
+);
+
+export const productViewsRelations = relations(productViews, ({ one }) => ({
+  product: one(products, {
+    fields: [productViews.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [productViews.userId],
+    references: [users.id],
+  }),
+  store: one(stores, {
+    fields: [productViews.storeId],
+    references: [stores.id],
+  }),
+}));
+
+export type ProductView = typeof productViews.$inferSelect;
+export type InsertProductView = typeof productViews.$inferInsert;

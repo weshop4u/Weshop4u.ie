@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews } from "../../drizzle/schema";
 import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -2662,6 +2662,51 @@ export const adminRouter = router({
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         avgOrderValue: Math.round(avgOrderValue * 100) / 100,
         deliveredOrders: deliveredOrders.length,
+      };
+    }),
+
+  getMostViewedProducts: publicProcedure
+    .input(
+      z.object({
+        days: z.number(),
+        limit: z.number().default(5),
+        storeId: z.number().nullable(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const now = new Date();
+      const startDate = new Date(now.getTime() - input.days * 24 * 60 * 60 * 1000);
+
+      let query = db
+        .select({
+          productId: productViews.productId,
+          viewCount: count(productViews.id),
+          name: products.name,
+          storeName: stores.name,
+        })
+        .from(productViews)
+        .innerJoin(products, eq(productViews.productId, products.id))
+        .innerJoin(stores, eq(productViews.storeId, stores.id))
+        .where(gte(productViews.viewedAt, startDate));
+
+      if (input.storeId) {
+        query = query.where(eq(productViews.storeId, input.storeId));
+      }
+
+      const results = await query
+        .groupBy(productViews.productId)
+        .orderBy(({ viewCount }) => desc(viewCount))
+        .limit(input.limit);
+
+      return {
+        mostViewedProducts: results.map(r => ({
+          name: r.name,
+          storeName: r.storeName,
+          viewCount: r.viewCount,
+        })),
       };
     }),
 });

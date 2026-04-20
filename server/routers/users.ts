@@ -1,7 +1,7 @@
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import bcrypt from "bcryptjs";
 import { getDb } from "../db";
-import { users } from "../../drizzle/schema";
+import { users, productViews } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { z } from "zod";
@@ -188,6 +188,36 @@ export const usersRouter = router({
       } catch (error: any) {
         console.error("[changePassword] Error:", error);
         throw new Error(error.message || "Failed to change password");
+      }
+    }),
+
+  // Track product view
+  trackProductView: publicProcedure
+    .input(
+      z.object({
+        productId: z.number(),
+        storeId: z.number(),
+        userId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const db = await getDb();
+        if (!db) {
+          throw new Error("Database not available");
+        }
+
+        await db.insert(productViews).values({
+          productId: input.productId,
+          storeId: input.storeId,
+          userId: input.userId || ctx.user?.id || null,
+          viewedAt: new Date(),
+        });
+
+        return { success: true };
+      } catch (error: any) {
+        console.error("[trackProductView] Error:", error);
+        throw new Error(error.message || "Failed to track product view");
       }
     }),
 });
