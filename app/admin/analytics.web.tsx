@@ -423,7 +423,7 @@ export default function AdminAnalytics() {
           )}
 
           {/* Most Viewed Products */}
-          {mostViewedProducts?.mostViewedProducts && mostViewedProducts.mostViewedProducts.length > 0 && (
+          {mostViewedProducts && (
             <View style={{ backgroundColor: "#f5f5f5", borderRadius: 12, padding: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>
                 👁️ Most Viewed Products
@@ -507,34 +507,40 @@ export default function AdminAnalytics() {
               </View>
               
               <View style={{ gap: 12 }}>
-                {mostViewedProducts.mostViewedProducts.slice(0, productLimit).map((product, idx) => (
-                  <View
-                    key={idx}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      paddingVertical: 10,
-                      borderBottomWidth: idx < productLimit - 1 ? 1 : 0,
-                      borderBottomColor: "#E5E7EB",
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>
-                        {idx + 1}. {product.name}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: "#687076", marginTop: 2 }}>
-                        {product.storeName || "All Stores"}
-                      </Text>
+                {mostViewedProducts.mostViewedProducts && mostViewedProducts.mostViewedProducts.length > 0 ? (
+                  mostViewedProducts.mostViewedProducts.slice(0, productLimit).map((product, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        paddingVertical: 10,
+                        borderBottomWidth: idx < productLimit - 1 ? 1 : 0,
+                        borderBottomColor: "#E5E7EB",
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>
+                          {idx + 1}. {product.name}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "#687076", marginTop: 2 }}>
+                          {product.storeName || "All Stores"}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF" }}>
+                          {product.viewCount}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: "#687076" }}>views</Text>
+                      </View>
                     </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF" }}>
-                        {product.viewCount}
-                      </Text>
-                      <Text style={{ fontSize: 10, color: "#687076" }}>views</Text>
-                    </View>
-                  </View>
-                ))}
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 12, color: "#687076", textAlign: "center", paddingVertical: 20 }}>
+                    No product views recorded for this period and store
+                  </Text>
+                )}
               </View>
             </View>
           )}
