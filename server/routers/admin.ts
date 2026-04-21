@@ -2680,33 +2680,48 @@ export const adminRouter = router({
       const now = new Date();
       const startDate = new Date(now.getTime() - input.days * 24 * 60 * 60 * 1000);
 
-      let query = db
+      // Step 1: Get the most viewed product IDs (without joins to avoid GROUP BY issues)
+      let viewQuery = db
         .select({
           productId: productViews.productId,
+          storeId: productViews.storeId,
           viewCount: count(productViews.id),
-          name: products.name,
-          storeName: stores.name,
         })
         .from(productViews)
-        .innerJoin(products, eq(productViews.productId, products.id))
-        .innerJoin(stores, eq(productViews.storeId, stores.id))
         .where(gte(productViews.viewedAt, startDate));
 
       if (input.storeId) {
-        query = query.where(eq(productViews.storeId, input.storeId));
+        viewQuery = viewQuery.where(eq(productViews.storeId, input.storeId));
       }
 
-      const results = await query
-        .groupBy(productViews.productId)
+      const viewResults = await viewQuery
+        .groupBy(productViews.productId, productViews.storeId)
         .orderBy(({ viewCount }) => desc(viewCount))
         .limit(input.limit);
 
+      // Step 2: Fetch product and store details
+      const mostViewedProducts = await Promise.all(
+        viewResults.map(async (view) => {
+          const [product] = await db
+            .select({ name: products.name })
+            .from(products)
+            .where(eq(products.id, view.productId))
+            .limit(1);
+          const [store] = await db
+            .select({ name: stores.name })
+            .from(stores)
+            .where(eq(stores.id, view.storeId))
+            .limit(1);
+          return {
+            name: product?.name || `Product #${view.productId}`,
+            storeName: store?.name || "Unknown Store",
+            viewCount: view.viewCount,
+          };
+        })
+      );
+
       return {
-        mostViewedProducts: results.map(r => ({
-          name: r.name,
-          storeName: r.storeName,
-          viewCount: r.viewCount,
-        })),
+        mostViewedProducts,
       };
     }),
 });
