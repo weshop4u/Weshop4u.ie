@@ -264,12 +264,16 @@ app.get("/favicon.ico", (req, res) => {
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
       // Serve static assets under /api/web/ but skip /api/web/admin* (protected by middleware)
       app.use("/api/web", (req, res, next) => {
-        // Skip static file serving for admin routes - they're protected by middleware
-        if (req.path.startsWith("/admin")) {
-          return next();
-        }
-        express.static(webDistPath, { maxAge: "1d" })(req, res, next);
-      });
+          // Skip static file serving for admin routes - they're protected by middleware
+          if (req.path.startsWith("/admin")) {
+            const rootIndex = path.join(webDistPath, "index.html");
+            if (fs.existsSync(rootIndex)) {
+              return res.sendFile(rootIndex);
+            }
+            return res.status(404).send("Web app not found");
+          }
+          express.static(webDistPath, { maxAge: "1d" })(req, res, next);
+        });
       // Root /api/web serves index.html
       app.get("/api/web", (_req, res) => {
         const rootIndex = path.join(webDistPath, "index.html");
