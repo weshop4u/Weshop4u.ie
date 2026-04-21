@@ -77,6 +77,13 @@ export default function AdminAnalytics() {
 
   // Fetch stores for selector
   const { data: stores } = trpc.admin.getAllStoresAdmin.useQuery(undefined, { refetchInterval: 60000 });
+  
+  // Debug: log stores data
+  useEffect(() => {
+    if (stores?.stores) {
+      console.log('Stores data available:', stores.stores.length, 'stores');
+    }
+  }, [stores]);
 
   // Fetch analytics data for selected store or all stores
   const { data: topProducts, isLoading: topLoading } = trpc.admin.getTopProductsAnalytics.useQuery(
@@ -474,7 +481,7 @@ export default function AdminAnalytics() {
                       All Stores
                     </Text>
                   </Pressable>
-                  {stores?.stores?.map((store) => (
+                  {stores?.map((store) => (
                     <Pressable
                       key={store.id}
                       onPress={() => setMostViewedStoreId(store.id)}
