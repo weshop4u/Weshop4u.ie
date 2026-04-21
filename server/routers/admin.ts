@@ -2668,8 +2668,8 @@ export const adminRouter = router({
   getMostViewedProducts: publicProcedure
     .input(
       z.object({
-        days: z.number(),
-        limit: z.number().default(5),
+        timePeriod: z.enum(["today", "week", "month", "all"]).default("week"),
+        limit: z.number().default(10),
         storeId: z.number().nullable(),
       })
     )
@@ -2678,7 +2678,22 @@ export const adminRouter = router({
       if (!db) throw new Error("Database not available");
 
       const now = new Date();
-      const startDate = new Date(now.getTime() - input.days * 24 * 60 * 60 * 1000);
+      let startDate: Date;
+      
+      switch (input.timePeriod) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case "all":
+          startDate = new Date(0);
+          break;
+      }
 
       // Step 1: Get the most viewed product IDs (without joins to avoid GROUP BY issues)
       let viewQuery = db

@@ -68,6 +68,8 @@ export default function AdminAnalytics() {
   const [timePeriod, setTimePeriod] = useState<"7" | "30" | "90" | "all">("30");
   const [selectedStore, setSelectedStore] = useState<number | null>(null);
   const [productLimit, setProductLimit] = useState<number>(5);
+  const [mostViewedTimePeriod, setMostViewedTimePeriod] = useState<"today" | "week" | "month" | "all">("week");
+  const [mostViewedStoreId, setMostViewedStoreId] = useState<number | null>(null);
   const isDesktopWeb = Platform.OS === "web";
 
   // Convert "all" to null for backend, otherwise use number of days
@@ -106,7 +108,7 @@ export default function AdminAnalytics() {
 
   // Fetch most viewed products
   const { data: mostViewedProducts, isLoading: viewsLoading } = trpc.admin.getMostViewedProducts.useQuery(
-    { days: daysParam || 365, limit: productLimit, storeId: selectedStore },
+    { timePeriod: mostViewedTimePeriod, limit: 10, storeId: mostViewedStoreId },
     { refetchInterval: 60000 }
   );
 
@@ -419,6 +421,84 @@ export default function AdminAnalytics() {
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>
                 👁️ Most Viewed Products
               </Text>
+              
+              {/* Time Period Filter */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Time Period</Text>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                  {["today", "week", "month", "all"].map((period) => (
+                    <Pressable
+                      key={period}
+                      onPress={() => setMostViewedTimePeriod(period as "today" | "week" | "month" | "all")}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 10,
+                        borderRadius: 6,
+                        backgroundColor: mostViewedTimePeriod === period ? "#0a7ea4" : "#E5E7EB",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "600",
+                          color: mostViewedTimePeriod === period ? "#fff" : "#0F172A",
+                        }}
+                      >
+                        {period === "today" ? "Today" : period === "week" ? "This Week" : period === "month" ? "This Month" : "All Time"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              
+              {/* Store Filter */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 12, color: "#687076", marginBottom: 6 }}>Store</Text>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                  <Pressable
+                    onPress={() => setMostViewedStoreId(null)}
+                    style={{
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      borderRadius: 6,
+                      backgroundColor: mostViewedStoreId === null ? "#0a7ea4" : "#E5E7EB",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "600",
+                        color: mostViewedStoreId === null ? "#fff" : "#0F172A",
+                      }}
+                    >
+                      All Stores
+                    </Text>
+                  </Pressable>
+                  {stores?.stores?.map((store) => (
+                    <Pressable
+                      key={store.id}
+                      onPress={() => setMostViewedStoreId(store.id)}
+                      style={{
+                        paddingVertical: 6,
+                        paddingHorizontal: 10,
+                        borderRadius: 6,
+                        backgroundColor: mostViewedStoreId === store.id ? "#0a7ea4" : "#E5E7EB",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "600",
+                          color: mostViewedStoreId === store.id ? "#fff" : "#0F172A",
+                        }}
+                      >
+                        {store.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              
               <View style={{ gap: 12 }}>
                 {mostViewedProducts.mostViewedProducts.slice(0, productLimit).map((product, idx) => (
                   <View
