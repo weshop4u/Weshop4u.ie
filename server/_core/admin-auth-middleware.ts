@@ -7,14 +7,21 @@ import { sdk } from "./sdk.js";
  * Blocks non-admin users from accessing /api/web/admin* paths.
  * 
  * This middleware:
- * 1. Authenticates the user (SDK or JWT)
- * 2. Checks if user role is 'admin'
- * 3. Blocks access with 403 Forbidden if not admin
- * 4. Allows access if admin
+ * 1. Allows GET requests to pass through (for SPA routing to serve index.html)
+ * 2. Authenticates the user (SDK or JWT) for non-GET requests
+ * 3. Checks if user role is 'admin'
+ * 4. Blocks access with 403 Forbidden if not admin
+ * 5. Allows access if admin
  * 
- * Must be placed BEFORE static file middleware to prevent HTML from being served.
+ * GET requests are allowed because the SPA needs to load index.html,
+ * and the frontend will handle authentication checks client-side.
  */
 export async function adminAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  // Allow GET requests to pass through - the SPA needs to load index.html
+  // The frontend will handle authentication checks client-side
+  if (req.method === "GET") {
+    return next();
+  }
   try {
     let user: any = null;
 
