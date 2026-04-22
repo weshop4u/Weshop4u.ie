@@ -38,7 +38,7 @@ function ProductsManagementScreenContent() {
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<"all" | "no_desc" | "no_image" | "drs" | "out_of_stock">("all");
+  const [activeFilter, setActiveFilter] = useState<"all" | "no_desc" | "no_image" | "drs" | "out_of_stock" | "pinned">("all");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | "all">("all");
   const [showBulkDrs, setShowBulkDrs] = useState(false);
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<number>>(new Set());
@@ -63,6 +63,7 @@ function ProductsManagementScreenContent() {
     stockStatus: "in_stock" as StockStatus,
     isDrs: false,
     pinnedToTrending: false,
+    pinPosition: null as number | null,
     storeIds: [] as number[],
   });
   const [addImageBase64, setAddImageBase64] = useState<string | null>(null);
@@ -291,6 +292,7 @@ function ProductsManagementScreenContent() {
         stockStatus: addForm.stockStatus,
          isDrs: addForm.isDrs,
         pinnedToTrending: addForm.pinnedToTrending,
+        pinPosition: addForm.pinPosition,
         imageUrl,
       });
       const storeCount = addForm.storeIds.length;
@@ -316,6 +318,7 @@ function ProductsManagementScreenContent() {
       stockStatus: "in_stock",
       isDrs: false,
       pinnedToTrending: false,
+      pinPosition: null,
       storeIds: selectedStore ? [selectedStore] : [],
     });
     setAddImageBase64(null);
@@ -646,6 +649,16 @@ function ProductsManagementScreenContent() {
                 >
                   <Text style={{ color: activeFilter === "out_of_stock" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
                     Out of Stock ({outOfStockCount})
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Pinned to Trending filter */}
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "pinned" ? "all" : "pinned")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "pinned" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "pinned" ? "#F59E0B" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "pinned" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    ★ Pinned
                   </Text>
                 </TouchableOpacity>
 
@@ -1002,6 +1015,12 @@ function ProductsManagementScreenContent() {
                   style={[itemStyles.filterPill, { backgroundColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.surface, borderColor: activeFilter === "out_of_stock" ? "#EF4444" : colors.border }]}
                 >
                   <Text style={{ color: activeFilter === "out_of_stock" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>Out of Stock ({outOfStockCount})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setActiveFilter(activeFilter === "pinned" ? "all" : "pinned")}
+                  style={[itemStyles.filterPill, { backgroundColor: activeFilter === "pinned" ? "#F59E0B" : colors.surface, borderColor: activeFilter === "pinned" ? "#F59E0B" : colors.border }]}
+                >
+                  <Text style={{ color: activeFilter === "pinned" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>★ Pinned</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setPvFilter(pvFilter === "verified" ? "all" : "verified")}
@@ -1400,6 +1419,44 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Position Dropdown (visible only when pinned) */}
+              {editingProduct?.pinnedToTrending && (
+                <View>
+                  <Text style={[editStyles.label, { color: colors.foreground }]}>Position in Trending (1-10)</Text>
+                  <View style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    backgroundColor: colors.surface,
+                    overflow: "hidden",
+                  }}>
+                    <select
+                      value={editingProduct?.pinPosition || ""}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, pinPosition: e.target.value ? parseInt(e.target.value) : null })}
+                      style={{
+                        width: "100%",
+                        padding: 12,
+                        fontSize: 13,
+                        color: colors.foreground,
+                        backgroundColor: colors.surface,
+                        border: "none",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <option value="">No position (auto-ranked)</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pos) => (
+                        <option key={pos} value={pos}>
+                          Position {pos}
+                        </option>
+                      ))}
+                    </select>
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
+                    Products with positions appear first, sorted by position. Leave empty to let sales ranking decide.
+                  </Text>
+                </View>
+              )}
 
               {/* ===== MODIFIER TEMPLATES (Inherited + Manual) ===== */}
               <InlineTemplatesSection productId={editingProduct?.id} categoryId={editingProduct?._categoryId} colors={colors} setEditingModifier={setEditingModifier} setShowModifierEditor={setShowModifierEditor} />
@@ -1822,6 +1879,43 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {addForm.pinnedToTrending && (
+                <View>
+                  <Text style={[editStyles.label, { color: colors.foreground }]}>Position (1-10)</Text>
+                  <View style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    backgroundColor: colors.surface,
+                    overflow: "hidden",
+                  }}>
+                    <select
+                      value={addForm.pinPosition || ""}
+                      onChange={(e) => setAddForm({ ...addForm, pinPosition: e.target.value ? parseInt(e.target.value) : null })}
+                      style={{
+                        width: "100%",
+                        padding: 12,
+                        fontSize: 13,
+                        color: colors.foreground,
+                        backgroundColor: colors.surface,
+                        border: "none",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <option value="">No position (auto-ranked)</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pos) => (
+                        <option key={pos} value={pos}>
+                          Position {pos}
+                        </option>
+                      ))}
+                    </select>
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>
+                    Products with positions appear first. Leave empty to auto-rank by sales.
+                  </Text>
+                </View>
+              )}
 
               {/* Multi-Store Selection */}
               <View>

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers } from "../../drizzle/schema";
-import { eq, and, or, like, inArray, desc, sql, gte } from "drizzle-orm";
+import { eq, and, or, like, inArray, desc, sql, gte, isNotNull, isNull, asc, notInArray } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
 import { autoCreatePrintJob } from "./print";
@@ -832,8 +832,8 @@ export const storeRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      // 1. Get pinned products for this store (always shown first)
-      const pinnedProducts = await db
+      // 1. Get pinned products WITH positions (sorted by pinPosition ASC)
+      const pinnedWithPosition = await db
         .select({
           id: products.id,
           name: products.name,
@@ -843,6 +843,7 @@ export const storeRouter = router({
           stockStatus: products.stockStatus,
           categoryId: products.categoryId,
           pinnedToTrending: products.pinnedToTrending,
+          pinPosition: products.pinPosition,
         })
         .from(products)
         .where(
@@ -850,71 +851,40 @@ export const storeRouter = router({
             eq(products.storeId, input.storeId),
             eq(products.pinnedToTrending, true),
             eq(products.isActive, true),
+            isNotNull(products.pinPosition),
+            sql`${products.stockStatus} != 'out_of_stock'`
+          )
+        )
+        .orderBy(asc(products.pinPosition));
+
+      // 2. Get pinned products WITHOUT positions (auto-ranked by sales)
+      const pinnedNoPosition = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          price: products.price,
+          images: products.images,
+          description: products.description,
+          stockStatus: products.stockStatus,
+          categoryId: products.categoryId,
+          pinnedToTrending: products.pinnedToTrending,
+          pinPosition: products.pinPosition,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.storeId, input.storeId),
+            eq(products.pinnedToTrending, true),
+            eq(products.isActive, true),
+            isNull(products.pinPosition),
             sql`${products.stockStatus} != 'out_of_stock'`
           )
         );
 
-      const pinnedIds = pinnedProducts.map((p) => p.id);
-      const remainingSlots = Math.max(0, input.limit - pinnedProducts.length);
-
-      // 2. Get auto-trending products (by order frequency, excluding pinned ones)
-      let autoTrending: Array<{ id: number; name: string; price: string; images: string | null; description: string | null; stockStatus: string; categoryId: number | null; orderCount: number }> = [];
-
-      if (remainingSlots > 0) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const trending = await db
-          .select({
-            productId: orderItems.productId,
-            productName: orderItems.productName,
-            orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
-          })
-          .from(orderItems)
-          .innerJoin(orders, eq(orderItems.orderId, orders.id))
-          .where(
-            and(
-              eq(orders.storeId, input.storeId),
-              gte(orders.createdAt, thirtyDaysAgo),
-              sql`${orders.status} != 'cancelled'`
-            )
-          )
-          .groupBy(orderItems.productId, orderItems.productName)
-          .orderBy(sql`order_count DESC`)
-          .limit(remainingSlots + pinnedIds.length); // fetch extra to filter out pinned
-
-        if (trending.length > 0) {
-          // Filter out pinned products from auto-trending
-          const filteredTrending = trending.filter((t) => !pinnedIds.includes(t.productId)).slice(0, remainingSlots);
-          const trendingProductIds = filteredTrending.map((t) => t.productId);
-
-          if (trendingProductIds.length > 0) {
-            const trendingDetails = await db
-              .select({
-                id: products.id,
-                name: products.name,
-                price: products.price,
-                images: products.images,
-                description: products.description,
-                stockStatus: products.stockStatus,
-                categoryId: products.categoryId,
-              })
-              .from(products)
-              .where(inArray(products.id, trendingProductIds));
-
-            const detailMap = Object.fromEntries(trendingDetails.map((p) => [p.id, p]));
-            autoTrending = filteredTrending
-              .filter((t) => detailMap[t.productId])
-              .map((t) => {
-                const p = detailMap[t.productId];
-                return { ...p, orderCount: Number(t.orderCount) };
-              });
-          }
-        }
-      }
-
-      // 3. Get order counts for pinned products
+      // 3. Get order counts for ALL pinned products (both positioned and unpositoned)
+      const pinnedIds = [...pinnedWithPosition, ...pinnedNoPosition].map((p) => p.id);
       let pinnedOrderCounts: Record<number, number> = {};
+      
       if (pinnedIds.length > 0) {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -938,10 +908,77 @@ export const storeRouter = router({
         
         pinnedOrderCounts = Object.fromEntries(pinnedCounts.map((p) => [p.productId, Number(p.orderCount)]));
       }
-      
-      // 4. Combine: pinned first, then auto-trending
+
+      // 4. Sort unpositoned pinned products by order count (auto-ranked)
+      const pinnedNoPositionWithCounts = pinnedNoPosition
+        .map((p) => ({ ...p, orderCount: pinnedOrderCounts[p.id] || 0 }))
+        .sort((a, b) => b.orderCount - a.orderCount);
+
+      // 5. Combine pinned products with their order counts (positioned first, then unpositoned)
+      const allPinned = [
+        ...pinnedWithPosition.map((p) => ({ ...p, orderCount: pinnedOrderCounts[p.id] || 0 })),
+        ...pinnedNoPositionWithCounts,
+      ];
+      const remainingSlots = Math.max(0, input.limit - allPinned.length);
+
+      // 6. Get auto-trending products (by order frequency, excluding pinned ones)
+      let autoTrending: Array<{ id: number; name: string; price: string; images: string | null; description: string | null; stockStatus: string; categoryId: number | null; orderCount: number }> = [];
+
+      if (remainingSlots > 0) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const trending = await db
+          .select({
+            productId: orderItems.productId,
+            productName: orderItems.productName,
+            orderCount: sql<number>`CAST(SUM(${orderItems.quantity}) AS UNSIGNED)`.as("order_count"),
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orderItems.orderId, orders.id))
+          .where(
+            and(
+              eq(orders.storeId, input.storeId),
+              gte(orders.createdAt, thirtyDaysAgo),
+              sql`${orders.status} != 'cancelled'`,
+              notInArray(orderItems.productId, pinnedIds)
+            )
+          )
+          .groupBy(orderItems.productId, orderItems.productName)
+          .orderBy(sql`order_count DESC`)
+          .limit(remainingSlots);
+
+        if (trending.length > 0) {
+          const trendingProductIds = trending.map((t) => t.productId);
+
+          if (trendingProductIds.length > 0) {
+            const trendingDetails = await db
+              .select({
+                id: products.id,
+                name: products.name,
+                price: products.price,
+                images: products.images,
+                description: products.description,
+                stockStatus: products.stockStatus,
+                categoryId: products.categoryId,
+              })
+              .from(products)
+              .where(inArray(products.id, trendingProductIds));
+
+            const detailMap = Object.fromEntries(trendingDetails.map((p) => [p.id, p]));
+            autoTrending = trending
+              .filter((t) => detailMap[t.productId])
+              .map((t) => {
+                const p = detailMap[t.productId];
+                return { ...p, orderCount: Number(t.orderCount) };
+              });
+          }
+        }
+      }
+
+      // 7. Combine: positioned pinned → unpositoned pinned → auto-trending
       const allProducts = [
-        ...pinnedProducts.map((p) => ({ ...p, orderCount: pinnedOrderCounts[p.id] || 0, isPinned: true })),
+        ...allPinned.map((p) => ({ ...p, isPinned: true })),
         ...autoTrending.map((p) => ({ ...p, isPinned: false })),
       ];
 

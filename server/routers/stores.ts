@@ -87,7 +87,7 @@ export const storesRouter = router({
       storeId: z.number(),
       search: z.string().optional(),
       categoryId: z.number().optional(),
-      filter: z.enum(["all", "no_desc", "no_image", "drs", "out_of_stock"]).optional(),
+      filter: z.enum(["all", "no_desc", "no_image", "drs", "out_of_stock", "pinned"]).optional(),
       wssFilter: z.enum(["wss", "non_wss"]).optional(),
       limit: z.number().optional().default(100),
       offset: z.number().optional().default(0),
@@ -123,6 +123,8 @@ export const storesRouter = router({
         conditions.push(eq(products.isDrs, true));
       } else if (input.filter === "out_of_stock") {
         conditions.push(eq(products.stockStatus, "out_of_stock"));
+      } else if (input.filter === "pinned") {
+        conditions.push(eq(products.pinnedToTrending, true));
       }
 
       // WSS filter
