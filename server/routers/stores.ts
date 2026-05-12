@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
 import { eq, and, like, sql, inArray, count } from "drizzle-orm";
@@ -161,6 +161,7 @@ export const storesRouter = router({
           sortOrder: products.sortOrder,
           priceVerified: products.priceVerified,
           isWss: products.isWss,
+          trackStock: products.trackStock,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
@@ -390,6 +391,7 @@ export const storesRouter = router({
         isDrs: z.boolean().optional(),
         pinnedToTrending: z.boolean().optional(),
         priceVerified: z.boolean().optional(),
+        trackStock: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -436,6 +438,7 @@ export const storesRouter = router({
       if (input.isDrs !== undefined) updateData.isDrs = input.isDrs;
       if (input.pinnedToTrending !== undefined) updateData.pinnedToTrending = input.pinnedToTrending;
       if (input.priceVerified !== undefined) updateData.priceVerified = input.priceVerified;
+      if (input.trackStock !== undefined) updateData.trackStock = input.trackStock;
 
       await db.update(products).set(updateData).where(eq(products.id, input.id));
 
@@ -759,7 +762,7 @@ export const storesRouter = router({
         throw error;
       }
     }),
-  toggleTrackStock: protectedProcedure
+  toggleTrackStock: publicProcedure
     .input(z.object({
       productId: z.number(),
       trackStock: z.boolean(),

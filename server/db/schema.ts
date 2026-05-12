@@ -173,6 +173,7 @@ export const products = pgTable(
     dimensions: varchar("dimensions", { length: 100 }),
     priceVerified: boolean("price_verified").default(false), // PV - Price Verified flag for price checking
     isWss: boolean("is_wss").default(false), // WSS - WeShopStock flag for admin-supplied items
+    trackStock: boolean("track_stock").default(false), // Track Stock - inventory tracking flag
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

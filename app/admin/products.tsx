@@ -252,6 +252,7 @@ function ProductsManagementScreenContent() {
         categoryId: editingProduct._categoryId,
         isDrs: editingProduct.isDrs ?? false,
         pinnedToTrending: editingProduct.pinnedToTrending ?? false,
+        trackStock: editingProduct.trackStock,
       };
 
       if (pendingImageBase64) {
@@ -1358,6 +1359,58 @@ function ProductsManagementScreenContent() {
                 />
               </View>
 
+              {/* Track Stock Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Track Stock Inventory</Text>
+                <TouchableOpacity
+                  onPress={() => setEditingProduct({ ...editingProduct, trackStock: !editingProduct?.trackStock })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: editingProduct?.trackStock ? "#22C55E15" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.muted,
+                    backgroundColor: editingProduct?.trackStock ? "#22C55E" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {editingProduct?.trackStock && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {editingProduct?.trackStock ? "Tracking enabled — stock decrements on orders" : "Tracking disabled — stock not managed"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Track Stock Quantity (only visible when tracking is enabled) */}
+              {editingProduct?.trackStock && (
+                <View>
+                  <Text style={[editStyles.label, { color: colors.foreground }]}>Current Stock Level</Text>
+                  <TextInput
+                    style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                    value={editingProduct?.quantity?.toString() || "0"}
+                    onChangeText={(text) => setEditingProduct({ ...editingProduct, quantity: parseInt(text) || 0 })}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    placeholder="Enter stock quantity"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>This quantity will decrement as orders are placed</Text>
+                </View>
+              )}
+
               {/* Category - searchable */}
               <View>
                 <Text style={[editStyles.label, { color: colors.foreground }]}>Category</Text>
@@ -1449,58 +1502,6 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Track Stock Toggle */}
-              <View>
-                <Text style={[editStyles.label, { color: colors.foreground }]}>Track Stock Inventory</Text>
-                <TouchableOpacity
-                  onPress={() => setEditingProduct({ ...editingProduct, trackStock: !editingProduct?.trackStock })}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    backgroundColor: editingProduct?.trackStock ? "#22C55E15" : colors.surface,
-                    borderWidth: 1,
-                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.border,
-                    borderRadius: 12,
-                  }}
-                >
-                  <View style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.muted,
-                    backgroundColor: editingProduct?.trackStock ? "#22C55E" : "transparent",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}>
-                    {editingProduct?.trackStock && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
-                  </View>
-                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
-                    {editingProduct?.trackStock ? "Tracking enabled — stock decrements on orders" : "Tracking disabled — stock not managed"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Track Stock Quantity (only visible when tracking is enabled) */}
-              {editingProduct?.trackStock && (
-                <View>
-                  <Text style={[editStyles.label, { color: colors.foreground }]}>Current Stock Level</Text>
-                  <TextInput
-                    style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
-                    value={editingProduct?.quantity?.toString() || "0"}
-                    onChangeText={(text) => setEditingProduct({ ...editingProduct, quantity: parseInt(text) || 0 })}
-                    keyboardType="number-pad"
-                    returnKeyType="done"
-                    placeholder="Enter stock quantity"
-                    placeholderTextColor={colors.muted}
-                  />
-                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>This quantity will decrement as orders are placed</Text>
-                </View>
-              )}
 
               {/* Pin to Trending Toggle */}
               <View>
