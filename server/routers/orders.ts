@@ -315,6 +315,31 @@ export const ordersRouter = router({
         }
       }
 
+      // Decrement stock for products with Track Stock enabled
+      for (const item of input.items) {
+        const product = await db
+          .select()
+          .from(products)
+          .where(eq(products.id, item.productId))
+          .limit(1);
+
+        if (product.length > 0 && product[0].trackStock === true) {
+          const currentQuantity = product[0].quantity || 0;
+          const newQuantity = Math.max(0, currentQuantity - item.quantity);
+          const newStockStatus = newQuantity === 0 ? "out_of_stock" : product[0].stockStatus;
+
+          await db
+            .update(products)
+            .set({
+              quantity: newQuantity,
+              stockStatus: newStockStatus,
+            })
+            .where(eq(products.id, item.productId));
+
+          console.log(`[Stock] Decremented product ${item.productId} from ${currentQuantity} to ${newQuantity}. Stock status: ${newStockStatus}`);
+        }
+      }
+
       // Record discount usage if a discount code was applied
       if (input.discountCodeId && input.customerId) {
         try {

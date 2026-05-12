@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
 import { eq, and, like, sql, inArray, count } from "drizzle-orm";
@@ -756,6 +756,31 @@ export const storesRouter = router({
         return { success: true, productId: input.productId, isWss: input.isWss };
       } catch (error: any) {
         console.error(`[toggleWss] Error updating product:`, error);
+        throw error;
+      }
+    }),
+  toggleTrackStock: protectedProcedure
+    .input(z.object({
+      productId: z.number(),
+      trackStock: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new Error("Database not available");
+      }
+
+      try {
+        console.log(`[toggleTrackStock] Updating product ${input.productId} to trackStock=${input.trackStock}`);
+        const result = await db
+          .update(products)
+          .set({ trackStock: input.trackStock })
+          .where(eq(products.id, input.productId));
+
+        console.log(`[toggleTrackStock] Update result:`, result);
+        return { success: true, productId: input.productId, trackStock: input.trackStock };
+      } catch (error: any) {
+        console.error(`[toggleTrackStock] Error updating product:`, error);
         throw error;
       }
     }),

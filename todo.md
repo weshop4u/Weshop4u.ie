@@ -2747,3 +2747,29 @@
 - [x] Verify all changes work end-to-end on dev server
 - [x] Push all changes to GitHub (single commit to save Render builds)
 - [x] Render deployment successful - all features live in production
+
+## Track Stock Feature (May 12, 2026)
+- [x] Add track_stock boolean column to products table in database
+- [x] Create toggleTrackStock mutation in backend (stores router)
+- [x] Add protectedProcedure import to stores router
+- [x] Add Track Stock filter state to admin products page
+- [x] Calculate trackingCount and notTrackingCount from products
+- [x] Add "Track Stock (X)" and "No Track (X)" filter buttons
+- [x] Add "TS" column header to admin products table
+- [x] Add filter logic to table rows for Track Stock status
+- [x] Add Track Stock toggle (green ✓ / red ✗) to table rows
+- [x] Add toggleTrackStockMutation to frontend
+- [x] Add Track Stock toggle to Edit Product modal
+- [x] Add conditional "Current Stock Level" input (only visible when tracking enabled)
+- [x] Add stock decrement logic in order creation (server/routers/orders.ts)
+- [x] Auto-mark product as out_of_stock when quantity reaches zero
+- [x] Add logging for stock changes
+
+### Testing
+- [ ] Test toggling Track Stock on/off in admin table
+- [ ] Test Track Stock filter buttons (all, tracking, not tracking)
+- [ ] Test Edit Product modal shows/hides quantity field based on toggle
+- [ ] Test order creation decrements stock correctly
+- [ ] Test product marked out_of_stock when quantity reaches zero
+- [ ] Test stock decrement works for multiple items in single order
+- [ ] Verify stock changes persist in database

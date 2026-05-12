@@ -50,6 +50,7 @@ function ProductsManagementScreenContent() {
   const [categorySearch, setCategorySearch] = useState("");
   const [pvFilter, setPvFilter] = useState<"all" | "verified" | "unverified">("all"); // PV filter state
   const [wssFilter, setWssFilter] = useState<"all" | "wss" | "non_wss">("all"); // WSS filter state
+  const [trackStockFilter, setTrackStockFilter] = useState<"all" | "tracking" | "not_tracking">("all"); // Track Stock filter state
   const [editingModifier, setEditingModifier] = useState<any>(null);
   const [showModifierEditor, setShowModifierEditor] = useState(false);
   const [modifierSelections, setModifierSelections] = useState<Map<number, number[]>>(new Map());
@@ -82,7 +83,7 @@ function ProductsManagementScreenContent() {
   }, [searchQuery]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [activeFilter, selectedCategoryFilter, wssFilter]);
+  useEffect(() => { setPage(0); }, [activeFilter, selectedCategoryFilter, wssFilter, trackStockFilter]);
 
   const { data: stores } = trpc.stores.getAll.useQuery();
   const { data: productsData, refetch, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
@@ -102,6 +103,7 @@ function ProductsManagementScreenContent() {
   const updateMutation = trpc.stores.updateProduct.useMutation();
   const togglePvMutation = trpc.stores.togglePriceVerified.useMutation();
   const toggleWssMutation = trpc.stores.toggleWss.useMutation();
+  const toggleTrackStockMutation = trpc.stores.toggleTrackStock.useMutation();
   const deleteMutation = trpc.stores.deleteProduct.useMutation();
   const bulkDrsMutation = trpc.stores.bulkToggleDrs.useMutation();
   const bulkStockMutation = trpc.stores.bulkUpdateStock.useMutation();
@@ -133,8 +135,17 @@ function ProductsManagementScreenContent() {
   const verifiedCount = useMemo(() => products.filter((p: any) => p.priceVerified).length, [products]);
   const unverifiedCount = useMemo(() => products.filter((p: any) => !p.priceVerified).length, [products]);
   const wssCount = useMemo(() => products.filter((p: any) => p.isWss).length, [products]);
+  const trackingCount = useMemo(() => products.filter((p: any) => p.trackStock === true).length, [products]);
+  const notTrackingCount = useMemo(() => products.filter((p: any) => p.trackStock !== true).length, [products]);
 
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
+
+  // Apply Track Stock filter to products list
+  const filteredProducts = useMemo(() => {
+    if (trackStockFilter === "tracking") return products.filter((p: any) => p.trackStock === true);
+    if (trackStockFilter === "not_tracking") return products.filter((p: any) => p.trackStock !== true);
+    return products;
+  }, [products, trackStockFilter]);
 
   // Filtered categories for edit modal search
   const filteredCategories = useMemo(() => {
@@ -692,6 +703,26 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Track Stock filter - Tracking */}
+                <TouchableOpacity
+                  onPress={() => setTrackStockFilter(trackStockFilter === "tracking" ? "all" : "tracking")}
+                  style={[itemStyles.filterPill, { backgroundColor: trackStockFilter === "tracking" ? "#22C55E" : colors.surface, borderColor: trackStockFilter === "tracking" ? "#22C55E" : colors.border }]}
+                >
+                  <Text style={{ color: trackStockFilter === "tracking" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    Track Stock ({trackingCount})
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Track Stock filter - Not Tracking */}
+                <TouchableOpacity
+                  onPress={() => setTrackStockFilter(trackStockFilter === "not_tracking" ? "all" : "not_tracking")}
+                  style={[itemStyles.filterPill, { backgroundColor: trackStockFilter === "not_tracking" ? "#EF4444" : colors.surface, borderColor: trackStockFilter === "not_tracking" ? "#EF4444" : colors.border }]}
+                >
+                  <Text style={{ color: trackStockFilter === "not_tracking" ? "#fff" : colors.foreground, fontSize: 12, fontWeight: "600" }}>
+                    No Track ({notTrackingCount})
+                  </Text>
+                </TouchableOpacity>
+
                 {/* Category filters */}
                 <TouchableOpacity
                   onPress={() => setSelectedCategoryFilter("all")}
@@ -772,12 +803,15 @@ function ProductsManagementScreenContent() {
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PIN</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>PV</Text>
                 <Text style={[tableStyles.headerCell, { width: 50 }]}>WSS</Text>
+                <Text style={[tableStyles.headerCell, { width: 50 }]}>TS</Text>
                 <Text style={[tableStyles.headerCell, { width: 140 }]}>Actions</Text>
               </View>
               {/* Desktop Table Rows */}
               {products.filter((product: any) => {
                 if (pvFilter === "verified") return product.priceVerified;
                 if (pvFilter === "unverified") return !product.priceVerified;
+                if (trackStockFilter === "tracking") return product.trackStock === true;
+                if (trackStockFilter === "not_tracking") return product.trackStock !== true;
                 return true;
               }).map((product: any, idx: number) => {
                 const stockBadge = getStockBadge(product.stockStatus);
@@ -929,6 +963,37 @@ function ProductsManagementScreenContent() {
                       >
                         <Text style={{ color: product.isWss ? "#8B5CF6" : "✗", fontSize: 14, fontWeight: "700" }}>
                           {product.isWss ? "✓" : "✗"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newTrackStockStatus = !(product.trackStock === true);
+                        toggleTrackStockMutation.mutate({ productId: product.id, trackStock: newTrackStockStatus }, {
+                          onSuccess: () => {
+                            utils.stores.getProducts.invalidate();
+                          },
+                          onError: (err) => {
+                            console.error('Failed to toggle Track Stock:', err);
+                          },
+                        });
+                      }}
+                      style={[tableStyles.cell, { width: 50, justifyContent: "center", alignItems: "center" }]}
+                    >
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: product.trackStock ? "#22C55E" : "#EF4444",
+                          backgroundColor: product.trackStock ? "#22C55E20" : "#EF444420",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text style={{ color: product.trackStock ? "#22C55E" : "#EF4444", fontSize: 14, fontWeight: "700" }}>
+                          {product.trackStock ? "✓" : "✗"}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1384,6 +1449,58 @@ function ProductsManagementScreenContent() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Track Stock Toggle */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Track Stock Inventory</Text>
+                <TouchableOpacity
+                  onPress={() => setEditingProduct({ ...editingProduct, trackStock: !editingProduct?.trackStock })}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    backgroundColor: editingProduct?.trackStock ? "#22C55E15" : colors.surface,
+                    borderWidth: 1,
+                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.border,
+                    borderRadius: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: editingProduct?.trackStock ? "#22C55E" : colors.muted,
+                    backgroundColor: editingProduct?.trackStock ? "#22C55E" : "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}>
+                    {editingProduct?.trackStock && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
+                    {editingProduct?.trackStock ? "Tracking enabled — stock decrements on orders" : "Tracking disabled — stock not managed"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Track Stock Quantity (only visible when tracking is enabled) */}
+              {editingProduct?.trackStock && (
+                <View>
+                  <Text style={[editStyles.label, { color: colors.foreground }]}>Current Stock Level</Text>
+                  <TextInput
+                    style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                    value={editingProduct?.quantity?.toString() || "0"}
+                    onChangeText={(text) => setEditingProduct({ ...editingProduct, quantity: parseInt(text) || 0 })}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    placeholder="Enter stock quantity"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>This quantity will decrement as orders are placed</Text>
+                </View>
+              )}
 
               {/* Pin to Trending Toggle */}
               <View>
