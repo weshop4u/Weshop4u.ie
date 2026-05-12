@@ -736,9 +736,23 @@ export default function StoreDashboardScreen() {
                       {/* Items */}
                       <View style={[stStyles.td, { flex: 2, minWidth: 200 }]}>
                         {order.items?.slice(0, 3).map((item: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: "#334155" }} numberOfLines={1}>
-                            {item.quantity}x {item.product?.name || item.productName || "Item"}
-                          </Text>
+                          <View key={i}>
+                            <Text style={{ fontSize: 12, color: "#334155" }} numberOfLines={1}>
+                              {item.quantity}x {item.product?.name || item.productName || "Item"}
+                            </Text>
+                            {item.modifiers && item.modifiers.length > 0 && (() => {
+                              const grouped: Record<string, { price: string; count: number }> = {};
+                              for (const mod of item.modifiers) {
+                                if (!grouped[mod.modifierName]) grouped[mod.modifierName] = { price: mod.modifierPrice, count: 0 };
+                                grouped[mod.modifierName].count++;
+                              }
+                              return Object.entries(grouped).map(([name, { price, count }], modIdx) => (
+                                <Text key={modIdx} style={{ fontSize: 11, color: "#64748B", paddingLeft: 8 }}>
+                                  + {name}{count > 1 ? ` ×${count}` : ""}{parseFloat(price) > 0 ? ` +€${(parseFloat(price) * count).toFixed(2)}` : ""}
+                                </Text>
+                              ));
+                            })()}
+                          </View>
                         ))}
                         {(order.items?.length || 0) > 3 && (
                           <Text style={{ fontSize: 11, color: "#94A3B8", fontStyle: "italic" }}>+{order.items.length - 3} more</Text>

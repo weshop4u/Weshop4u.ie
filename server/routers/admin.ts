@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -346,20 +346,49 @@ export const adminRouter = router({
 
       // Fetch order items for all orders
       const orderIds = ordersList.map(o => o.id);
-      let itemsMap: Record<number, Array<{ productName: string; quantity: number; productPrice: string }>> = {};
+      let itemsMap: Record<number, Array<{ id: number; productName: string; quantity: number; productPrice: string; subtotal: string; modifiers: Array<{ groupName: string; modifierName: string; modifierPrice: string }> }>> = {};
       if (orderIds.length > 0) {
         const allItems = await db
           .select({
+            id: orderItems.id,
             orderId: orderItems.orderId,
             productName: orderItems.productName,
             quantity: orderItems.quantity,
             productPrice: orderItems.productPrice,
+            subtotal: orderItems.subtotal,
           })
           .from(orderItems)
           .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`);
+
+        // Fetch modifiers for all items
+        const itemIds = allItems.map(i => i.id);
+        let itemModsMap: Record<number, Array<{ groupName: string; modifierName: string; modifierPrice: string }>> = {};
+        if (itemIds.length > 0) {
+          const mods = await db
+            .select({
+              orderItemId: orderItemModifiers.orderItemId,
+              groupName: orderItemModifiers.groupName,
+              modifierName: orderItemModifiers.modifierName,
+              modifierPrice: orderItemModifiers.modifierPrice,
+            })
+            .from(orderItemModifiers)
+            .where(inArray(orderItemModifiers.orderItemId, itemIds));
+          for (const m of mods) {
+            if (!itemModsMap[m.orderItemId]) itemModsMap[m.orderItemId] = [];
+            itemModsMap[m.orderItemId].push(m);
+          }
+        }
+
         for (const item of allItems) {
           if (!itemsMap[item.orderId]) itemsMap[item.orderId] = [];
-          itemsMap[item.orderId].push({ productName: item.productName, quantity: item.quantity, productPrice: item.productPrice });
+          itemsMap[item.orderId].push({
+            id: item.id,
+            productName: item.productName,
+            quantity: item.quantity,
+            productPrice: item.productPrice,
+            subtotal: item.subtotal,
+            modifiers: itemModsMap[item.id] || [],
+          });
         }
       }
 

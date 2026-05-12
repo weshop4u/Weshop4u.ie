@@ -278,13 +278,20 @@ function ActiveOrderCard({ order, isExpanded, onToggleExpand, colors, router, on
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
           <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
           {order.items?.map((item: any, idx: number) => (
-            <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-              <Text style={{ color: colors.muted, flex: 1 }}>
-                {item.quantity}x {item.product?.name || "Product"}
-              </Text>
-              <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
-              </Text>
+            <View key={idx}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
+                <Text style={{ color: colors.muted, flex: 1 }}>
+                  {item.quantity}x {item.product?.name || "Product"}
+                </Text>
+                <Text style={{ color: colors.foreground, fontWeight: "600" }}>
+                  €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
+                </Text>
+              </View>
+              {item.modifiers && item.modifiers.length > 0 && item.modifiers.map((mod: any, modIdx: number) => (
+                <Text key={modIdx} style={{ color: colors.muted, fontSize: 12, paddingLeft: 12 }}>
+                  + {mod.modifierName}{parseFloat(mod.modifierPrice) > 0 ? ` +€${parseFloat(mod.modifierPrice).toFixed(2)}` : ""}
+                </Text>
+              ))}
             </View>
           ))}
           {order.tipAmount && parseFloat(order.tipAmount) > 0 && (
@@ -476,13 +483,20 @@ function PastOrderCard({ order, isExpanded, onToggleExpand, colors, router, isRa
         <View style={{ paddingHorizontal: 16, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
           <Text style={{ fontWeight: "600", color: colors.foreground, marginTop: 12, marginBottom: 8 }}>Items:</Text>
           {order.items?.map((item: any, idx: number) => (
-            <View key={idx} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
-              <Text style={{ color: colors.muted, flex: 1 }}>
-                {item.quantity}x {item.product?.name || "Product"}
-              </Text>
-              <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
-              </Text>
+            <View key={idx}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
+                <Text style={{ color: colors.muted, flex: 1 }}>
+                  {item.quantity}x {item.product?.name || "Product"}
+                </Text>
+                <Text style={{ color: colors.foreground, fontWeight: "600" }}>
+                  €{(parseFloat(item.productPrice) * item.quantity).toFixed(2)}
+                </Text>
+              </View>
+              {item.modifiers && item.modifiers.length > 0 && item.modifiers.map((mod: any, modIdx: number) => (
+                <Text key={modIdx} style={{ color: colors.muted, fontSize: 12, paddingLeft: 12 }}>
+                  + {mod.modifierName}{parseFloat(mod.modifierPrice) > 0 ? ` +€${parseFloat(mod.modifierPrice).toFixed(2)}` : ""}
+                </Text>
+              ))}
             </View>
           ))}
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8, paddingTop: 8 }}>

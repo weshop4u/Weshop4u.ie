@@ -1,33 +1,136 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { modifierGroups, modifiers, multiBuyDeals, orderItemModifiers, products } from "../../drizzle/schema";
+import { modifierGroups, modifiers, multiBuyDeals, orderItemModifiers, products, modifierTemplates, modifierTemplateOptions, categoryModifierTemplates, productModifierTemplates } from "../../drizzle/schema";
 import { eq, and, asc, inArray } from "drizzle-orm";
 
 export const modifiersRouter = router({
   // ===== MODIFIER GROUPS =====
 
-  // Get all modifier groups + modifiers for a product
+  // Get all modifier groups + modifiers for a product from three sources:
+  // 1. Custom modifier groups directly on the product
+  // 2. Product-level modifier templates
+  // 3. Category-level modifier templates
   getForProduct: publicProcedure
     .input(z.object({ productId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      const groups = await db
+      // SOURCE 1: Custom modifier groups directly on the product
+      const customGroups = await db
         .select()
         .from(modifierGroups)
         .where(eq(modifierGroups.productId, input.productId))
         .orderBy(asc(modifierGroups.sortOrder), asc(modifierGroups.id));
 
-      if (groups.length === 0) return { groups: [], deals: [] };
+      // SOURCE 2: Product-level modifier templates
+      const productTemplateLinks = await db
+        .select({ templateId: productModifierTemplates.templateId, sortOrder: productModifierTemplates.sortOrder })
+        .from(productModifierTemplates)
+        .where(eq(productModifierTemplates.productId, input.productId))
+        .orderBy(asc(productModifierTemplates.sortOrder));
 
-      const groupIds = groups.map(g => g.id);
-      const mods = await db
-        .select()
-        .from(modifiers)
-        .where(and(inArray(modifiers.groupId, groupIds), eq(modifiers.isActive, true)))
-        .orderBy(asc(modifiers.sortOrder), asc(modifiers.id));
+      let productTemplateGroups: any[] = [];
+      if (productTemplateLinks.length > 0) {
+        const templateIds = productTemplateLinks.map(link => link.templateId);
+        const templates = await db
+          .select()
+          .from(modifierTemplates)
+          .where(inArray(modifierTemplates.id, templateIds));
+
+        const templateOptions = await db
+          .select()
+          .from(modifierTemplateOptions)
+          .where(inArray(modifierTemplateOptions.templateId, templateIds))
+          .orderBy(asc(modifierTemplateOptions.sortOrder), asc(modifierTemplateOptions.id));
+
+        // Convert templates to modifier group format
+        productTemplateGroups = templates.map((template) => ({
+          id: `product_template_${template.id}`,
+          productId: input.productId,
+          name: template.name,
+          type: template.type,
+          required: template.required,
+          minSelections: template.minSelections,
+          maxSelections: template.maxSelections,
+          allowOptionQuantity: template.allowOptionQuantity,
+          maxOptionQuantity: template.maxOptionQuantity,
+          sortOrder: productTemplateLinks.find(l => l.templateId === template.id)?.sortOrder ?? 0,
+          isTemplate: true,
+          templateId: template.id,
+          templateOptions: templateOptions.filter(o => o.templateId === template.id),
+        }));
+      }
+
+      // SOURCE 3: Category-level modifier templates
+      const product = await db
+        .select({ categoryId: products.categoryId })
+        .from(products)
+        .where(eq(products.id, input.productId));
+
+      let categoryTemplateGroups: any[] = [];
+      if (product.length > 0 && product[0].categoryId) {
+        const categoryTemplateLinks = await db
+          .select({ templateId: categoryModifierTemplates.templateId, sortOrder: categoryModifierTemplates.sortOrder })
+          .from(categoryModifierTemplates)
+          .where(eq(categoryModifierTemplates.categoryId, product[0].categoryId))
+          .orderBy(asc(categoryModifierTemplates.sortOrder));
+
+        if (categoryTemplateLinks.length > 0) {
+          const templateIds = categoryTemplateLinks.map(link => link.templateId);
+          const templates = await db
+            .select()
+            .from(modifierTemplates)
+            .where(inArray(modifierTemplates.id, templateIds));
+
+          const templateOptions = await db
+            .select()
+            .from(modifierTemplateOptions)
+            .where(inArray(modifierTemplateOptions.templateId, templateIds))
+            .orderBy(asc(modifierTemplateOptions.sortOrder), asc(modifierTemplateOptions.id));
+
+          // Convert templates to modifier group format
+          categoryTemplateGroups = templates.map((template) => ({
+            id: `category_template_${template.id}`,
+            productId: input.productId,
+            name: template.name,
+            type: template.type,
+            required: template.required,
+            minSelections: template.minSelections,
+            maxSelections: template.maxSelections,
+            allowOptionQuantity: template.allowOptionQuantity,
+            maxOptionQuantity: template.maxOptionQuantity,
+            sortOrder: categoryTemplateLinks.find(l => l.templateId === template.id)?.sortOrder ?? 0,
+            isTemplate: true,
+            templateId: template.id,
+            templateOptions: templateOptions.filter(o => o.templateId === template.id),
+          }));
+        }
+      }
+
+      // COMBINE: Merge all groups from all three sources
+      const allGroups = [...customGroups, ...productTemplateGroups, ...categoryTemplateGroups];
+      
+      // Remove duplicates by ID (in case same template is linked at both product and category level)
+      const seenIds = new Set<string | number>();
+      const uniqueGroups = allGroups.filter(g => {
+        if (seenIds.has(g.id)) return false;
+        seenIds.add(g.id);
+        return true;
+      });
+
+      if (uniqueGroups.length === 0) return { groups: [], deals: [] };
+
+      // Fetch modifiers for custom groups only (templates have their options already)
+      const customGroupIds = customGroups.map(g => g.id);
+      const mods = customGroupIds.length > 0 
+        ? await db
+            .select()
+            .from(modifiers)
+            .where(and(inArray(modifiers.groupId, customGroupIds), eq(modifiers.isActive, true)))
+            .orderBy(asc(modifiers.sortOrder), asc(modifiers.id))
+        : [];
 
       // Get multi-buy deals for this product
       const deals = await db
@@ -35,11 +138,23 @@ export const modifiersRouter = router({
         .from(multiBuyDeals)
         .where(and(eq(multiBuyDeals.productId, input.productId), eq(multiBuyDeals.isActive, true)));
 
+      // Format response: convert template options to modifiers format for consistency
+      const formattedGroups = uniqueGroups.map(g => ({
+        ...g,
+        modifiers: g.isTemplate 
+          ? g.templateOptions.map(opt => ({
+              id: opt.id,
+              groupId: g.id,
+              name: opt.name,
+              price: opt.price,
+              isActive: opt.available,
+              sortOrder: opt.sortOrder,
+            }))
+          : mods.filter(m => m.groupId === g.id),
+      }));
+
       return {
-        groups: groups.map(g => ({
-          ...g,
-          modifiers: mods.filter(m => m.groupId === g.id),
-        })),
+        groups: formattedGroups,
         deals,
       };
     }),

@@ -67,6 +67,10 @@ export default function StoreDetailScreen() {
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery({ storeId, limit: 5000 });
   const products = productsData?.items || [];
   const { data: trendingProducts } = trpc.store.getTrendingProducts.useQuery({ storeId, limit: 10 });
+  const { data: modifierData } = trpc.modifiers.getForProduct.useQuery(
+    { productId: selectedProduct?.id || 0 },
+    { enabled: !!selectedProduct?.id && modalVisible }
+  );
 
   const storeOpen = store ? isStoreOpen(store) : true;
   const todayHours = store ? getTodayHours(store) : null;
@@ -298,8 +302,8 @@ export default function StoreDetailScreen() {
 
   const renderProductModal = () => {
     if (!selectedProduct || !modalVisible) return null;
-    const modifierGroups = selectedProduct.modifierGroups || [];
-    const modifierData = modifierGroups.map((group: any) => ({
+    const modifierGroups = modifierData?.groups || [];
+    const modifierDataWithSelection = modifierGroups.map((group: any) => ({
       ...group,
       selectedModifiers: selectedModifiers[group.id] || [],
     }));
@@ -312,7 +316,7 @@ export default function StoreDetailScreen() {
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 0, flexGrow: 1 }}>
               {selectedProduct.images && selectedProduct.images[0] && (
                 <Image source={{ uri: selectedProduct.images[0] }} style={styles.productImage} contentFit="contain" />
               )}
@@ -324,9 +328,9 @@ export default function StoreDetailScreen() {
                 )}
                 <Text style={styles.productPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
 
-                {modifierData.length > 0 && (
+                {modifierDataWithSelection.length > 0 && (
                   <View style={styles.modifiersContainer}>
-                    {modifierData.map((group: any) => (
+                    {modifierDataWithSelection.map((group: any) => (
                       <View key={group.id} style={styles.modifierGroup}>
                         <Text style={styles.modifierGroupTitle}>
                           {group.name} {group.required ? "*" : ""}
@@ -372,17 +376,77 @@ export default function StoreDetailScreen() {
             </ScrollView>
 
             <TouchableOpacity
-              onPress={() => {
-                const modifierPrice = modifierData.reduce((sum: number, group: any) => {
-                  return sum + (group.selectedModifiers || []).reduce((groupSum: number, modId: number) => {
-                    const mod = group.modifiers.find((m: any) => m.id === modId);
-                    const qty = optionQuantities[`${group.id}_${modId}`] || 1;
-                    return groupSum + (mod ? parseFloat(mod.price) * qty : 0);
-                  }, 0);
-                }, 0);
+              onPress={async () => {
+                // Build modifiers array from selected modifiers
+                const modifiersArray: CartItemModifier[] = [];
+                for (const group of modifierDataWithSelection) {
+                  for (const modId of (group.selectedModifiers || [])) {
+                    const modifier = group.modifiers.find((m: any) => m.id === modId);
+                    if (modifier) {
+                      const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                      for (let i = 0; i < qty; i++) {
+                        modifiersArray.push({
+                          groupName: group.name,
+                          modifierId: modifier.id,
+                          modifierName: modifier.name,
+                          modifierPrice: modifier.price,
+                        });
+                      }
+                    }
+                  }
+                }
 
-                const totalPrice = (parseFloat(selectedProduct.price) + modifierPrice).toFixed(2);
-                handleAddToCart(selectedProduct.id, selectedProduct.name, totalPrice, selectedCategory?.availabilitySchedule, modalQuantity);
+                // Call addToCart directly with full CartItem including modifiers
+                if (!storeOpen) {
+                  Alert.alert(
+                    "Store Closed",
+                    `${store?.name} is currently closed. ${nextOpen || "Please check back later."}`,
+                    [{ text: "OK" }]
+                  );
+                  return;
+                }
+
+                if (selectedCategory?.availabilitySchedule && !isCategoryAvailable(selectedCategory.availabilitySchedule)) {
+                  const msg = getAvailabilityMessage(selectedCategory.availabilitySchedule) || "This product is not available right now.";
+                  Alert.alert("Not Available", msg, [{ text: "OK" }]);
+                  return;
+                }
+
+                if (Platform.OS !== "web") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+
+                const success = await addToCart(storeId, store?.name || "Store", {
+                  productId: selectedProduct.id,
+                  productName: selectedProduct.name,
+                  productPrice: selectedProduct.price,
+                  quantity: modalQuantity,
+                  modifiers: modifiersArray,
+                });
+
+                if (!success) {
+                  Alert.alert(
+                    "Replace cart items?",
+                    `You have items from ${cart.storeName} in your cart.\n\nAdding items from ${store?.name} will remove your current cart.`,
+                    [
+                      { text: "Keep Current Cart", style: "cancel" },
+                      {
+                        text: "Start New Cart",
+                        onPress: () => {
+                          clearCart();
+                          addToCart(storeId, store?.name || "Store", {
+                            productId: selectedProduct.id,
+                            productName: selectedProduct.name,
+                            productPrice: selectedProduct.price,
+                            quantity: modalQuantity,
+                            modifiers: modifiersArray,
+                          });
+                        },
+                      },
+                    ]
+                  );
+                }
+
                 setModalVisible(false);
                 setSelectedModifiers({});
                 setOptionQuantities({});
@@ -399,15 +463,9 @@ export default function StoreDetailScreen() {
   };
 
   useEffect(() => {
-    const defaults: Record<number, number[]> = {};
-    const modifierGroups = selectedProduct?.modifierGroups || [];
-    for (const group of modifierGroups) {
-      if (group.required && group.modifiers.length > 0) {
-        defaults[group.id] = [group.modifiers[0].id];
-      }
-    }
-    setSelectedModifiers(defaults);
-  }, [selectedProduct?.id, modalVisible]);
+    // Clear all selections when modal opens - customer must select everything themselves
+    setSelectedModifiers({});
+  }, [selectedProduct?.id, modalVisible, modifierData?.groups]);
 
   // Scroll to top when category selection changes
   useEffect(() => {
@@ -1026,6 +1084,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
+    flex: 1,
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1132,7 +1191,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   addToCartButton: {
-    flex: 1,
     backgroundColor: "#00E5FF",
     paddingVertical: 14,
     borderRadius: 12,
