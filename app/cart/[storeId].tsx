@@ -33,6 +33,7 @@ export default function CartScreen() {
   
   // Error banner state
   const [errorMessage, setErrorMessage] = useState("");
+  const [showAgeVerifyButton, setShowAgeVerifyButton] = useState(false);
   
   // Guest user fields
   const [guestName, setGuestName] = useState("");
@@ -245,13 +246,13 @@ export default function CartScreen() {
     }
   }, [cartContext.storeId, storeIdNum]);
 
-  // Auto-dismiss error after 5 seconds
+  // Auto-dismiss error after 5 seconds (but not age verification errors)
   useEffect(() => {
-    if (errorMessage) {
+    if (errorMessage && !showAgeVerifyButton) {
       const timer = setTimeout(() => setErrorMessage(""), 5000);
       return () => clearTimeout(timer);
     }
-  }, [errorMessage]);
+  }, [errorMessage, showAgeVerifyButton]);
 
   const updateQuantity = (productId: number, delta: number, cartItemKey?: string) => {
     // Try to find by cartItemKey first, then fall back to productId match
@@ -348,6 +349,29 @@ export default function CartScreen() {
       setShowDeliveryFeeWarning(true);
       return;
     }
+
+    // ========== AGE VERIFICATION CHECK ==========
+    // Check if any cart items are age-restricted
+    const hasAgeRestrictedItems = cartItems.some(item => 
+      (item as any)?.category?.ageRestricted === true
+    );
+
+    if (hasAgeRestrictedItems) {
+      // Guests cannot order age-restricted items
+      if (isGuest) {
+        setErrorMessage("Your cart contains age restricted items. Guests cannot order these items. Please create an account and verify your age to continue.");
+        setShowAgeVerifyButton(false);
+        return;
+      }
+      
+      // Logged-in users must have age verification
+      if (!user?.ageVerified) {
+        setErrorMessage("Your cart contains age restricted items. Please verify your age before continuing.");
+        setShowAgeVerifyButton(true);
+        return;
+      }
+    }
+    // ========== END AGE VERIFICATION CHECK ==========
 
     try {
       const orderItems = cartItems.map(product => {
@@ -620,11 +644,39 @@ export default function CartScreen() {
 
       {/* Error Banner */}
       {errorMessage ? (
-        <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
-          <TouchableOpacity onPress={() => setErrorMessage("")} className="active:opacity-70">
-            <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
-          </TouchableOpacity>
+        <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: showAgeVerifyButton ? 12 : 0 }}>
+            <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setErrorMessage("");
+                setShowAgeVerifyButton(false);
+              }} 
+              className="active:opacity-70"
+            >
+              <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {showAgeVerifyButton && (
+            <TouchableOpacity
+              onPress={() => {
+                router.push("/(tabs)/profile");
+                setErrorMessage("");
+                setShowAgeVerifyButton(false);
+              }}
+              style={{
+                backgroundColor: colors.error,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                alignItems: 'center',
+              }}
+              className="active:opacity-70"
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Verify Age</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : null}
 

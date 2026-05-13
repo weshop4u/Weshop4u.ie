@@ -475,6 +475,7 @@ export const authRouter = router({
         name: users.name,
         phone: users.phone,
         role: users.role,
+        ageVerified: users.ageVerified,
       })
       .from(users)
       .where(eq(users.id, userId));
