@@ -48,22 +48,6 @@ export const usersRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        console.log("[updateProfile] ===== FULL INPUT RECEIVED =====");
-        console.log("[updateProfile] Raw input:", JSON.stringify(input, null, 2));
-        console.log("[updateProfile] Input keys:", Object.keys(input));
-        console.log("[updateProfile] name:", input.name, "(type:", typeof input.name, ")");
-        console.log("[updateProfile] dateOfBirth:", input.dateOfBirth, "(type:", typeof input.dateOfBirth, ")");
-        console.log("[updateProfile] ageVerified:", input.ageVerified, "(type:", typeof input.ageVerified, ")");
-        console.log("[updateProfile] ctx.user:", JSON.stringify(ctx.user));
-        console.log("[updateProfile] profilePicture value:", input.profilePicture);
-        console.log("[updateProfile] Input received:", {
-          name: input.name,
-          phone: input.phone,
-          hasProfilePicture: !!input.profilePicture,
-          dateOfBirth: input.dateOfBirth,
-          ageVerified: input.ageVerified,
-        });
-        
         const db = await getDb();
         if (!db) {
           throw new Error("Database not available");
@@ -73,7 +57,6 @@ export const usersRouter = router({
           throw new Error("Authentication required to update profile");
         }
         const userId = ctx.user.id;
-        console.log("[updateProfile] Updating user ID:", userId);
 
         const updateData: Record<string, any> = {
           name: input.name,
@@ -85,28 +68,18 @@ export const usersRouter = router({
         }
         if (input.profilePicture !== undefined && input.profilePicture !== null) {
           updateData.profilePicture = input.profilePicture;
-          console.log("[updateProfile] Will update profilePicture");
         }
         if (input.dateOfBirth !== undefined && input.dateOfBirth !== null) {
           updateData.dateOfBirth = input.dateOfBirth;
-          console.log("[updateProfile] Will update dateOfBirth");
         }
         if (input.ageVerified !== undefined) {
           updateData.ageVerified = input.ageVerified;
-          console.log("[updateProfile] Will update ageVerified");
         }
-
-        console.log("[updateProfile] Update data keys:", Object.keys(updateData));
-        console.log("[updateProfile] Full updateData:", JSON.stringify(updateData));
         
         const result = await db
           .update(users)
           .set(updateData)
           .where(eq(users.id, userId));
-        
-        console.log("[updateProfile] DB result:", JSON.stringify(result));
-
-        console.log("[updateProfile] Update completed successfully");
         
         // Ensure we return plain JSON, not Drizzle objects
         return JSON.parse(JSON.stringify({ success: true }));
