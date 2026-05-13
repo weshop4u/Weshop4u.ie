@@ -81,6 +81,11 @@ export function WebFooter() {
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
+          <View style={styles.disclaimerContainer}>
+            <Text style={styles.disclaimerText}>
+              WeShop4U delivers age-restricted products in compliance with Irish law. You must be 18 or over to purchase age-restricted items. Proof of age will be required upon delivery.
+            </Text>
+          </View>
           <Text style={styles.copyright}>
             © {new Date().getFullYear()} WeShop4U. All rights reserved.
           </Text>
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: "#0A0E27",
     paddingHorizontal: 24,
-    paddingTop: 48,
+    paddingTop: 88,
     paddingBottom: 24,
   },
   container: {
@@ -173,5 +178,16 @@ const styles = StyleSheet.create({
   madeIn: {
     fontSize: 13,
     color: "#687076",
+  },
+  disclaimerContainer: {
+    width: "100%",
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  disclaimerText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.5)",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

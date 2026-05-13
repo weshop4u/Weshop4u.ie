@@ -336,8 +336,14 @@ export default function HomeScreen() {
                 </View>
               );
             })}
-          </View>
-        )}
+          </View>        )}
+
+        {/* Age Restriction Disclaimer */}
+        <View className="bg-surface border-t border-border px-4 py-6 mt-8">
+          <Text className="text-xs text-muted text-center leading-relaxed">
+            WeShop4U delivers age-restricted products in compliance with Irish law. You must be 18 or over to purchase alcohol, tobacco, vaping products and other age-restricted items. Proof of age will be required upon delivery.
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );

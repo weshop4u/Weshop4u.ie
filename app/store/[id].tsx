@@ -934,6 +934,13 @@ export default function StoreDetailScreen() {
                 </View>
               </View>
 
+              {/* Age Restriction Warning Banner */}
+              {selectedCategory?.ageRestricted && (
+                <View className="mx-4 mb-3 p-3 rounded-xl" style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#D97706" }}>🔞 Age restricted — You must be 18 or over to purchase these items. Proof of age will be required upon delivery.</Text>
+                </View>
+              )}
+
               {/* Category Availability Banner */}
               {!catAvailable && catAvailMsg && (
                 <View className="mx-4 mb-3 p-3 rounded-xl" style={{ backgroundColor: "#FEF3C7", borderWidth: 1, borderColor: "#FDE68A" }}>
