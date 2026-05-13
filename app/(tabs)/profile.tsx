@@ -1,21 +1,31 @@
-import { View, Text, ScrollView, TouchableOpacity, Platform, Alert, Image } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Platform, Alert, Image, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useColors } from "@/hooks/use-colors";
 import * as Auth from "@/lib/_core/auth";
 import { ScreenWrapper } from "@/components/native-wrapper";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout: authLogout } = useAuth();
+  const colors = useColors();
   const utils = trpc.useUtils();
   const [currentMode, setCurrentMode] = useState<"customer" | "driver">("customer");
   
+  // Age verification state
+  const [showAgeUpdateModal, setShowAgeUpdateModal] = useState(false);
+  const [ageVerificationDOB, setAgeVerificationDOB] = useState("");
+  const [ageVerificationError, setAgeVerificationError] = useState("");
+  const [updateDOB, setUpdateDOB] = useState("");
+  const [updateDOBError, setUpdateDOBError] = useState("");
+  
   // Fetch fresh profile data from server to ensure we have latest profilePicture
   const { data: profileData } = trpc.users.getProfile.useQuery();
+  const updateProfileMutation = trpc.users.updateProfile.useMutation();
 
   useEffect(() => {
     // Load current mode from storage
@@ -28,6 +38,87 @@ export default function ProfileScreen() {
       }
     });
   }, []);
+
+  // Format DOB input to DD-MM-YYYY format
+  const formatDOBInput = (text: string) => {
+    const cleaned = text.replace(/\D/g, "");
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 4) return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+  };
+
+  // Validate DOB and check if user is 18+
+  const validateAndCheckAge = (dobString: string) => {
+    if (!dobString || dobString.length !== 10) {
+      return { valid: false, message: "Please enter date in DD-MM-YYYY format" };
+    }
+
+    const [day, month, year] = dobString.split("-").map(Number);
+    if (!day || !month || !year || day < 1 || day > 31 || month < 1 || month > 12) {
+      return { valid: false, message: "Invalid date of birth" };
+    }
+
+    const dob = new Date(year, month - 1, day);
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear();
+    const hasHadBirthday =
+      today.getMonth() > dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+
+    const actualAge = hasHadBirthday ? age : age - 1;
+    if (actualAge < 18) {
+      return { valid: false, message: "You must be at least 18 years old" };
+    }
+
+    return { valid: true, message: "", dob };
+  };
+
+  const handleVerifyAge = async () => {
+    setAgeVerificationError("");
+    const validation = validateAndCheckAge(ageVerificationDOB);
+
+    if (!validation.valid) {
+      setAgeVerificationError(validation.message);
+      return;
+    }
+
+    try {
+      await updateProfileMutation.mutateAsync({
+        dateOfBirth: validation.dob!,
+        ageVerified: true,
+      });
+      setAgeVerificationDOB("");
+      setShowAgeUpdateModal(false);
+      // Invalidate profile query to refresh
+      utils.users.getProfile.invalidate();
+    } catch (error) {
+      setAgeVerificationError("Failed to verify age. Please try again.");
+      console.error(error);
+    }
+  };
+
+  const handleUpdateDOB = async () => {
+    setUpdateDOBError("");
+    const validation = validateAndCheckAge(updateDOB);
+
+    if (!validation.valid) {
+      setUpdateDOBError(validation.message);
+      return;
+    }
+
+    try {
+      await updateProfileMutation.mutateAsync({
+        dateOfBirth: validation.dob!,
+      });
+      setUpdateDOB("");
+      setShowAgeUpdateModal(false);
+      // Invalidate profile query to refresh
+      utils.users.getProfile.invalidate();
+    } catch (error) {
+      setUpdateDOBError("Failed to update date of birth. Please try again.");
+      console.error(error);
+    }
+  };
 
   const handleSwitchToDriverMode = async () => {
     try {
@@ -225,6 +316,105 @@ export default function ProfileScreen() {
               <Text className="text-muted text-sm mt-1">Manage your saved cards</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Age Verification Section */}
+          <View className="bg-surface rounded-xl border border-border overflow-hidden">
+            <View className="p-4 border-b border-border">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-foreground font-semibold">Age Verification</Text>
+                {profileData?.ageVerified ? (
+                  <View className="bg-green-100 px-3 py-1 rounded-full">
+                    <Text className="text-green-700 text-xs font-semibold">✓ Verified</Text>
+                  </View>
+                ) : (
+                  <View className="bg-yellow-100 px-3 py-1 rounded-full">
+                    <Text className="text-yellow-700 text-xs font-semibold">⚠ Not Verified</Text>
+                  </View>
+                )}
+              </View>
+              <Text className="text-muted text-sm">
+                {profileData?.ageVerified
+                  ? "Your age has been verified. You can purchase age-restricted items."
+                  : "Verify your age to purchase alcohol, tobacco, and other restricted items."}
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              className="p-4 active:opacity-70"
+              onPress={() => setShowAgeUpdateModal(true)}
+            >
+              <Text className="text-foreground font-semibold">
+                {profileData?.ageVerified ? "Update Date of Birth" : "Verify Your Age"}
+              </Text>
+              {profileData?.dateOfBirth && (
+                <Text className="text-muted text-sm mt-1">
+                  Current DOB: {new Date(profileData.dateOfBirth).toLocaleDateString("en-GB")}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Age Verification Modal */}
+          {showAgeUpdateModal && (
+            <View className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+              <View className="bg-background rounded-2xl p-6 w-11/12 max-w-sm">
+                <Text className="text-foreground font-bold text-lg mb-4">
+                  {profileData?.ageVerified ? "Update Date of Birth" : "Verify Your Age"}
+                </Text>
+                
+                <Text className="text-muted text-sm mb-4">
+                  Please enter your date of birth in DD-MM-YYYY format. You must be at least 18 years old.
+                </Text>
+                
+                <TextInput
+                  placeholder="DD-MM-YYYY"
+                  value={profileData?.ageVerified ? updateDOB : ageVerificationDOB}
+                  onChangeText={(text) => {
+                    const formatted = formatDOBInput(text);
+                    if (profileData?.ageVerified) {
+                      setUpdateDOB(formatted);
+                    } else {
+                      setAgeVerificationDOB(formatted);
+                    }
+                  }}
+                  maxLength={10}
+                  keyboardType="numeric"
+                  className="border border-border rounded-lg px-4 py-3 text-foreground mb-4"
+                  placeholderTextColor={colors.muted}
+                />
+                
+                {(profileData?.ageVerified ? updateDOBError : ageVerificationError) && (
+                  <Text className="text-error text-sm mb-4">
+                    {profileData?.ageVerified ? updateDOBError : ageVerificationError}
+                  </Text>
+                )}
+                
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    className="flex-1 bg-surface border border-border rounded-lg py-3 active:opacity-70"
+                    onPress={() => {
+                      setShowAgeUpdateModal(false);
+                      setAgeVerificationDOB("");
+                      setUpdateDOB("");
+                      setAgeVerificationError("");
+                      setUpdateDOBError("");
+                    }}
+                  >
+                    <Text className="text-foreground font-semibold text-center">Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    className="flex-1 bg-primary rounded-lg py-3 active:opacity-70"
+                    onPress={profileData?.ageVerified ? handleUpdateDOB : handleVerifyAge}
+                  >
+                    <Text className="text-background font-semibold text-center">
+                      {updateProfileMutation.isPending ? "Saving..." : "Confirm"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Admin Panel Section - Only visible to admin users */}
           {user && (user as any).role === "admin" && (

@@ -42,6 +42,8 @@ export const usersRouter = router({
         name: z.string().min(1),
         phone: z.string().optional(),
         profilePicture: z.string().optional(),
+        dateOfBirth: z.string().nullable().optional(),
+        ageVerified: z.boolean().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -76,6 +78,14 @@ export const usersRouter = router({
         if (input.profilePicture !== undefined && input.profilePicture !== null) {
           updateData.profilePicture = input.profilePicture;
           console.log("[updateProfile] Will update profilePicture");
+        }
+        if (input.dateOfBirth !== undefined && input.dateOfBirth !== null) {
+          updateData.dateOfBirth = input.dateOfBirth;
+          console.log("[updateProfile] Will update dateOfBirth");
+        }
+        if (input.ageVerified !== undefined) {
+          updateData.ageVerified = input.ageVerified;
+          console.log("[updateProfile] Will update ageVerified");
         }
 
         console.log("[updateProfile] Update data keys:", Object.keys(updateData));
@@ -118,6 +128,8 @@ export const usersRouter = router({
         phone: users.phone,
         role: users.role,
         profilePicture: users.profilePicture,
+        dateOfBirth: users.dateOfBirth,
+        ageVerified: users.ageVerified,
       })
       .from(users)
       .where(eq(users.id, userId))

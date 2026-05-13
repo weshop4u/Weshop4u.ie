@@ -14,6 +14,8 @@ export const authRouter = router({
         password: z.string().min(6),
         name: z.string().min(2),
         phone: z.string().min(1, "Phone number is required"),
+        dateOfBirth: z.string().nullable().optional(),
+        ageVerified: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -43,6 +45,8 @@ export const authRouter = router({
         phone: input.phone || null,
         role: "customer",
         passwordHash,
+        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+        ageVerified: input.ageVerified ?? false,
       });
 
       const userId = Number(result.insertId);

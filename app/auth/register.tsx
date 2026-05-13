@@ -21,6 +21,15 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const passwordStrength = calculatePasswordStrength(password);
 
+  // Password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Age verification (optional)
+  const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [ageError, setAgeError] = useState("");
+
   // OTP fields
   const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
   const otpRefs = useRef<(TextInput | null)[]>([]);
@@ -48,13 +57,42 @@ export default function RegisterScreen() {
   // Step 1: Validate details and send OTP
   const handleSendOTP = async () => {
     setError("");
+    setAgeError("");
 
     if (!name.trim()) { setError("Please enter your name"); return; }
     if (!email.trim()) { setError("Please enter your email"); return; }
     if (!phone.trim()) { setError("Please enter your phone number"); return; }
     if (phone.trim().replace(/[\s\-]/g, "").length < 7) { setError("Please enter a valid phone number"); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+    // Validate password strength
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (!/[A-Z]/.test(password)) { setError("Password must contain at least 1 uppercase letter"); return; }
+    if (!/[0-9]/.test(password)) { setError("Password must contain at least 1 number"); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
+
+    // Validate age if DOB is provided (DD-MM-YYYY format)
+    if (dateOfBirth.trim()) {
+      const parts = dateOfBirth.trim().split("-");
+      if (parts.length !== 3) {
+        setAgeError("Please enter date in DD-MM-YYYY format");
+        return;
+      }
+      const [day, month, year] = parts.map(p => parseInt(p, 10));
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        setAgeError("Please enter a valid date");
+        return;
+      }
+      const dob = new Date(year, month - 1, day);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        setAgeError("You must be 18 or over to verify your age");
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -126,6 +164,8 @@ export default function RegisterScreen() {
         email: email.toLowerCase().trim(),
         phone: phone.trim(),
         password,
+        dateOfBirth: dateOfBirth.trim() || null,
+        ageVerified: dateOfBirth.trim() ? true : false,
       });
 
       setStep("success");
@@ -259,24 +299,33 @@ export default function RegisterScreen() {
 
               <View>
                 <Text className="text-foreground font-semibold mb-2">Password *</Text>
-                <TextInput
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    color: colors.foreground,
-                    fontSize: 16,
-                  }}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor="#9BA1A6"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      paddingRight: 48,
+                      color: colors.foreground,
+                      fontSize: 16,
+                    }}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor="#9BA1A6"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={{ position: "absolute", right: 12, top: 14, padding: 8 }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{showPassword ? "👁️" : "👁️‍🗨️"}</Text>
+                  </TouchableOpacity>
+                </View>
                 {password && (
                   <View style={{ marginTop: 12 }}>
                     <View style={{ flexDirection: "row", gap: 4, marginBottom: 8 }}>
@@ -316,30 +365,113 @@ export default function RegisterScreen() {
                     </View>
                   </View>
                 )}
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 8 }}>
+                  Min 8 characters, 1 uppercase letter and 1 number
+                </Text>
               </View>
 
               <View>
                 <Text className="text-foreground font-semibold mb-2">Confirm Password *</Text>
-                <TextInput
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    color: colors.foreground,
-                    fontSize: 16,
-                  }}
-                  placeholder="Re-enter password"
-                  placeholderTextColor="#9BA1A6"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSendOTP}
-                />
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      paddingRight: 48,
+                      color: colors.foreground,
+                      fontSize: 16,
+                    }}
+                    placeholder="Re-enter password"
+                    placeholderTextColor="#9BA1A6"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    onSubmitEditing={handleSendOTP}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{ position: "absolute", right: 12, top: 14, padding: 8 }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{showConfirmPassword ? "👁️" : "👁️‍🗨️"}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Optional Age Verification Section */}
+              <View className="bg-surface border border-border rounded-lg p-4 mt-2">
+                <Text className="text-foreground font-semibold mb-3">
+                  🔞 Planning to order age restricted products?
+                </Text>
+                <Text className="text-muted text-sm mb-4">
+                  Verify your age now — it only takes a second
+                </Text>
+
+                {!showAgeVerification ? (
+                  <TouchableOpacity
+                    onPress={() => setShowAgeVerification(true)}
+                    className="bg-primary/10 border border-primary rounded-lg p-3 items-center"
+                  >
+                    <Text className="text-primary font-semibold">Verify Age Now</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View className="gap-3">
+                    <View>
+                      <Text className="text-foreground text-sm font-semibold mb-2">Date of Birth</Text>
+                      <TextInput
+                        style={{
+                          backgroundColor: colors.surface,
+                          borderWidth: 1,
+                          borderColor: ageError ? colors.error : colors.border,
+                          borderRadius: 8,
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          color: colors.foreground,
+                          fontSize: 16,
+                        }}
+                        placeholder="DD-MM-YYYY"
+                        placeholderTextColor="#9BA1A6"
+                        value={dateOfBirth}
+                        onChangeText={(text) => {
+                          // Remove any non-digit characters
+                          const digitsOnly = text.replace(/\D/g, "");
+                          // Limit to 8 digits (DDMMYYYY)
+                          const limited = digitsOnly.slice(0, 8);
+                          // Format as DD-MM-YYYY
+                          let formatted = limited;
+                          if (limited.length >= 2) {
+                            formatted = limited.slice(0, 2) + "-" + limited.slice(2);
+                          }
+                          if (limited.length >= 4) {
+                            formatted = limited.slice(0, 2) + "-" + limited.slice(2, 4) + "-" + limited.slice(4);
+                          }
+                          setDateOfBirth(formatted);
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={10}
+                      />
+                      {ageError && (
+                        <Text className="text-error text-xs mt-1">{ageError}</Text>
+                      )}
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowAgeVerification(false);
+                        setDateOfBirth("");
+                        setAgeError("");
+                      }}
+                      className="bg-muted/10 rounded-lg p-3 items-center"
+                    >
+                      <Text className="text-muted font-semibold">Skip for now</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               <TouchableOpacity

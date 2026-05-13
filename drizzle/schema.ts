@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   decimal,
   index,
   int,
@@ -23,6 +24,8 @@ export const users = mysqlTable(
     role: mysqlEnum("role", ["customer", "driver", "store_staff", "admin"]).notNull().default("customer"),
     passwordHash: varchar("password_hash", { length: 255 }),
     pushToken: varchar("push_token", { length: 255 }),
+    dateOfBirth: date("date_of_birth"),
+    ageVerified: boolean("age_verified").default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },
