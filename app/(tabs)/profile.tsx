@@ -47,6 +47,14 @@ export default function ProfileScreen() {
     return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
   };
 
+  // Format YYYY-MM-DD to DD-MM-YYYY for display
+  const formatDOBForDisplay = (isoDate: string | Date) => {
+    if (!isoDate) return "";
+    const dateStr = typeof isoDate === "string" ? isoDate : isoDate.toISOString().split("T")[0];
+    const [year, month, day] = dateStr.split("-");
+    return `${day}-${month}-${year}`;
+  };
+
   // Validate DOB and check if user is 18+
   const validateAndCheckAge = (dobString: string) => {
     if (!dobString || dobString.length !== 10) {
@@ -70,7 +78,7 @@ export default function ProfileScreen() {
       return { valid: false, message: "You must be at least 18 years old" };
     }
 
-    return { valid: true, message: "", dob };
+    return { valid: true, message: "", day, month, year };
   };
 
   const handleVerifyAge = async () => {
@@ -83,8 +91,11 @@ export default function ProfileScreen() {
     }
 
     try {
+      const { day, month, year } = validation;
+      const isoDateString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       await updateProfileMutation.mutateAsync({
-        dateOfBirth: validation.dob!,
+        name: profileData?.name || "",
+        dateOfBirth: isoDateString,
         ageVerified: true,
       });
       setAgeVerificationDOB("");
@@ -107,8 +118,11 @@ export default function ProfileScreen() {
     }
 
     try {
+      const { day, month, year } = validation;
+      const isoDateString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       await updateProfileMutation.mutateAsync({
-        dateOfBirth: validation.dob!,
+        name: profileData?.name || "",
+        dateOfBirth: isoDateString,
       });
       setUpdateDOB("");
       setShowAgeUpdateModal(false);
@@ -335,7 +349,7 @@ export default function ProfileScreen() {
               <Text className="text-muted text-sm">
                 {profileData?.ageVerified
                   ? "Your age has been verified. You can purchase age-restricted items."
-                  : "Verify your age to purchase alcohol, tobacco, and other restricted items."}
+                  : "Verify your age to purchase age restricted products."}
               </Text>
             </View>
             
@@ -348,7 +362,7 @@ export default function ProfileScreen() {
               </Text>
               {profileData?.dateOfBirth && (
                 <Text className="text-muted text-sm mt-1">
-                  Current DOB: {new Date(profileData.dateOfBirth).toLocaleDateString("en-GB")}
+                  Current DOB: {formatDOBForDisplay(profileData.dateOfBirth)}
                 </Text>
               )}
             </TouchableOpacity>

@@ -253,7 +253,6 @@ function ProductsManagementScreenContent() {
         isDrs: editingProduct.isDrs ?? false,
         pinnedToTrending: editingProduct.pinnedToTrending ?? false,
         trackStock: editingProduct.trackStock,
-        ageRestricted: editingProduct.ageRestricted ?? false,
       };
 
       if (pendingImageBase64) {
@@ -1411,42 +1410,6 @@ function ProductsManagementScreenContent() {
                   <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>This quantity will decrement as orders are placed</Text>
                 </View>
               )}
-
-              {/* Age Restricted Toggle */}
-              <View>
-                <Text style={[editStyles.label, { color: colors.foreground }]}>Age Restricted (18+)</Text>
-                <TouchableOpacity
-                  onPress={() => setEditingProduct({ ...editingProduct, ageRestricted: !editingProduct?.ageRestricted })}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    backgroundColor: editingProduct?.ageRestricted ? "#FF6B6B15" : colors.surface,
-                    borderWidth: 1,
-                    borderColor: editingProduct?.ageRestricted ? "#FF6B6B" : colors.border,
-                    borderRadius: 12,
-                  }}
-                >
-                  <View style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: editingProduct?.ageRestricted ? "#FF6B6B" : colors.muted,
-                    backgroundColor: editingProduct?.ageRestricted ? "#FF6B6B" : "transparent",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}>
-                    {editingProduct?.ageRestricted && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>✓</Text>}
-                  </View>
-                  <Text style={{ color: colors.foreground, fontSize: 13, flex: 1 }}>
-                    {editingProduct?.ageRestricted ? "Age restricted — requires age verification" : "Not age restricted"}
-                  </Text>
-                </TouchableOpacity>
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>For alcohol, tobacco, vapes, and other restricted items</Text>
-              </View>
 
               {/* Category - searchable */}
               <View>

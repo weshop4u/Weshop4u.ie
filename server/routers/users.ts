@@ -48,12 +48,20 @@ export const usersRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       try {
+        console.log("[updateProfile] ===== FULL INPUT RECEIVED =====");
+        console.log("[updateProfile] Raw input:", JSON.stringify(input, null, 2));
+        console.log("[updateProfile] Input keys:", Object.keys(input));
+        console.log("[updateProfile] name:", input.name, "(type:", typeof input.name, ")");
+        console.log("[updateProfile] dateOfBirth:", input.dateOfBirth, "(type:", typeof input.dateOfBirth, ")");
+        console.log("[updateProfile] ageVerified:", input.ageVerified, "(type:", typeof input.ageVerified, ")");
         console.log("[updateProfile] ctx.user:", JSON.stringify(ctx.user));
         console.log("[updateProfile] profilePicture value:", input.profilePicture);
         console.log("[updateProfile] Input received:", {
           name: input.name,
           phone: input.phone,
           hasProfilePicture: !!input.profilePicture,
+          dateOfBirth: input.dateOfBirth,
+          ageVerified: input.ageVerified,
         });
         
         const db = await getDb();
