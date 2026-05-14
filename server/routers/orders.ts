@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS } from "../sms";
@@ -495,9 +495,12 @@ export const ordersRouter = router({
           subtotal: orderItems.subtotal,
           notes: orderItems.notes,
           productName: products.name,
+          categoryId: products.categoryId,
+          ageRestricted: productCategories.ageRestricted,
         })
         .from(orderItems)
         .leftJoin(products, eq(orderItems.productId, products.id))
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
         .where(eq(orderItems.orderId, input.orderId));
 
       // Fetch modifiers for all items
