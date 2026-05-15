@@ -779,13 +779,13 @@ function PhoneOrderScreenContent() {
 
           {/* Phone Number (FIRST - for auto-fill) */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER * (enter first to auto-fill)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: lookupDone ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: lookupDone ? "#22C55E" : "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
             <TextInput
               value={customerPhone}
               onChangeText={handlePhoneChange}
               placeholder="e.g. 089 123 4567"
               placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
+              style={{ fontSize: 15, color: "#11181C" }}
               keyboardType="phone-pad"
               returnKeyType="next"
             />
@@ -804,26 +804,26 @@ function PhoneOrderScreenContent() {
 
           {/* Customer Name */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>CUSTOMER NAME *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
             <TextInput
               value={customerName}
               onChangeText={setCustomerName}
               placeholder="e.g. John Murphy"
               placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
+              style={{ fontSize: 15, color: "#11181C" }}
               returnKeyType="next"
             />
           </View>
 
           {/* Delivery Address */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>DELIVERY ADDRESS *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
             <TextInput
               value={deliveryAddress}
               onChangeText={setDeliveryAddress}
               placeholder="e.g. 12 Main Street, Balbriggan"
               placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
+              style={{ fontSize: 15, color: "#11181C" }}
               multiline
               returnKeyType="next"
             />
@@ -831,13 +831,13 @@ function PhoneOrderScreenContent() {
 
           {/* Eircode */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE * (for delivery fee)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: feeInfo ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: feeInfo ? "#22C55E" : "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
             <TextInput
               value={deliveryEircode}
               onChangeText={handleEircodeChange}
               placeholder="e.g. K32 AB12"
               placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
+              style={{ fontSize: 15, color: "#11181C" }}
               autoCapitalize="characters"
               returnKeyType="next"
             />
@@ -893,13 +893,13 @@ function PhoneOrderScreenContent() {
           {hasAgeRestrictedItems && (
             <>
               <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>CUSTOMER DATE OF BIRTH (DD-MM-YYYY) *</Text>
-              <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+              <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
                 <TextInput
                   value={customerDob}
                   onChangeText={setCustomerDob}
                   placeholder="e.g. 15-03-1990"
                   placeholderTextColor="#687076"
-                  style={{ fontSize: 15, color: "#ECEDEE" }}
+                  style={{ fontSize: 15, color: "#11181C" }}
                   returnKeyType="next"
                 />
               </View>
@@ -913,41 +913,41 @@ function PhoneOrderScreenContent() {
               onPress={() => setPaymentMethod("cash_on_delivery")}
               style={{
                 flex: 1,
-                backgroundColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#151718",
+                backgroundColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#fff",
                 padding: 14,
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#334155",
+                borderColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#E5E7EB",
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "cash_on_delivery" ? "#151718" : "#ECEDEE" }}>Cash</Text>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "cash_on_delivery" ? "#151718" : "#11181C" }}>Cash</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setPaymentMethod("card")}
               style={{
                 flex: 1,
-                backgroundColor: paymentMethod === "card" ? "#00E5FF" : "#151718",
+                backgroundColor: paymentMethod === "card" ? "#00E5FF" : "#fff",
                 padding: 14,
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: paymentMethod === "card" ? "#00E5FF" : "#334155",
+                borderColor: paymentMethod === "card" ? "#00E5FF" : "#E5E7EB",
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "card" ? "#151718" : "#ECEDEE" }}>Card</Text>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "card" ? "#151718" : "#11181C" }}>Card</Text>
             </TouchableOpacity>
           </View>
 
           {/* Notes */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>NOTES (Optional)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
             <TextInput
               value={customerNotes}
               onChangeText={setCustomerNotes}
               placeholder="e.g. Ring doorbell, leave at gate..."
               placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE", minHeight: 60 }}
+              style={{ fontSize: 15, color: "#11181C", minHeight: 60 }}
               multiline
             />
           </View>
@@ -959,11 +959,11 @@ function PhoneOrderScreenContent() {
               flexDirection: "row",
               alignItems: "center",
               gap: 10,
-              backgroundColor: "#151718",
+              backgroundColor: "#fff",
               padding: 14,
               borderRadius: 10,
               borderWidth: 1,
-              borderColor: allowSubstitution ? "#00E5FF" : "#334155",
+              borderColor: allowSubstitution ? "#00E5FF" : "#E5E7EB",
               marginBottom: 24,
             }}
           >
@@ -975,16 +975,16 @@ function PhoneOrderScreenContent() {
             }}>
               {allowSubstitution && <Text style={{ fontSize: 14, fontWeight: "800", color: "#151718" }}>✓</Text>}
             </View>
-            <Text style={{ fontSize: 14, color: "#ECEDEE" }}>Customer allows substitutions</Text>
+            <Text style={{ fontSize: 14, color: "#11181C" }}>Customer allows substitutions</Text>
           </TouchableOpacity>
 
           {/* Navigation */}
           <View style={{ flexDirection: "row", gap: 10 }}>
             <TouchableOpacity
               onPress={() => setStep("products")}
-              style={{ flex: 1, backgroundColor: "#334155", padding: 14, borderRadius: 10, alignItems: "center" }}
+              style={{ flex: 1, backgroundColor: "#E5E7EB", padding: 14, borderRadius: 10, alignItems: "center" }}
             >
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ECEDEE" }}>Back</Text>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: "#11181C" }}>Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
