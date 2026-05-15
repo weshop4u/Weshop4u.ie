@@ -124,8 +124,20 @@ function PhoneOrderScreenContent() {
 
   useEffect(() => {
     if (selectedCategoryId !== null) {
-      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 50);
-      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 200);
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          // Scroll every possible container to top
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+          const all = document.querySelectorAll('*');
+          all.forEach(el => {
+            if ((el as HTMLElement).scrollTop > 0) {
+              (el as HTMLElement).scrollTop = 0;
+            }
+          });
+        }
+        categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }, 50);
     }
   }, [selectedCategoryId]);
 
