@@ -1,1 +1,0 @@
-ALTER TABLE `drivers` ADD `display_number` varchar(10);

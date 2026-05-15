@@ -13,9 +13,23 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const sessionToken = await Auth.getSessionToken();
-  if (sessionToken) {
-    headers["Authorization"] = `Bearer ${sessionToken}`;
+  // Determine the auth method:
+  // - Native platform: use stored session token as Bearer auth
+  // - Web (including iframe): use cookie-based auth (browser handles automatically)
+  //   Cookie is set on backend domain via POST /api/auth/session after receiving token via postMessage
+  if (Platform.OS !== "web") {
+    const sessionToken = await Auth.getSessionToken();
+    console.log("[API] apiCall:", {
+      endpoint,
+      hasToken: !!sessionToken,
+      method: options.method || "GET",
+    });
+    if (sessionToken) {
+      headers["Authorization"] = `Bearer ${sessionToken}`;
+      console.log("[API] Authorization header added");
+    }
+  } else {
+    console.log("[API] apiCall:", { endpoint, platform: "web", method: options.method || "GET" });
   }
 
   const baseUrl = getApiBaseUrl();
@@ -117,7 +131,6 @@ export async function getMe(): Promise<{
   email: string | null;
   loginMethod: string | null;
   lastSignedIn: string;
-  role?: string | null;
 } | null> {
   try {
     const result = await apiCall<{ user: any }>("/api/auth/me");

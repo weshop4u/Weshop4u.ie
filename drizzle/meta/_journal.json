@@ -1,47 +1,12 @@
 {
-  "version": "5",
-  "dialect": "postgresql",
+  "version": "7",
+  "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
       "version": "5",
-      "when": 1775037699449,
-      "tag": "0000_right_hex",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1776407065543,
-      "tag": "0001_freezing_klaw",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1776727246722,
-      "tag": "0002_natural_vapor",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "5",
-      "when": 1776804733419,
-      "tag": "0003_sudden_vin_gonzales",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "5",
-      "when": 1778560756904,
-      "tag": "0004_smiling_iron_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "5",
-      "when": 1778623720837,
-      "tag": "0005_clever_fixer",
+      "when": 1763372440610,
+      "tag": "0000_elite_eternals",
       "breakpoints": true
     }
   ]

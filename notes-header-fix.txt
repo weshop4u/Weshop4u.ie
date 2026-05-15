@@ -1,6 +1,0 @@
-Header fix verification:
-- Clean layout: Logo + WESHOP4U on left, hamburger menu (☰) on right
-- No more overlapping elements or cut-off buttons
-- Description updated: "straight to your door, office or wherever you are within minutes!"
-- Hamburger menu opens dropdown with Home, Log In, Sign Up options
-- Much cleaner than before

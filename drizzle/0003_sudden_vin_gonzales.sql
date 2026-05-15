@@ -1,1 +1,0 @@
-ALTER TABLE `products` ADD `pin_position` int;

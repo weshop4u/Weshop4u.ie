@@ -1,1 +1,0 @@
-ALTER TABLE `products` ADD `track_stock` boolean DEFAULT false;

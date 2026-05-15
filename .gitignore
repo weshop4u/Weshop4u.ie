@@ -60,9 +60,3 @@ Thumbs.db
 *.tgz
 *.tar.gz
 .cache/
-
-# Metro bundler cache
-node_modules/.cache/
-node_modules/react-native-css-interop/.cache/
-.metro-cache/
-.next/

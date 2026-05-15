@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO product_modifier_templates (product_id, template_id, sort_order) VALUES \n(390001, 30001, 0),\n(390001, 30002, 1),\n(390001, 30003, 2),\n(390001, 30004, 3);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO product_modifier_templates (product_id, template_id, sort_order) VALUES \n(390001, 30001, 0),\n(390001, 30002, 1),\n(390001, 30003, 2),\n(390001, 30004, 3);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 360
-}

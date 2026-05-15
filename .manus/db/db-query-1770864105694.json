@@ -1,9 +1,0 @@
-{
-  "query": "CREATE TABLE IF NOT EXISTS job_returns (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  driver_id INT NOT NULL,\n  order_id INT NOT NULL,\n  reason VARCHAR(255),\n  returned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  INDEX jr_driver_id_idx (driver_id),\n  INDEX jr_order_id_idx (order_id),\n  INDEX jr_returned_at_idx (returned_at)\n);\nALTER TABLE drivers ADD COLUMN IF NOT EXISTS total_returns INT DEFAULT 0;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute CREATE TABLE IF NOT EXISTS job_returns (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  driver_id INT NOT NULL,\n  order_id INT NOT NULL,\n  reason VARCHAR(255),\n  returned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  INDEX jr_driver_id_idx (driver_id),\n  INDEX jr_order_id_idx (order_id),\n  INDEX jr_returned_at_idx (returned_at)\n);\nALTER TABLE drivers ADD COLUMN IF NOT EXISTS total_returns INT DEFAULT 0;",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 946
-}
