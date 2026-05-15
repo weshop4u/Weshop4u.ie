@@ -113,6 +113,7 @@ function PhoneOrderScreenContent() {
   // Debounce search query for API calls
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const categoryFlatListRef = useRef<FlatList>(null);
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
@@ -584,7 +585,10 @@ function PhoneOrderScreenContent() {
               {categoriesWithProducts.map((category) => (
                 <TouchableOpacity
                   key={category.id}
-                  onPress={() => setSelectedCategoryId(category.id)}
+                  onPress={() => {
+                    setSelectedCategoryId(category.id);
+                    setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 50);
+                  }}
                   style={{
                     backgroundColor: "#fff",
                     padding: 14,
@@ -642,7 +646,29 @@ function PhoneOrderScreenContent() {
                 <Text style={{ fontSize: 16, fontWeight: "700", color: "#00E5FF" }}>Categories</Text>
               </TouchableOpacity>
 
+              {cart.length > 0 && (
+                <View style={{
+                  backgroundColor: "#1e2022",
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#334155",
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#ECEDEE" }}>{cartItemCount} items — €{cartSubtotal.toFixed(2)}</Text>
+                  <TouchableOpacity
+                    onPress={() => setStep("details")}
+                    style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Next →</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <FlatList
+                ref={categoryFlatListRef}
                 data={categoryProducts}
                 keyExtractor={(item) => String(item.id)}
                 contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}
