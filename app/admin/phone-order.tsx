@@ -51,6 +51,7 @@ function PhoneOrderScreenContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
   // Customer details
   const [customerName, setCustomerName] = useState("");
@@ -663,23 +664,63 @@ function PhoneOrderScreenContent() {
               </TouchableOpacity>
 
               {cart.length > 0 && (
-                <View style={{
-                  backgroundColor: "#1e2022",
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottomWidth: 1,
-                  borderBottomColor: "#334155",
-                }}>
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#ECEDEE" }}>{cartItemCount} items — €{cartSubtotal.toFixed(2)}</Text>
+                <View>
                   <TouchableOpacity
-                    onPress={() => setStep("details")}
-                    style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                    onPress={() => setCartDrawerOpen(!cartDrawerOpen)}
+                    style={{
+                      backgroundColor: "#1e2022",
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#334155",
+                    }}
                   >
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Next →</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#ECEDEE" }}>{cartItemCount} items — €{cartSubtotal.toFixed(2)}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <Text style={{ fontSize: 13, color: "#9BA1A6" }}>{cartDrawerOpen ? "▲ Hide" : "▼ View cart"}</Text>
+                      <TouchableOpacity
+                        onPress={() => setStep("details")}
+                        style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8 }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#151718" }}>Next →</Text>
+                      </TouchableOpacity>
+                    </View>
                   </TouchableOpacity>
+                  {cartDrawerOpen && (
+                    <View style={{ backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                      {cart.map(item => (
+                        <View key={item.productId} style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingHorizontal: 16,
+                          paddingVertical: 10,
+                          borderBottomWidth: 1,
+                          borderBottomColor: "#E5E7EB",
+                        }}>
+                          <Text style={{ flex: 1, fontSize: 14, color: "#11181C" }} numberOfLines={1}>{item.name}</Text>
+                          <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", marginRight: 12 }}>€{(item.price * item.quantity).toFixed(2)}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <TouchableOpacity
+                              onPress={() => removeFromCart(item.productId)}
+                              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#E5E7EB", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Text style={{ fontSize: 16, fontWeight: "700", color: "#11181C" }}>−</Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C", minWidth: 20, textAlign: "center" }}>{item.quantity}</Text>
+                            <TouchableOpacity
+                              onPress={() => addToCart({ id: item.productId, name: item.name, price: String(item.price) }, item.ageRestricted)}
+                              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Text style={{ fontSize: 16, fontWeight: "700", color: "#151718" }}>+</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
 
