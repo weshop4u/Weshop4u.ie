@@ -549,19 +549,19 @@ function PhoneOrderScreenContent() {
                 const catAgeRestricted = (item as any).category?.ageRestricted || false;
                 return (
                   <View style={{
-                    backgroundColor: "#1e2022",
+                    backgroundColor: "#fff",
                     padding: 12,
                     borderRadius: 10,
                     marginBottom: 6,
                     borderWidth: 1,
-                    borderColor: inCart ? "#00E5FF" : "#334155",
+                    borderColor: inCart ? "#00E5FF" : "#E5E7EB",
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
                   }}>
                     <View style={{ flex: 1, marginRight: 12 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE", flex: 1 }} numberOfLines={2}>{item.name}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C", flex: 1 }} numberOfLines={2}>{item.name}</Text>
                         {catAgeRestricted && (
                           <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
                             <Text style={{ fontSize: 9, fontWeight: "700", color: "#DC2626" }}>18+</Text>
@@ -575,11 +575,11 @@ function PhoneOrderScreenContent() {
                         <>
                           <TouchableOpacity
                             onPress={() => removeFromCart(item.id)}
-                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#334155", alignItems: "center", justifyContent: "center" }}
+                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB", alignItems: "center", justifyContent: "center" }}
                           >
-                            <Text style={{ fontSize: 18, fontWeight: "700", color: "#ECEDEE" }}>−</Text>
+                            <Text style={{ fontSize: 18, fontWeight: "700", color: "#11181C" }}>−</Text>
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 16, fontWeight: "700", color: "#ECEDEE", minWidth: 24, textAlign: "center" }}>{inCart.quantity}</Text>
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: "#11181C", minWidth: 24, textAlign: "center" }}>{inCart.quantity}</Text>
                         </>
                       )}
                       <TouchableOpacity
