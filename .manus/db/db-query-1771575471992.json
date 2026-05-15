@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, store_id, order_id, status, printed_at, created_at FROM print_jobs ORDER BY created_at DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, store_id, order_id, status, printed_at, created_at FROM print_jobs ORDER BY created_at DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "90007",
+      "store_id": "1",
+      "order_id": "780003",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:14:49"
+    },
+    {
+      "id": "90006",
+      "store_id": "1",
+      "order_id": "780003",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:14:27"
+    },
+    {
+      "id": "90005",
+      "store_id": "1",
+      "order_id": "780002",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:12:17"
+    },
+    {
+      "id": "90004",
+      "store_id": "1",
+      "order_id": "780002",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:12:07"
+    },
+    {
+      "id": "90003",
+      "store_id": "1",
+      "order_id": "780002",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:06:35"
+    },
+    {
+      "id": "90002",
+      "store_id": "1",
+      "order_id": "780002",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 08:06:26"
+    },
+    {
+      "id": "90001",
+      "store_id": "1",
+      "order_id": "750001",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 07:57:48"
+    },
+    {
+      "id": "60002",
+      "store_id": "1",
+      "order_id": "750001",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 06:20:31"
+    },
+    {
+      "id": "60001",
+      "store_id": "1",
+      "order_id": "750001",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 06:10:30"
+    },
+    {
+      "id": "30003",
+      "store_id": "1",
+      "order_id": "750001",
+      "status": "pending",
+      "printed_at": "NULL",
+      "created_at": "2026-02-20 03:46:24"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tstore_id\torder_id\tstatus\tprinted_at\tcreated_at\n90007\t1\t780003\tpending\tNULL\t2026-02-20 08:14:49\n90006\t1\t780003\tpending\tNULL\t2026-02-20 08:14:27\n90005\t1\t780002\tpending\tNULL\t2026-02-20 08:12:17\n90004\t1\t780002\tpending\tNULL\t2026-02-20 08:12:07\n90003\t1\t780002\tpending\tNULL\t2026-02-20 08:06:35\n90002\t1\t780002\tpending\tNULL\t2026-02-20 08:06:26\n90001\t1\t750001\tpending\tNULL\t2026-02-20 07:57:48\n60002\t1\t750001\tpending\tNULL\t2026-02-20 06:20:31\n60001\t1\t750001\tpending\tNULL\t2026-02-20 06:10:30\n30003\t1\t750001\tpending\tNULL\t2026-02-20 03:46:24\n",
+  "stderr": "",
+  "execution_time_ms": 459
+}

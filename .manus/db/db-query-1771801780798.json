@@ -1,0 +1,40 @@
+{
+  "query": "\nSELECT s.id, s.name, COUNT(p.id) as product_count \nFROM stores s \nLEFT JOIN products p ON p.store_id = s.id \nGROUP BY s.id, s.name \nORDER BY s.id;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute \nSELECT s.id, s.name, COUNT(p.id) as product_count \nFROM stores s \nLEFT JOIN products p ON p.store_id = s.id \nGROUP BY s.id, s.name \nORDER BY s.id;\n",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Spar Balbriggan",
+      "product_count": "2901"
+    },
+    {
+      "id": "2",
+      "name": "Open All Ours",
+      "product_count": "157"
+    },
+    {
+      "id": "3",
+      "name": "AppleGreen Balbriggan",
+      "product_count": "305"
+    },
+    {
+      "id": "4",
+      "name": "The Hamlet Bar",
+      "product_count": "2"
+    },
+    {
+      "id": "5",
+      "name": "Millfield Groceries",
+      "product_count": "3"
+    },
+    {
+      "id": "30001",
+      "name": "Treasure Bowl Balbriggan",
+      "product_count": "235"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tproduct_count\n1\tSpar Balbriggan\t2901\n2\tOpen All Ours\t157\n3\tAppleGreen Balbriggan\t305\n4\tThe Hamlet Bar\t2\n5\tMillfield Groceries\t3\n30001\tTreasure Bowl Balbriggan\t235\n",
+  "stderr": "",
+  "execution_time_ms": 407
+}

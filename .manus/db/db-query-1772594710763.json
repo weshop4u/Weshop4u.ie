@@ -1,0 +1,20 @@
+{
+  "query": "SELECT o.id, o.order_number, o.status, o.customer_id, o.guest_phone, o.driver_id, u.push_token, u.phone as user_phone FROM orders o LEFT JOIN users u ON o.customer_id = u.id WHERE o.order_number = 'WS4U/SPR/002' OR o.id = (SELECT MAX(id) FROM orders) LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT o.id, o.order_number, o.status, o.customer_id, o.guest_phone, o.driver_id, u.push_token, u.phone as user_phone FROM orders o LEFT JOIN users u ON o.customer_id = u.id WHERE o.order_number = 'WS4U/SPR/002' OR o.id = (SELECT MAX(id) FROM orders) LIMIT 5;",
+  "rows": [
+    {
+      "id": "1230002",
+      "order_number": "WS4U/SPR/090",
+      "status": "delivered",
+      "customer_id": "NULL",
+      "guest_phone": "0892003003",
+      "driver_id": "30001",
+      "push_token": "NULL",
+      "user_phone": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\tcustomer_id\tguest_phone\tdriver_id\tpush_token\tuser_phone\n1230002\tWS4U/SPR/090\tdelivered\tNULL\t0892003003\t30001\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 370
+}

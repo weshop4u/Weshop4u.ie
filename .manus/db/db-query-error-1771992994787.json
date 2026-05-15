@@ -1,0 +1,8 @@
+{
+  "query": "INSERT INTO products (name, description, price, category_id, store_id, image, available, sort_order) VALUES ('Create Your Own Breakfast Roll', 'Build your perfect breakfast roll — choose your base, sauces, and fillings with our +/− quantity selector', '0.00', 60001, 1, 'https://res.cloudinary.com/dqhqrd9st/image/upload/v1/weshop4u/deliimage.jpg', true, 2);\nSELECT id FROM products WHERE name = 'Create Your Own Breakfast Roll' ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO products (name, description, price, category_id, store_id, image, available, sort_order) VALUES ('Create Your Own Breakfast Roll', 'Build your perfect breakfast roll — choose your base, sauces, and fillings with our +/− quantity selector', '0.00', 60001, 1, 'https://res.cloudinary.com/dqhqrd9st/image/upload/v1/weshop4u/deliimage.jpg', true, 2);\nSELECT id FROM products WHERE name = 'Create Your Own Breakfast Roll' ORDER BY id DESC LIMIT 1;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'image' in 'field list'"
+  ]
+}

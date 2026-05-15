@@ -1,0 +1,19 @@
+TWILIO ERROR 60238 ANALYSIS
+===========================
+Error: "Verification Creation Attempt blocked by Twilio"
+Code: 60238
+Status: 403
+
+Possible Causes (from Twilio docs):
+1. Your request has been blocked because your upgrade request is going through a review process
+2. Your request has been blocked because you are attempting to send to Iran, Syria or Cuba
+
+This is NOT a Fraud Guard issue (that would be 60410 or 60605).
+This is an ACCOUNT-LEVEL block — the Twilio account upgrade is still being reviewed.
+
+Safe List won't help here because the block is at the account level, not the Fraud Guard level.
+
+Solution: The user needs to wait for Twilio to complete their account review (up to 72 hours),
+OR contact Twilio support to expedite the review.
+
+Alternative: Implement a dev/testing bypass that skips OTP verification in development mode.

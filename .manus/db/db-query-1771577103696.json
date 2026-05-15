@@ -1,0 +1,22 @@
+{
+  "query": "SELECT o.id, o.status FROM orders o WHERE o.driver_id IS NULL AND o.status NOT IN ('delivered', 'cancelled'); SELECT d.id, d.user_id, d.is_online, d.is_available FROM drivers d;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT o.id, o.status FROM orders o WHERE o.driver_id IS NULL AND o.status NOT IN ('delivered', 'cancelled'); SELECT d.id, d.user_id, d.is_online, d.is_available FROM drivers d;",
+  "rows": [
+    {
+      "id": "780002",
+      "status": "preparing"
+    },
+    {
+      "id": "780003",
+      "status": "preparing"
+    }
+  ],
+  "messages": [
+    "id\tuser_id\tis_online\tis_available",
+    "1\t30001\t1\t1",
+    "60001\t180001\t0\t0"
+  ],
+  "stdout": "id\tstatus\n780002\tpreparing\n780003\tpreparing\nid\tuser_id\tis_online\tis_available\n1\t30001\t1\t1\n60001\t180001\t0\t0\n",
+  "stderr": "",
+  "execution_time_ms": 399
+}

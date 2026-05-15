@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, name, store_id FROM products WHERE id IN (62607, 62608, 62605, 62604, 62606, 62603, 62610, 62609);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, store_id FROM products WHERE id IN (62607, 62608, 62605, 62604, 62606, 62603, 62610, 62609);",
+  "rows": [
+    {
+      "id": "62607",
+      "name": "Blue Raspberry Slushee Large 16oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62608",
+      "name": "Blue Raspberry Slushee Regular 12oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62605",
+      "name": "Cola Slushee Large 16oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62604",
+      "name": "Cola Slushee Regular 12oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62606",
+      "name": "Lime Slushee Large 16oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62603",
+      "name": "Lime Slushee Regular 12oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62610",
+      "name": "Strawberry Slushee Large 16oz",
+      "store_id": "3"
+    },
+    {
+      "id": "62609",
+      "name": "Strawberry Slushee Regular 12oz",
+      "store_id": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tstore_id\n62607\tBlue Raspberry Slushee Large 16oz\t3\n62608\tBlue Raspberry Slushee Regular 12oz\t3\n62605\tCola Slushee Large 16oz\t3\n62604\tCola Slushee Regular 12oz\t3\n62606\tLime Slushee Large 16oz\t3\n62603\tLime Slushee Regular 12oz\t3\n62610\tStrawberry Slushee Large 16oz\t3\n62609\tStrawberry Slushee Regular 12oz\t3\n",
+  "stderr": "",
+  "execution_time_ms": 194
+}

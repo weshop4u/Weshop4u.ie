@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `is_drs` boolean DEFAULT false;

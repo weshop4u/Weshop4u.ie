@@ -1,0 +1,15 @@
+{
+  "query": "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name = 'products' AND (column_name ILIKE '%drs%' OR column_name ILIKE '%deposit%' OR column_name ILIKE '%return%');",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name = 'products' AND (column_name ILIKE '%drs%' OR column_name ILIKE '%deposit%' OR column_name ILIKE '%return%');",
+  "rows": [
+    {
+      "column_name": "is_drs",
+      "data_type": "tinyint",
+      "column_default": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "column_name\tdata_type\tcolumn_default\nis_drs\ttinyint\t0\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}

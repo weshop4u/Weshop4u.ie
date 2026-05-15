@@ -1,0 +1,9 @@
+{
+  "query": "\nINSERT INTO modifier_groups (product_id, name, type, required, min_selections, max_selections, sort_order)\nVALUES \n  (121070, 'Choose Drink', 'single', 1, 1, 1, 0),\n  (121071, 'Choose Drink', 'single', 1, 1, 1, 0);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute \nINSERT INTO modifier_groups (product_id, name, type, required, min_selections, max_selections, sort_order)\nVALUES \n  (121070, 'Choose Drink', 'single', 1, 1, 1, 0),\n  (121071, 'Choose Drink', 'single', 1, 1, 1, 0);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 373
+}

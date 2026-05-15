@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, order_number, status, driver_id FROM orders WHERE driver_id IS NULL AND status = 'preparing';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_number, status, driver_id FROM orders WHERE driver_id IS NULL AND status = 'preparing';",
+  "rows": [
+    {
+      "id": "780002",
+      "order_number": "WS4U-1771574757611-885",
+      "status": "preparing",
+      "driver_id": "NULL"
+    },
+    {
+      "id": "780003",
+      "order_number": "WS4U-1771575060293-918",
+      "status": "preparing",
+      "driver_id": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\tdriver_id\n780002\tWS4U-1771574757611-885\tpreparing\tNULL\n780003\tWS4U-1771575060293-918\tpreparing\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 353
+}

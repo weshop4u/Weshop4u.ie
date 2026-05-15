@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, email, name, role, phone FROM users WHERE email = 'weshop4u247@gmail.com' LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, email, name, role, phone FROM users WHERE email = 'weshop4u247@gmail.com' LIMIT 1;",
+  "rows": [
+    {
+      "id": "150001",
+      "email": "weshop4u247@gmail.com",
+      "name": "Barry Gosson",
+      "role": "admin",
+      "phone": "0894626262"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\temail\tname\trole\tphone\n150001\tweshop4u247@gmail.com\tBarry Gosson\tadmin\t0894626262\n",
+  "stderr": "",
+  "execution_time_ms": 374
+}

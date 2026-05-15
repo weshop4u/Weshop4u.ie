@@ -1,0 +1,190 @@
+{
+  "query": "SELECT c.name AS category, COUNT(p.id) AS product_count FROM products p JOIN product_categories c ON p.category_id = c.id WHERE p.store_id = 1 AND p.is_active = true GROUP BY c.name ORDER BY COUNT(p.id) DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT c.name AS category, COUNT(p.id) AS product_count FROM products p JOIN product_categories c ON p.category_id = c.id WHERE p.store_id = 1 AND p.is_active = true GROUP BY c.name ORDER BY COUNT(p.id) DESC;",
+  "rows": [
+    {
+      "category": "Crisps and Nuts",
+      "product_count": "160"
+    },
+    {
+      "category": "Biscuits and Cookies",
+      "product_count": "131"
+    },
+    {
+      "category": "Tobacco and Cigars and Papers",
+      "product_count": "117"
+    },
+    {
+      "category": "Cans and Bottles",
+      "product_count": "112"
+    },
+    {
+      "category": "Fizzy Drinks",
+      "product_count": "97"
+    },
+    {
+      "category": "Energy Drinks",
+      "product_count": "90"
+    },
+    {
+      "category": "General",
+      "product_count": "90"
+    },
+    {
+      "category": "Wines",
+      "product_count": "84"
+    },
+    {
+      "category": "Bread Eggs and Cakes",
+      "product_count": "83"
+    },
+    {
+      "category": "Sweet Bags and Pouches",
+      "product_count": "79"
+    },
+    {
+      "category": "Tea Coffee and Sugar",
+      "product_count": "79"
+    },
+    {
+      "category": "Chocolate Bars",
+      "product_count": "78"
+    },
+    {
+      "category": "Vapes and Vape Oils",
+      "product_count": "77"
+    },
+    {
+      "category": "Dairy and Refrigerated Items",
+      "product_count": "76"
+    },
+    {
+      "category": "Water and Flavoured Water",
+      "product_count": "76"
+    },
+    {
+      "category": "Chocolates Multi packs and Boxes",
+      "product_count": "68"
+    },
+    {
+      "category": "Sweets n Chewing Gum",
+      "product_count": "63"
+    },
+    {
+      "category": "Smoothie Juices n Shakes",
+      "product_count": "62"
+    },
+    {
+      "category": "Ice Creams",
+      "product_count": "60"
+    },
+    {
+      "category": "Household Items",
+      "product_count": "54"
+    },
+    {
+      "category": "Animal Food/Items",
+      "product_count": "49"
+    },
+    {
+      "category": "Soups Oils and Condiments",
+      "product_count": "49"
+    },
+    {
+      "category": "Spirits",
+      "product_count": "46"
+    },
+    {
+      "category": "Milk and Yogurts",
+      "product_count": "44"
+    },
+    {
+      "category": "Frozen Fridge",
+      "product_count": "42"
+    },
+    {
+      "category": "Pasta and Sauces",
+      "product_count": "41"
+    },
+    {
+      "category": "Protein Bars/Foods and Drinks",
+      "product_count": "41"
+    },
+    {
+      "category": "Flavored Alcohol",
+      "product_count": "40"
+    },
+    {
+      "category": "Medicine and Personal",
+      "product_count": "37"
+    },
+    {
+      "category": "Breakfast Cereal",
+      "product_count": "33"
+    },
+    {
+      "category": "Rice and Noodles",
+      "product_count": "29"
+    },
+    {
+      "category": "Spreads Jam and Deserts",
+      "product_count": "22"
+    },
+    {
+      "category": "Rolls",
+      "product_count": "19"
+    },
+    {
+      "category": "Sandwiches",
+      "product_count": "17"
+    },
+    {
+      "category": "Fish",
+      "product_count": "16"
+    },
+    {
+      "category": "Wraps",
+      "product_count": "15"
+    },
+    {
+      "category": "Nicotine Products",
+      "product_count": "14"
+    },
+    {
+      "category": "Wraps and Sambos.",
+      "product_count": "13"
+    },
+    {
+      "category": "Deli",
+      "product_count": "10"
+    },
+    {
+      "category": "Gifts",
+      "product_count": "9"
+    },
+    {
+      "category": "Lotto Tickets",
+      "product_count": "8"
+    },
+    {
+      "category": "Gravy Herbs and Spices",
+      "product_count": "8"
+    },
+    {
+      "category": "Fruit n Veg",
+      "product_count": "5"
+    },
+    {
+      "category": "Tinned Foods",
+      "product_count": "4"
+    },
+    {
+      "category": "Desserts",
+      "product_count": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "category\tproduct_count\nCrisps and Nuts\t160\nBiscuits and Cookies\t131\nTobacco and Cigars and Papers\t117\nCans and Bottles\t112\nFizzy Drinks\t97\nEnergy Drinks\t90\nGeneral\t90\nWines\t84\nBread Eggs and Cakes\t83\nSweet Bags and Pouches\t79\nTea Coffee and Sugar\t79\nChocolate Bars\t78\nVapes and Vape Oils\t77\nDairy and Refrigerated Items\t76\nWater and Flavoured Water\t76\nChocolates Multi packs and Boxes\t68\nSweets n Chewing Gum\t63\nSmoothie Juices n Shakes\t62\nIce Creams\t60\nHousehold Items\t54\nAnimal Food/Items\t49\nSoups Oils and Condiments\t49\nSpirits\t46\nMilk and Yogurts\t44\nFrozen Fridge\t42\nPasta and Sauces\t41\nProtein Bars/Foods and Drinks\t41\nFlavored Alcohol\t40\nMedicine and Personal\t37\nBreakfast Cereal\t33\nRice and Noodles\t29\nSpreads Jam and Deserts\t22\nRolls\t19\nSandwiches\t17\nFish\t16\nWraps\t15\nNicotine Products\t14\nWraps and Sambos.\t13\nDeli\t10\nGifts\t9\nLotto Tickets\t8\nGravy Herbs and Spices\t8\nFruit n Veg\t5\nTinned Foods\t4\nDesserts\t3\n",
+  "stderr": "",
+  "execution_time_ms": 65
+}

@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, order_number, status, store_id, driver_id FROM orders WHERE order_number LIKE '%1770950702643%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_number, status, store_id, driver_id FROM orders WHERE order_number LIKE '%1770950702643%';",
+  "rows": [
+    {
+      "id": "300003",
+      "order_number": "WS4U-1770950702643-24",
+      "status": "delivered",
+      "store_id": "1",
+      "driver_id": "30001"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\tstore_id\tdriver_id\n300003\tWS4U-1770950702643-24\tdelivered\t1\t30001\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

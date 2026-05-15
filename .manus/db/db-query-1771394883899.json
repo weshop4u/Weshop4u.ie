@@ -1,0 +1,13 @@
+{
+  "query": "SELECT GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ') as all_stores FROM stores;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ') as all_stores FROM stores;",
+  "rows": [
+    {
+      "all_stores": "1:Spar Balbriggan | 2:Open All Ours | 3:AppleGreen Balbriggan | 4:The Hamlet Bar | 5:Millfield Groceries"
+    }
+  ],
+  "messages": [],
+  "stdout": "all_stores\n1:Spar Balbriggan | 2:Open All Ours | 3:AppleGreen Balbriggan | 4:The Hamlet Bar | 5:Millfield Groceries\n",
+  "stderr": "",
+  "execution_time_ms": 352
+}

@@ -1,0 +1,8 @@
+Remaining 📦 emojis - these are product image placeholders, not branding spots:
+- admin/categories.tsx line 313: Fallback when category has no icon image - product placeholder, keep
+- admin/products.tsx line 199: Fallback when product has no image - product placeholder, keep
+- store/[id].tsx line 459: Product detail modal when no image - product placeholder, keep
+- store/products.tsx line 363: Empty products list state - could replace with logo
+
+Decision: Replace store/products.tsx empty state with logo (it's a store-management empty state).
+Keep the others as product image placeholders (📦 makes sense for "no product image").

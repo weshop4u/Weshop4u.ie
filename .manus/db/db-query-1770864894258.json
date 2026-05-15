@@ -1,0 +1,61 @@
+{
+  "query": "SELECT CONCAT('ORDER:', o.id, '|status:', o.status, '|driver:', COALESCE(o.driver_id, 'null')) as info FROM orders o WHERE o.status IN ('pending', 'accepted', 'ready_for_pickup') AND o.driver_id IS NULL; SELECT CONCAT('OFFER:', oo.id, '|order:', oo.order_id, '|driver:', oo.driver_id, '|status:', oo.status) as info FROM order_offers oo ORDER BY oo.id DESC LIMIT 15",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT('ORDER:', o.id, '|status:', o.status, '|driver:', COALESCE(o.driver_id, 'null')) as info FROM orders o WHERE o.status IN ('pending', 'accepted', 'ready_for_pickup') AND o.driver_id IS NULL; SELECT CONCAT('OFFER:', oo.id, '|order:', oo.order_id, '|driver:', oo.driver_id, '|status:', oo.status) as info FROM order_offers oo ORDER BY oo.id DESC LIMIT 15",
+  "rows": [
+    {
+      "info": "ORDER:240001|status:pending|driver:null"
+    },
+    {
+      "info": "info"
+    },
+    {
+      "info": "OFFER:15|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:14|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:13|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:12|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:11|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:10|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:9|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:8|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:7|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:6|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:5|order:240001|driver:30001|status:declined"
+    },
+    {
+      "info": "OFFER:4|order:240001|driver:30001|status:accepted"
+    },
+    {
+      "info": "OFFER:3|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:2|order:240001|driver:30001|status:expired"
+    },
+    {
+      "info": "OFFER:1|order:240001|driver:30001|status:expired"
+    }
+  ],
+  "messages": [],
+  "stdout": "info\nORDER:240001|status:pending|driver:null\ninfo\nOFFER:15|order:240001|driver:30001|status:expired\nOFFER:14|order:240001|driver:30001|status:expired\nOFFER:13|order:240001|driver:30001|status:expired\nOFFER:12|order:240001|driver:30001|status:expired\nOFFER:11|order:240001|driver:30001|status:expired\nOFFER:10|order:240001|driver:30001|status:declined\nOFFER:9|order:240001|driver:30001|status:declined\nOFFER:8|order:240001|driver:30001|status:declined\nOFFER:7|order:240001|driver:30001|status:declined\nOFFER:6|order:240001|driver:30001|status:declined\nOFFER:5|order:240001|driver:30001|status:declined\nOFFER:4|order:240001|driver:30001|status:accepted\nOFFER:3|order:240001|driver:30001|status:expired\nOFFER:2|order:240001|driver:30001|status:expired\nOFFER:1|order:240001|driver:30001|status:expired\n",
+  "stderr": "",
+  "execution_time_ms": 72
+}

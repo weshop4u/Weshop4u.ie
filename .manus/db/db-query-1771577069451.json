@@ -1,0 +1,25 @@
+{
+  "query": "SELECT CONCAT('DRIVER|', d.id, '|uid:', d.user_id, '|online:', d.is_online, '|avail:', d.is_available) as info FROM drivers d; SELECT CONCAT('ORDER|', o.id, '|', o.order_number, '|status:', o.status, '|driver:', IFNULL(o.driver_id, 'NULL')) as info FROM orders o WHERE o.status NOT IN ('delivered', 'cancelled') ORDER BY o.created_at DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT('DRIVER|', d.id, '|uid:', d.user_id, '|online:', d.is_online, '|avail:', d.is_available) as info FROM drivers d; SELECT CONCAT('ORDER|', o.id, '|', o.order_number, '|status:', o.status, '|driver:', IFNULL(o.driver_id, 'NULL')) as info FROM orders o WHERE o.status NOT IN ('delivered', 'cancelled') ORDER BY o.created_at DESC LIMIT 5;",
+  "rows": [
+    {
+      "info": "DRIVER|1|uid:30001|online:1|avail:1"
+    },
+    {
+      "info": "DRIVER|60001|uid:180001|online:0|avail:0"
+    },
+    {
+      "info": "info"
+    },
+    {
+      "info": "ORDER|780003|WS4U-1771575060293-918|status:preparing|driver:NULL"
+    },
+    {
+      "info": "ORDER|780002|WS4U-1771574757611-885|status:preparing|driver:NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "info\nDRIVER|1|uid:30001|online:1|avail:1\nDRIVER|60001|uid:180001|online:0|avail:0\ninfo\nORDER|780003|WS4U-1771575060293-918|status:preparing|driver:NULL\nORDER|780002|WS4U-1771574757611-885|status:preparing|driver:NULL\n",
+  "stderr": "",
+  "execution_time_ms": 409
+}

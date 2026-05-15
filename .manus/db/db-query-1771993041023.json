@@ -1,0 +1,118 @@
+{
+  "query": "SELECT id, name, category_id, store_id FROM products WHERE name LIKE '%Breakfast%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, category_id, store_id FROM products WHERE name LIKE '%Breakfast%';",
+  "rows": [
+    {
+      "id": "8",
+      "name": "Breakfast Roll",
+      "category_id": "5",
+      "store_id": "2"
+    },
+    {
+      "id": "60594",
+      "name": "Breakfast Roll 3 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "60595",
+      "name": "Breakfast Roll 4 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "60846",
+      "name": "Duerr Breakfast Marmalade 370g",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62326",
+      "name": "Breakfast Roll 6 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62327",
+      "name": "Breakfast Wrap 6 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62328",
+      "name": "Breakfast Sandwich 6 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62329",
+      "name": "Breakfast Wrap 4 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62330",
+      "name": "Breakfast Sandwich 4 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62331",
+      "name": "Breakfast Wrap 3 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62332",
+      "name": "Breakfast Sandwich 3 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62333",
+      "name": "Breakfast Sandwich 5 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62334",
+      "name": "Breakfast Roll 5 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62335",
+      "name": "Breakfast Wrap 5 Items",
+      "category_id": "90017",
+      "store_id": "1"
+    },
+    {
+      "id": "62899",
+      "name": "BFFAM Breakfast Bundle",
+      "category_id": "90053",
+      "store_id": "1"
+    },
+    {
+      "id": "90086",
+      "name": "Large Breakfast Roll Open All Ours",
+      "category_id": "120007",
+      "store_id": "2"
+    },
+    {
+      "id": "90088",
+      "name": "Small Breakfast Roll Open All Ours",
+      "category_id": "120007",
+      "store_id": "2"
+    },
+    {
+      "id": "390002",
+      "name": "Create Your Own Breakfast Roll",
+      "category_id": "60001",
+      "store_id": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcategory_id\tstore_id\n8\tBreakfast Roll\t5\t2\n60594\tBreakfast Roll 3 Items\t90017\t1\n60595\tBreakfast Roll 4 Items\t90017\t1\n60846\tDuerr Breakfast Marmalade 370g\t90017\t1\n62326\tBreakfast Roll 6 Items\t90017\t1\n62327\tBreakfast Wrap 6 Items\t90017\t1\n62328\tBreakfast Sandwich 6 Items\t90017\t1\n62329\tBreakfast Wrap 4 Items\t90017\t1\n62330\tBreakfast Sandwich 4 Items\t90017\t1\n62331\tBreakfast Wrap 3 Items\t90017\t1\n62332\tBreakfast Sandwich 3 Items\t90017\t1\n62333\tBreakfast Sandwich 5 Items\t90017\t1\n62334\tBreakfast Roll 5 Items\t90017\t1\n62335\tBreakfast Wrap 5 Items\t90017\t1\n62899\tBFFAM Breakfast Bundle\t90053\t1\n90086\tLarge Breakfast Roll Open All Ours\t120007\t2\n90088\tSmall Breakfast Roll Open All Ours\t120007\t2\n390002\tCreate Your Own Breakfast Roll\t60001\t1\n",
+  "stderr": "",
+  "execution_time_ms": 355
+}

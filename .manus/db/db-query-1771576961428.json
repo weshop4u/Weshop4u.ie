@@ -1,0 +1,26 @@
+{
+  "query": "SELECT id, order_number, status, driver_id, store_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created FROM orders WHERE status IN ('ready', 'preparing', 'accepted', 'pending') ORDER BY created_at DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_number, status, driver_id, store_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created FROM orders WHERE status IN ('ready', 'preparing', 'accepted', 'pending') ORDER BY created_at DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "780003",
+      "order_number": "WS4U-1771575060293-918",
+      "status": "preparing",
+      "driver_id": "NULL",
+      "store_id": "1",
+      "created": "2026-02-20 08:11:00"
+    },
+    {
+      "id": "780002",
+      "order_number": "WS4U-1771574757611-885",
+      "status": "preparing",
+      "driver_id": "NULL",
+      "store_id": "1",
+      "created": "2026-02-20 08:05:57"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\tdriver_id\tstore_id\tcreated\n780003\tWS4U-1771575060293-918\tpreparing\tNULL\t1\t2026-02-20 08:11:00\n780002\tWS4U-1771574757611-885\tpreparing\tNULL\t1\t2026-02-20 08:05:57\n",
+  "stderr": "",
+  "execution_time_ms": 362
+}

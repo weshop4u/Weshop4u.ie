@@ -1,0 +1,20 @@
+{
+  "query": "SELECT store_id, COUNT(*) as cnt, MAX(order_number) as last_order FROM orders GROUP BY store_id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT store_id, COUNT(*) as cnt, MAX(order_number) as last_order FROM orders GROUP BY store_id;",
+  "rows": [
+    {
+      "store_id": "2",
+      "cnt": "5",
+      "last_order": "WS4U-1771574602557-4"
+    },
+    {
+      "store_id": "1",
+      "cnt": "68",
+      "last_order": "WS4U-PH-1771384715126-972"
+    }
+  ],
+  "messages": [],
+  "stdout": "store_id\tcnt\tlast_order\n2\t5\tWS4U-1771574602557-4\n1\t68\tWS4U-PH-1771384715126-972\n",
+  "stderr": "",
+  "execution_time_ms": 366
+}

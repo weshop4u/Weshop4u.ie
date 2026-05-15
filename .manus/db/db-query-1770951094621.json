@@ -1,0 +1,17 @@
+{
+  "query": "SELECT * FROM store_staff;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT * FROM store_staff;",
+  "rows": [
+    {
+      "id": "1",
+      "user_id": "60001",
+      "store_id": "1",
+      "role": "manager",
+      "created_at": "2026-02-13 01:40:59"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuser_id\tstore_id\trole\tcreated_at\n1\t60001\t1\tmanager\t2026-02-13 01:40:59\n",
+  "stderr": "",
+  "execution_time_ms": 79
+}

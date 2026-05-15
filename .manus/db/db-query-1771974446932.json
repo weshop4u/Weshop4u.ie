@@ -1,0 +1,35 @@
+{
+  "query": "SELECT id, order_number, status FROM orders LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_number, status FROM orders LIMIT 5;",
+  "rows": [
+    {
+      "id": "2",
+      "order_number": "WS4U-1770600469509-952",
+      "status": "delivered"
+    },
+    {
+      "id": "60002",
+      "order_number": "WS4U-1770604585808-983",
+      "status": "delivered"
+    },
+    {
+      "id": "90001",
+      "order_number": "WS4U-1770686092192-529",
+      "status": "delivered"
+    },
+    {
+      "id": "90002",
+      "order_number": "WS4U-1770686196449-348",
+      "status": "delivered"
+    },
+    {
+      "id": "120001",
+      "order_number": "WS4U-1770691294515-333",
+      "status": "delivered"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\n2\tWS4U-1770600469509-952\tdelivered\n60002\tWS4U-1770604585808-983\tdelivered\n90001\tWS4U-1770686092192-529\tdelivered\n90002\tWS4U-1770686196449-348\tdelivered\n120001\tWS4U-1770691294515-333\tdelivered\n",
+  "stderr": "",
+  "execution_time_ms": 18449
+}

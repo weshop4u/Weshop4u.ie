@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS saved_addresses (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  user_id INT NOT NULL,\n  label VARCHAR(100) NOT NULL,\n  street_address TEXT NOT NULL,\n  eircode VARCHAR(10) NOT NULL,\n  latitude DECIMAL(10, 7),\n  longitude DECIMAL(10, 7),\n  is_default BOOLEAN DEFAULT FALSE,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  INDEX user_id_idx (user_id)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute CREATE TABLE IF NOT EXISTS saved_addresses (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  user_id INT NOT NULL,\n  label VARCHAR(100) NOT NULL,\n  street_address TEXT NOT NULL,\n  eircode VARCHAR(10) NOT NULL,\n  latitude DECIMAL(10, 7),\n  longitude DECIMAL(10, 7),\n  is_default BOOLEAN DEFAULT FALSE,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  INDEX user_id_idx (user_id)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 540
+}

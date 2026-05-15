@@ -1,0 +1,16 @@
+{
+  "query": "SELECT CONCAT(pc.id, '|', pc.name, '|', MIN(p.store_id)) as info FROM product_categories pc JOIN products p ON p.category_id = pc.id WHERE pc.name LIKE '%Deli%' GROUP BY pc.id, pc.name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT CONCAT(pc.id, '|', pc.name, '|', MIN(p.store_id)) as info FROM product_categories pc JOIN products p ON p.category_id = pc.id WHERE pc.name LIKE '%Deli%' GROUP BY pc.id, pc.name;",
+  "rows": [
+    {
+      "info": "150004|Salt n Chili Delight|30001"
+    },
+    {
+      "info": "60001|Deli|1"
+    }
+  ],
+  "messages": [],
+  "stdout": "info\n150004|Salt n Chili Delight|30001\n60001|Deli|1\n",
+  "stderr": "",
+  "execution_time_ms": 349
+}

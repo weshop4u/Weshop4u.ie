@@ -1,0 +1,410 @@
+{
+  "query": "SELECT s.name as store_name, p.store_id, p.name as product_name, COUNT(*) as cnt, MAX(CAST(p.price AS DECIMAL(10,2))) as max_price, MIN(CAST(p.price AS DECIMAL(10,2))) as min_price FROM products p JOIN stores s ON p.store_id = s.id GROUP BY p.store_id, p.name, s.name HAVING COUNT(*) > 1 ORDER BY s.name, cnt DESC LIMIT 50;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT s.name as store_name, p.store_id, p.name as product_name, COUNT(*) as cnt, MAX(CAST(p.price AS DECIMAL(10,2))) as max_price, MIN(CAST(p.price AS DECIMAL(10,2))) as min_price FROM products p JOIN stores s ON p.store_id = s.id GROUP BY p.store_id, p.name, s.name HAVING COUNT(*) > 1 ORDER BY s.name, cnt DESC LIMIT 50;",
+  "rows": [
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Magnum Almond 85ml",
+      "cnt": "2",
+      "max_price": "4.35",
+      "min_price": "4.35"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Magnum Classic 110ml",
+      "cnt": "2",
+      "max_price": "4.35",
+      "min_price": "4.35"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "HB Brunch 90ml",
+      "cnt": "2",
+      "max_price": "2.89",
+      "min_price": "2.89"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "AppleGreen Cat Food Salmon Jelly 400g",
+      "cnt": "2",
+      "max_price": "1.99",
+      "min_price": "1.99"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "M&M Crispy Pouch 107g",
+      "cnt": "2",
+      "max_price": "4.59",
+      "min_price": "4.30"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Solero Exotic 90ml",
+      "cnt": "2",
+      "max_price": "3.50",
+      "min_price": "3.50"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Strawberry Kiwi",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Cadbury Bitsa Wispa Pouch 110g",
+      "cnt": "2",
+      "max_price": "4.79",
+      "min_price": "4.29"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Natural Dinosaurs Pouch 110g",
+      "cnt": "2",
+      "max_price": "3.79",
+      "min_price": "3.29"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Koka Pot Noodles Chicken 70g",
+      "cnt": "2",
+      "max_price": "2.89",
+      "min_price": "2.49"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Jps Silver Pouch Tobacco 30g",
+      "cnt": "2",
+      "max_price": "25.95",
+      "min_price": "25.95"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Watermelon Ice",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Silk Cut Blue 26pk",
+      "cnt": "2",
+      "max_price": "23.79",
+      "min_price": "23.79"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Pineapple Ice",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Blueberry Raspberry",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Koka Pot Noodles Curry 70g",
+      "cnt": "2",
+      "max_price": "2.89",
+      "min_price": "2.49"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "HB Iceberg 100ml",
+      "cnt": "2",
+      "max_price": "3.29",
+      "min_price": "3.29"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Grape",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "M&M Salted Caramel Pouch 102g",
+      "cnt": "2",
+      "max_price": "4.69",
+      "min_price": "4.59"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "HB Twister Fruit Zinger 70ml",
+      "cnt": "2",
+      "max_price": "2.55",
+      "min_price": "2.55"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Magnum White Chocolate 110ml",
+      "cnt": "2",
+      "max_price": "4.35",
+      "min_price": "4.35"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Haribo Starmix 160g",
+      "cnt": "2",
+      "max_price": "3.50",
+      "min_price": "1.95"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Blue Razz Cherry",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Celsius Vibe Sunset 355ml",
+      "cnt": "2",
+      "max_price": "3.99",
+      "min_price": "3.99"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "HB Twister 80ml",
+      "cnt": "2",
+      "max_price": "2.79",
+      "min_price": "2.79"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Jps Blue Volume Tobacco 30g",
+      "cnt": "2",
+      "max_price": "25.95",
+      "min_price": "25.95"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "HB Feast Chocolate 90ml",
+      "cnt": "2",
+      "max_price": "3.29",
+      "min_price": "3.29"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Red Apple Ice",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Squashies Drumsticks chy and Apple Pouch 120g",
+      "cnt": "2",
+      "max_price": "3.79",
+      "min_price": "3.49"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Celsius Vibe Cosmic 355ml",
+      "cnt": "2",
+      "max_price": "3.99",
+      "min_price": "3.99"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "M&M Peanut Core Pouch 125g",
+      "cnt": "2",
+      "max_price": "4.59",
+      "min_price": "3.60"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Triple Mango",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Celsius Vibe Fantasy 355ml",
+      "cnt": "2",
+      "max_price": "3.99",
+      "min_price": "3.99"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Lost Mary Double Apple",
+      "cnt": "2",
+      "max_price": "10.00",
+      "min_price": "10.00"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Magnum Gold Caramel 85ml",
+      "cnt": "2",
+      "max_price": "4.39",
+      "min_price": "4.39"
+    },
+    {
+      "store_name": "AppleGreen Balbriggan",
+      "store_id": "3",
+      "product_name": "Celsius Vibe Peach 355ml",
+      "cnt": "2",
+      "max_price": "3.99",
+      "min_price": "3.99"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Coke 330ml Open All Ours",
+      "cnt": "2",
+      "max_price": "2.00",
+      "min_price": "2.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Spud Soaker Open All Ours",
+      "cnt": "2",
+      "max_price": "6.00",
+      "min_price": "6.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Hot Dog Open all Ours",
+      "cnt": "2",
+      "max_price": "4.25",
+      "min_price": "4.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Kids Burger and Chips with a Drink Open All Ours",
+      "cnt": "2",
+      "max_price": "6.00",
+      "min_price": "5.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Veggie Spud Open All Ours",
+      "cnt": "2",
+      "max_price": "5.00",
+      "min_price": "5.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Curry Sauce Open All Ours",
+      "cnt": "2",
+      "max_price": "2.00",
+      "min_price": "1.80"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Taco Cheese Chips",
+      "cnt": "2",
+      "max_price": "7.50",
+      "min_price": "7.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Full Irish Spud Open All Ours",
+      "cnt": "2",
+      "max_price": "6.50",
+      "min_price": "6.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Red Bull 250ml Open All Ours",
+      "cnt": "2",
+      "max_price": "2.95",
+      "min_price": "2.50"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Tuna Tator Spud Open All Ours",
+      "cnt": "2",
+      "max_price": "5.00",
+      "min_price": "5.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Large Breakfast Roll Open All Ours",
+      "cnt": "2",
+      "max_price": "6.50",
+      "min_price": "5.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Kids Sausage Chips and Drink Open All Ours",
+      "cnt": "2",
+      "max_price": "6.00",
+      "min_price": "5.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "1/4 Pounder Bacon Burger.",
+      "cnt": "2",
+      "max_price": "6.50",
+      "min_price": "6.00"
+    },
+    {
+      "store_name": "Open All Ours",
+      "store_id": "2",
+      "product_name": "Spicy Wedges Open All Ours",
+      "cnt": "2",
+      "max_price": "3.25",
+      "min_price": "2.50"
+    }
+  ],
+  "messages": [],
+  "stdout": "store_name\tstore_id\tproduct_name\tcnt\tmax_price\tmin_price\nAppleGreen Balbriggan\t3\tMagnum Almond 85ml\t2\t4.35\t4.35\nAppleGreen Balbriggan\t3\tMagnum Classic 110ml\t2\t4.35\t4.35\nAppleGreen Balbriggan\t3\tHB Brunch 90ml\t2\t2.89\t2.89\nAppleGreen Balbriggan\t3\tAppleGreen Cat Food Salmon Jelly 400g\t2\t1.99\t1.99\nAppleGreen Balbriggan\t3\tM&M Crispy Pouch 107g\t2\t4.59\t4.30\nAppleGreen Balbriggan\t3\tSolero Exotic 90ml\t2\t3.50\t3.50\nAppleGreen Balbriggan\t3\tLost Mary Strawberry Kiwi\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tCadbury Bitsa Wispa Pouch 110g\t2\t4.79\t4.29\nAppleGreen Balbriggan\t3\tNatural Dinosaurs Pouch 110g\t2\t3.79\t3.29\nAppleGreen Balbriggan\t3\tKoka Pot Noodles Chicken 70g\t2\t2.89\t2.49\nAppleGreen Balbriggan\t3\tJps Silver Pouch Tobacco 30g\t2\t25.95\t25.95\nAppleGreen Balbriggan\t3\tLost Mary Watermelon Ice\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tSilk Cut Blue 26pk\t2\t23.79\t23.79\nAppleGreen Balbriggan\t3\tLost Mary Pineapple Ice\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tLost Mary Blueberry Raspberry\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tKoka Pot Noodles Curry 70g\t2\t2.89\t2.49\nAppleGreen Balbriggan\t3\tHB Iceberg 100ml\t2\t3.29\t3.29\nAppleGreen Balbriggan\t3\tLost Mary Grape\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tM&M Salted Caramel Pouch 102g\t2\t4.69\t4.59\nAppleGreen Balbriggan\t3\tHB Twister Fruit Zinger 70ml\t2\t2.55\t2.55\nAppleGreen Balbriggan\t3\tMagnum White Chocolate 110ml\t2\t4.35\t4.35\nAppleGreen Balbriggan\t3\tHaribo Starmix 160g\t2\t3.50\t1.95\nAppleGreen Balbriggan\t3\tLost Mary Blue Razz Cherry\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tCelsius Vibe Sunset 355ml\t2\t3.99\t3.99\nAppleGreen Balbriggan\t3\tHB Twister 80ml\t2\t2.79\t2.79\nAppleGreen Balbriggan\t3\tJps Blue Volume Tobacco 30g\t2\t25.95\t25.95\nAppleGreen Balbriggan\t3\tHB Feast Chocolate 90ml\t2\t3.29\t3.29\nAppleGreen Balbriggan\t3\tLost Mary Red Apple Ice\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tSquashies Drumsticks chy and Apple Pouch 120g\t2\t3.79\t3.49\nAppleGreen Balbriggan\t3\tCelsius Vibe Cosmic 355ml\t2\t3.99\t3.99\nAppleGreen Balbriggan\t3\tM&M Peanut Core Pouch 125g\t2\t4.59\t3.60\nAppleGreen Balbriggan\t3\tLost Mary Triple Mango\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tCelsius Vibe Fantasy 355ml\t2\t3.99\t3.99\nAppleGreen Balbriggan\t3\tLost Mary Double Apple\t2\t10.00\t10.00\nAppleGreen Balbriggan\t3\tMagnum Gold Caramel 85ml\t2\t4.39\t4.39\nAppleGreen Balbriggan\t3\tCelsius Vibe Peach 355ml\t2\t3.99\t3.99\nOpen All Ours\t2\tCoke 330ml Open All Ours\t2\t2.00\t2.00\nOpen All Ours\t2\tSpud Soaker Open All Ours\t2\t6.00\t6.00\nOpen All Ours\t2\tHot Dog Open all Ours\t2\t4.25\t4.00\nOpen All Ours\t2\tKids Burger and Chips with a Drink Open All Ours\t2\t6.00\t5.00\nOpen All Ours\t2\tVeggie Spud Open All Ours\t2\t5.00\t5.00\nOpen All Ours\t2\tCurry Sauce Open All Ours\t2\t2.00\t1.80\nOpen All Ours\t2\tTaco Cheese Chips\t2\t7.50\t7.00\nOpen All Ours\t2\tFull Irish Spud Open All Ours\t2\t6.50\t6.00\nOpen All Ours\t2\tRed Bull 250ml Open All Ours\t2\t2.95\t2.50\nOpen All Ours\t2\tTuna Tator Spud Open All Ours\t2\t5.00\t5.00\nOpen All Ours\t2\tLarge Breakfast Roll Open All Ours\t2\t6.50\t5.00\nOpen All Ours\t2\tKids Sausage Chips and Drink Open All Ours\t2\t6.00\t5.00\nOpen All Ours\t2\t1/4 Pounder Bacon Burger.\t2\t6.50\t6.00\nOpen All Ours\t2\tSpicy Wedges Open All Ours\t2\t3.25\t2.50\n",
+  "stderr": "",
+  "execution_time_ms": 414
+}

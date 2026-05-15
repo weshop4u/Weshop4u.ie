@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, order_number, status, driver_id, created_at, driver_assigned_at FROM orders WHERE driver_id IS NULL AND status IN ('pending', 'accepted', 'ready_for_pickup') ORDER BY created_at ASC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, order_number, status, driver_id, created_at, driver_assigned_at FROM orders WHERE driver_id IS NULL AND status IN ('pending', 'accepted', 'ready_for_pickup') ORDER BY created_at ASC;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 48
+}

@@ -2,10 +2,17 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { initializeDualDatabases, getDatabaseHealth } from "../db-dual-write";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -27,6 +34,58 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // Initialize dual database system (Manus primary + Railway PostgreSQL backup)
+  // Force Railway redeploy - v2
+  await initializeDualDatabases();
+  const dbHealth = getDatabaseHealth();
+  console.log("[Server] Database health:", dbHealth);
+
+  // Initialize product_views table if it doesn't exist
+  try {
+    const { getDb } = await import("../db");
+    const db = await getDb();
+    if (db) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS product_views (
+          id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
+          product_id INT NOT NULL,
+          user_id INT,
+          store_id INT NOT NULL,
+          viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX product_id_idx (product_id),
+          INDEX user_id_idx (user_id),
+          INDEX store_id_idx (store_id),
+          INDEX viewed_at_idx (viewed_at)
+        )
+      `);
+      console.log("[Server] ✓ product_views table initialized");
+    }
+  } catch (err) {
+    console.error("[Server] Error initializing product_views table:", err);
+  }
+
+  // web-dist is embedded in server/public for deployment
+  // This ensures it gets deployed with the backend service
+  const locations = [
+    path.resolve(__dirname, "public"),                    // Production: server/public
+    path.resolve(__dirname, "..", "web-dist"),          // Dev: root web-dist
+    path.resolve(process.cwd(), "server", "public"),     // Dev: server/public
+    path.resolve(process.cwd(), "web-dist"),             // Dev: cwd web-dist
+  ];
+  
+  let webDistPath = "";
+  for (const loc of locations) {
+    if (fs.existsSync(loc)) {
+      webDistPath = loc;
+      console.log("[Server] ✓ web-dist found at", loc);
+      break;
+    }
+  }
+  
+  if (!webDistPath) {
+    console.warn("[Server] ⚠ web-dist not found in any location - web app will not be available");
+  }
+
   const app = express();
   const server = createServer(app);
 
@@ -54,12 +113,115 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // Import admin auth middleware
+  const { adminAuthMiddleware } = await import("./admin-auth-middleware.js");
+
+  // Protect admin routes at server level - MUST be before static file middleware
+  // This prevents non-admin users from accessing /api/web/admin* pages
+  app.use("/api/web/admin", adminAuthMiddleware);
+
   registerOAuthRoutes(app);
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
+    const dbHealth = getDatabaseHealth();
+    res.json({ 
+      ok: true, 
+      timestamp: Date.now(),
+      database: dbHealth
+    });
   });
 
+  // Debug endpoint to check server environment
+  app.get("/api/debug", (_req, res) => {
+    const cwdContents = fs.readdirSync(process.cwd()).filter(f => !f.startsWith('.')).slice(0, 20);
+    const dirnameContents = fs.readdirSync(__dirname).filter(f => !f.startsWith('.')).slice(0, 20);
+    res.json({
+      __dirname: __dirname,
+      cwd: process.cwd(),
+      env: process.env.NODE_ENV,
+      files: {
+        webDistInDirname: fs.existsSync(path.resolve(__dirname, "web-dist")),
+        webDistInCwd: fs.existsSync(path.resolve(process.cwd(), "web-dist")),
+        webDistInCwdDist: fs.existsSync(path.resolve(process.cwd(), "dist", "web-dist")),
+        distFolderInCwd: fs.existsSync(path.resolve(process.cwd(), "dist")),
+      },
+      cwdContents: cwdContents,
+      dirnameContents: dirnameContents,
+    });
+  });
+
+
+  // Public order tracking page (no auth required)
+  const { trackingRouter } = await import("../routers/tracking");
+  app.use(trackingRouter);
+
+  // Quick test print endpoint - no login required
+  // Usage: GET /api/test-print?storeId=1
+  app.get("/api/test-print", async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.storeId as string) || 1;
+      const { getDb } = await import("../db");
+      const { printJobs, stores } = await import("../../drizzle/schema");
+      const { formatReceipt } = await import("../routers/print");
+      const { eq } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) { res.status(500).json({ error: "Database not available" }); return; }
+
+      // Get store info
+      const [store] = await db.select().from(stores).where(eq(stores.id, storeId));
+      if (!store) { res.status(404).json({ error: `Store ${storeId} not found` }); return; }
+
+      // Create a test order object
+      const testOrder = {
+        id: 99999,
+        orderNumber: `WS4U/${store.shortCode || 'TST'}/TEST`,
+        createdAt: new Date(),
+        paymentMethod: 'cash',
+        deliveryAddress: '123 Test Street, Balbriggan, Ireland',
+        deliveryEircode: 'K32XE94',
+        notes: 'This is a TEST PRINT - not a real order',
+        allowSubstitutions: true,
+        subtotal: '12.99',
+        serviceFee: '1.30',
+        deliveryFee: '3.50',
+        total: '17.79',
+      };
+      const testItems = [
+        { productName: 'Test Item 1 (Large)', quantity: 2, price: '4.99' },
+        { productName: 'Test Item 2 (Small)', quantity: 1, price: '3.01' },
+      ];
+      const testCustomer = 'Test Customer';
+      const testPhone = '089-4 626262';
+
+      const content = formatReceipt(testOrder, store, testItems, testCustomer, testPhone);
+
+      // Insert print job
+      await db.insert(printJobs).values({
+        storeId,
+        orderId: 0,
+        receiptContent: content,
+        status: 'pending',
+      });
+
+      res.json({
+        success: true,
+        message: `Test print job created for ${store.name}. The POS should print it within 5 seconds.`,
+        store: store.name,
+        storeId,
+      });
+    } catch (error: any) {
+      console.error('[TestPrint] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+app.get("/favicon.ico", (req, res) => {
+  const faviconPath = path.join(webDistPath, "favicon.ico");
+  if (fs.existsSync(faviconPath)) {
+    res.sendFile(faviconPath);
+  } else {
+    res.status(404).end();
+  }
+});
   app.use(
     "/api/trpc",
     createExpressMiddleware({
@@ -67,6 +229,123 @@ async function startServer() {
       createContext,
     }),
   );
+
+  // Redirect root /api/ to /api/web so users always land on the web app
+  app.get("/api", (_req, res) => res.redirect("/api/web"));
+
+  // Serve static web files - the deployment platform only routes /api/* to Express,
+  // so we serve the web app under /api/web/ prefix
+  // NOTE: Admin routes are already protected by adminAuthMiddleware above
+  {
+    // Try multiple locations for web-dist
+    console.log(`[web] __dirname = ${__dirname}`);
+    console.log(`[web] process.cwd() = ${process.cwd()}`);
+    
+    // Check all possible locations
+    const locations = [
+      path.resolve(__dirname, "web-dist"),                    // Production: dist/web-dist
+      path.resolve(__dirname, "..", "web-dist"),             // Dev: server/../web-dist
+      path.resolve(__dirname, "..", "..", "web-dist"),      // Dev root: server/../../web-dist
+      path.resolve(process.cwd(), "web-dist"),                // From cwd
+      path.resolve(process.cwd(), "dist", "web-dist"),        // From cwd/dist
+    ];
+    
+    let webDistPath = "";
+    for (const loc of locations) {
+      console.log(`[web] Checking: ${loc} - exists: ${fs.existsSync(loc)}`);
+      if (fs.existsSync(loc)) {
+        webDistPath = loc;
+        break;
+      }
+    }
+    
+    if (webDistPath && fs.existsSync(webDistPath)) {
+      console.log(`[web] ✓ Found web-dist at ${webDistPath}`);
+      console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
+      // Serve static assets under /api/web/ but skip /api/web/admin* (protected by middleware)
+      app.use("/api/web", (req, res, next) => {
+          // Skip static file serving for admin routes - they're protected by middleware
+          if (req.path.startsWith("/admin")) {
+            const rootIndex = path.join(webDistPath, "index.html");
+            if (fs.existsSync(rootIndex)) {
+              return res.sendFile(rootIndex);
+            }
+            return res.status(404).send("Web app not found");
+          }
+          express.static(webDistPath, { maxAge: "1d" })(req, res, next);
+        });
+      // Root /api/web serves index.html
+      app.get("/api/web", (_req, res) => {
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+        } else {
+          res.status(404).send("Web app not found");
+        }
+      });
+      // Also handle /api/web/ (with trailing slash) by serving index.html
+      app.get("/api/web/", (_req, res) => {
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+        } else {
+          res.status(404).send("Web app not found");
+        }
+      });
+      // For any /api/web/* route, serve the matching HTML file or fall back to index.html
+      // Note: Admin routes are already protected by adminAuthMiddleware, so this won't be reached for /api/web/admin*
+      app.get("/api/web/*", (req, res) => {
+        // Skip serving HTML for admin routes - they should have been blocked by middleware
+        if (req.path.startsWith("/api/web/admin")) {
+          return res.status(403).json({ error: "Forbidden: Admin access required" });
+        }
+        const subPath = req.path.replace(/^\/api\/web/, "") || "/";
+        // Try to find an exact HTML file for this route
+        const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
+        if (fs.existsSync(htmlPath)) {
+          res.sendFile(htmlPath);
+          return;
+        }
+        // Try index.html in a subdirectory
+        const dirIndexPath = path.join(webDistPath, subPath, "index.html");
+        if (fs.existsSync(dirIndexPath)) {
+          res.sendFile(dirIndexPath);
+          return;
+        }
+        // Fall back to root index.html for client-side routing
+        const rootIndex = path.join(webDistPath, "index.html");
+        if (fs.existsSync(rootIndex)) {
+          res.sendFile(rootIndex);
+          return;
+        }
+        res.status(404).send("Not Found");
+      });
+    } else {
+      console.log(`[web] No web-dist directory found, setting up Metro proxy for development`);
+      // In development, proxy to Metro bundler on port 8081
+      const METRO_PORT = process.env.EXPO_PORT || 8081;
+      app.all("/api/web*", (req, res) => {
+        const metroUrl = `http://localhost:${METRO_PORT}${req.path.replace(/^\/api\/web/, "") || "/"}`;
+        console.log(`[web] Proxying to Metro: ${metroUrl}`);
+        fetch(metroUrl, {
+          method: req.method,
+          headers: req.headers as Record<string, string>,
+          body: req.method !== "GET" && req.method !== "HEAD" ? req : undefined,
+        })
+          .then((response) => {
+            res.status(response.status);
+            response.headers.forEach((value, name) => {
+              res.setHeader(name, value);
+            });
+            response.body?.pipe(res);
+          })
+          .catch((err) => {
+            console.error(`[web] Metro proxy error: ${err.message}`);
+            res.status(503).send("Metro bundler not available");
+          });
+      });
+    }
+  }
 
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
@@ -81,3 +360,5 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+// Force Railway rebuild - 1774948853
+// Cache buster: 1774956851884318274

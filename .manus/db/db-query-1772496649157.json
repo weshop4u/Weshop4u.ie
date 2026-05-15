@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, email, name, role, password_hash IS NOT NULL as has_password FROM users WHERE email = 'spar@weshop4u.ie';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, email, name, role, password_hash IS NOT NULL as has_password FROM users WHERE email = 'spar@weshop4u.ie';",
+  "rows": [
+    {
+      "id": "60001",
+      "email": "spar@weshop4u.ie",
+      "name": "Spar Manager",
+      "role": "store_staff",
+      "has_password": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\temail\tname\trole\thas_password\n60001\tspar@weshop4u.ie\tSpar Manager\tstore_staff\t1\n",
+  "stderr": "",
+  "execution_time_ms": 418
+}

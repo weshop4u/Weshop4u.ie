@@ -1,0 +1,35 @@
+{
+  "query": "SELECT id, name, SUBSTRING(images, 1, 300) as img_sample FROM products WHERE images IS NOT NULL AND images != '' AND images != '[]' AND store_id = 1 LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, SUBSTRING(images, 1, 300) as img_sample FROM products WHERE images IS NOT NULL AND images != '' AND images != '[]' AND store_id = 1 LIMIT 5;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g",
+      "img_sample": "[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/mushrooms-250g.jpg\"]"
+    },
+    {
+      "id": "60002",
+      "name": "Carrots 1kg",
+      "img_sample": "[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/carrots-1kg.jpg\"]"
+    },
+    {
+      "id": "60003",
+      "name": "Tomato 6pk",
+      "img_sample": "[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/tomato-6pk.jpg\"]"
+    },
+    {
+      "id": "60004",
+      "name": "Lettuce Iceberg",
+      "img_sample": "[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/lettuce-iceberg.jpg\"]"
+    },
+    {
+      "id": "60005",
+      "name": "Cucumber 1 large",
+      "img_sample": "[\"https://weshop4u.ie/storage/products/cucumber.jpg\"]"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\timg_sample\n60001\tMushrooms 250g\t[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/mushrooms-250g.jpg\"]\n60002\tCarrots 1kg\t[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/carrots-1kg.jpg\"]\n60003\tTomato 6pk\t[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/tomato-6pk.jpg\"]\n60004\tLettuce Iceberg\t[\"https://weshop4u.ie/storage/main/stores/weshop4u-main-street/lettuce-iceberg.jpg\"]\n60005\tCucumber 1 large\t[\"https://weshop4u.ie/storage/products/cucumber.jpg\"]\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

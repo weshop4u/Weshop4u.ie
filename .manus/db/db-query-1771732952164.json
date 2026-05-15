@@ -1,0 +1,35 @@
+{
+  "query": "SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id WHERE pc.name IN ('5)', '11)', '12)', '13)', '14)') GROUP BY pc.id, pc.name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT pc.id, pc.name, COUNT(p.id) as product_count FROM product_categories pc LEFT JOIN products p ON p.category_id = pc.id WHERE pc.name IN ('5)', '11)', '12)', '13)', '14)') GROUP BY pc.id, pc.name;",
+  "rows": [
+    {
+      "id": "150012",
+      "name": "11)",
+      "product_count": "0"
+    },
+    {
+      "id": "150016",
+      "name": "12)",
+      "product_count": "0"
+    },
+    {
+      "id": "150017",
+      "name": "5)",
+      "product_count": "0"
+    },
+    {
+      "id": "150018",
+      "name": "13)",
+      "product_count": "0"
+    },
+    {
+      "id": "150010",
+      "name": "14)",
+      "product_count": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tproduct_count\n150012\t11)\t0\n150016\t12)\t0\n150017\t5)\t0\n150018\t13)\t0\n150010\t14)\t0\n",
+  "stderr": "",
+  "execution_time_ms": 375
+}

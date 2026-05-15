@@ -1,0 +1,37 @@
+{
+  "query": "SELECT o.id, o.order_number, o.status, o.customer_id, o.guest_name, o.guest_phone, o.driver_id FROM orders o ORDER BY o.id DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT o.id, o.order_number, o.status, o.customer_id, o.guest_name, o.guest_phone, o.driver_id FROM orders o ORDER BY o.id DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "1230002",
+      "order_number": "WS4U/SPR/090",
+      "status": "delivered",
+      "customer_id": "NULL",
+      "guest_name": "Barry Gosson",
+      "guest_phone": "0892003003",
+      "driver_id": "30001"
+    },
+    {
+      "id": "1230001",
+      "order_number": "WS4U/SPR/089",
+      "status": "delivered",
+      "customer_id": "NULL",
+      "guest_name": "Barry Gosson",
+      "guest_phone": "0894626262",
+      "driver_id": "30001"
+    },
+    {
+      "id": "1200003",
+      "order_number": "WS4U/SPR/088",
+      "status": "delivered",
+      "customer_id": "60001",
+      "guest_name": "NULL",
+      "guest_phone": "NULL",
+      "driver_id": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\torder_number\tstatus\tcustomer_id\tguest_name\tguest_phone\tdriver_id\n1230002\tWS4U/SPR/090\tdelivered\tNULL\tBarry Gosson\t0892003003\t30001\n1230001\tWS4U/SPR/089\tdelivered\tNULL\tBarry Gosson\t0894626262\t30001\n1200003\tWS4U/SPR/088\tdelivered\t60001\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 355
+}
