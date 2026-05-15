@@ -122,6 +122,12 @@ function PhoneOrderScreenContent() {
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (selectedCategoryId !== null) {
+      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 100);
+    }
+  }, [selectedCategoryId]);
+
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
     { storeId: selectedStoreId!, limit: 5000 },
     { enabled: selectedStoreId !== null && step === "products" }
@@ -585,10 +591,7 @@ function PhoneOrderScreenContent() {
               {categoriesWithProducts.map((category) => (
                 <TouchableOpacity
                   key={category.id}
-                  onPress={() => {
-                    setSelectedCategoryId(category.id);
-                    setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 50);
-                  }}
+                  onPress={() => setSelectedCategoryId(category.id)}
                   style={{
                     backgroundColor: "#fff",
                     padding: 14,
