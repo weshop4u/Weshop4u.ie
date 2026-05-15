@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, FlatList, Platform } from "react-native";
+import { Text, View, TouchableOpacity, TextInput, ScrollView, FlatList, ActivityIndicator, Platform, Modal, useWindowDimensions } from "react-native";
+import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -14,6 +15,7 @@ type CartItem = {
   name: string;
   price: number;
   quantity: number;
+  ageRestricted?: boolean;
 };
 
 type FeeInfo = {
@@ -38,8 +40,9 @@ function PhoneOrderScreenContent() {
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [selectedStoreName, setSelectedStoreName] = useState("");
 
-  // Product search and cart
+  // Product search, categories, and cart
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Customer details
@@ -50,6 +53,7 @@ function PhoneOrderScreenContent() {
   const [customerNotes, setCustomerNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
+  const [customerDob, setCustomerDob] = useState("");
 
   // Fee calculation
   const [feeInfo, setFeeInfo] = useState<FeeInfo>(null);
@@ -122,12 +126,42 @@ function PhoneOrderScreenContent() {
   const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const cartItemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
-  const addToCart = (product: { id: number; name: string; price: string }) => {
+  // Check if cart has age-restricted items
+  const hasAgeRestrictedItems = useMemo(() => cart.some(item => item.ageRestricted), [cart]);
+
+  // Group products by category for browsing
+  const categoriesWithProducts = useMemo(() => {
+    if (!productsList || productsList.length === 0) return [];
+    const catMap: Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; products: typeof productsList }> = {};
+    for (const product of productsList) {
+      const catId = (product as any).categoryId || 0;
+      const catName = (product as any).category?.name || "Uncategorized";
+      const catIcon = (product as any).category?.icon || null;
+      const catAgeRestricted = (product as any).category?.ageRestricted || false;
+      if (!catMap[catId]) {
+        catMap[catId] = { id: catId, name: catName, icon: catIcon, ageRestricted: catAgeRestricted, products: [] };
+      }
+      catMap[catId].products.push(product);
+    }
+    return Object.values(catMap).sort((a, b) => a.name.localeCompare(b.name));
+  }, [productsList]);
+
+  // Filtered products for selected category
+  const categoryProducts = useMemo(() => {
+    if (selectedCategoryId === null) return [];
+    const cat = categoriesWithProducts.find(c => c.id === selectedCategoryId);
+    if (!cat) return [];
+    if (!debouncedSearch.trim()) return cat.products;
+    const query = debouncedSearch.toLowerCase();
+    return cat.products.filter(p => p.name.toLowerCase().includes(query));
+  }, [categoriesWithProducts, selectedCategoryId, debouncedSearch]);
+
+  const addToCart = (product: { id: number; name: string; price: string }, ageRestricted?: boolean) => {
     const existing = cart.find(c => c.productId === product.id);
     if (existing) {
       setCart(cart.map(c => c.productId === product.id ? { ...c, quantity: c.quantity + 1 } : c));
     } else {
-      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price), quantity: 1 }]);
+      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price), quantity: 1, ageRestricted }]);
     }
   };
 
@@ -211,9 +245,14 @@ function PhoneOrderScreenContent() {
       setSubmitError("Please fill in all required fields including Eircode.");
       return;
     }
+    // Validate DOB if age-restricted items in cart
+    if (hasAgeRestrictedItems && !customerDob.trim()) {
+      setSubmitError("Date of birth is required for age-restricted items.");
+      return;
+    }
     setSubmitError("");
     setShowConfirmModal(true);
-  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode]);
+  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode, hasAgeRestrictedItems, customerDob]);
 
   const confirmAndCreate = useCallback(async () => {
     setShowConfirmModal(false);
@@ -438,7 +477,7 @@ function PhoneOrderScreenContent() {
         </ScrollView>
       )}
 
-      {/* STEP 2: Product Selection */}
+      {/* STEP 2: Product Selection — with Category Browsing */}
       {step === "products" && (
         <View className="flex-1">
           {/* Search */}
@@ -446,26 +485,33 @@ function PhoneOrderScreenContent() {
             <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10 }}>
               <TextInput
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                  // If searching, show flat product list (no category filter)
+                  if (text.trim().length > 0) {
+                    setSelectedCategoryId(null);
+                  }
+                }}
                 placeholder="Search products..."
                 placeholderTextColor="#687076"
                 style={{ fontSize: 15, color: "#ECEDEE" }}
                 returnKeyType="search"
-                autoFocus
               />
             </View>
           </View>
 
-          {/* Product List */}
+          {/* Category List OR Product List */}
           {productsLoading ? (
             <ActivityIndicator size="large" color="#00E5FF" style={{ marginTop: 40 }} />
-          ) : (
+          ) : searchQuery.trim().length > 0 ? (
+            // ── SEARCH RESULTS (flat product list) ──
             <FlatList
               data={productsList || []}
               keyExtractor={(item) => String(item.id)}
               contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}
               renderItem={({ item }) => {
                 const inCart = cart.find(c => c.productId === item.id);
+                const catAgeRestricted = (item as any).category?.ageRestricted || false;
                 return (
                   <View style={{
                     backgroundColor: "#1e2022",
@@ -479,7 +525,14 @@ function PhoneOrderScreenContent() {
                     justifyContent: "space-between",
                   }}>
                     <View style={{ flex: 1, marginRight: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }} numberOfLines={2}>{item.name}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE", flex: 1 }} numberOfLines={2}>{item.name}</Text>
+                        {catAgeRestricted && (
+                          <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF", marginTop: 2 }}>€{parseFloat(item.price).toFixed(2)}</Text>
                     </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -495,7 +548,7 @@ function PhoneOrderScreenContent() {
                         </>
                       )}
                       <TouchableOpacity
-                        onPress={() => addToCart(item)}
+                        onPress={() => addToCart(item, catAgeRestricted)}
                         style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
                       >
                         <Text style={{ fontSize: 18, fontWeight: "700", color: "#151718" }}>+</Text>
@@ -506,10 +559,127 @@ function PhoneOrderScreenContent() {
               }}
               ListEmptyComponent={
                 <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                  <Text style={{ color: "#687076" }}>{searchQuery ? "No products found" : "No products available"}</Text>
+                  <Text style={{ color: "#687076" }}>No products found</Text>
                 </View>
               }
             />
+          ) : selectedCategoryId === null ? (
+            // ── CATEGORY LIST (with images and 18+ badges) ──
+            <ScrollView className="flex-1" contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}>
+              {categoriesWithProducts.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  onPress={() => setSelectedCategoryId(category.id)}
+                  style={{
+                    backgroundColor: "#fff",
+                    padding: 14,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  {/* Category Image */}
+                  <View style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", backgroundColor: "#f5f5f5" }}>
+                    {category.icon ? (
+                      <Image source={{ uri: category.icon }} style={{ width: 56, height: 56 }} contentFit="cover" />
+                    ) : (
+                      <View style={{ width: 56, height: 56, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 28 }}>📦</Text>
+                      </View>
+                    )}
+                  </View>
+                  {/* Category Info */}
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={{ fontSize: 16, fontWeight: "600", color: "#11181C" }}>{category.name}</Text>
+                      {category.ageRestricted && (
+                        <View style={{ backgroundColor: "#FEF2F2", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>18+</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 13, color: "#687076", marginTop: 2 }}>
+                      {category.products.length} {category.products.length === 1 ? "item" : "items"}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 20, color: "#9BA1A6" }}>›</Text>
+                </TouchableOpacity>
+              ))}
+              {categoriesWithProducts.length === 0 && (
+                <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                  <Text style={{ color: "#687076" }}>No products available</Text>
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            // ── PRODUCTS IN SELECTED CATEGORY ──
+            <View style={{ flex: 1 }}>
+              {/* Category Header with Back */}
+              <TouchableOpacity
+                onPress={() => setSelectedCategoryId(null)}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}
+              >
+                <Text style={{ fontSize: 18, color: "#00E5FF" }}>‹</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: "#00E5FF" }}>Categories</Text>
+              </TouchableOpacity>
+
+              <FlatList
+                data={categoryProducts}
+                keyExtractor={(item) => String(item.id)}
+                contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}
+                renderItem={({ item }) => {
+                  const inCart = cart.find(c => c.productId === item.id);
+                  const cat = categoriesWithProducts.find(c => c.id === selectedCategoryId);
+                  const catAgeRestricted = cat?.ageRestricted || false;
+                  return (
+                    <View style={{
+                      backgroundColor: "#1e2022",
+                      padding: 12,
+                      borderRadius: 10,
+                      marginBottom: 6,
+                      borderWidth: 1,
+                      borderColor: inCart ? "#00E5FF" : "#334155",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }} numberOfLines={2}>{item.name}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF", marginTop: 2 }}>€{parseFloat(item.price).toFixed(2)}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        {inCart && (
+                          <>
+                            <TouchableOpacity
+                              onPress={() => removeFromCart(item.id)}
+                              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#334155", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Text style={{ fontSize: 18, fontWeight: "700", color: "#ECEDEE" }}>−</Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 16, fontWeight: "700", color: "#ECEDEE", minWidth: 24, textAlign: "center" }}>{inCart.quantity}</Text>
+                          </>
+                        )}
+                        <TouchableOpacity
+                          onPress={() => addToCart(item, catAgeRestricted)}
+                          style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Text style={{ fontSize: 18, fontWeight: "700", color: "#151718" }}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                    <Text style={{ color: "#687076" }}>No products in this category</Text>
+                  </View>
+                }
+              />
+            </View>
           )}
 
           {/* Cart Summary Bar */}
@@ -535,7 +705,7 @@ function PhoneOrderScreenContent() {
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <TouchableOpacity
-                  onPress={() => { setStep("store"); setCart([]); setSelectedStoreId(null); }}
+                  onPress={() => { setStep("store"); setCart([]); setSelectedStoreId(null); setSelectedCategoryId(null); }}
                   style={{ backgroundColor: "#334155", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }}
                 >
                   <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>Back</Text>
@@ -564,6 +734,10 @@ function PhoneOrderScreenContent() {
               onPress={() => {
                 if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
                   setSubmitError("Please fill in name, phone, address, and Eircode.");
+                  return;
+                }
+                if (hasAgeRestrictedItems && !customerDob.trim()) {
+                  setSubmitError("Date of birth is required for age-restricted items.");
                   return;
                 }
                 setSubmitError("");
@@ -598,7 +772,7 @@ function PhoneOrderScreenContent() {
             </View>
           )}
           {lookupMessage ? (
-            <Text style={{ fontSize: 12, color: lookupMessage.startsWith("✅") ? "#22C55E" : "#687076", marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, color: lookupMessage.startsWith("\u2705") ? "#22C55E" : "#687076", marginBottom: 12 }}>
               {lookupMessage}
             </Text>
           ) : <View style={{ height: 12 }} />}
@@ -690,6 +864,23 @@ function PhoneOrderScreenContent() {
             </View>
           )}
 
+          {/* Customer Date of Birth — only shown when age-restricted items in cart */}
+          {hasAgeRestrictedItems && (
+            <>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>CUSTOMER DATE OF BIRTH (DD-MM-YYYY) *</Text>
+              <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
+                <TextInput
+                  value={customerDob}
+                  onChangeText={setCustomerDob}
+                  placeholder="e.g. 15-03-1990"
+                  placeholderTextColor="#687076"
+                  style={{ fontSize: 15, color: "#ECEDEE" }}
+                  returnKeyType="next"
+                />
+              </View>
+            </>
+          )}
+
           {/* Payment Method */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PAYMENT METHOD</Text>
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
@@ -776,6 +967,10 @@ function PhoneOrderScreenContent() {
                   setSubmitError("Please fill in name, phone, address, and Eircode.");
                   return;
                 }
+                if (hasAgeRestrictedItems && !customerDob.trim()) {
+                  setSubmitError("Date of birth is required for age-restricted items.");
+                  return;
+                }
                 setSubmitError("");
                 // Calculate fees if not done yet
                 if (!feeInfo && deliveryEircode.trim().length >= 5) {
@@ -813,6 +1008,7 @@ function PhoneOrderScreenContent() {
             <Text style={{ fontSize: 14, color: "#9BA1A6" }}>{customerPhone}</Text>
             <Text style={{ fontSize: 14, color: "#9BA1A6", marginTop: 4 }}>{deliveryAddress}</Text>
             {deliveryEircode ? <Text style={{ fontSize: 14, color: "#9BA1A6" }}>{deliveryEircode}</Text> : null}
+            {customerDob ? <Text style={{ fontSize: 14, color: "#9BA1A6", marginTop: 4 }}>DOB: {customerDob}</Text> : null}
           </View>
 
           {/* Items */}

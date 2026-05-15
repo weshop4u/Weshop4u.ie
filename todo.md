@@ -2773,3 +2773,11 @@
 - [ ] Test product marked out_of_stock when quantity reaches zero
 - [ ] Test stock decrement works for multiple items in single order
 - [ ] Verify stock changes persist in database
+
+## Phone Order Improvements (May 15, 2026)
+- [x] Add category browsing with images and item counts to Products step
+- [x] Add 18+ badges on age-restricted categories
+- [x] Add DOB field (conditional on age-restricted items in cart)
+- [x] Add DOB validation before allowing progression to Confirm step
+- [x] Show DOB in Confirm/Review step
+- [x] Preserve all existing logic (phone lookup, fee calc, payment, order creation)
