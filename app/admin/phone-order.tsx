@@ -819,6 +819,29 @@ function PhoneOrderScreenContent() {
             </TouchableOpacity>
           </View>
 
+          {/* Order Summary */}
+          <View style={{ backgroundColor: "#f8f9fa", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 20 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 10 }}>ORDER SUMMARY ({cartItemCount} items)</Text>
+            {cart.map(item => (
+              <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+                <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }} numberOfLines={1}>{item.quantity}x {item.name}</Text>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
+              </View>
+            ))}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>Subtotal</Text>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{cartSubtotal.toFixed(2)}</Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+              <Text style={{ fontSize: 14, color: "#687076" }}>Service fee (10%)</Text>
+              <Text style={{ fontSize: 14, color: "#687076" }}>€{(cartSubtotal * 0.1).toFixed(2)}</Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>Total before delivery</Text>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{(cartSubtotal * 1.1).toFixed(2)}</Text>
+            </View>
+          </View>
+
           {/* Phone Number (FIRST - for auto-fill) */}
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER * (enter first to auto-fill)</Text>
           <View style={{ backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: lookupDone ? "#22C55E" : "#E5E7EB", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
