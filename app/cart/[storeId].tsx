@@ -642,10 +642,10 @@ export default function CartScreen() {
         </View>
       </View>
 
-      {/* Error Banner */}
-      {errorMessage ? (
+      {/* Error Banner — shows regular errors only (not age verification) */}
+      {errorMessage && !showAgeVerifyButton ? (
         <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: showAgeVerifyButton ? 12 : 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
             <TouchableOpacity 
               onPress={() => {
@@ -657,26 +657,6 @@ export default function CartScreen() {
               <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
             </TouchableOpacity>
           </View>
-          
-          {showAgeVerifyButton && (
-            <TouchableOpacity
-              onPress={() => {
-                router.push("/(tabs)/profile");
-                setErrorMessage("");
-                setShowAgeVerifyButton(false);
-              }}
-              style={{
-                backgroundColor: colors.error,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-                borderRadius: 6,
-                alignItems: 'center',
-              }}
-              className="active:opacity-70"
-            >
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Verify Age</Text>
-            </TouchableOpacity>
-          )}
         </View>
       ) : null}
 
@@ -1351,6 +1331,42 @@ export default function CartScreen() {
           <View style={{ backgroundColor: '#FEE2E2', borderColor: '#EF4444', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 12 }}>
             <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>⚠️ Cash limit exceeded</Text>
             <Text style={{ color: '#991B1B', fontSize: 13, lineHeight: 18 }}>Guest cash orders are limited to €{GUEST_CASH_LIMIT}. Please reduce your cart or switch to card payment.</Text>
+          </View>
+        )}
+
+        {/* Age Verification Error Banner — appears just above checkout button */}
+        {showAgeVerifyButton && errorMessage && (
+          <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setErrorMessage("");
+                  setShowAgeVerifyButton(false);
+                }} 
+                className="active:opacity-70"
+              >
+                <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity
+              onPress={() => {
+                router.push("/(tabs)/profile");
+                setErrorMessage("");
+                setShowAgeVerifyButton(false);
+              }}
+              style={{
+                backgroundColor: colors.error,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                alignItems: 'center',
+              }}
+              className="active:opacity-70"
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Verify Age</Text>
+            </TouchableOpacity>
           </View>
         )}
 
