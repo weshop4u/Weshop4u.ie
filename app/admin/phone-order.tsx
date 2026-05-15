@@ -124,7 +124,8 @@ function PhoneOrderScreenContent() {
 
   useEffect(() => {
     if (selectedCategoryId !== null) {
-      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 100);
+      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 50);
+      setTimeout(() => categoryFlatListRef.current?.scrollToOffset({ offset: 0, animated: false }), 200);
     }
   }, [selectedCategoryId]);
 
