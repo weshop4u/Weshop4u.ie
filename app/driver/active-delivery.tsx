@@ -92,12 +92,8 @@ export default function ActiveDeliveryScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [statusError, setStatusError] = useState("");
   const [showReorderPanel, setShowReorderPanel] = useState(false);
-  const [idConfirmed, setIdConfirmed] = useState(false);
   const colors = useColors();
   const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
-
-  // Check if order contains age-restricted items
-  const hasAgeRestrictedItems = order?.items?.some((item: any) => item.ageRestricted === true) || false;
 
   // Sync local deliveryStatus with order status from server
   useEffect(() => {
@@ -126,13 +122,6 @@ export default function ActiveDeliveryScreen() {
       setDeliveryStatus("going_to_store");
     }
   }, [order?.status, (order as any)?.driverArrivedAt]);
-
-  // Reset ID confirmation when delivery status changes
-  useEffect(() => {
-    if (deliveryStatus !== "going_to_customer") {
-      setIdConfirmed(false);
-    }
-  }, [deliveryStatus]);
 
   // Location tracking - send updates every 10 seconds during active delivery
   useEffect(() => {
@@ -803,47 +792,11 @@ export default function ActiveDeliveryScreen() {
               ) : null}
             </View>
 
-            {/* Age-Restricted Items: ID Verification Required */}
-            {hasAgeRestrictedItems && (
-              <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, borderRadius: 8, padding: 12, marginTop: 12, marginBottom: 12 }}>
-                <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 14, marginBottom: 8 }}>🔞 ID Verification Required</Text>
-                <Text style={{ color: colors.error, fontSize: 13, marginBottom: 12 }}>This order contains age-restricted items. Please verify customer ID before completing delivery.</Text>
-                
-                <TouchableOpacity
-                  onPress={() => setIdConfirmed(true)}
-                  disabled={idConfirmed}
-                  style={{
-                    backgroundColor: idConfirmed ? colors.success : colors.error,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: 6,
-                    alignItems: 'center',
-                  }}
-                  className="active:opacity-70"
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                    {idConfirmed ? '✅ ID Confirmed' : '✅ Confirm ID Verified'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
             <TouchableOpacity
               onPress={handleDelivered}
-              disabled={hasAgeRestrictedItems && !idConfirmed}
-              style={{
-                marginTop: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                borderRadius: 8,
-                alignItems: 'center',
-                backgroundColor: (hasAgeRestrictedItems && !idConfirmed) ? colors.muted : colors.success,
-              }}
-              className="active:opacity-70"
+              className="mt-3 bg-success p-4 rounded-lg items-center active:opacity-70"
             >
-              <Text style={{ color: (hasAgeRestrictedItems && !idConfirmed) ? colors.foreground : '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                ✓ Delivery Complete
-              </Text>
+              <Text className="text-background font-bold text-lg">✓ Delivery Complete</Text>
             </TouchableOpacity>
           </View>
         )}
