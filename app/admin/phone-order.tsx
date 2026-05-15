@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, FlatList, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, FlatList, Platform, useWindowDimensions } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -14,6 +14,7 @@ type CartItem = {
   name: string;
   price: number;
   quantity: number;
+  ageRestricted?: boolean;
 };
 
 type FeeInfo = {
@@ -30,16 +31,16 @@ function PhoneOrderScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const colors = useColors();
-
-  // Step tracking
-  const [step, setStep] = useState<"store" | "products" | "details" | "confirm">("store");
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
 
   // Store selection
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [selectedStoreName, setSelectedStoreName] = useState("");
 
-  // Product search and cart
+  // Product search, categories, and cart
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Customer details
@@ -47,6 +48,7 @@ function PhoneOrderScreenContent() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryEircode, setDeliveryEircode] = useState("");
+  const [customerDOB, setCustomerDOB] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [allowSubstitution, setAllowSubstitution] = useState(false);
@@ -99,6 +101,7 @@ function PhoneOrderScreenContent() {
 
   // Queries
   const { data: storesList, isLoading: storesLoading } = trpc.admin.getStores.useQuery();
+  
   // Debounce search query for API calls
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,10 +113,23 @@ function PhoneOrderScreenContent() {
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
 
-  const { data: productsList, isLoading: productsLoading } = trpc.admin.getStoreProducts.useQuery(
+  const { data: productsData, isLoading: productsLoading } = trpc.admin.getStoreProducts.useQuery(
     { storeId: selectedStoreId!, search: debouncedSearch.trim() || undefined },
-    { enabled: selectedStoreId !== null && step === "products" }
+    { enabled: selectedStoreId !== null }
   );
+
+  // Filter products by category and search
+  const productsList = useMemo(() => {
+    const products = productsData?.products || [];
+    return products.filter(p => {
+      const matchesCategory = !selectedCategoryId || p.categoryId === selectedCategoryId;
+      return matchesCategory;
+    });
+  }, [productsData, selectedCategoryId]);
+
+  const categoriesList = useMemo(() => {
+    return productsData?.categories || [];
+  }, [productsData]);
 
   const createPhoneOrderMutation = trpc.admin.createPhoneOrder.useMutation();
   const calculateFeesMutation = trpc.admin.calculatePhoneOrderFees.useMutation();
@@ -121,13 +137,14 @@ function PhoneOrderScreenContent() {
   // Cart calculations
   const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const cartItemCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const hasAgeRestrictedItems = useMemo(() => cart.some(item => item.ageRestricted), [cart]);
 
-  const addToCart = (product: { id: number; name: string; price: string }) => {
+  const addToCart = (product: { id: number; name: string; price: string; ageRestricted?: boolean }) => {
     const existing = cart.find(c => c.productId === product.id);
     if (existing) {
       setCart(cart.map(c => c.productId === product.id ? { ...c, quantity: c.quantity + 1 } : c));
     } else {
-      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price), quantity: 1 }]);
+      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price), quantity: 1, ageRestricted: product.ageRestricted }]);
     }
   };
 
@@ -183,7 +200,7 @@ function PhoneOrderScreenContent() {
   // Auto-calculate fees when Eircode changes (debounced)
   const eircodeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleEircodeChange = useCallback((text: string) => {
-    setDeliveryEircode(text);
+    setDeliveryEircode(text.toUpperCase());
     setFeeInfo(null);
     setFeeError("");
 
@@ -196,25 +213,16 @@ function PhoneOrderScreenContent() {
     }
   }, [calculateFees]);
 
-  // Recalculate when eircode debounce triggers (need latest values)
+  // Cleanup debounce on unmount
   useEffect(() => {
-    // Cleanup debounce on unmount
     return () => {
       if (phoneDebounceRef.current) clearTimeout(phoneDebounceRef.current);
       if (eircodeDebounceRef.current) clearTimeout(eircodeDebounceRef.current);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, []);
 
-  // ===== ORDER SUBMISSION (no Alert.alert) =====
-  const handleSubmit = useCallback(() => {
-    if (!selectedStoreId || cart.length === 0 || !customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
-      setSubmitError("Please fill in all required fields including Eircode.");
-      return;
-    }
-    setSubmitError("");
-    setShowConfirmModal(true);
-  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode]);
-
+  // ===== ORDER SUBMISSION =====
   const confirmAndCreate = useCallback(async () => {
     setShowConfirmModal(false);
     setSubmitting(true);
@@ -236,6 +244,7 @@ function PhoneOrderScreenContent() {
         paymentMethod,
         customerNotes: customerNotes.trim() || undefined,
         allowSubstitution,
+        customerDOB: hasAgeRestrictedItems ? customerDOB : undefined,
       });
 
       // For card payments, redirect to Elavon payment page
@@ -250,7 +259,6 @@ function PhoneOrderScreenContent() {
           subtotal: data.subtotal,
           paymentMethod: "card",
         });
-        // Navigate to Elavon payment page
         router.push(`/payment/${data.orderId}`);
         return;
       }
@@ -269,16 +277,7 @@ function PhoneOrderScreenContent() {
       setSubmitting(false);
       setSubmitError(e.message || "Failed to create order");
     }
-  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode, paymentMethod, customerNotes, allowSubstitution, feeInfo]);
-
-  // Step indicator
-  const steps = [
-    { key: "store", label: "Store" },
-    { key: "products", label: "Items" },
-    { key: "details", label: "Details" },
-    { key: "confirm", label: "Confirm" },
-  ];
-  const currentStepIndex = steps.findIndex(s => s.key === step);
+  }, [selectedStoreId, cart, customerName, customerPhone, deliveryAddress, deliveryEircode, customerDOB, paymentMethod, customerNotes, allowSubstitution, feeInfo, hasAgeRestrictedItems]);
 
   // ===== ORDER SUCCESS SCREEN =====
   if (orderResult) {
@@ -322,7 +321,7 @@ function PhoneOrderScreenContent() {
     );
   }
 
-  // ===== CONFIRM MODAL (web-compatible, replaces Alert.alert) =====
+  // ===== CONFIRM MODAL =====
   const ConfirmOverlay = showConfirmModal ? (
     <View style={{
       position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
@@ -376,36 +375,24 @@ function PhoneOrderScreenContent() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={confirmAndCreate}
-            style={{ flex: 2, backgroundColor: "#22C55E", padding: 14, borderRadius: 10, alignItems: "center" }}
+            disabled={submitting}
+            style={{ flex: 2, backgroundColor: "#22C55E", padding: 14, borderRadius: 10, alignItems: "center", opacity: submitting ? 0.6 : 1 }}
           >
-            <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Create Order</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+              {submitting ? "Creating..." : "Create Order"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
     </View>
   ) : null;
 
+  // ===== MAIN LAYOUT =====
   return (
     <ScreenContainer className="bg-background">
-      {/* Step Indicator */}
-      <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#334155", gap: 4 }}>
-        {steps.map((s, i) => (
-          <View key={s.key} style={{ flex: 1, alignItems: "center" }}>
-            <View style={{
-              width: "100%", height: 3, borderRadius: 2,
-              backgroundColor: i <= currentStepIndex ? "#00E5FF" : "#334155",
-              marginBottom: 4,
-            }} />
-            <Text style={{ fontSize: 11, fontWeight: i === currentStepIndex ? "700" : "400", color: i <= currentStepIndex ? "#00E5FF" : "#687076" }}>
-              {s.label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* STEP 1: Store Selection */}
-      {step === "store" && (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 20 + insets.bottom }}>
+      {!selectedStoreId ? (
+        // Store Selection Screen
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 + insets.bottom }}>
           <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 4 }}>Select Store</Text>
           <Text style={{ fontSize: 14, color: "#687076", marginBottom: 16 }}>Which store is the customer ordering from?</Text>
 
@@ -419,7 +406,6 @@ function PhoneOrderScreenContent() {
                   onPress={() => {
                     setSelectedStoreId(store.id);
                     setSelectedStoreName(store.name);
-                    setStep("products");
                   }}
                   style={{
                     backgroundColor: "#1e2022",
@@ -436,494 +422,507 @@ function PhoneOrderScreenContent() {
             </View>
           )}
         </ScrollView>
-      )}
-
-      {/* STEP 2: Product Selection */}
-      {step === "products" && (
-        <View className="flex-1">
-          {/* Search */}
-          <View style={{ paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#334155" }}>
-            <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10 }}>
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search products..."
-                placeholderTextColor="#687076"
-                style={{ fontSize: 15, color: "#ECEDEE" }}
-                returnKeyType="search"
-                autoFocus
-              />
+      ) : (
+        // Main Single-Page Layout
+        <View style={{ flex: 1, flexDirection: isDesktop ? "row" : "column" }}>
+          {/* LEFT PANEL: Products (60% desktop, 100% mobile) */}
+          <View style={{ flex: isDesktop ? 0.6 : 1, borderRightWidth: isDesktop ? 1 : 0, borderRightColor: "#334155", backgroundColor: "#151718" }}>
+            {/* Header with Store Name */}
+            <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#334155", backgroundColor: "#1e2022" }}>
+              <TouchableOpacity onPress={() => { setSelectedStoreId(null); setCart([]); }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>← Change Store</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#ECEDEE" }}>{selectedStoreName}</Text>
             </View>
-          </View>
 
-          {/* Product List */}
-          {productsLoading ? (
-            <ActivityIndicator size="large" color="#00E5FF" style={{ marginTop: 40 }} />
-          ) : (
-            <FlatList
-              data={productsList || []}
-              keyExtractor={(item) => String(item.id)}
-              contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}
-              renderItem={({ item }) => {
-                const inCart = cart.find(c => c.productId === item.id);
-                return (
-                  <View style={{
-                    backgroundColor: "#1e2022",
-                    padding: 12,
-                    borderRadius: 10,
-                    marginBottom: 6,
-                    borderWidth: 1,
-                    borderColor: inCart ? "#00E5FF" : "#334155",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}>
-                    <View style={{ flex: 1, marginRight: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }} numberOfLines={2}>{item.name}</Text>
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF", marginTop: 2 }}>€{parseFloat(item.price).toFixed(2)}</Text>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      {inCart && (
-                        <>
-                          <TouchableOpacity
-                            onPress={() => removeFromCart(item.id)}
-                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#334155", alignItems: "center", justifyContent: "center" }}
-                          >
-                            <Text style={{ fontSize: 18, fontWeight: "700", color: "#ECEDEE" }}>−</Text>
-                          </TouchableOpacity>
-                          <Text style={{ fontSize: 16, fontWeight: "700", color: "#ECEDEE", minWidth: 24, textAlign: "center" }}>{inCart.quantity}</Text>
-                        </>
-                      )}
-                      <TouchableOpacity
-                        onPress={() => addToCart(item)}
-                        style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
-                      >
-                        <Text style={{ fontSize: 18, fontWeight: "700", color: "#151718" }}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              }}
-              ListEmptyComponent={
-                <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                  <Text style={{ color: "#687076" }}>{searchQuery ? "No products found" : "No products available"}</Text>
-                </View>
-              }
-            />
-          )}
-
-          {/* Cart Summary Bar */}
-          {cart.length > 0 && (
-            <View style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              backgroundColor: "#1e2022",
-              borderTopWidth: 1,
-              borderTopColor: "#334155",
-              paddingHorizontal: 16,
-              paddingTop: 12,
-              paddingBottom: 12 + insets.bottom,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
-              <View>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "#ECEDEE" }}>{cartItemCount} items</Text>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: "#00E5FF" }}>€{cartSubtotal.toFixed(2)}</Text>
-              </View>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => { setStep("store"); setCart([]); setSelectedStoreId(null); }}
-                  style={{ backgroundColor: "#334155", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setStep("details")}
-                  style={{ backgroundColor: "#00E5FF", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 }}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Next</Text>
-                </TouchableOpacity>
+            {/* Search */}
+            <View style={{ paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#334155" }}>
+              <View style={{ backgroundColor: "#1e2022", borderRadius: 8, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 10, paddingVertical: 8 }}>
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search products..."
+                  placeholderTextColor="#687076"
+                  style={{ fontSize: 13, color: "#ECEDEE" }}
+                  returnKeyType="search"
+                />
               </View>
             </View>
-          )}
-        </View>
-      )}
 
-      {/* STEP 3: Customer Details */}
-      {step === "details" && (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 4 }}>Customer Details</Text>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Enter the caller's delivery information</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
-                  setSubmitError("Please fill in name, phone, address, and Eircode.");
-                  return;
-                }
-                setSubmitError("");
-                if (!feeInfo && deliveryEircode.trim().length >= 5) {
-                  calculateFees();
-                }
-                setStep("confirm");
-              }}
-              style={{ backgroundColor: "#00E5FF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginLeft: 12, marginTop: 2 }}
+            {/* Categories */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ borderBottomWidth: 1, borderBottomColor: "#334155" }}
+              contentContainerStyle={{ paddingHorizontal: 10, paddingVertical: 8, gap: 6 }}
             >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#151718" }}>Next</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Phone Number (FIRST - for auto-fill) */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PHONE NUMBER * (enter first to auto-fill)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: lookupDone ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
-            <TextInput
-              value={customerPhone}
-              onChangeText={handlePhoneChange}
-              placeholder="e.g. 089 123 4567"
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
-              keyboardType="phone-pad"
-              returnKeyType="next"
-            />
-          </View>
-          {lookupLoading && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
-              <ActivityIndicator size="small" color="#00E5FF" />
-              <Text style={{ fontSize: 12, color: "#687076" }}>Looking up customer...</Text>
-            </View>
-          )}
-          {lookupMessage ? (
-            <Text style={{ fontSize: 12, color: lookupMessage.startsWith("✅") ? "#22C55E" : "#687076", marginBottom: 12 }}>
-              {lookupMessage}
-            </Text>
-          ) : <View style={{ height: 12 }} />}
-
-          {/* Customer Name */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>CUSTOMER NAME *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
-            <TextInput
-              value={customerName}
-              onChangeText={setCustomerName}
-              placeholder="e.g. John Murphy"
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
-              returnKeyType="next"
-            />
-          </View>
-
-          {/* Delivery Address */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>DELIVERY ADDRESS *</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
-            <TextInput
-              value={deliveryAddress}
-              onChangeText={setDeliveryAddress}
-              placeholder="e.g. 12 Main Street, Balbriggan"
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
-              multiline
-              returnKeyType="next"
-            />
-          </View>
-
-          {/* Eircode */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>EIRCODE * (for delivery fee)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: feeInfo ? "#22C55E" : "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 4 }}>
-            <TextInput
-              value={deliveryEircode}
-              onChangeText={handleEircodeChange}
-              placeholder="e.g. K32 AB12"
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE" }}
-              autoCapitalize="characters"
-              returnKeyType="next"
-            />
-          </View>
-          {feeLoading && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <ActivityIndicator size="small" color="#00E5FF" />
-              <Text style={{ fontSize: 12, color: "#687076" }}>Calculating delivery fee...</Text>
-            </View>
-          )}
-          {feeError ? (
-            <Text style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>{feeError}</Text>
-          ) : null}
-          {!feeLoading && !feeError && deliveryEircode.replace(/\s+/g, "").length >= 5 && !feeInfo && (
-            <TouchableOpacity onPress={calculateFees} style={{ marginBottom: 8 }}>
-              <Text style={{ fontSize: 13, color: "#00E5FF", fontWeight: "600" }}>Tap to calculate delivery fee</Text>
-            </TouchableOpacity>
-          )}
-          <View style={{ height: 4 }} />
-
-          {/* Fee Preview Box */}
-          {feeInfo && (
-            <View style={{
-              backgroundColor: "#0a2a1f",
-              borderRadius: 10,
-              padding: 14,
-              borderWidth: 1,
-              borderColor: "#22C55E",
-              marginBottom: 16,
-            }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: "#22C55E", marginBottom: 8 }}>💰 COST BREAKDOWN (tell customer)</Text>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Items subtotal</Text>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{cartSubtotal.toFixed(2)}</Text>
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Service fee (10%)</Text>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.serviceFee.toFixed(2)}</Text>
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Delivery ({feeInfo.distance.toFixed(1)} km)</Text>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.deliveryFee.toFixed(2)}</Text>
-              </View>
-              <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 6 }} />
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: "#22C55E" }}>€{feeInfo.total.toFixed(2)}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Payment Method */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>PAYMENT METHOD</Text>
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-            <TouchableOpacity
-              onPress={() => setPaymentMethod("cash_on_delivery")}
-              style={{
-                flex: 1,
-                backgroundColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#151718",
-                padding: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#334155",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "cash_on_delivery" ? "#151718" : "#ECEDEE" }}>Cash</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setPaymentMethod("card")}
-              style={{
-                flex: 1,
-                backgroundColor: paymentMethod === "card" ? "#00E5FF" : "#151718",
-                padding: 14,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: paymentMethod === "card" ? "#00E5FF" : "#334155",
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: paymentMethod === "card" ? "#151718" : "#ECEDEE" }}>Card</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Notes */}
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 6 }}>NOTES (Optional)</Text>
-          <View style={{ backgroundColor: "#151718", borderRadius: 10, borderWidth: 1, borderColor: "#334155", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 }}>
-            <TextInput
-              value={customerNotes}
-              onChangeText={setCustomerNotes}
-              placeholder="e.g. Ring doorbell, leave at gate..."
-              placeholderTextColor="#687076"
-              style={{ fontSize: 15, color: "#ECEDEE", minHeight: 60 }}
-              multiline
-            />
-          </View>
-
-          {/* Substitution */}
-          <TouchableOpacity
-            onPress={() => setAllowSubstitution(!allowSubstitution)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              backgroundColor: "#151718",
-              padding: 14,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: allowSubstitution ? "#00E5FF" : "#334155",
-              marginBottom: 24,
-            }}
-          >
-            <View style={{
-              width: 22, height: 22, borderRadius: 4,
-              backgroundColor: allowSubstitution ? "#00E5FF" : "transparent",
-              borderWidth: 2, borderColor: allowSubstitution ? "#00E5FF" : "#687076",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              {allowSubstitution && <Text style={{ fontSize: 14, fontWeight: "800", color: "#151718" }}>✓</Text>}
-            </View>
-            <Text style={{ fontSize: 14, color: "#ECEDEE" }}>Customer allows substitutions</Text>
-          </TouchableOpacity>
-
-          {/* Navigation */}
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <TouchableOpacity
-              onPress={() => setStep("products")}
-              style={{ flex: 1, backgroundColor: "#334155", padding: 14, borderRadius: 10, alignItems: "center" }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ECEDEE" }}>Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
-                  setSubmitError("Please fill in name, phone, address, and Eircode.");
-                  return;
-                }
-                setSubmitError("");
-                // Calculate fees if not done yet
-                if (!feeInfo && deliveryEircode.trim().length >= 5) {
-                  calculateFees();
-                }
-                setStep("confirm");
-              }}
-              style={{ flex: 1, backgroundColor: "#00E5FF", padding: 14, borderRadius: 10, alignItems: "center" }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#151718" }}>Review Order</Text>
-            </TouchableOpacity>
-          </View>
-
-          {submitError ? (
-            <Text style={{ fontSize: 13, color: "#EF4444", marginTop: 10, textAlign: "center" }}>{submitError}</Text>
-          ) : null}
-        </ScrollView>
-      )}
-
-      {/* STEP 4: Confirmation */}
-      {step === "confirm" && (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }}>
-          <Text style={{ fontSize: 22, fontWeight: "800", color: "#ECEDEE", marginBottom: 16 }}>Review Order</Text>
-
-          {/* Store */}
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 4 }}>STORE</Text>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#ECEDEE" }}>{selectedStoreName}</Text>
-          </View>
-
-          {/* Customer */}
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 4 }}>CUSTOMER</Text>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: "#ECEDEE" }}>{customerName}</Text>
-            <Text style={{ fontSize: 14, color: "#9BA1A6" }}>{customerPhone}</Text>
-            <Text style={{ fontSize: 14, color: "#9BA1A6", marginTop: 4 }}>{deliveryAddress}</Text>
-            {deliveryEircode ? <Text style={{ fontSize: 14, color: "#9BA1A6" }}>{deliveryEircode}</Text> : null}
-          </View>
-
-          {/* Items */}
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 8 }}>ITEMS ({cartItemCount})</Text>
-            {cart.map(item => (
-              <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#334155" }}>
-                <Text style={{ fontSize: 14, color: "#ECEDEE", flex: 1 }} numberOfLines={1}>{item.quantity}x {item.name}</Text>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Price Breakdown */}
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 8 }}>PRICE BREAKDOWN</Text>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-              <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Subtotal</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{cartSubtotal.toFixed(2)}</Text>
-            </View>
-            {feeInfo ? (
-              <>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Service Fee (10%)</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.serviceFee.toFixed(2)}</Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                  <Text style={{ fontSize: 14, color: "#9BA1A6" }}>Delivery Fee ({feeInfo.distance.toFixed(1)} km)</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>€{feeInfo.deliveryFee.toFixed(2)}</Text>
-                </View>
-                <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 6 }} />
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#00E5FF" }}>€{feeInfo.total.toFixed(2)}</Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={{ fontSize: 12, color: "#F59E0B", marginTop: 4 }}>
-                  ⚠️ Delivery fee not yet calculated. Fees will be calculated on submit.
+              <TouchableOpacity
+                onPress={() => setSelectedCategoryId(null)}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 6,
+                  backgroundColor: selectedCategoryId === null ? "#00E5FF" : "#334155",
+                }}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: selectedCategoryId === null ? "700" : "600",
+                  color: selectedCategoryId === null ? "#151718" : "#ECEDEE",
+                }}>
+                  All
                 </Text>
-                {!feeLoading && (
-                  <TouchableOpacity onPress={calculateFees} style={{ marginTop: 8 }}>
-                    <Text style={{ fontSize: 13, color: "#00E5FF", fontWeight: "600" }}>Calculate Fees Now</Text>
-                  </TouchableOpacity>
-                )}
-                {feeLoading && <ActivityIndicator size="small" color="#00E5FF" style={{ marginTop: 8 }} />}
-              </>
+              </TouchableOpacity>
+              {categoriesList.map(cat => (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => setSelectedCategoryId(cat.id)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    backgroundColor: selectedCategoryId === cat.id ? "#00E5FF" : "#334155",
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: selectedCategoryId === cat.id ? "700" : "600",
+                    color: selectedCategoryId === cat.id ? "#151718" : "#ECEDEE",
+                  }}>
+                    {cat.icon} {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Products List */}
+            {productsLoading ? (
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="large" color="#00E5FF" />
+              </View>
+            ) : (
+              <FlatList
+                data={productsList}
+                keyExtractor={(item) => String(item.id)}
+                contentContainerStyle={{ padding: 10, paddingBottom: isDesktop ? 20 : 100 }}
+                renderItem={({ item }) => {
+                  const inCart = cart.find(c => c.productId === item.id);
+                  return (
+                    <View style={{
+                      backgroundColor: "#1e2022",
+                      padding: 10,
+                      borderRadius: 8,
+                      marginBottom: 6,
+                      borderWidth: 1,
+                      borderColor: inCart ? "#00E5FF" : "#334155",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}>
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#ECEDEE" }} numberOfLines={2}>
+                          {item.name}
+                          {item.ageRestricted && <Text style={{ color: "#EF4444" }}> 18+</Text>}
+                        </Text>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF", marginTop: 2 }}>
+                          €{parseFloat(item.price).toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {inCart && (
+                          <>
+                            <TouchableOpacity
+                              onPress={() => removeFromCart(item.id)}
+                              style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#334155", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Text style={{ fontSize: 16, fontWeight: "700", color: "#ECEDEE" }}>−</Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 14, fontWeight: "700", color: "#ECEDEE", minWidth: 20, textAlign: "center" }}>
+                              {inCart.quantity}
+                            </Text>
+                          </>
+                        )}
+                        <TouchableOpacity
+                          onPress={() => addToCart(item)}
+                          style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: "#151718" }}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                    <Text style={{ color: "#687076" }}>
+                      {searchQuery ? "No products found" : "No products available"}
+                    </Text>
+                  </View>
+                }
+              />
             )}
           </View>
 
-          {/* Payment & Options */}
-          <View style={{ backgroundColor: "#1e2022", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#334155", marginBottom: 12 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Payment</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }}>{paymentMethod === "cash_on_delivery" ? "Cash on Delivery" : "Card"}</Text>
-            </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-              <Text style={{ fontSize: 14, color: "#687076" }}>Substitutions</Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: allowSubstitution ? "#22C55E" : "#9BA1A6" }}>
-                {allowSubstitution ? "Allowed" : "Not allowed"}
-              </Text>
-            </View>
-            {customerNotes ? (
-              <View style={{ marginTop: 4 }}>
-                <Text style={{ fontSize: 14, color: "#687076" }}>Notes</Text>
-                <Text style={{ fontSize: 14, color: "#ECEDEE", fontStyle: "italic", marginTop: 2 }}>{customerNotes}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Order Source Badge */}
-          <View style={{ backgroundColor: "#DBEAFE", padding: 10, borderRadius: 10, marginBottom: 20, alignItems: "center" }}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#2563EB" }}>📞 Phone Order — entered by staff</Text>
-          </View>
-
-          {/* Error message */}
-          {submitError ? (
-            <Text style={{ fontSize: 13, color: "#EF4444", marginBottom: 10, textAlign: "center" }}>{submitError}</Text>
-          ) : null}
-
-          {/* Action Buttons */}
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <TouchableOpacity
-              onPress={() => setStep("details")}
-              style={{ flex: 1, backgroundColor: "#334155", padding: 14, borderRadius: 10, alignItems: "center" }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ECEDEE" }}>Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={submitting}
-              style={{
-                flex: 2,
-                backgroundColor: submitting ? "#687076" : "#22C55E",
-                padding: 14,
-                borderRadius: 10,
-                alignItems: "center",
+          {/* RIGHT PANEL: Cart + Customer Details (40% desktop, 100% mobile stacked) */}
+          <View style={{ flex: isDesktop ? 0.4 : 1, backgroundColor: "#151718" }}>
+            <ScrollView
+              contentContainerStyle={{
+                padding: 12,
+                paddingBottom: 20 + insets.bottom,
               }}
             >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Create Order</Text>
+              {/* Cart Summary */}
+              <View style={{
+                backgroundColor: "#1e2022",
+                borderRadius: 10,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: "#334155",
+                marginBottom: 16,
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF", marginBottom: 8 }}>
+                  CART ({cartItemCount} items)
+                </Text>
+                {cart.length === 0 ? (
+                  <Text style={{ fontSize: 12, color: "#687076" }}>No items added</Text>
+                ) : (
+                  <>
+                    {cart.map(item => (
+                      <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                        <Text style={{ fontSize: 12, color: "#ECEDEE", flex: 1 }} numberOfLines={1}>
+                          {item.name} × {item.quantity}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: "#00E5FF" }}>
+                          €{(item.price * item.quantity).toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                    <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 8 }} />
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#ECEDEE" }}>Subtotal</Text>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF" }}>
+                        €{cartSubtotal.toFixed(2)}
+                      </Text>
+                    </View>
+                    {feeInfo && (
+                      <>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
+                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Service Fee (10%)</Text>
+                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>€{feeInfo.serviceFee.toFixed(2)}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>Delivery ({feeInfo.distance.toFixed(1)} km)</Text>
+                          <Text style={{ fontSize: 12, color: "#9BA1A6" }}>€{feeInfo.deliveryFee.toFixed(2)}</Text>
+                        </View>
+                        <View style={{ height: 1, backgroundColor: "#334155", marginVertical: 8 }} />
+                        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: "#ECEDEE" }}>Total</Text>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: "#22C55E" }}>
+                            €{feeInfo.total.toFixed(2)}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
+              </View>
+
+              {/* Customer Details Form */}
+              {cart.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "#00E5FF", marginBottom: 8 }}>
+                    CUSTOMER DETAILS
+                  </Text>
+
+                  {/* Phone */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>
+                    PHONE * (auto-fills name)
+                  </Text>
+                  <View style={{
+                    backgroundColor: "#1e2022",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: lookupDone ? "#22C55E" : "#334155",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginBottom: 4,
+                  }}>
+                    <TextInput
+                      value={customerPhone}
+                      onChangeText={handlePhoneChange}
+                      placeholder="089 123 4567"
+                      placeholderTextColor="#687076"
+                      style={{ fontSize: 13, color: "#ECEDEE" }}
+                      keyboardType="phone-pad"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  {lookupLoading && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 8 }}>
+                      <ActivityIndicator size="small" color="#00E5FF" />
+                      <Text style={{ fontSize: 11, color: "#687076" }}>Looking up...</Text>
+                    </View>
+                  )}
+                  {lookupMessage && (
+                    <Text style={{
+                      fontSize: 11,
+                      color: lookupMessage.startsWith("✅") ? "#22C55E" : "#687076",
+                      marginBottom: 8,
+                    }}>
+                      {lookupMessage}
+                    </Text>
+                  )}
+
+                  {/* Name */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>
+                    NAME *
+                  </Text>
+                  <View style={{
+                    backgroundColor: "#1e2022",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#334155",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginBottom: 12,
+                  }}>
+                    <TextInput
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                      placeholder="John Murphy"
+                      placeholderTextColor="#687076"
+                      style={{ fontSize: 13, color: "#ECEDEE" }}
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Address */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>
+                    ADDRESS *
+                  </Text>
+                  <View style={{
+                    backgroundColor: "#1e2022",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#334155",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginBottom: 12,
+                  }}>
+                    <TextInput
+                      value={deliveryAddress}
+                      onChangeText={setDeliveryAddress}
+                      placeholder="12 Main Street, Balbriggan"
+                      placeholderTextColor="#687076"
+                      style={{ fontSize: 13, color: "#ECEDEE", minHeight: 60 }}
+                      multiline
+                      returnKeyType="next"
+                    />
+                  </View>
+
+                  {/* Eircode */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>
+                    EIRCODE * (for fees)
+                  </Text>
+                  <View style={{
+                    backgroundColor: "#1e2022",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: feeInfo ? "#22C55E" : "#334155",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginBottom: 4,
+                  }}>
+                    <TextInput
+                      value={deliveryEircode}
+                      onChangeText={handleEircodeChange}
+                      placeholder="K32 AB12"
+                      placeholderTextColor="#687076"
+                      style={{ fontSize: 13, color: "#ECEDEE" }}
+                      autoCapitalize="characters"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  {feeLoading && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 8 }}>
+                      <ActivityIndicator size="small" color="#00E5FF" />
+                      <Text style={{ fontSize: 11, color: "#687076" }}>Calculating...</Text>
+                    </View>
+                  )}
+                  {feeError && (
+                    <Text style={{ fontSize: 11, color: "#EF4444", marginBottom: 8 }}>{feeError}</Text>
+                  )}
+                  {!feeLoading && !feeError && deliveryEircode.replace(/\s+/g, "").length >= 5 && !feeInfo && (
+                    <TouchableOpacity onPress={calculateFees} style={{ marginBottom: 8 }}>
+                      <Text style={{ fontSize: 11, color: "#00E5FF", fontWeight: "600" }}>Calculate delivery fee</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Age Verification (conditional) */}
+                  {hasAgeRestrictedItems && (
+                    <>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#EF4444", marginBottom: 4 }}>
+                        DOB * (18+ items in cart)
+                      </Text>
+                      <View style={{
+                        backgroundColor: "#1e2022",
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: "#334155",
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        marginBottom: 12,
+                      }}>
+                        <TextInput
+                          value={customerDOB}
+                          onChangeText={setCustomerDOB}
+                          placeholder="DD-MM-YYYY"
+                          placeholderTextColor="#687076"
+                          style={{ fontSize: 13, color: "#ECEDEE" }}
+                          keyboardType="number-pad"
+                          returnKeyType="next"
+                        />
+                      </View>
+                    </>
+                  )}
+
+                  {/* Payment Method */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 6 }}>
+                    PAYMENT
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => setPaymentMethod("cash_on_delivery")}
+                      style={{
+                        flex: 1,
+                        backgroundColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#1e2022",
+                        padding: 10,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: paymentMethod === "cash_on_delivery" ? "#00E5FF" : "#334155",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 12,
+                        fontWeight: "700",
+                        color: paymentMethod === "cash_on_delivery" ? "#151718" : "#ECEDEE",
+                      }}>
+                        Cash
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setPaymentMethod("card")}
+                      style={{
+                        flex: 1,
+                        backgroundColor: paymentMethod === "card" ? "#00E5FF" : "#1e2022",
+                        padding: 10,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: paymentMethod === "card" ? "#00E5FF" : "#334155",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 12,
+                        fontWeight: "700",
+                        color: paymentMethod === "card" ? "#151718" : "#ECEDEE",
+                      }}>
+                        Card
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Notes */}
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#687076", marginBottom: 4 }}>
+                    NOTES
+                  </Text>
+                  <View style={{
+                    backgroundColor: "#1e2022",
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "#334155",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    marginBottom: 12,
+                  }}>
+                    <TextInput
+                      value={customerNotes}
+                      onChangeText={setCustomerNotes}
+                      placeholder="Special requests..."
+                      placeholderTextColor="#687076"
+                      style={{ fontSize: 13, color: "#ECEDEE", minHeight: 50 }}
+                      multiline
+                    />
+                  </View>
+
+                  {/* Substitution */}
+                  <TouchableOpacity
+                    onPress={() => setAllowSubstitution(!allowSubstitution)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}
+                  >
+                    <View style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 4,
+                      backgroundColor: allowSubstitution ? "#00E5FF" : "#334155",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      {allowSubstitution && <Text style={{ fontSize: 12, fontWeight: "700", color: "#151718" }}>✓</Text>}
+                    </View>
+                    <Text style={{ fontSize: 12, color: "#ECEDEE" }}>Allow substitutions</Text>
+                  </TouchableOpacity>
+
+                  {/* Error Message */}
+                  {submitError && (
+                    <View style={{ backgroundColor: "#3a1f1f", borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: "#EF4444" }}>
+                      <Text style={{ fontSize: 12, color: "#EF4444" }}>{submitError}</Text>
+                    </View>
+                  )}
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim() || !deliveryEircode.trim()) {
+                        setSubmitError("Please fill in all required fields");
+                        return;
+                      }
+                      if (hasAgeRestrictedItems && !customerDOB.trim()) {
+                        setSubmitError("Please enter customer DOB for age-restricted items");
+                        return;
+                      }
+                      if (!feeInfo) {
+                        setSubmitError("Please calculate delivery fee first");
+                        return;
+                      }
+                      setSubmitError("");
+                      setShowConfirmModal(true);
+                    }}
+                    disabled={submitting || cart.length === 0}
+                    style={{
+                      backgroundColor: cart.length === 0 ? "#334155" : "#22C55E",
+                      padding: 12,
+                      borderRadius: 8,
+                      alignItems: "center",
+                      opacity: submitting ? 0.6 : 1,
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: "700",
+                      color: cart.length === 0 ? "#687076" : "#fff",
+                    }}>
+                      {submitting ? "Creating..." : "Create Order"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
               )}
-            </TouchableOpacity>
+            </ScrollView>
           </View>
-        </ScrollView>
+        </View>
       )}
 
-      {/* Confirm Modal Overlay */}
       {ConfirmOverlay}
     </ScreenContainer>
   );

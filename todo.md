@@ -2568,10 +2568,27 @@
 - [x] Redesign tab buttons to be larger and more visible
 
 
-## Current Session - Store Dashboard Issues (Mar 16, 2026)
+## Current Session -## Phone Order Screen Redesign (May 15, 2026)
+- [x] Remove 4-step wizard navigation from phone-order.tsx
+- [x] Implement single-page responsive layout (side-by-side desktop, stacked mobile)
+- [x] Left panel: Product search, categories, and product list with +/- quantity controls
+- [x] Right panel: Cart summary, customer details form, payment method selection
+- [x] Add conditional DOB field (only shows when cart has age-restricted items)
+- [x] Preserve all existing logic: phone lookup, fee calculation, order creation
+- [x] Maintain AdminDesktopLayout wrapper for consistency
+- [x] Responsive breakpoint at 1024px (desktop vs mobile)
+- [x] Desktop: 60% products, 40% cart+details
+- [x] Mobile: 100% products, then 100% cart+details
+- [x] Debounced phone lookup with auto-fill of customer name/address
+- [x] Debounced Eircode entry with auto-calculate delivery fees
+- [x] Order confirmation modal with summary
+- [x] Order success screen with receipt summary
+- [x] Elavon payment redirect for card payments
+- [x] All validation and error handling preserved
 
-### Navigation & UX Issues
-- [x] Fix darkening/modal overlay issue on store product page — RESOLVED: This was the store login Alert bug (missing imports), now fixed
+## Store Dashboard Issues (Mar 16, 2026)
+
+### Navigation & UX Issues [x] Fix darkening/modal overlay issue on store product page — RESOLVED: This was the store login Alert bug (missing imports), now fixed
 - [x] Analytics dashboard buttons not visible — RESOLVED: Analytics tabs exist at /store-dashboard (not /store). The app has two implementations:
   * `/store` → app/store/index.tsx (order management only, no analytics)
   * `/store-dashboard` → app/store-dashboard/index.tsx (with Orders & Analytics tabs)
