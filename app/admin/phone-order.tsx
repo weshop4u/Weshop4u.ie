@@ -28,6 +28,13 @@ type FeeInfo = {
   formattedAddress: string;
 } | null;
 
+const getProductImage = (product: any): string | null => {
+  if (product.images && product.images.length > 0) return product.images[0];
+  if (product.image) return product.image;
+  if (product.imageUrl) return product.imageUrl;
+  return null;
+};
+
 function PhoneOrderScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -114,10 +121,18 @@ function PhoneOrderScreenContent() {
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
 
-  const { data: productsList, isLoading: productsLoading } = trpc.admin.getStoreProducts.useQuery(
-    { storeId: selectedStoreId!, search: debouncedSearch.trim() || undefined },
+  const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
+    { storeId: selectedStoreId!, limit: 5000 },
     { enabled: selectedStoreId !== null && step === "products" }
   );
+  const productsList = productsData?.items || [];
+
+  // Client-side search filtering (since stores.getProducts doesn't support search param)
+  const filteredProductsList = useMemo(() => {
+    if (!debouncedSearch.trim()) return productsList;
+    const query = debouncedSearch.toLowerCase();
+    return productsList.filter(p => p.name.toLowerCase().includes(query));
+  }, [productsList, debouncedSearch]);
 
   const createPhoneOrderMutation = trpc.admin.createPhoneOrder.useMutation();
   const calculateFeesMutation = trpc.admin.calculatePhoneOrderFees.useMutation();
@@ -131,7 +146,7 @@ function PhoneOrderScreenContent() {
 
   // Group products by category for browsing
   const categoriesWithProducts = useMemo(() => {
-    if (!productsList || productsList.length === 0) return [];
+    if (productsList.length === 0) return [];
     const catMap: Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; products: typeof productsList }> = {};
     for (const product of productsList) {
       const catId = (product as any).categoryId || 0;
@@ -506,7 +521,7 @@ function PhoneOrderScreenContent() {
           ) : searchQuery.trim().length > 0 ? (
             // ── SEARCH RESULTS (flat product list) ──
             <FlatList
-              data={productsList || []}
+              data={filteredProductsList}
               keyExtractor={(item) => String(item.id)}
               contentContainerStyle={{ padding: 12, paddingBottom: cart.length > 0 ? 100 : 20 }}
               renderItem={({ item }) => {
@@ -635,6 +650,7 @@ function PhoneOrderScreenContent() {
                   const inCart = cart.find(c => c.productId === item.id);
                   const cat = categoriesWithProducts.find(c => c.id === selectedCategoryId);
                   const catAgeRestricted = cat?.ageRestricted || false;
+                  const productImage = getProductImage(item);
                   return (
                     <View style={{
                       backgroundColor: "#1e2022",
@@ -645,9 +661,13 @@ function PhoneOrderScreenContent() {
                       borderColor: inCart ? "#00E5FF" : "#334155",
                       flexDirection: "row",
                       alignItems: "center",
-                      justifyContent: "space-between",
                     }}>
-                      <View style={{ flex: 1, marginRight: 12 }}>
+                      {productImage && (
+                        <View style={{ width: 56, height: 56, borderRadius: 8, overflow: "hidden", marginRight: 10 }}>
+                          <Image source={{ uri: productImage }} style={{ width: 56, height: 56 }} contentFit="cover" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1, marginRight: 10 }}>
                         <Text style={{ fontSize: 14, fontWeight: "600", color: "#ECEDEE" }} numberOfLines={2}>{item.name}</Text>
                         <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF", marginTop: 2 }}>€{parseFloat(item.price).toFixed(2)}</Text>
                       </View>
