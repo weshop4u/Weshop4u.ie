@@ -362,9 +362,12 @@ function PhoneOrderScreenContent() {
         <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 40 + insets.bottom, alignItems: "center", justifyContent: "center", flexGrow: 1 }}>
           <Text style={{ fontSize: 48, marginBottom: 12 }}>✅</Text>
           <Text style={{ fontSize: 24, fontWeight: "800", color: colors.foreground, marginBottom: 8, textAlign: "center" }}>Order Created!</Text>
-          <Text style={{ fontSize: 16, color: colors.muted, marginBottom: 24, textAlign: "center" }}>
-            {orderResult.orderNumber}
-          </Text>
+<Text style={{ fontSize: 16, color: colors.muted, marginBottom: 8, textAlign: "center" }}>
+                  {orderResult.orderNumber}
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 24, textAlign: "center" }}>
+                  📍 {deliveryAddress}
+                </Text>
 
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: "100%", maxWidth: 400, marginBottom: 24 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
@@ -422,6 +425,14 @@ function PhoneOrderScreenContent() {
         <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
           {cartItemCount} items from {selectedStoreName}
         </Text>
+        <View style={{ marginBottom: 8, marginTop: 4, borderTopWidth: 1, borderTopColor: "#334155", paddingTop: 8 }}>
+          {cart.map(item => (
+            <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 }}>
+              <Text style={{ fontSize: 13, color: "#9BA1A6", flex: 1 }} numberOfLines={1}>{item.quantity}x {item.name}</Text>
+              <Text style={{ fontSize: 13, color: "#9BA1A6" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
+            </View>
+          ))}
+        </View>
         <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
           Subtotal: €{cartSubtotal.toFixed(2)}
         </Text>
@@ -438,8 +449,11 @@ function PhoneOrderScreenContent() {
             </Text>
           </>
         )}
-        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 4 }}>
           Payment: {paymentMethod === "cash_on_delivery" ? "Cash on Delivery" : "Card"}
+        </Text>
+        <Text style={{ fontSize: 14, color: "#9BA1A6", marginBottom: 16 }}>
+          📍 {deliveryAddress}{deliveryEircode ? `, ${deliveryEircode}` : ""}
         </Text>
 
         <View style={{ flexDirection: "row", gap: 10 }}>
