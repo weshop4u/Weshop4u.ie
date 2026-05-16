@@ -465,7 +465,22 @@ function PhoneOrderScreenContent() {
       {/* Step Indicator */}
       <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#334155", gap: 4 }}>
         {steps.map((s, i) => (
-          <View key={s.key} style={{ flex: 1, alignItems: "center" }}>
+          <TouchableOpacity
+            key={s.key}
+            style={{ flex: 1, alignItems: "center" }}
+            onPress={() => {
+              // Only allow going back, or to steps already reached
+              if (i < currentStepIndex) {
+                setStep(s.key as typeof step);
+              } else if (i === 1 && selectedStoreId !== null) {
+                setStep("products");
+              } else if (i === 2 && cart.length > 0) {
+                setStep("details");
+              } else if (i === 3 && cart.length > 0 && customerName.trim() && customerPhone.trim() && deliveryAddress.trim() && deliveryEircode.trim()) {
+                setStep("confirm");
+              }
+            }}
+          >
             <View style={{
               width: "100%", height: 3, borderRadius: 2,
               backgroundColor: i <= currentStepIndex ? "#00E5FF" : "#334155",
@@ -474,7 +489,7 @@ function PhoneOrderScreenContent() {
             <Text style={{ fontSize: 11, fontWeight: i === currentStepIndex ? "700" : "400", color: i <= currentStepIndex ? "#00E5FF" : "#687076" }}>
               {s.label}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -863,12 +878,27 @@ function PhoneOrderScreenContent() {
           {/* Order Summary */}
           <View style={{ backgroundColor: "#f8f9fa", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 20 }}>
             <Text style={{ fontSize: 13, fontWeight: "700", color: "#687076", marginBottom: 10 }}>ORDER SUMMARY ({cartItemCount} items)</Text>
-            {cart.map(item => (
-              <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
-                <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }} numberOfLines={1}>{item.quantity}x {item.name}</Text>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
-              </View>
-            ))}
+{cart.map(item => (
+                  <View key={item.productId} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", gap: 8 }}>
+                    <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }} numberOfLines={1}>{item.name}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => removeFromCart(item.productId)}
+                        style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: "#E5E7EB", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C", minWidth: 18, textAlign: "center" }}>{item.quantity}</Text>
+                      <TouchableOpacity
+                        onPress={() => addToCart({ id: item.productId, name: item.name, price: String(item.price) }, item.ageRestricted)}
+                        style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: "#00E5FF", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: "#151718" }}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
             <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
               <Text style={{ fontSize: 15, fontWeight: "700", color: "#11181C" }}>Subtotal</Text>
               <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{cartSubtotal.toFixed(2)}</Text>
