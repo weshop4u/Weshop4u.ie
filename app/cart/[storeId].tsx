@@ -26,6 +26,7 @@ export default function CartScreen() {
   // Guest checkout choice state
   const [showGuestChoice, setShowGuestChoice] = useState(false);
   const [guestChoiceMade, setGuestChoiceMade] = useState(false);
+  const [showComingSoonMessage, setShowComingSoonMessage] = useState(false);
   
   // Delivery fee warning modal
   const [showDeliveryFeeWarning, setShowDeliveryFeeWarning] = useState(false);
@@ -1370,24 +1371,20 @@ export default function CartScreen() {
           </View>
         )}
 
+        {/* Coming Soon Message */}
+        {showComingSoonMessage && (
+          <View style={{ backgroundColor: "#FEF2F2", borderRadius: 10, padding: 14, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: "#DC2626" }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: "#DC2626", marginBottom: 2 }}>Sorry, we're not accepting orders just yet!</Text>
+            <Text style={{ fontSize: 13, color: "#991B1B" }}>We'll be open very soon — thanks for your patience! 🙏</Text>
+          </View>
+        )}
         {/* Checkout Button */}
         <TouchableOpacity
-          onPress={handleCheckout}
-          disabled={!deliveryFeeCalculated || createOrderMutation.isPending || guestCashLimitExceeded || (isGuest && !phoneVerified)}
+          onPress={() => setShowComingSoonMessage(true)}
           style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
-          className={`p-4 rounded-lg items-center ${
-            deliveryFeeCalculated && !createOrderMutation.isPending && !guestCashLimitExceeded && (!isGuest || phoneVerified) ? "bg-primary active:opacity-70" : "bg-surface"
-          }`}
+          className="p-4 rounded-lg items-center bg-primary active:opacity-70"
         >
-          {createOrderMutation.isPending ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Text className={`font-bold text-lg ${
-              deliveryFeeCalculated && !guestCashLimitExceeded && (!isGuest || phoneVerified) ? "text-background" : "text-muted"
-            }`}>
-              Place Order
-            </Text>
-          )}
+          <Text className="font-bold text-lg text-background">Place Order</Text>
         </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>

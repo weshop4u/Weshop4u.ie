@@ -151,6 +151,12 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* Coming Soon Banner */}
+        <View style={{ backgroundColor: "#FEF3C7", borderRadius: 10, padding: 14, marginHorizontal: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: "#F59E0B" }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: "#92400E", marginBottom: 2 }}>🚀 Launching Very Soon!</Text>
+          <Text style={{ fontSize: 13, color: "#92400E" }}>We're putting the finishing touches on our service. You can browse our stores and products, but ordering will be available very soon!</Text>
+        </View>
+
         {/* Stores Grid */}
         <View className="px-4">
           <View className="flex-row items-center justify-between mb-4">
