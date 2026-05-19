@@ -127,6 +127,11 @@ const config: ExpoConfig = {
       },
     ],
   ],
+  extra: {
+    eas: {
+      projectId: "c0c1895b-8b0b-446b-9473-9e72fd25754a"
+    }
+  },
   experiments: {
     typedRoutes: true,
     // React Compiler disabled — causes cascading remounts with NativeWind on native Android,
