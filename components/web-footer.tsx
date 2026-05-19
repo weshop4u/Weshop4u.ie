@@ -57,6 +57,9 @@ export function WebFooter() {
             <TouchableOpacity onPress={() => router.push("/delete-account")}>
               <Text style={styles.link}>Delete Account</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/profile/privacy")}>
+              <Text style={styles.link}>Privacy Policy</Text>
+            </TouchableOpacity>
           </View>
 
           {/* For Businesses */}
