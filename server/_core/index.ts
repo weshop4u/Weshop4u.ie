@@ -232,6 +232,7 @@ app.get("/favicon.ico", (req, res) => {
 
   // Redirect root /api/ to /api/web so users always land on the web app
   app.get("/", (_req, res) => res.redirect("/api/web/"));
+  app.get("/privacy", (_req, res) => res.redirect("/api/web/profile/privacy"));
 app.get("/api", (_req, res) => res.redirect("/api/web"));
 
   // Serve static web files - the deployment platform only routes /api/* to Express,
