@@ -100,8 +100,8 @@ export default function PrivacyScreen() {
             <Text className="text-muted leading-relaxed">
               If you have questions about this Privacy Policy, please contact us:
             </Text>
-            <Text className="text-primary font-semibold mt-2">Phone: 0894 626262</Text>
-            <Text className="text-primary font-semibold">Email: Weshop4u247@gmail.com</Text>
+            <Text className="text-primary font-semibold mt-2">Phone: +353894 626262</Text>
+            <Text className="text-primary font-semibold">Email: info@weshop4u.ie</Text>
           </View>
         </View>
       </ScrollView>
