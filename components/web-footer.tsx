@@ -77,7 +77,7 @@ export function WebFooter() {
           <View style={styles.column}>
             <Text style={styles.columnTitle}>Contact Us</Text>
             <Text style={styles.contactText}>📞 089-4 626262</Text>
-            <Text style={styles.contactText}>📧 weshop4u247@gmail.com</Text>
+            <Text style={styles.contactText}>📧 info@weshop4u.ie</Text>
             <Text style={styles.contactText}>📍 Ireland</Text>
           </View>
         </View>
