@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g"
+    },
+    {
+      "id": "60002",
+      "name": "Carrots 1kg"
+    },
+    {
+      "id": "60004",
+      "name": "Lettuce Iceberg"
+    },
+    {
+      "id": "60005",
+      "name": "Cucumber 1 large"
+    },
+    {
+      "id": "60013",
+      "name": "Birra Moretti 660ml"
+    },
+    {
+      "id": "60020",
+      "name": "Budweiser Bottle 660ml"
+    },
+    {
+      "id": "60026",
+      "name": "Bulmers Cider Bottles 1 litre"
+    },
+    {
+      "id": "60038",
+      "name": "Clearsprings Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60039",
+      "name": "Clearsprings Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60040",
+      "name": "Cobra Bottle 660ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60001\tMushrooms 250g\n60002\tCarrots 1kg\n60004\tLettuce Iceberg\n60005\tCucumber 1 large\n60013\tBirra Moretti 660ml\n60020\tBudweiser Bottle 660ml\n60026\tBulmers Cider Bottles 1 litre\n60038\tClearsprings Cabernet Sauvignon 750ml\n60039\tClearsprings Sauvignon Blanc 750ml\n60040\tCobra Bottle 660ml\n",
+  "stderr": "",
+  "execution_time_ms": 343
+}

@@ -1,0 +1,210 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 50;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 50;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g"
+    },
+    {
+      "id": "60002",
+      "name": "Carrots 1kg"
+    },
+    {
+      "id": "60004",
+      "name": "Lettuce Iceberg"
+    },
+    {
+      "id": "60005",
+      "name": "Cucumber 1 large"
+    },
+    {
+      "id": "60006",
+      "name": "Angelico Pinot Grigio 750ml"
+    },
+    {
+      "id": "60007",
+      "name": "Barefoot Merlot 750ml"
+    },
+    {
+      "id": "60008",
+      "name": "Barefoot Pinot Grigio 75oml"
+    },
+    {
+      "id": "60009",
+      "name": "Barefoot Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60010",
+      "name": "Barefoot White Zinfandel 750ml"
+    },
+    {
+      "id": "60013",
+      "name": "Birra Moretti 660ml"
+    },
+    {
+      "id": "60015",
+      "name": "Blossom Hill Red 750ml"
+    },
+    {
+      "id": "60016",
+      "name": "Blossom Hill White 750ml"
+    },
+    {
+      "id": "60020",
+      "name": "Budweiser Bottle 660ml"
+    },
+    {
+      "id": "60026",
+      "name": "Bulmers Cider Bottles 1 litre"
+    },
+    {
+      "id": "60037",
+      "name": "Chat Pasquet 750ml"
+    },
+    {
+      "id": "60038",
+      "name": "Clearsprings Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60039",
+      "name": "Clearsprings Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60040",
+      "name": "Cobra Bottle 660ml"
+    },
+    {
+      "id": "60046",
+      "name": "Corona Bottle 620ml"
+    },
+    {
+      "id": "60054",
+      "name": "Epicuro Montepulciano 750ml"
+    },
+    {
+      "id": "60055",
+      "name": "Epicuro Nero D Avda 750ml"
+    },
+    {
+      "id": "60056",
+      "name": "Epicuro Pinot Grigio Terre 750ml"
+    },
+    {
+      "id": "60057",
+      "name": "Erdinger Abv 500ml"
+    },
+    {
+      "id": "60058",
+      "name": "Erdinger Hefe 500ml"
+    },
+    {
+      "id": "60060",
+      "name": "Estrella Garcia Premium Lager 660ml"
+    },
+    {
+      "id": "60061",
+      "name": "Fat Frog Original 250ml"
+    },
+    {
+      "id": "60062",
+      "name": "Fireball Liqueur 200ml"
+    },
+    {
+      "id": "60063",
+      "name": "Fireball Liqueur 50ml"
+    },
+    {
+      "id": "60064",
+      "name": "Flying Kiwi Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60067",
+      "name": "Four Loko Blue 440ml"
+    },
+    {
+      "id": "60068",
+      "name": "Four Loko Fruit Punch 440ml"
+    },
+    {
+      "id": "60069",
+      "name": "Four Loko Gold 440ml"
+    },
+    {
+      "id": "60070",
+      "name": "Four Loko Pink Melon 440ml"
+    },
+    {
+      "id": "60071",
+      "name": "Four Loko Tropical 440ml"
+    },
+    {
+      "id": "60072",
+      "name": "Gallo Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60073",
+      "name": "Gallo Negro Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60074",
+      "name": "Gallo Pinot Grigio 750ml"
+    },
+    {
+      "id": "60075",
+      "name": "Gallo Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60076",
+      "name": "Gallo White Grenache 750ml"
+    },
+    {
+      "id": "60077",
+      "name": "Gallo Negro Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60078",
+      "name": "Garland Crest Chardonnay 750ml"
+    },
+    {
+      "id": "60079",
+      "name": "Garland Crest Shiraz 750ml"
+    },
+    {
+      "id": "60082",
+      "name": "Grolsch Bottle 450ml"
+    },
+    {
+      "id": "60088",
+      "name": "Guinness West Indies 500ml"
+    },
+    {
+      "id": "60090",
+      "name": "Hardys Main Road Chardonnay 750ml"
+    },
+    {
+      "id": "60091",
+      "name": "Hardys Main Road Pinot Grigio 750ml"
+    },
+    {
+      "id": "60092",
+      "name": "Hardys Main Road Rose 750ml"
+    },
+    {
+      "id": "60093",
+      "name": "Hardys Main Road Shiraz 740ml"
+    },
+    {
+      "id": "60098",
+      "name": "Heineken Bottle 650ml"
+    },
+    {
+      "id": "60102",
+      "name": "Hop House 13 Lager Bottle 650ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60001\tMushrooms 250g\n60002\tCarrots 1kg\n60004\tLettuce Iceberg\n60005\tCucumber 1 large\n60006\tAngelico Pinot Grigio 750ml\n60007\tBarefoot Merlot 750ml\n60008\tBarefoot Pinot Grigio 75oml\n60009\tBarefoot Sauvignon Blanc 750ml\n60010\tBarefoot White Zinfandel 750ml\n60013\tBirra Moretti 660ml\n60015\tBlossom Hill Red 750ml\n60016\tBlossom Hill White 750ml\n60020\tBudweiser Bottle 660ml\n60026\tBulmers Cider Bottles 1 litre\n60037\tChat Pasquet 750ml\n60038\tClearsprings Cabernet Sauvignon 750ml\n60039\tClearsprings Sauvignon Blanc 750ml\n60040\tCobra Bottle 660ml\n60046\tCorona Bottle 620ml\n60054\tEpicuro Montepulciano 750ml\n60055\tEpicuro Nero D Avda 750ml\n60056\tEpicuro Pinot Grigio Terre 750ml\n60057\tErdinger Abv 500ml\n60058\tErdinger Hefe 500ml\n60060\tEstrella Garcia Premium Lager 660ml\n60061\tFat Frog Original 250ml\n60062\tFireball Liqueur 200ml\n60063\tFireball Liqueur 50ml\n60064\tFlying Kiwi Sauvignon Blanc 750ml\n60067\tFour Loko Blue 440ml\n60068\tFour Loko Fruit Punch 440ml\n60069\tFour Loko Gold 440ml\n60070\tFour Loko Pink Melon 440ml\n60071\tFour Loko Tropical 440ml\n60072\tGallo Cabernet Sauvignon 750ml\n60073\tGallo Negro Sauvignon Blanc 750ml\n60074\tGallo Pinot Grigio 750ml\n60075\tGallo Sauvignon Blanc 750ml\n60076\tGallo White Grenache 750ml\n60077\tGallo Negro Cabernet Sauvignon 750ml\n60078\tGarland Crest Chardonnay 750ml\n60079\tGarland Crest Shiraz 750ml\n60082\tGrolsch Bottle 450ml\n60088\tGuinness West Indies 500ml\n60090\tHardys Main Road Chardonnay 750ml\n60091\tHardys Main Road Pinot Grigio 750ml\n60092\tHardys Main Road Rose 750ml\n60093\tHardys Main Road Shiraz 740ml\n60098\tHeineken Bottle 650ml\n60102\tHop House 13 Lager Bottle 650ml\n",
+  "stderr": "",
+  "execution_time_ms": 692
+}

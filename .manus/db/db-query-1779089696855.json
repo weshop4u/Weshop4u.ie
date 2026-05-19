@@ -1,0 +1,210 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 50 OFFSET 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 50 OFFSET 20;",
+  "rows": [
+    {
+      "id": "60076",
+      "name": "Gallo White Grenache 750ml"
+    },
+    {
+      "id": "60077",
+      "name": "Gallo Negro Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60078",
+      "name": "Garland Crest Chardonnay 750ml"
+    },
+    {
+      "id": "60079",
+      "name": "Garland Crest Shiraz 750ml"
+    },
+    {
+      "id": "60082",
+      "name": "Grolsch Bottle 450ml"
+    },
+    {
+      "id": "60088",
+      "name": "Guinness West Indies 500ml"
+    },
+    {
+      "id": "60090",
+      "name": "Hardys Main Road Chardonnay 750ml"
+    },
+    {
+      "id": "60091",
+      "name": "Hardys Main Road Pinot Grigio 750ml"
+    },
+    {
+      "id": "60092",
+      "name": "Hardys Main Road Rose 750ml"
+    },
+    {
+      "id": "60093",
+      "name": "Hardys Main Road Shiraz 740ml"
+    },
+    {
+      "id": "60098",
+      "name": "Heineken Bottle 650ml"
+    },
+    {
+      "id": "60102",
+      "name": "Hop House 13 Lager Bottle 650ml"
+    },
+    {
+      "id": "60104",
+      "name": "I Heart Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60105",
+      "name": "I Heart Merlot 750ml"
+    },
+    {
+      "id": "60106",
+      "name": "I Heart Pinot Grigio 750ml"
+    },
+    {
+      "id": "60107",
+      "name": "I Heart Rose 750ml"
+    },
+    {
+      "id": "60108",
+      "name": "I Heart Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60109",
+      "name": "I Heart Shiraz 750ml"
+    },
+    {
+      "id": "60110",
+      "name": "Jameson and Cola 250ml"
+    },
+    {
+      "id": "60114",
+      "name": "Kopparberg Mixed Fruit Bottle 500ml"
+    },
+    {
+      "id": "60116",
+      "name": "La Celia Reserva Pinot Grigio 750ml"
+    },
+    {
+      "id": "60118",
+      "name": "Linden Village 1 Litre"
+    },
+    {
+      "id": "60120",
+      "name": "Lindemans Bin 45 Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60121",
+      "name": "Lindemans Bin 60 Chardonnay 750ml"
+    },
+    {
+      "id": "60123",
+      "name": "Lomza Export Bottle 500ml"
+    },
+    {
+      "id": "60126",
+      "name": "Madri Bottle 660ml"
+    },
+    {
+      "id": "60127",
+      "name": "Makulu Chardonnay 750ml"
+    },
+    {
+      "id": "60128",
+      "name": "Makulu Pinot Rose 750ml"
+    },
+    {
+      "id": "60129",
+      "name": "Makulu Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60130",
+      "name": "Makulu Shiraz 750ml"
+    },
+    {
+      "id": "60131",
+      "name": "Makutu Bay Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60132",
+      "name": "Marlborough Springs Sauvignon 750ml"
+    },
+    {
+      "id": "60133",
+      "name": "Massai  Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60134",
+      "name": "Massai Viognier 740ml"
+    },
+    {
+      "id": "60136",
+      "name": "Milleveni Pinot Grigio 750ml"
+    },
+    {
+      "id": "60137",
+      "name": "Milleveni Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60138",
+      "name": "Millveni Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60139",
+      "name": "Orchard Pig Truffler Bottle 500ml"
+    },
+    {
+      "id": "60142",
+      "name": "Oyster Bay Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60144",
+      "name": "Peroni Bottle 660ml"
+    },
+    {
+      "id": "60145",
+      "name": "Pinot Pinot Grigio 750ml"
+    },
+    {
+      "id": "60146",
+      "name": "Pinot Pinot Noir 750ml"
+    },
+    {
+      "id": "60147",
+      "name": "Pinot Pinot Pink Grigio 750ml"
+    },
+    {
+      "id": "60151",
+      "name": "Robertson Ruby Cabernet 750ml"
+    },
+    {
+      "id": "60158",
+      "name": "San Miguel Bottle 660ml"
+    },
+    {
+      "id": "60159",
+      "name": "Santa Hel V Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60160",
+      "name": "Santa Hel V Chardonnay 750ml"
+    },
+    {
+      "id": "60161",
+      "name": "Santa Hel V Malbec 750ml"
+    },
+    {
+      "id": "60162",
+      "name": "Santa Hel V Merlot 750ml"
+    },
+    {
+      "id": "60163",
+      "name": "Santa Hel V Pinot Grigio 750ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60076\tGallo White Grenache 750ml\n60077\tGallo Negro Cabernet Sauvignon 750ml\n60078\tGarland Crest Chardonnay 750ml\n60079\tGarland Crest Shiraz 750ml\n60082\tGrolsch Bottle 450ml\n60088\tGuinness West Indies 500ml\n60090\tHardys Main Road Chardonnay 750ml\n60091\tHardys Main Road Pinot Grigio 750ml\n60092\tHardys Main Road Rose 750ml\n60093\tHardys Main Road Shiraz 740ml\n60098\tHeineken Bottle 650ml\n60102\tHop House 13 Lager Bottle 650ml\n60104\tI Heart Cabernet Sauvignon 750ml\n60105\tI Heart Merlot 750ml\n60106\tI Heart Pinot Grigio 750ml\n60107\tI Heart Rose 750ml\n60108\tI Heart Sauvignon Blanc 750ml\n60109\tI Heart Shiraz 750ml\n60110\tJameson and Cola 250ml\n60114\tKopparberg Mixed Fruit Bottle 500ml\n60116\tLa Celia Reserva Pinot Grigio 750ml\n60118\tLinden Village 1 Litre\n60120\tLindemans Bin 45 Cabernet Sauvignon 750ml\n60121\tLindemans Bin 60 Chardonnay 750ml\n60123\tLomza Export Bottle 500ml\n60126\tMadri Bottle 660ml\n60127\tMakulu Chardonnay 750ml\n60128\tMakulu Pinot Rose 750ml\n60129\tMakulu Sauvignon Blanc 750ml\n60130\tMakulu Shiraz 750ml\n60131\tMakutu Bay Sauvignon Blanc 750ml\n60132\tMarlborough Springs Sauvignon 750ml\n60133\tMassai  Cabernet Sauvignon 750ml\n60134\tMassai Viognier 740ml\n60136\tMilleveni Pinot Grigio 750ml\n60137\tMilleveni Sauvignon Blanc 750ml\n60138\tMillveni Cabernet Sauvignon 750ml\n60139\tOrchard Pig Truffler Bottle 500ml\n60142\tOyster Bay Sauvignon Blanc 750ml\n60144\tPeroni Bottle 660ml\n60145\tPinot Pinot Grigio 750ml\n60146\tPinot Pinot Noir 750ml\n60147\tPinot Pinot Pink Grigio 750ml\n60151\tRobertson Ruby Cabernet 750ml\n60158\tSan Miguel Bottle 660ml\n60159\tSanta Hel V Cabernet Sauvignon 750ml\n60160\tSanta Hel V Chardonnay 750ml\n60161\tSanta Hel V Malbec 750ml\n60162\tSanta Hel V Merlot 750ml\n60163\tSanta Hel V Pinot Grigio 750ml\n",
+  "stderr": "",
+  "execution_time_ms": 261
+}

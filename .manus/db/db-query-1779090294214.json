@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 20 OFFSET 38;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 20 OFFSET 38;",
+  "rows": [
+    {
+      "id": "60142",
+      "name": "Oyster Bay Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60144",
+      "name": "Peroni Bottle 660ml"
+    },
+    {
+      "id": "60145",
+      "name": "Pinot Pinot Grigio 750ml"
+    },
+    {
+      "id": "60146",
+      "name": "Pinot Pinot Noir 750ml"
+    },
+    {
+      "id": "60147",
+      "name": "Pinot Pinot Pink Grigio 750ml"
+    },
+    {
+      "id": "60151",
+      "name": "Robertson Ruby Cabernet 750ml"
+    },
+    {
+      "id": "60158",
+      "name": "San Miguel Bottle 660ml"
+    },
+    {
+      "id": "60159",
+      "name": "Santa Hel V Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60160",
+      "name": "Santa Hel V Chardonnay 750ml"
+    },
+    {
+      "id": "60161",
+      "name": "Santa Hel V Malbec 750ml"
+    },
+    {
+      "id": "60162",
+      "name": "Santa Hel V Merlot 750ml"
+    },
+    {
+      "id": "60163",
+      "name": "Santa Hel V Pinot Grigio 750ml"
+    },
+    {
+      "id": "60164",
+      "name": "Santa Hel V Rose 750ml"
+    },
+    {
+      "id": "60165",
+      "name": "Santa Hel V Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60166",
+      "name": "Santa Hel V Soft and Fruity 750ml"
+    },
+    {
+      "id": "60167",
+      "name": "Santa Rita 120 Merlot 750ml"
+    },
+    {
+      "id": "60168",
+      "name": "Santa Rita Cabernet Sauvignon 750ml"
+    },
+    {
+      "id": "60169",
+      "name": "Smirnoff Ice Raspberry Premix 700ml"
+    },
+    {
+      "id": "60170",
+      "name": "Smirnoff Ice Tropical 700ml"
+    },
+    {
+      "id": "60171",
+      "name": "Smirnoff Ice Vodka 700ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60142\tOyster Bay Sauvignon Blanc 750ml\n60144\tPeroni Bottle 660ml\n60145\tPinot Pinot Grigio 750ml\n60146\tPinot Pinot Noir 750ml\n60147\tPinot Pinot Pink Grigio 750ml\n60151\tRobertson Ruby Cabernet 750ml\n60158\tSan Miguel Bottle 660ml\n60159\tSanta Hel V Cabernet Sauvignon 750ml\n60160\tSanta Hel V Chardonnay 750ml\n60161\tSanta Hel V Malbec 750ml\n60162\tSanta Hel V Merlot 750ml\n60163\tSanta Hel V Pinot Grigio 750ml\n60164\tSanta Hel V Rose 750ml\n60165\tSanta Hel V Sauvignon Blanc 750ml\n60166\tSanta Hel V Soft and Fruity 750ml\n60167\tSanta Rita 120 Merlot 750ml\n60168\tSanta Rita Cabernet Sauvignon 750ml\n60169\tSmirnoff Ice Raspberry Premix 700ml\n60170\tSmirnoff Ice Tropical 700ml\n60171\tSmirnoff Ice Vodka 700ml\n",
+  "stderr": "",
+  "execution_time_ms": 974
+}

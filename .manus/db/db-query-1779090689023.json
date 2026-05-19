@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE products SET images = '[]' WHERE id IN (60006, 60007, 60008, 60009, 60010, 60015, 60016, 60037, 60046, 60054, 60055, 60056, 60057, 60058, 60060, 60061, 60062, 60063);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute UPDATE products SET images = '[]' WHERE id IN (60006, 60007, 60008, 60009, 60010, 60015, 60016, 60037, 60046, 60054, 60055, 60056, 60057, 60058, 60060, 60061, 60062, 60063);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 13493
+}

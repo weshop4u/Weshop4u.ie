@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as affected_count FROM products WHERE images LIKE '%/storage/%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT COUNT(*) as affected_count FROM products WHERE images LIKE '%/storage/%';",
+  "rows": [
+    {
+      "affected_count": "2599"
+    }
+  ],
+  "messages": [],
+  "stdout": "affected_count\n2599\n",
+  "stderr": "",
+  "execution_time_ms": 328
+}

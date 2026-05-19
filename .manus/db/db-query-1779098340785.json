@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE products SET images = '[]' WHERE images LIKE '%/storage/%'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute UPDATE products SET images = '[]' WHERE images LIKE '%/storage/%'",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 301
+}

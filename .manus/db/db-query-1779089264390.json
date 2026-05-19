@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g"
+    },
+    {
+      "id": "60002",
+      "name": "Carrots 1kg"
+    },
+    {
+      "id": "60004",
+      "name": "Lettuce Iceberg"
+    },
+    {
+      "id": "60005",
+      "name": "Cucumber 1 large"
+    },
+    {
+      "id": "60006",
+      "name": "Angelico Pinot Grigio 750ml"
+    },
+    {
+      "id": "60007",
+      "name": "Barefoot Merlot 750ml"
+    },
+    {
+      "id": "60008",
+      "name": "Barefoot Pinot Grigio 75oml"
+    },
+    {
+      "id": "60009",
+      "name": "Barefoot Sauvignon Blanc 750ml"
+    },
+    {
+      "id": "60010",
+      "name": "Barefoot White Zinfandel 750ml"
+    },
+    {
+      "id": "60013",
+      "name": "Birra Moretti 660ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60001\tMushrooms 250g\n60002\tCarrots 1kg\n60004\tLettuce Iceberg\n60005\tCucumber 1 large\n60006\tAngelico Pinot Grigio 750ml\n60007\tBarefoot Merlot 750ml\n60008\tBarefoot Pinot Grigio 75oml\n60009\tBarefoot Sauvignon Blanc 750ml\n60010\tBarefoot White Zinfandel 750ml\n60013\tBirra Moretti 660ml\n",
+  "stderr": "",
+  "execution_time_ms": 273
+}

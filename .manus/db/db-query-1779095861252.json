@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as count FROM products WHERE JSON_LENGTH(images) > 0 AND NOT JSON_CONTAINS(images, '\"/storage/\"')",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT COUNT(*) as count FROM products WHERE JSON_LENGTH(images) > 0 AND NOT JSON_CONTAINS(images, '\"/storage/\"')",
+  "rows": [
+    {
+      "count": "2775"
+    }
+  ],
+  "messages": [],
+  "stdout": "count\n2775\n",
+  "stderr": "",
+  "execution_time_ms": 325
+}

@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10 OFFSET 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name FROM products WHERE images LIKE '%/storage/%' LIMIT 10 OFFSET 10;",
+  "rows": [
+    {
+      "id": "60046",
+      "name": "Corona Bottle 620ml"
+    },
+    {
+      "id": "60054",
+      "name": "Epicuro Montepulciano 750ml"
+    },
+    {
+      "id": "60055",
+      "name": "Epicuro Nero D Avda 750ml"
+    },
+    {
+      "id": "60056",
+      "name": "Epicuro Pinot Grigio Terre 750ml"
+    },
+    {
+      "id": "60057",
+      "name": "Erdinger Abv 500ml"
+    },
+    {
+      "id": "60058",
+      "name": "Erdinger Hefe 500ml"
+    },
+    {
+      "id": "60060",
+      "name": "Estrella Garcia Premium Lager 660ml"
+    },
+    {
+      "id": "60061",
+      "name": "Fat Frog Original 250ml"
+    },
+    {
+      "id": "60062",
+      "name": "Fireball Liqueur 200ml"
+    },
+    {
+      "id": "60063",
+      "name": "Fireball Liqueur 50ml"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n60046\tCorona Bottle 620ml\n60054\tEpicuro Montepulciano 750ml\n60055\tEpicuro Nero D Avda 750ml\n60056\tEpicuro Pinot Grigio Terre 750ml\n60057\tErdinger Abv 500ml\n60058\tErdinger Hefe 500ml\n60060\tEstrella Garcia Premium Lager 660ml\n60061\tFat Frog Original 250ml\n60062\tFireball Liqueur 200ml\n60063\tFireball Liqueur 50ml\n",
+  "stderr": "",
+  "execution_time_ms": 258
+}

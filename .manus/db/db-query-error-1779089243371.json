@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, name, categoryId FROM products WHERE images LIKE '%/storage/%' AND categoryId IN (SELECT id FROM categories WHERE name LIKE '%wine%' OR name LIKE '%alcohol%' OR name LIKE '%beverage%') LIMIT 100;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, categoryId FROM products WHERE images LIKE '%/storage/%' AND categoryId IN (SELECT id FROM categories WHERE name LIKE '%wine%' OR name LIKE '%alcohol%' OR name LIKE '%beverage%') LIMIT 100;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'hh4skdejgjocgfw8djxncn.categories' doesn't exist"
+  ]
+}

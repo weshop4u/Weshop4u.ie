@@ -1,0 +1,25 @@
+{
+  "query": "SELECT id, name, images FROM products WHERE images LIKE '%cloudfront%' OR images LIKE '%manuscdn%' LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, images FROM products WHERE images LIKE '%cloudfront%' OR images LIKE '%manuscdn%' LIMIT 3;",
+  "rows": [
+    {
+      "id": "60454",
+      "name": "Cadet Lemon and Lime 2ltr",
+      "images": "[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1772166262237-cqt55i.jpeg\"]"
+    },
+    {
+      "id": "60807",
+      "name": "Goodwins Black Pepper Grinder 40g",
+      "images": "[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1776633580502-9mu374.jpeg\"]"
+    },
+    {
+      "id": "60823",
+      "name": "Blue Dragon Thai Sweet Chilli Sauce 250ml",
+      "images": "[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1776637276110-xuz2ll.jpeg\"]"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\timages\n60454\tCadet Lemon and Lime 2ltr\t[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1772166262237-cqt55i.jpeg\"]\n60807\tGoodwins Black Pepper Grinder 40g\t[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1776633580502-9mu374.jpeg\"]\n60823\tBlue Dragon Thai Sweet Chilli Sauce 250ml\t[\"https://d2xsxph8kpxj0f.cloudfront.net/310519663331531207/HH4sKdeJGjocgFW8dJxnCN/product-images/product-image-1776637276110-xuz2ll.jpeg\"]\n",
+  "stderr": "",
+  "execution_time_ms": 267
+}

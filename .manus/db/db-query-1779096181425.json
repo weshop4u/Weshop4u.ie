@@ -1,0 +1,16 @@
+{
+  "query": "SELECT \n  SUM(CASE WHEN JSON_CONTAINS(images, '\"/storage/\"') THEN 1 ELSE 0 END) as storage_count,\n  SUM(CASE WHEN JSON_LENGTH(images) = 0 THEN 1 ELSE 0 END) as empty_count,\n  SUM(CASE WHEN JSON_LENGTH(images) > 0 AND NOT JSON_CONTAINS(images, '\"/storage/\"') THEN 1 ELSE 0 END) as valid_count,\n  COUNT(*) as total\nFROM products",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT \n  SUM(CASE WHEN JSON_CONTAINS(images, '\"/storage/\"') THEN 1 ELSE 0 END) as storage_count,\n  SUM(CASE WHEN JSON_LENGTH(images) = 0 THEN 1 ELSE 0 END) as empty_count,\n  SUM(CASE WHEN JSON_LENGTH(images) > 0 AND NOT JSON_CONTAINS(images, '\"/storage/\"') THEN 1 ELSE 0 END) as valid_count,\n  COUNT(*) as total\nFROM products",
+  "rows": [
+    {
+      "storage_count": "0",
+      "empty_count": "1",
+      "valid_count": "2775",
+      "total": "2785"
+    }
+  ],
+  "messages": [],
+  "stdout": "storage_count\tempty_count\tvalid_count\ttotal\n0\t1\t2775\t2785\n",
+  "stderr": "",
+  "execution_time_ms": 272
+}
