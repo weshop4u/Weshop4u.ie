@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, name, images FROM products WHERE images LIKE '%files.manuscdn.com%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, images FROM products WHERE images LIKE '%files.manuscdn.com%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "60001",
+      "name": "Mushrooms 250g",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/loNLsuHaSmASyACx.jpg\"]"
+    },
+    {
+      "id": "60002",
+      "name": "Carrots 1kg",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/TnYkDnDnuhDYGXkH.jpg\"]"
+    },
+    {
+      "id": "60004",
+      "name": "Lettuce Iceberg",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/QWKHOslTtrnkfOAR.jpg\"]"
+    },
+    {
+      "id": "60005",
+      "name": "Cucumber 1 large",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/TitzILTHgjFRmHct.jpg\"]"
+    },
+    {
+      "id": "60006",
+      "name": "Angelico Pinot Grigio 750ml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/KLhtosWYAjURXwpz.jpg\"]"
+    },
+    {
+      "id": "60007",
+      "name": "Barefoot Merlot 750ml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/FPERxsKZDKKvbWdF.jpg\"]"
+    },
+    {
+      "id": "60008",
+      "name": "Barefoot Pinot Grigio 75oml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/mbtJdkIbCQYbyoIJ.jpg\"]"
+    },
+    {
+      "id": "60009",
+      "name": "Barefoot Sauvignon Blanc 750ml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/GBKSOWMoHkDmUqlg.jpg\"]"
+    },
+    {
+      "id": "60010",
+      "name": "Barefoot White Zinfandel 750ml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/SuYsLmfkLYxOJegy.jpg\"]"
+    },
+    {
+      "id": "60013",
+      "name": "Birra Moretti 660ml",
+      "images": "[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/HwlyWEQEmAQEqUYq.jpg\"]"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\timages\n60001\tMushrooms 250g\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/loNLsuHaSmASyACx.jpg\"]\n60002\tCarrots 1kg\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/TnYkDnDnuhDYGXkH.jpg\"]\n60004\tLettuce Iceberg\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/QWKHOslTtrnkfOAR.jpg\"]\n60005\tCucumber 1 large\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/TitzILTHgjFRmHct.jpg\"]\n60006\tAngelico Pinot Grigio 750ml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/KLhtosWYAjURXwpz.jpg\"]\n60007\tBarefoot Merlot 750ml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/FPERxsKZDKKvbWdF.jpg\"]\n60008\tBarefoot Pinot Grigio 75oml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/mbtJdkIbCQYbyoIJ.jpg\"]\n60009\tBarefoot Sauvignon Blanc 750ml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/GBKSOWMoHkDmUqlg.jpg\"]\n60010\tBarefoot White Zinfandel 750ml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/SuYsLmfkLYxOJegy.jpg\"]\n60013\tBirra Moretti 660ml\t[\"https://files.manuscdn.com/user_upload_by_module/session_file/310519663331531207/HwlyWEQEmAQEqUYq.jpg\"]\n",
+  "stderr": "",
+  "execution_time_ms": 710
+}

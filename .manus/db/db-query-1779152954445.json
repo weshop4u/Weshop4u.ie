@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO users (email, name, phone, role, password_hash) VALUES ('test@weshop4u.ie', 'Test User', '+353 87 123 4567', 'customer', '$2b$10$1dVRtVAVLOY8hepPF2SSOOTFYyBk3TvoynDW5K.PsWOjYJqtdukbq')",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute INSERT INTO users (email, name, phone, role, password_hash) VALUES ('test@weshop4u.ie', 'Test User', '+353 87 123 4567', 'customer', '$2b$10$1dVRtVAVLOY8hepPF2SSOOTFYyBk3TvoynDW5K.PsWOjYJqtdukbq')",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 281
+}

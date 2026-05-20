@@ -1,0 +1,35 @@
+{
+  "query": "SELECT id, name, images FROM products LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT id, name, images FROM products LIMIT 5;",
+  "rows": [
+    {
+      "id": "8",
+      "name": "Breakfast Roll",
+      "images": "NULL"
+    },
+    {
+      "id": "9",
+      "name": "Chicken Burger & Chips",
+      "images": "NULL"
+    },
+    {
+      "id": "10",
+      "name": "Fish & Chips",
+      "images": "NULL"
+    },
+    {
+      "id": "14",
+      "name": "Irish Stew",
+      "images": "NULL"
+    },
+    {
+      "id": "15",
+      "name": "Beef & Guinness Pie",
+      "images": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\timages\n8\tBreakfast Roll\tNULL\n9\tChicken Burger & Chips\tNULL\n10\tFish & Chips\tNULL\n14\tIrish Stew\tNULL\n15\tBeef & Guinness Pie\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 265
+}
