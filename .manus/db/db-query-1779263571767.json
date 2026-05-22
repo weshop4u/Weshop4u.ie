@@ -1,0 +1,14 @@
+{
+  "query": "SELECT \n  (SELECT COUNT(*) FROM product_views) as product_views_count,\n  (SELECT COUNT(*) FROM orders) as orders_count;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user TRWPPSjpVsMrzts.root --database HH4sKdeJGjocgFW8dJxnCN --execute SELECT \n  (SELECT COUNT(*) FROM product_views) as product_views_count,\n  (SELECT COUNT(*) FROM orders) as orders_count;",
+  "rows": [
+    {
+      "product_views_count": "78",
+      "orders_count": "186"
+    }
+  ],
+  "messages": [],
+  "stdout": "product_views_count\torders_count\n78\t186\n",
+  "stderr": "",
+  "execution_time_ms": 1232
+}
