@@ -1371,16 +1371,9 @@ export default function CartScreen() {
           </View>
         )}
 
-        {/* Coming Soon Message */}
-        {showComingSoonMessage && (
-          <View style={{ backgroundColor: "#FEF2F2", borderRadius: 10, padding: 14, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: "#DC2626" }}>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: "#DC2626", marginBottom: 2 }}>Sorry, we're not accepting orders just yet!</Text>
-            <Text style={{ fontSize: 13, color: "#991B1B" }}>We'll be open very soon — thanks for your patience! 🙏</Text>
-          </View>
-        )}
         {/* Checkout Button */}
         <TouchableOpacity
-          onPress={() => setShowComingSoonMessage(true)}
+          onPress={handleCheckout}
           style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
           className="p-4 rounded-lg items-center bg-primary active:opacity-70"
         >
