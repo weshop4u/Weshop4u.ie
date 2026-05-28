@@ -55,7 +55,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 2,
+    versionCode: 3,
     adaptiveIcon: {
       backgroundColor: "#0F172A",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -93,6 +93,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    [
+      "expo-audio",
+      {
+        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+      },
+    ],
     [
       "expo-splash-screen",
       {
