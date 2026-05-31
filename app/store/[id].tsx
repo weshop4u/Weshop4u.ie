@@ -375,6 +375,7 @@ export default function StoreDetailScreen() {
               </View>
             </ScrollView>
 
+            <View style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 16, paddingTop: 8, backgroundColor: "#ffffff" }}>
             <TouchableOpacity
               onPress={async () => {
                 // Build modifiers array from selected modifiers
@@ -456,6 +457,7 @@ export default function StoreDetailScreen() {
             >
               <Text style={styles.addToCartText}>Add to Cart</Text>
             </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
