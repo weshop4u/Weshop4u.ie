@@ -67,7 +67,7 @@ export function getApiBaseUrl(): string {
   }
 
   // Fallback to empty (will use relative URL)
-  return "";
+  return "https://weshop4u.ie";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";
