@@ -744,7 +744,7 @@ export default function StoreDetailScreen() {
                             <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                               <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(result.product.price).toFixed(2)}</Text>
-                              {qty > 0 ? (
+                              {qty > 0 && !fullProduct?.hasModifiers ? (
                                 <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
                                   <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
                                 </View>
@@ -808,7 +808,7 @@ export default function StoreDetailScreen() {
                                 <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
                                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                                   <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(item.price).toFixed(2)}</Text>
-                                  {qty > 0 ? (
+                                  {qty > 0 && !fullProduct?.hasModifiers ? (
                                     <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
                                       <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
                                     </View>
