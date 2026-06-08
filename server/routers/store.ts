@@ -1071,6 +1071,7 @@ if (allProductIds.length > 0) {
           orderNumber: orders.orderNumber,
           total: orders.total,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           status: orders.status,
           createdAt: orders.createdAt,
           guestName: orders.guestName,
@@ -1083,17 +1084,21 @@ if (allProductIds.length > 0) {
         })
         .from(orders)
         .where(
-          and(
-            eq(orders.storeId, input.storeId),
-            or(
-              eq(orders.status, "pending"),
-              and(
-                eq(orders.status, "preparing"),
-                gte(orders.acceptedAt, thirtyMinAgo)
+            and(
+              eq(orders.storeId, input.storeId),
+              or(
+                eq(orders.status, "pending"),
+                and(
+                  eq(orders.status, "preparing"),
+                  gte(orders.acceptedAt, thirtyMinAgo)
+                )
+              ),
+              or(
+                eq(orders.paymentMethod, "cash_on_delivery"),
+                eq(orders.paymentStatus, "completed")
               )
             )
           )
-        )
         .orderBy(desc(orders.createdAt));
 
       // For each order, get item count and total quantity
