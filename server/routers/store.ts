@@ -409,10 +409,12 @@ export const storeRouter = router({
         }
       }
 
-      // Auto-create print job so POS prints receipt immediately on accept
-      // Pass receiptData to avoid race condition where it might not be in DB yet
-      console.log(`[acceptOrder] Order ${orderResult[0].orderNumber}: receiptData=${!!orderResult[0].receiptData}`);
-      await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+      // Auto-create print job only if cash or card payment already confirmed
+        const acceptOrderPayment = await db.select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        const isCashOrPaid = !acceptOrderPayment[0] || acceptOrderPayment[0].paymentMethod !== "card" || acceptOrderPayment[0].paymentStatus === "completed";
+        if (isCashOrPaid) {
+          await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+        }
 
       return { success: true };
     }),
@@ -1254,8 +1256,12 @@ if (allProductIds.length > 0) {
         }
       }
 
-      // Auto-create print job (POS picks this up for printing)
-      await autoCreatePrintJob(input.orderId, input.storeId);
+      // Auto-create print job only if cash or card payment already confirmed
+        const posOrderPayment = await db.select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        const posIsCashOrPaid = !posOrderPayment[0] || posOrderPayment[0].paymentMethod !== "card" || posOrderPayment[0].paymentStatus === "completed";
+        if (posIsCashOrPaid) {
+          await autoCreatePrintJob(input.orderId, input.storeId);
+        }
 
       return { success: true, alreadyAccepted: false };
     }),
