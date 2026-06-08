@@ -981,17 +981,35 @@ export const storeRouter = router({
         ...allPinned.map((p) => ({ ...p, isPinned: true })),
         ...autoTrending.map((p) => ({ ...p, isPinned: false })),
       ];
-// Check which products have modifier groups
-      const allProductIds = allProducts.map((p) => p.id);
-      let productsWithModifiers = new Set<number>();
-      if (allProductIds.length > 0) {
-        const { modifierGroups } = await import("../../drizzle/schema");
-        const modsResult = await db
-          .select({ productId: modifierGroups.productId })
-          .from(modifierGroups)
-          .where(inArray(modifierGroups.productId, allProductIds));
-        productsWithModifiers = new Set(modsResult.map((m) => m.productId));
-      }
+// Check which products have modifiers (via direct product templates or category templates)
+const allProductIds = allProducts.map((p) => p.id);
+let productsWithModifiers = new Set<number>();
+if (allProductIds.length > 0) {
+  const { productModifierTemplates, categoryModifierTemplates } = await import("../../drizzle/schema");
+  
+  // Direct product-level templates
+  const directMods = await db
+    .select({ productId: productModifierTemplates.productId })
+    .from(productModifierTemplates)
+    .where(inArray(productModifierTemplates.productId, allProductIds));
+  
+  // Category-level templates
+  const catIds = allProducts.map((p) => p.categoryId).filter(Boolean) as number[];
+  const catMods = catIds.length > 0 ? await db
+    .select({ categoryId: categoryModifierTemplates.categoryId })
+    .from(categoryModifierTemplates)
+    .where(inArray(categoryModifierTemplates.categoryId, catIds)) : [];
+  
+  const catsWithMods = new Set(catMods.map((c) => c.categoryId));
+  
+  for (const p of allProducts) {
+    if (directMods.some((d) => d.productId === p.id)) {
+      productsWithModifiers.add(p.id);
+    } else if (p.categoryId && catsWithMods.has(p.categoryId)) {
+      productsWithModifiers.add(p.id);
+    }
+  }
+}
       // Get category names for all products
       const catIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
       let categoryMap: Record<number, string> = {};
