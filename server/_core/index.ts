@@ -234,6 +234,8 @@ app.get("/favicon.ico", (req, res) => {
   app.get("/", (_req, res) => res.redirect("/api/web/"));
   app.get("/privacy", (_req, res) => res.redirect("/api/web/profile/privacy"));
 app.get("/api", (_req, res) => res.redirect("/api/web"));
+  app.get("/payment-result", (req, res) => res.redirect(`/api/web/payment-result?${new URLSearchParams(req.query as any).toString()}`));
+app.get("/payment-cancel", (req, res) => res.redirect(`/api/web/payment-cancel?${new URLSearchParams(req.query as any).toString()}`));
 
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
