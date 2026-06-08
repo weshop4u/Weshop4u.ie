@@ -403,54 +403,56 @@ export const ordersRouter = router({
         // Don't fail the order if notification fails
       }
 
-      // Send push notification to ALL store staff for this store
-      try {
-        const storeStaffMembers = await db
-          .select({
-            userId: storeStaffTable.userId,
-            pushToken: users.pushToken,
-          })
-          .from(storeStaffTable)
-          .innerJoin(users, eq(storeStaffTable.userId, users.id))
-          .where(eq(storeStaffTable.storeId, storeData.id));
+      if (input.paymentMethod === "cash_on_delivery") {
+        // Send push notification to ALL store staff for this store
+        try {
+          const storeStaffMembers = await db
+            .select({
+              userId: storeStaffTable.userId,
+              pushToken: users.pushToken,
+            })
+            .from(storeStaffTable)
+            .innerJoin(users, eq(storeStaffTable.userId, users.id))
+            .where(eq(storeStaffTable.storeId, storeData.id));
 
-        // Get customer name
-        let customerName = "Customer";
-        if (input.customerId) {
-          const customer = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, input.customerId))
-            .limit(1);
-          customerName = customer.length > 0 ? customer[0].name : "Customer";
-        } else if (input.guestName) {
-          customerName = input.guestName;
-        }
-
-        // Send to each staff member with a push token
-        for (const staff of storeStaffMembers) {
-          if (staff.pushToken) {
-            await sendNewOrderNotification(
-              staff.pushToken,
-              Number(orderId),
-              customerName,
-              input.items.length,
-              total
-            );
-            console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+          // Get customer name
+          let customerName = "Customer";
+          if (input.customerId) {
+            const customer = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, input.customerId))
+              .limit(1);
+            customerName = customer.length > 0 ? customer[0].name : "Customer";
+          } else if (input.guestName) {
+            customerName = input.guestName;
           }
-        }
-      } catch (pushError) {
-        console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
-      }
 
-      // Trigger driver queue - offer to first available driver
-      try {
-        await offerOrderToQueue(Number(orderId));
-        console.log(`[Queue] Order ${orderId} offered to driver queue`);
-      } catch (error) {
-        console.error(`[Queue] Failed to offer order to queue:`, error);
-        // Don't fail the order if queue offering fails
+          // Send to each staff member with a push token
+          for (const staff of storeStaffMembers) {
+            if (staff.pushToken) {
+              await sendNewOrderNotification(
+                staff.pushToken,
+                Number(orderId),
+                customerName,
+                input.items.length,
+                total
+              );
+              console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+            }
+          }
+        } catch (pushError) {
+          console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
+        }
+
+        // Trigger driver queue - offer to first available driver
+        try {
+          await offerOrderToQueue(Number(orderId));
+          console.log(`[Queue] Order ${orderId} offered to driver queue`);
+        } catch (error) {
+          console.error(`[Queue] Failed to offer order to queue:`, error);
+          // Don't fail the order if queue offering fails
+        }
       }
 
       return {
@@ -784,7 +786,7 @@ export const ordersRouter = router({
       return { success: true };
     }),
 
-  // Return job - driver sends back an accepted job before pickup
+  // Return job - driver s back an accepted job before pickup
   returnJob: publicProcedure
     .input(
       z.object({
@@ -921,7 +923,7 @@ export const ordersRouter = router({
         throw new Error("Order not found");
       }
 
-      // Send SMS at key delivery stages
+      //  SMS at key delivery stages
       const orderData = order[0];
       
       // SMS is NOT sent on status changes from this endpoint.
