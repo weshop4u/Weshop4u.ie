@@ -985,13 +985,18 @@ export const storeRouter = router({
 const allProductIds = allProducts.map((p) => p.id);
 let productsWithModifiers = new Set<number>();
 if (allProductIds.length > 0) {
-  const { productModifierTemplates, categoryModifierTemplates } = await import("../../drizzle/schema");
+  const { productModifierTemplates, categoryModifierTemplates, modifierGroups } = await import("../../drizzle/schema");
   
   // Direct product-level templates
   const directMods = await db
     .select({ productId: productModifierTemplates.productId })
     .from(productModifierTemplates)
     .where(inArray(productModifierTemplates.productId, allProductIds));
+  // Legacy direct modifier groups
+        const legacyMods = await db
+          .select({ productId: modifierGroups.productId })
+          .from(modifierGroups)
+          .where(inArray(modifierGroups.productId, allProductIds));
   
   // Category-level templates
   const catIds = allProducts.map((p) => p.categoryId).filter(Boolean) as number[];
@@ -1003,7 +1008,7 @@ if (allProductIds.length > 0) {
   const catsWithMods = new Set(catMods.map((c) => c.categoryId));
   
   for (const p of allProducts) {
-    if (directMods.some((d) => d.productId === p.id)) {
+    if (directMods.some((d) => d.productId === p.id) || legacyMods.some((d) => d.productId === p.id)) {
       productsWithModifiers.add(p.id);
     } else if (p.categoryId && catsWithMods.has(p.categoryId)) {
       productsWithModifiers.add(p.id);
