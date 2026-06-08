@@ -37,8 +37,9 @@ export default function PaymentScreen() {
     const initPayment = async () => {
       try {
         const baseUrl = getAppBaseUrl();
-        const returnUrl = `${baseUrl}/payment-result`;
-        const cancelUrl = `${baseUrl}/payment-cancel`;
+        const returnUrl = `${baseUrl}/api/web/payment-result`;
+        const cancelUrl = `${baseUrl}/api/web/payment-cancel`;
+
 
         const result = await createSessionMutation.mutateAsync({
           orderId: orderIdNum,
@@ -88,8 +89,8 @@ export default function PaymentScreen() {
     const initPayment = async () => {
       try {
         const baseUrl = getAppBaseUrl();
-        const returnUrl = `${baseUrl}/payment-result`;
-        const cancelUrl = `${baseUrl}/payment-cancel`;
+        const returnUrl = `${baseUrl}/api/web/payment-result`;
+        const cancelUrl = `${baseUrl}/api/web/payment-cancel`;
 
         const result = await createSessionMutation.mutateAsync({
           orderId: orderIdNum,
