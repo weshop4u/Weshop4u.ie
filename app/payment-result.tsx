@@ -78,22 +78,7 @@ export default function PaymentResultScreen() {
     return (
       <ScreenWrapper>
         <ScreenContainer className="items-center justify-center p-6">
-          <Text style={{ fontSize: 40 }}>⚠️</Text>
-          <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "600", marginTop: 16 }}>
-            Invalid Order
-          </Text>
-          <TouchableOpacity
-            onPress={handleGoHome}
-            style={{
-              backgroundColor: "#00E5FF",
-              paddingHorizontal: 24,
-              paddingVertical: 12,
-              borderRadius: 8,
-              marginTop: 24,
-            }}
-          >
-            <Text style={{ color: "#000", fontWeight: "600" }}>Back to Home</Text>
-          </TouchableOpacity>
+          <ActivityIndicator size="large" color="#00E5FF" />
         </ScreenContainer>
       </ScreenWrapper>
     );
