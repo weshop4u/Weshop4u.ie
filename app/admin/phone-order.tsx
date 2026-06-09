@@ -16,6 +16,7 @@ type CartItem = {
   price: number;
   quantity: number;
   ageRestricted?: boolean;
+  modifiers?: { modifierId: number; modifierName: string; modifierPrice: string; groupName: string }[];
 };
 
 type FeeInfo = {
@@ -102,6 +103,11 @@ function PhoneOrderScreenContent() {
       }
     }
   }, [lookupData, lookupFetching, lookupPhone]);
+  // Modifier modal state
+  const [modifierModalProduct, setModifierModalProduct] = useState<any>(null);
+  const [modifierModalVisible, setModifierModalVisible] = useState(false);
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<number, number[]>>({});
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
 
   // Submitting
   const [submitting, setSubmitting] = useState(false);
@@ -141,6 +147,11 @@ function PhoneOrderScreenContent() {
       }, 50);
     }
   }, [selectedCategoryId]);
+  // Fetch modifiers for selected product in modal
+  const { data: modifierData } = trpc.modifiers.getForProduct.useQuery(
+    { productId: modifierModalProduct?.id || 0 },
+    { enabled: !!modifierModalProduct?.id && modifierModalVisible }
+  );
 
   const { data: productsData, isLoading: productsLoading } = trpc.stores.getProducts.useQuery(
     { storeId: selectedStoreId!, limit: 5000 },
@@ -192,12 +203,21 @@ function PhoneOrderScreenContent() {
     return cat.products.filter(p => p.name.toLowerCase().includes(query));
   }, [categoriesWithProducts, selectedCategoryId, debouncedSearch]);
 
-  const addToCart = (product: { id: number; name: string; price: string }, ageRestricted?: boolean) => {
-    const existing = cart.find(c => c.productId === product.id);
-    if (existing) {
+  const addToCart = (product: { id: number; name: string; price: string; hasModifiers?: boolean }, ageRestricted?: boolean, modifiers?: CartItem['modifiers']) => {
+    // If product has modifiers and no modifiers passed, open modifier modal
+    if (product.hasModifiers && !modifiers) {
+      setModifierModalProduct(product);
+      setModifierModalVisible(true);
+      setSelectedModifiers({});
+      setOptionQuantities({});
+      return;
+    }
+    const existing = cart.find(c => c.productId === product.id && !modifiers);
+    if (existing && !modifiers) {
       setCart(cart.map(c => c.productId === product.id ? { ...c, quantity: c.quantity + 1 } : c));
     } else {
-      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price), quantity: 1, ageRestricted }]);
+      const modifierTotal = (modifiers || []).reduce((sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0);
+      setCart([...cart, { productId: product.id, name: product.name, price: parseFloat(product.price) + modifierTotal, quantity: 1, ageRestricted, modifiers }]);
     }
   };
 
@@ -476,6 +496,100 @@ function PhoneOrderScreenContent() {
 
   return (
     <ScreenContainer className="bg-background">
+      {/* Modifier Modal */}
+        <Modal visible={modifierModalVisible} animationType="slide" transparent={true}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+            <View style={{ backgroundColor: "#ffffff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%", paddingTop: 16, flex: 1 }}>
+              <TouchableOpacity onPress={() => setModifierModalVisible(false)} style={{ alignSelf: "flex-end", paddingRight: 16, paddingBottom: 8 }}>
+                <Text style={{ fontSize: 24, color: "#11181C" }}>✕</Text>
+              </TouchableOpacity>
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
+                <View style={{ paddingHorizontal: 16 }}>
+                  <Text style={{ fontSize: 20, fontWeight: "700", color: "#11181C", marginBottom: 4 }}>{modifierModalProduct?.name}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: "#00E5FF", marginBottom: 16 }}>€{parseFloat(modifierModalProduct?.price || "0").toFixed(2)}</Text>
+                  {(modifierData?.groups || []).map((group: any) => (
+                    <View key={group.id} style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 12, marginBottom: 16 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#11181C", marginBottom: 10 }}>{group.name} {group.required ? "*" : ""}</Text>
+                      {group.modifiers.map((modifier: any) => {
+                        const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
+                        const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
+                        return (
+                          <TouchableOpacity
+                            key={modifier.id}
+                            onPress={() => {
+                              const updated = isSelected
+                                ? (selectedModifiers[group.id] || []).filter((id: number) => id !== modifier.id)
+                                : [...(selectedModifiers[group.id] || []), modifier.id];
+                              setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
+                            }}
+                            style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: isSelected ? "#00E5FF" : "#E5E7EB", backgroundColor: isSelected ? "#E0F7FA" : "#f5f5f5", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
+                          >
+                            <Text style={{ fontSize: 14, color: isSelected ? "#00BCD4" : "#11181C", fontWeight: isSelected ? "600" : "500" }}>
+                              {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
+                            </Text>
+                            {isSelected && group.allowOptionQuantity && (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#ffffff", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                                <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
+                                  <Text style={{ fontSize: 20, fontWeight: "600", color: "#11181C" }}>−</Text>
+                                </TouchableOpacity>
+                                <Text style={{ fontSize: 17, fontWeight: "700", color: "#11181C", minWidth: 28, textAlign: "center" }}>{quantity}</Text>
+                                <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 })}>
+                                  <Text style={{ fontSize: 20, fontWeight: "600", color: "#11181C" }}>+</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, backgroundColor: "#ffffff" }}>
+                {(() => {
+                  const basePrice = parseFloat(modifierModalProduct?.price || "0");
+                  const modifierTotal = (modifierData?.groups || []).reduce((sum: number, group: any) => {
+                    return sum + (selectedModifiers[group.id] || []).reduce((gSum: number, modId: number) => {
+                      const mod = group.modifiers.find((m: any) => m.id === modId);
+                      const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                      return gSum + (parseFloat(mod?.price || "0") * qty);
+                    }, 0);
+                  }, 0);
+                  const runningTotal = basePrice + modifierTotal;
+                  return (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <Text style={{ fontSize: 15, color: '#687076', fontWeight: '600' }}>Total</Text>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: '#00E5FF' }}>€{runningTotal.toFixed(2)}</Text>
+                    </View>
+                  );
+                })()}
+                <TouchableOpacity
+                  onPress={() => {
+                    const modifiersArray: CartItem['modifiers'] = [];
+                    for (const group of (modifierData?.groups || [])) {
+                      for (const modId of (selectedModifiers[group.id] || [])) {
+                        const modifier = group.modifiers.find((m: any) => m.id === modId);
+                        if (modifier) {
+                          const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                          for (let i = 0; i < qty; i++) {
+                            modifiersArray!.push({ groupName: group.name, modifierId: modifier.id, modifierName: modifier.name, modifierPrice: modifier.price });
+                          }
+                        }
+                      }
+                    }
+                    addToCart(modifierModalProduct, false, modifiersArray);
+                    setModifierModalVisible(false);
+                    setSelectedModifiers({});
+                    setOptionQuantities({});
+                  }}
+                  style={{ backgroundColor: "#00E5FF", paddingVertical: 14, borderRadius: 12, alignItems: "center" }}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>Add to Cart</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       {/* Step Indicator */}
       <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#334155", gap: 4 }}>
         {steps.map((s, i) => (
