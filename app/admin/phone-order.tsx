@@ -449,6 +449,13 @@ function PhoneOrderScreenContent() {
           {cart.map(item => (
             <View key={item.productId} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 }}>
               <Text style={{ fontSize: 13, color: "#9BA1A6", flex: 1 }} numberOfLines={1}>{item.quantity}x {item.name}</Text>
+              {item.modifiers && item.modifiers.length > 0 && (
+                    <View style={{ marginTop: 2 }}>
+                      {item.modifiers.map((m, idx) => (
+                        <Text key={idx} style={{ fontSize: 11, color: "#687076" }}>+ {m.modifierName}{parseFloat(m.modifierPrice) > 0 ? ` +€${parseFloat(m.modifierPrice).toFixed(2)}` : ""}</Text>
+                      ))}
+                    </View>
+                  )}
               <Text style={{ fontSize: 13, color: "#9BA1A6" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
             </View>
           ))}
@@ -1009,6 +1016,13 @@ function PhoneOrderScreenContent() {
 {cart.map(item => (
                   <View key={item.productId} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", gap: 8 }}>
                     <Text style={{ fontSize: 14, color: "#11181C", flex: 1 }} numberOfLines={1}>{item.name}</Text>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                    <View style={{ marginTop: 2 }}>
+                      {item.modifiers.map((m, idx) => (
+                        <Text key={idx} style={{ fontSize: 12, color: "#687076" }}>+ {m.modifierName}{parseFloat(m.modifierPrice) > 0 ? ` +€${parseFloat(m.modifierPrice).toFixed(2)}` : ""}</Text>
+                      ))}
+                    </View>
+                  )}
                     <Text style={{ fontSize: 14, fontWeight: "600", color: "#11181C" }}>€{(item.price * item.quantity).toFixed(2)}</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <TouchableOpacity
