@@ -376,6 +376,23 @@ export default function StoreDetailScreen() {
             </ScrollView>
 
             <View style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 16, paddingTop: 8, backgroundColor: "#ffffff" }}>
+              {(() => {
+                const basePrice = parseFloat(selectedProduct?.price || "0");
+                const modifierTotal = modifierDataWithSelection.reduce((sum: number, group: any) => {
+                  return sum + (group.selectedModifiers || []).reduce((gSum: number, modId: number) => {
+                    const mod = group.modifiers.find((m: any) => m.id === modId);
+                    const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                    return gSum + (parseFloat(mod?.price || "0") * qty);
+                  }, 0);
+                }, 0);
+                const runningTotal = (basePrice + modifierTotal) * modalQuantity;
+                return (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
+                    <Text style={{ fontSize: 15, color: '#687076', fontWeight: '600' }}>Total</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: '#00E5FF' }}>€{runningTotal.toFixed(2)}</Text>
+                  </View>
+                );
+              })()}
             <TouchableOpacity
               onPress={async () => {
                 // Build modifiers array from selected modifiers
