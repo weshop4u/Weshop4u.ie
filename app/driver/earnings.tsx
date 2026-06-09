@@ -42,10 +42,31 @@ export default function DriverEarningsScreen() {
   }, [earnings, activeTab]);
 
   const tabSummary = useMemo(() => {
-    if (!earnings) return { earnings: 0, tips: 0, deliveries: 0 };
-    if (activeTab === "today") return { earnings: earnings.todayEarnings, tips: earnings.todayTips, deliveries: earnings.todayDeliveries };
-    if (activeTab === "week") return { earnings: earnings.weekEarnings, tips: earnings.weekTips, deliveries: earnings.weekDeliveries };
-    return { earnings: earnings.totalEarnings, tips: earnings.totalTips, deliveries: earnings.totalDeliveries };
+    if (!earnings) return { earnings: 0, tips: 0, deliveries: 0, cardEarnings: 0, cashCollected: 0, cashOwedToOffice: 0 };
+    if (activeTab === "today") return {
+      earnings: earnings.todayEarnings,
+      tips: earnings.todayTips,
+      deliveries: earnings.todayDeliveries,
+      cardEarnings: earnings.todayCardEarnings ?? 0,
+      cashCollected: earnings.todayCashCollected ?? 0,
+      cashOwedToOffice: earnings.todayCashOwedToOffice ?? 0,
+    };
+    if (activeTab === "week") return {
+      earnings: earnings.weekEarnings,
+      tips: earnings.weekTips,
+      deliveries: earnings.weekDeliveries,
+      cardEarnings: earnings.weekCardEarnings ?? 0,
+      cashCollected: earnings.weekCashCollected ?? 0,
+      cashOwedToOffice: earnings.weekCashOwedToOffice ?? 0,
+    };
+    return {
+      earnings: earnings.totalEarnings,
+      tips: earnings.totalTips,
+      deliveries: earnings.totalDeliveries,
+      cardEarnings: 0,
+      cashCollected: 0,
+      cashOwedToOffice: 0,
+    };
   }, [earnings, activeTab]);
 
   if (isLoading || !earnings) {
@@ -61,6 +82,8 @@ export default function DriverEarningsScreen() {
 
   // Find the max daily earnings for the bar chart scaling
   const maxDailyEarnings = Math.max(...earnings.dailyBreakdown.map(d => d.earnings), 1);
+
+  const hasCashOrCard = tabSummary.cardEarnings > 0 || tabSummary.cashCollected > 0;
 
   return (
     <ScreenContainer>
@@ -127,6 +150,55 @@ export default function DriverEarningsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Card / Cash Breakdown — shown for Today and This Week */}
+        {activeTab !== 'all' && hasCashOrCard && (
+          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 15, marginBottom: 12 }}>
+              Payment Breakdown
+            </Text>
+
+            {/* Card earnings */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18 }}>💳</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Card earnings</Text>
+              </View>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 15 }}>
+                €{tabSummary.cardEarnings.toFixed(2)}
+              </Text>
+            </View>
+
+            {/* Cash collected */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18 }}>💵</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Cash collected</Text>
+              </View>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 15 }}>
+                €{tabSummary.cashCollected.toFixed(2)}
+              </Text>
+            </View>
+
+            {/* Divider */}
+            {tabSummary.cashOwedToOffice > 0 && (
+              <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 18 }}>🏦</Text>
+                    <View>
+                      <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14 }}>Cash owed to office</Text>
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>Cash collected minus your delivery fees</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: colors.warning, fontWeight: '800', fontSize: 17 }}>
+                    €{tabSummary.cashOwedToOffice.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* 7-Day Bar Chart */}
         <View className="bg-surface p-4 rounded-lg mb-6">
@@ -224,9 +296,26 @@ export default function DriverEarningsScreen() {
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text className="text-foreground font-semibold mb-1">
-                    {delivery.storeName}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Text className="text-foreground font-semibold">
+                      {delivery.storeName}
+                    </Text>
+                    {/* Payment method badge */}
+                    <View style={{
+                      backgroundColor: delivery.paymentMethod === 'cash_on_delivery' ? colors.warning + '20' : colors.primary + '15',
+                      borderRadius: 4,
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                    }}>
+                      <Text style={{
+                        fontSize: 10,
+                        fontWeight: '700',
+                        color: delivery.paymentMethod === 'cash_on_delivery' ? colors.warning : colors.primary,
+                      }}>
+                        {delivery.paymentMethod === 'cash_on_delivery' ? '💵 CASH' : '💳 CARD'}
+                      </Text>
+                    </View>
+                  </View>
                   <Text className="text-muted text-xs">
                     {delivery.orderNumber}
                   </Text>
