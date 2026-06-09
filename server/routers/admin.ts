@@ -1226,6 +1226,27 @@ export const adminRouter = router({
         message: `Driver deleted successfully.${driver.displayNumber ? ` Display number #${String(driver.displayNumber).padStart(2, '0')} is now available.` : ''}` 
       };
     }),
+  // Force a driver offline (admin override)
+  forceDriverOffline: publicProcedure
+    .input(z.object({ driverUserId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const { driverQueue } = await import("../../drizzle/schema");
+
+      // Set driver offline and unavailable
+      await db.update(drivers)
+        .set({ isOnline: false, isAvailable: false, updatedAt: new Date() })
+        .where(eq(drivers.userId, input.driverUserId));
+
+      // Remove from driver queue
+      await db.delete(driverQueue)
+        .where(eq(driverQueue.driverId, input.driverUserId));
+
+      console.log(`[Admin] Driver ${input.driverUserId} forced offline`);
+      return { success: true };
+    }),
 
   // Get pending driver applications
   getPendingDrivers: publicProcedure.query(async () => {
