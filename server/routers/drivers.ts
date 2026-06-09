@@ -1525,6 +1525,8 @@ export const driversRouter = router({
           createdAt: orders.createdAt,
           deliveryAddress: orders.deliveryAddress,
           storeName: stores.name,
+          paymentMethod: orders.paymentMethod,
+          total: orders.total,
         })
         .from(orders)
         .leftJoin(stores, eq(orders.storeId, stores.id))
@@ -1619,6 +1621,34 @@ export const driversRouter = router({
         weekEarnings,
         weekTips,
         weekDeliveries: weekOrders.length,
+        todayCardEarnings: todayOrders
+          .filter(o => o.paymentMethod !== 'cash_on_delivery')
+          .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
+        todayCashCollected: todayOrders
+          .filter(o => o.paymentMethod === 'cash_on_delivery')
+          .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
+        todayCashOwedToOffice: Math.max(0,
+          todayOrders
+            .filter(o => o.paymentMethod === 'cash_on_delivery')
+            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+          - todayOrders
+            .filter(o => o.paymentMethod === 'cash_on_delivery')
+            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+        ),
+        weekCardEarnings: weekOrders
+          .filter(o => o.paymentMethod !== 'cash_on_delivery')
+          .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
+        weekCashCollected: weekOrders
+          .filter(o => o.paymentMethod === 'cash_on_delivery')
+          .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
+        weekCashOwedToOffice: Math.max(0,
+          weekOrders
+            .filter(o => o.paymentMethod === 'cash_on_delivery')
+            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+          - weekOrders
+            .filter(o => o.paymentMethod === 'cash_on_delivery')
+            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+        ),
         dailyBreakdown,
         recentDeliveries: completedOrders.slice(0, 50).map(order => ({
           id: order.id,
@@ -1629,6 +1659,7 @@ export const driversRouter = router({
           completedAt: order.deliveredAt,
           storeName: order.storeName || "Store",
           deliveryAddress: order.deliveryAddress,
+          paymentMethod: order.paymentMethod,
         })),
       };
     }),
