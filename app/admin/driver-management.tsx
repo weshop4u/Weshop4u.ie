@@ -53,6 +53,18 @@ function AdminDriverManagementContent() {
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
+  const forceOfflineMutation = trpc.admin.forceDriverOffline.useMutation({
+    onSuccess: () => {
+      refetch();
+      setSuccessMsg("Driver forced offline");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -220,6 +232,28 @@ function AdminDriverManagementContent() {
                             {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
                           </Text>
                         </View>
+                        {/* Force Offline — only show when driver is online */}
+                        {driver.isOnline && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => forceOfflineMutation.mutate({ driverUserId: driver.userId })}
+                              disabled={forceOfflineMutation.isPending}
+                              style={{
+                                backgroundColor: '#F59E0B15',
+                                borderWidth: 1,
+                                borderColor: '#F59E0B',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 14 }}>
+                                {forceOfflineMutation.isPending ? 'Forcing Offline...' : '⚡ Force Driver Offline'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
 
                         {/* Delete Driver */}
                         <View className="mt-3 pt-3 border-t border-border">
