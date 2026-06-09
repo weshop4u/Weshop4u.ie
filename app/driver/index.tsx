@@ -524,6 +524,12 @@ export default function DriverHomeScreen() {
   const totalDeliveries = stats?.totalDeliveries || 0;
   const weekEarnings = stats?.weekEarnings || 0;
   const weekTips = stats?.weekTips || 0;
+  const todayCardEarnings = stats?.todayCardEarnings || 0;
+  const todayCashCollected = stats?.todayCashCollected || 0;
+  const todayCashOwedToOffice = stats?.todayCashOwedToOffice || 0;
+  const weekCardEarnings = stats?.weekCardEarnings || 0;
+  const weekCashCollected = stats?.weekCashCollected || 0;
+  const weekCashOwedToOffice = stats?.weekCashOwedToOffice || 0;
 
   const handleToggleOnline = async () => {
     if (!user) return;
@@ -989,8 +995,6 @@ export default function DriverHomeScreen() {
                   </Text>
                 </View>
               )}
-
-
             </View>
           )}
         </View>
@@ -1140,14 +1144,14 @@ export default function DriverHomeScreen() {
                 {shiftData.unsettledBalance > 0 ? 'You owe the store' : 'The store owes you'}
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: shiftData.unsettledBalance > 0 ? '#DC2626' : '#16A34A' }}>
-                \u20ac{Math.abs(shiftData.unsettledBalance).toFixed(2)}
+                €{Math.abs(shiftData.unsettledBalance).toFixed(2)}
               </Text>
               <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
                 {shiftData.unsettledShifts.length} unsettled shift{shiftData.unsettledShifts.length !== 1 ? 's' : ''}
               </Text>
             </View>
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: shiftData.unsettledBalance > 0 ? '#FEE2E2' : '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 20 }}>{shiftData.unsettledBalance > 0 ? "\uD83D\uDCB8" : "\uD83D\uDCB0"}</Text>
+              <Text style={{ fontSize: 20 }}>{shiftData.unsettledBalance > 0 ? "💸" : "💰"}</Text>
             </View>
           </View>
         )}
@@ -1171,7 +1175,7 @@ export default function DriverHomeScreen() {
             {isEndingShift ? (
               <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
             ) : (
-              <Text style={{ fontSize: 18, marginRight: 8 }}>{"\uD83C\uDFC1"}</Text>
+              <Text style={{ fontSize: 18, marginRight: 8 }}>🏁</Text>
             )}
             <View>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>End Shift</Text>
@@ -1185,29 +1189,71 @@ export default function DriverHomeScreen() {
           <Text className="text-foreground font-bold text-lg mb-4">Earnings</Text>
           
           {/* Today */}
-          <View className="flex-row justify-between mb-3 pb-3 border-b border-border">
-            <View className="flex-1">
-              <Text className="text-muted text-sm mb-1">Today</Text>
-              <Text className="text-primary font-bold text-2xl">€{todayEarnings.toFixed(2)}</Text>
-              {todayTips > 0 && (
-                <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{todayTips.toFixed(2)} tips</Text>
-              )}
+          <View style={{ marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text className="text-muted text-sm mb-1">Today</Text>
+                <Text className="text-primary font-bold text-2xl">€{todayEarnings.toFixed(2)}</Text>
+                {todayTips > 0 && (
+                  <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{todayTips.toFixed(2)} tips</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text className="text-muted text-sm mb-1">Deliveries</Text>
+                <Text className="text-foreground font-bold text-2xl">{todayDeliveries}</Text>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-sm mb-1">Deliveries</Text>
-              <Text className="text-foreground font-bold text-2xl">{todayDeliveries}</Text>
-            </View>
+            {/* Card/Cash breakdown for today */}
+            {(todayCardEarnings > 0 || todayCashCollected > 0) && (
+              <View style={{ backgroundColor: '#F8FAFC', borderRadius: 8, padding: 10, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>💳 Card earnings</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>€{todayCardEarnings.toFixed(2)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>💵 Cash collected</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>€{todayCashCollected.toFixed(2)}</Text>
+                </View>
+                {todayCashOwedToOffice > 0 && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 6, marginTop: 2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E' }}>🏦 Cash owed to office</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#D97706' }}>€{todayCashOwedToOffice.toFixed(2)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {/* This Week */}
-          <View className="flex-row justify-between mb-4">
-            <View className="flex-1">
-              <Text className="text-muted text-sm mb-1">This Week</Text>
-              <Text style={{ color: '#0a7ea4' }} className="font-bold text-xl">€{weekEarnings.toFixed(2)}</Text>
-              {weekTips > 0 && (
-                <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{weekTips.toFixed(2)} tips</Text>
-              )}
+          <View style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text className="text-muted text-sm mb-1">This Week</Text>
+                <Text style={{ color: '#0a7ea4' }} className="font-bold text-xl">€{weekEarnings.toFixed(2)}</Text>
+                {weekTips > 0 && (
+                  <Text style={{ color: '#0a7ea4', fontSize: 12, marginTop: 2 }}>Incl. €{weekTips.toFixed(2)} tips</Text>
+                )}
+              </View>
             </View>
+            {/* Card/Cash breakdown for week */}
+            {(weekCardEarnings > 0 || weekCashCollected > 0) && (
+              <View style={{ backgroundColor: '#F8FAFC', borderRadius: 8, padding: 10, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>💳 Card earnings</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>€{weekCardEarnings.toFixed(2)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>💵 Cash collected</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>€{weekCashCollected.toFixed(2)}</Text>
+                </View>
+                {weekCashOwedToOffice > 0 && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 6, marginTop: 2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E' }}>🏦 Cash owed to office</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#D97706' }}>€{weekCashOwedToOffice.toFixed(2)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -1234,7 +1280,7 @@ export default function DriverHomeScreen() {
                   <>
                     {[1, 2, 3, 4, 5].map(star => (
                       <Text key={star} style={{ fontSize: 16, opacity: star <= Math.round(parseFloat(driverProfile.rating!)) ? 1 : 0.2 }}>
-                        {"\u2B50"}
+                        ⭐
                       </Text>
                     ))}
                     <Text className="text-foreground font-semibold ml-1">{parseFloat(driverProfile.rating).toFixed(1)}</Text>
@@ -1286,7 +1332,7 @@ export default function DriverHomeScreen() {
               <View style={{ alignItems: 'center', marginBottom: 20 }}>
                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 16 }} />
                 <Text style={{ fontSize: 24, fontWeight: '800', color: '#0F172A' }}>Shift Summary</Text>
-                <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>{"\uD83C\uDFC1"} Great work today!</Text>
+                <Text style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>🏁 Great work today!</Text>
               </View>
 
               {shiftSummaryData && (
@@ -1296,7 +1342,7 @@ export default function DriverHomeScreen() {
                     <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 4 }}>SHIFT PERIOD</Text>
                     <Text style={{ fontSize: 14, color: '#0F172A' }}>
                       {new Date(shiftSummaryData.shiftStart).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}
-                      {' '}\u2192{' '}
+                      {' → '}
                       {new Date(shiftSummaryData.shiftEnd).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
@@ -1308,7 +1354,7 @@ export default function DriverHomeScreen() {
                       <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Deliveries</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, alignItems: 'center' }}>
-                      <Text style={{ fontSize: 28, fontWeight: '800', color: '#16A34A' }}>\u20ac{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
+                      <Text style={{ fontSize: 28, fontWeight: '800', color: '#16A34A' }}>€{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
                       <Text style={{ fontSize: 12, color: '#22C55E', fontWeight: '600' }}>Delivery Fees</Text>
                     </View>
                   </View>
@@ -1319,18 +1365,18 @@ export default function DriverHomeScreen() {
                     
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                       <Text style={{ fontSize: 14, color: '#475569' }}>Cash Collected</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>\u20ac{shiftSummaryData.cashCollected.toFixed(2)}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>€{shiftSummaryData.cashCollected.toFixed(2)}</Text>
                     </View>
                     
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                       <Text style={{ fontSize: 14, color: '#475569' }}>Your Delivery Fees</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-\u20ac{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-€{shiftSummaryData.deliveryFeesEarned.toFixed(2)}</Text>
                     </View>
                     
                     {shiftSummaryData.cardTipsEarned > 0 && (
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                         <Text style={{ fontSize: 14, color: '#475569' }}>Card Tips Owed to You</Text>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-\u20ac{shiftSummaryData.cardTipsEarned.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#16A34A' }}>-€{shiftSummaryData.cardTipsEarned.toFixed(2)}</Text>
                       </View>
                     )}
                     
@@ -1340,7 +1386,7 @@ export default function DriverHomeScreen() {
                           {shiftSummaryData.netOwed > 0 ? 'You Owe Store' : shiftSummaryData.netOwed < 0 ? 'Store Owes You' : 'Settled'}
                         </Text>
                         <Text style={{ fontSize: 20, fontWeight: '800', color: shiftSummaryData.netOwed > 0 ? '#DC2626' : shiftSummaryData.netOwed < 0 ? '#16A34A' : '#64748B' }}>
-                          \u20ac{Math.abs(shiftSummaryData.netOwed).toFixed(2)}
+                          €{Math.abs(shiftSummaryData.netOwed).toFixed(2)}
                         </Text>
                       </View>
                     </View>
@@ -1357,13 +1403,13 @@ export default function DriverHomeScreen() {
                             <Text style={{ fontSize: 11, color: '#64748B' }}>{order.storeName}</Text>
                           </View>
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#059669' }}>\u20ac{order.deliveryFee.toFixed(2)}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#059669' }}>€{order.deliveryFee.toFixed(2)}</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                               <Text style={{ fontSize: 10, color: order.paymentMethod === 'cash_on_delivery' ? '#92400E' : '#1D4ED8' }}>
-                                {order.paymentMethod === 'cash_on_delivery' ? '\uD83D\uDCB5 Cash' : '\uD83D\uDCB3 Card'}
+                                {order.paymentMethod === 'cash_on_delivery' ? '💵 Cash' : '💳 Card'}
                               </Text>
                               {order.paymentMethod === 'cash_on_delivery' && (
-                                <Text style={{ fontSize: 10, color: '#64748B' }}>\u20ac{order.total.toFixed(2)}</Text>
+                                <Text style={{ fontSize: 10, color: '#64748B' }}>€{order.total.toFixed(2)}</Text>
                               )}
                             </View>
                           </View>
@@ -1374,7 +1420,7 @@ export default function DriverHomeScreen() {
 
                   {shiftSummaryData.totalJobs === 0 && (
                     <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                      <Text style={{ fontSize: 40, marginBottom: 8 }}>{"\uD83D\uDE34"}</Text>
+                      <Text style={{ fontSize: 40, marginBottom: 8 }}>😴</Text>
                       <Text style={{ fontSize: 15, color: '#64748B', textAlign: 'center' }}>No deliveries this shift</Text>
                     </View>
                   )}
