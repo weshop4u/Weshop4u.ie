@@ -34,6 +34,7 @@ export default function DriverHomeScreen() {
     { driverId: user?.id! },
     { enabled: !!user?.id }
   );
+  
   const [isOnline, setIsOnline] = useState(false);
   const [isTogglingOnline, setIsTogglingOnline] = useState(false);
   
