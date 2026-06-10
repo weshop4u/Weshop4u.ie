@@ -163,7 +163,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
     lines.push(leftRight("", priceStr));
 
     // Show modifiers/add-ons for this item
-    const mods = itemModifiers?.[item.id] || [];
+    const mods = itemModifiers?.[item.id] || item.modifiers || [];
     if (mods.length > 0) {
       // Group modifiers by group name
       const grouped: Record<string, { name: string; price: string }[]> = {};
