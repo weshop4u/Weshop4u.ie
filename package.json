@@ -87,6 +87,7 @@
     "superjson": "^1.13.3",
     "tailwind-merge": "^2.6.0",
     "twilio": "^5.12.1",
+    "yaml": "^1.10.3",
     "zod": "^4.2.1"
   },
   "devDependencies": {
