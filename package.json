@@ -23,7 +23,7 @@
     "ios": "expo start --ios",
     "qr": "node scripts/generate_qr.mjs",
     "prebuild": "rm -rf dist web-dist && node scripts/clean-metro-cache.js",
-    "postinstall": "patch-package || true && node scripts/remove-css-interop-cache.js"
+    "postinstall": "patch-package || true"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
