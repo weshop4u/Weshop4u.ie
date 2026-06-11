@@ -1,5 +1,4 @@
 // Load environment variables with proper priority (system > .env)
-import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
@@ -55,7 +54,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 4,
+    versionCode: 5,
     softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       backgroundColor: "#0F172A",
@@ -126,6 +125,12 @@ const config: ExpoConfig = {
     eas: {
       projectId: "c0c1895b-8b0b-446b-9473-9e72fd25754a"
     }
+  },
+updates: {
+    url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a"
+  },
+  runtimeVersion: {
+    policy: "appVersion"
   },
   experiments: {
     typedRoutes: true,
