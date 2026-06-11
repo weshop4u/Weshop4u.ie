@@ -14,7 +14,8 @@
     "apk": {
       "channel": "main",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://weshop4u.ie"
+        "EXPO_PUBLIC_API_BASE_URL": "https://weshop4u.ie",
+        "EXPO_NO_CACHE_ANDROID_JS": "1"
       },
       "android": {
         "buildType": "apk"
