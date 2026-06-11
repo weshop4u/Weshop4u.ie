@@ -8,13 +8,6 @@ const config = getDefaultConfig(__dirname);
 // Metro then tries to hash this file, but it's not in watchFolders, causing SHA-1 error
 // Solution: Add the cache path to blockList BEFORE withNativeWind processes it
 
-// Add cache exclusion to blockList FIRST
-config.resolver.blockList = [
-  ...(config.resolver.blockList || []),
-  // Exclude react-native-css-interop cache - this is the critical fix
-  /node_modules[\/\\]react-native-css-interop[\/\\]\.cache[\/\\].*/,
-];
-
 config.resolver.sourceExts = [
   "js",
   "jsx",
