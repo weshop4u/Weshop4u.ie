@@ -65,7 +65,7 @@
     "expo-web-browser": "~15.0.10",
     "express": "^4.22.1",
     "jose": "6.1.0",
-    "lightningcss": "^1.32.0",
+    "lightningcss": "^1.27.0",
     "mysql2": "^3.16.0",
     "nativewind": "^4.2.1",
     "nodemailer": "^8.0.1",
