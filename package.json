@@ -22,7 +22,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "qr": "node scripts/generate_qr.mjs",
-    "prebuild": "rm -rf dist web-dist && node scripts/clean-metro-cache.js"
+    "prebuild": "rm -rf dist web-dist && node scripts/clean-metro-cache.js",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.500.0",
