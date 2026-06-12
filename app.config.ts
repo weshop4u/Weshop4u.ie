@@ -45,7 +45,7 @@ const config: ExpoConfig = {
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   // New Architecture disabled — causes cascading remounts with NativeWind on native Android
-  newArchEnabled: false,
+  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
