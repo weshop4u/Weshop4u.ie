@@ -9,7 +9,7 @@ const config = getDefaultConfig(__dirname);
 config.resolver.blockList = [
   ...(config.resolver.blockList || []),
   // Exclude react-native-css-interop cache - this is the critical fix
-  /node_modules\/react-native-css-interop\/\.cache/,
+  /node_modules[\/\\](nativewind[\/\\]node_modules[\/\\])?react-native-css-interop[\/\\]\.cache[\/\\].*/,
 ];
 config.resolver.sourceExts = [
   "js",
