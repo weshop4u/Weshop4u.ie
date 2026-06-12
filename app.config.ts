@@ -127,6 +127,7 @@ const config: ExpoConfig = {
     }
   },
 updates: {
+    enabled: false,
     url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a"
   },
   runtimeVersion: {
