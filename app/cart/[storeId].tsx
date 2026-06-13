@@ -1222,7 +1222,7 @@ export default function CartScreen() {
 
         {/* Phone Verification — Guest Only, placed right above Place Order */}
         {isGuest && (
-          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16, overflow: 'hidden' }}>
             <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
               {phoneVerified ? '✅ Phone Verified' : '📱 Verify Your Phone'}
             </Text>
@@ -1281,7 +1281,7 @@ export default function CartScreen() {
                   Enter the 6-digit code sent to {guestPhone}
                 </Text>
                 <TextInput
-                  style={{ alignSelf: 'stretch', maxWidth: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
+                  style={{ alignSelf: 'stretch', maxWidth: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 4, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
                   placeholder="000000"
                   placeholderTextColor={colors.muted}
                   value={otpCode}
