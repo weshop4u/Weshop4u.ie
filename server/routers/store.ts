@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers } from "../../drizzle/schema";
+import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
 import { eq, and, or, like, inArray, desc, sql, gte, isNotNull, isNull, asc, notInArray } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
@@ -981,16 +981,43 @@ export const storeRouter = router({
         ...allPinned.map((p) => ({ ...p, isPinned: true })),
         ...autoTrending.map((p) => ({ ...p, isPinned: false })),
       ];
-// Check which products have modifier groups
+// Check which products have modifiers from all 3 sources:
+      // 1. Direct modifier_groups on the product
+      // 2. Product-level modifier templates
+      // 3. Category-level modifier templates
       const allProductIds = allProducts.map((p) => p.id);
       let productsWithModifiers = new Set<number>();
       if (allProductIds.length > 0) {
         const { modifierGroups } = await import("../../drizzle/schema");
+        // Source 1: Direct modifier groups
         const modsResult = await db
           .select({ productId: modifierGroups.productId })
           .from(modifierGroups)
           .where(inArray(modifierGroups.productId, allProductIds));
-        productsWithModifiers = new Set(modsResult.map((m) => m.productId));
+        modsResult.forEach((m) => productsWithModifiers.add(m.productId));
+
+        // Source 2: Product-level modifier templates
+        const prodTemplateResult = await db
+          .select({ productId: productModifierTemplates.productId })
+          .from(productModifierTemplates)
+          .where(inArray(productModifierTemplates.productId, allProductIds));
+        prodTemplateResult.forEach((r) => productsWithModifiers.add(r.productId));
+
+        // Source 3: Category-level modifier templates
+        const categoryIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
+        if (categoryIds.length > 0) {
+          const catTemplateResult = await db
+            .select({ categoryId: categoryModifierTemplates.categoryId })
+            .from(categoryModifierTemplates)
+            .where(inArray(categoryModifierTemplates.categoryId, categoryIds));
+          const templateCategoryIds = new Set(catTemplateResult.map((r) => r.categoryId));
+          // Mark all products in those categories as having modifiers
+          allProducts.forEach((p) => {
+            if (p.categoryId && templateCategoryIds.has(p.categoryId)) {
+              productsWithModifiers.add(p.id);
+            }
+          });
+        }
       }
       // Get category names for all products
       const catIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
