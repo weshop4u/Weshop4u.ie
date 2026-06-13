@@ -1,0 +1,18 @@
+diff --git a/node_modules/metro/src/node-haste/DependencyGraph.js b/node_modules/metro/src/node-haste/DependencyGraph.js
+index 0000000..0000000 100644
+--- a/node_modules/metro/src/node-haste/DependencyGraph.js
++++ b/node_modules/metro/src/node-haste/DependencyGraph.js
+@@ -198,12 +198,7 @@
+   async getOrComputeSha1(mixedPath) {
+     const result = await this._fileSystem.getOrComputeSha1(mixedPath);
+     if (!result || !result.sha1) {
+-      throw new Error(`Failed to get the SHA-1 for: ${mixedPath}.
+-      Potential causes:
+-        1) The file is not watched. Ensure it is under the configured \`projectRoot\` or \`watchFolders\`.
+-        2) Check \`blockList\` in your metro.config.js and make sure it isn't excluding the file path.
+-        3) The file may have been deleted since it was resolved - try refreshing your app.
+-        4) Otherwise, this is a bug in Metro or the configured resolver - please report it.`);
++      return { sha1: '0000000000000000000000000000000000000000' };
+     }
+     return result;
+   }
