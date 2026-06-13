@@ -1222,7 +1222,7 @@ export default function CartScreen() {
 
         {/* Phone Verification — Guest Only, placed right above Place Order */}
         {isGuest && (
-          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 16, overflow: 'hidden' }}>
+          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16, overflow: 'hidden', maxWidth: 288 }}>
             <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
               {phoneVerified ? '✅ Phone Verified' : '📱 Verify Your Phone'}
             </Text>
@@ -1232,56 +1232,55 @@ export default function CartScreen() {
               </Text>
             )}
 
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                style={{ flex: 1, backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: phoneVerified ? 2 : 1, borderColor: phoneVerified ? '#22C55E' : colors.border, fontSize: 16 }}
-                placeholder="Phone Number *"
-                placeholderTextColor={colors.muted}
-                value={guestPhone}
-                onChangeText={setGuestPhone}
-                keyboardType="phone-pad"
-                editable={!phoneVerified}
-              />
-              {!phoneVerified && (
-                <TouchableOpacity
-                  onPress={handleSendOtp}
-                  disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
-                  style={{
-                    backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
-                    borderRadius: 8,
-                    paddingHorizontal: 16,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    minWidth: 90,
-                  }}
-                  activeOpacity={0.8}
-                >
-                  {otpSending ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                      {otpCooldown > 0 ? `${otpCooldown}s` : otpSent ? 'Resend' : 'Send Code'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+            <TextInput
+              style={{ width: 264, backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: phoneVerified ? 2 : 1, borderColor: phoneVerified ? '#22C55E' : colors.border, fontSize: 16, marginBottom: 8 }}
+              placeholder="Phone Number *"
+              placeholderTextColor={colors.muted}
+              value={guestPhone}
+              onChangeText={setGuestPhone}
+              keyboardType="phone-pad"
+              editable={!phoneVerified}
+            />
+            {!phoneVerified && (
+              <TouchableOpacity
+                onPress={handleSendOtp}
+                disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
+                style={{
+                  backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
+                  borderRadius: 8,
+                  paddingVertical: 12,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: 264,
+                  marginBottom: 4,
+                }}
+                activeOpacity={0.8}
+              >
+                {otpSending ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                    {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : otpSent ? 'Resend Code' : 'Send Code'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
 
             {/* Verified badge */}
             {phoneVerified && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+              <View style={{ marginTop: 8 }}>
                 <Text style={{ color: '#22C55E', fontSize: 14, fontWeight: '600' }}>✓ {guestPhone} verified — you're ready to order!</Text>
               </View>
             )}
 
             {/* OTP Input */}
             {otpSent && !phoneVerified && (
-              <View style={{ marginTop: 12, overflow: 'hidden', maxWidth: '100%' }}>
+              <View style={{ marginTop: 12, width: 264, overflow: 'hidden' }}>
                 <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
                   Enter the 6-digit code sent to {guestPhone}
                 </Text>
                 <TextInput
-                  style={{ alignSelf: 'stretch', maxWidth: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 4, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
+                  style={{ width: 264, backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 4, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
                   placeholder="000000"
                   placeholderTextColor={colors.muted}
                   value={otpCode}
@@ -1298,8 +1297,7 @@ export default function CartScreen() {
                     paddingVertical: 14,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    alignSelf: 'stretch',
-                    maxWidth: '100%',
+                    width: 264,
                   }}
                   activeOpacity={0.8}
                 >
