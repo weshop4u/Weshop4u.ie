@@ -1280,37 +1280,36 @@ export default function CartScreen() {
                 <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
                   Enter the 6-digit code sent to {guestPhone}
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput
-                    style={{ flex: 1, backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700' }}
-                    placeholder="000000"
-                    placeholderTextColor={colors.muted}
-                    value={otpCode}
-                    onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                  />
-                  <TouchableOpacity
-                    onPress={handleVerifyOtp}
-                    disabled={otpVerifying || otpCode.length !== 6}
-                    style={{
-                      backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
-                      borderRadius: 8,
-                      paddingHorizontal: 16,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    {otpVerifying ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                        Confirm
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <TextInput
+                  style={{ width: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
+                  placeholder="000000"
+                  placeholderTextColor={colors.muted}
+                  value={otpCode}
+                  onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <TouchableOpacity
+                  onPress={handleVerifyOtp}
+                  disabled={otpVerifying || otpCode.length !== 6}
+                  style={{
+                    backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
+                    borderRadius: 8,
+                    paddingVertical: 14,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {otpVerifying ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 16 }}>
+                      Confirm Code
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </View>
             )}
 
