@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews, orderItemModifiers } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews, orderItemModifiers, driverQueue } from "../../drizzle/schema";
 import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -1224,6 +1224,63 @@ export const adminRouter = router({
         success: true, 
         freedDisplayNumber: driver.displayNumber || null,
         message: `Driver deleted successfully.${driver.displayNumber ? ` Display number #${String(driver.displayNumber).padStart(2, '0')} is now available.` : ''}` 
+      };
+    }),
+
+  // Force a driver offline (admin action)
+  forceDriverOffline: publicProcedure
+    .input(z.object({ driverId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      // Get the driver record
+      const [driver] = await db
+        .select({ id: drivers.id, userId: drivers.userId, isOnline: drivers.isOnline })
+        .from(drivers)
+        .where(eq(drivers.id, input.driverId))
+        .limit(1);
+
+      if (!driver) {
+        throw new Error("Driver not found.");
+      }
+
+      if (!driver.isOnline) {
+        return { success: true, message: "Driver is already offline." };
+      }
+
+      // Set driver offline and unavailable
+      await db
+        .update(drivers)
+        .set({ isOnline: false, isAvailable: false, updatedAt: new Date() })
+        .where(eq(drivers.id, input.driverId));
+
+      // Remove from driver queue
+      if (driver.userId) {
+        await db.delete(driverQueue).where(eq(driverQueue.driverId, driver.userId));
+
+        // Expire any pending offers for this driver
+        await db
+          .update(orderOffers)
+          .set({ status: "expired", respondedAt: new Date() })
+          .where(
+            and(
+              eq(orderOffers.driverId, driver.userId),
+              eq(orderOffers.status, "pending")
+            )
+          );
+      }
+
+      // Get driver name for the success message
+      const [driverUser] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, driver.userId!))
+        .limit(1);
+
+      return {
+        success: true,
+        message: `${driverUser?.name || "Driver"} has been forced offline.`,
       };
     }),
 

@@ -39,6 +39,20 @@ function AdminDriverManagementContent() {
     },
   });
 
+  const forceOfflineMutation = trpc.admin.forceDriverOffline.useMutation({
+    onSuccess: (result) => {
+      refetch();
+      setSuccessMsg(result.message);
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setSuccessMsg("");
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
+  });
+
   const setDisplayNumberMutation = trpc.admin.setDriverDisplayNumber.useMutation({
     onSuccess: () => {
       refetch();
@@ -220,6 +234,30 @@ function AdminDriverManagementContent() {
                             {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
                           </Text>
                         </View>
+
+                        {/* Force Driver Offline */}
+                        {driver.isOnline && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => forceOfflineMutation.mutate({ driverId: driver.id })}
+                              disabled={forceOfflineMutation.isPending}
+                              style={{
+                                backgroundColor: '#F59E0B' + '15',
+                                borderWidth: 1,
+                                borderColor: '#F59E0B',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                opacity: forceOfflineMutation.isPending ? 0.5 : 1,
+                              }}
+                            >
+                              <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 14 }}>
+                                {forceOfflineMutation.isPending ? 'Forcing Offline...' : 'Force Driver Offline'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
 
                         {/* Delete Driver */}
                         <View className="mt-3 pt-3 border-t border-border">
