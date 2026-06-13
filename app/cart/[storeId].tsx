@@ -1276,12 +1276,12 @@ export default function CartScreen() {
 
             {/* OTP Input */}
             {otpSent && !phoneVerified && (
-              <View style={{ marginTop: 12 }}>
+              <View style={{ marginTop: 12, overflow: 'hidden', maxWidth: '100%' }}>
                 <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
                   Enter the 6-digit code sent to {guestPhone}
                 </Text>
                 <TextInput
-                  style={{ width: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
+                  style={{ alignSelf: 'stretch', maxWidth: '100%', backgroundColor: colors.background, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 8, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
                   placeholder="000000"
                   placeholderTextColor={colors.muted}
                   value={otpCode}
@@ -1298,7 +1298,8 @@ export default function CartScreen() {
                     paddingVertical: 14,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    width: '100%',
+                    alignSelf: 'stretch',
+                    maxWidth: '100%',
                   }}
                   activeOpacity={0.8}
                 >
