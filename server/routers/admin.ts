@@ -459,12 +459,24 @@ export const adminRouter = router({
       }
     });
 
+    // Get unsettled balances per driver
+    const unsettledShifts = await db
+      .select({ driverId: driverShifts.driverId, netOwed: driverShifts.netOwed })
+      .from(driverShifts)
+      .where(and(eq(driverShifts.status, "ended"), sql`${driverShifts.settledAt} IS NULL`));
+
+    const driverUnsettledMap: Record<number, number> = {};
+    unsettledShifts.forEach(s => {
+      driverUnsettledMap[s.driverId] = (driverUnsettledMap[s.driverId] || 0) + parseFloat(s.netOwed || "0");
+    });
+
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
       email: userMap[driver.userId]?.email || "",
       phone: userMap[driver.userId]?.phone || "",
       earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
+      unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
     }));
   }),
 
