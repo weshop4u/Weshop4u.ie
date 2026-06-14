@@ -376,8 +376,52 @@ export default function StoreDetailScreen() {
             </ScrollView>
 
             <View style={{ paddingBottom: Math.max(insets.bottom, 12), paddingHorizontal: 16, paddingTop: 8, backgroundColor: "#ffffff" }}>
+              {(() => {
+                const basePrice = parseFloat(selectedProduct?.price || "0");
+                const modifierTotal = modifierDataWithSelection.reduce((sum: number, group: any) => {
+                  return sum + (group.selectedModifiers || []).reduce((gSum: number, modId: number) => {
+                    const mod = group.modifiers.find((m: any) => m.id === modId);
+                    const qty = optionQuantities[`${group.id}_${modId}`] || 1;
+                    return gSum + (parseFloat(mod?.price || "0") * qty);
+                  }, 0);
+                }, 0);
+                const runningTotal = (basePrice + modifierTotal) * modalQuantity;
+                return (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
+                    <Text style={{ fontSize: 15, color: '#687076', fontWeight: '600' }}>Total</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: '#00E5FF' }}>€{runningTotal.toFixed(2)}</Text>
+                  </View>
+                );
+              })()}
+            {/* Required modifier validation */}
+            {(() => {
+              const missingRequired = modifierDataWithSelection.filter(
+                (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+              );
+              const isDisabled = missingRequired.length > 0;
+              return (
+                <>
+                  {isDisabled && (
+                    <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      Please select from: {missingRequired.map((g: any) => g.name).join(', ')}
+                    </Text>
+                  )}
             <TouchableOpacity
+              disabled={isDisabled}
               onPress={async () => {
+                // Safety net: check required modifiers even if button should be disabled
+                const missingGroups = modifierDataWithSelection.filter(
+                  (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+                );
+                if (missingGroups.length > 0) {
+                  Alert.alert(
+                    "Required Selections",
+                    `Please make a selection from: ${missingGroups.map((g: any) => g.name).join(', ')}`,
+                    [{ text: "OK" }]
+                  );
+                  return;
+                }
+
                 // Build modifiers array from selected modifiers
                 const modifiersArray: CartItemModifier[] = [];
                 for (const group of modifierDataWithSelection) {
@@ -453,10 +497,13 @@ export default function StoreDetailScreen() {
                 setOptionQuantities({});
                 setModalQuantity(1);
               }}
-              style={styles.addToCartButton}
+              style={[styles.addToCartButton, isDisabled && { backgroundColor: '#9CA3AF' }]}
             >
               <Text style={styles.addToCartText}>Add to Cart</Text>
             </TouchableOpacity>
+                </>
+              );
+            })()}
             </View>
           </View>
         </View>
@@ -744,7 +791,7 @@ export default function StoreDetailScreen() {
                             <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                               <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(result.product.price).toFixed(2)}</Text>
-                              {qty > 0 ? (
+                              {qty > 0 && !fullProduct?.hasModifiers ? (
                                 <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
                                   <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
                                 </View>
@@ -808,7 +855,7 @@ export default function StoreDetailScreen() {
                                 <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
                                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                                   <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(item.price).toFixed(2)}</Text>
-                                  {qty > 0 ? (
+                                  {qty > 0 && !fullProduct?.hasModifiers ? (
                                     <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
                                       <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
                                     </View>
