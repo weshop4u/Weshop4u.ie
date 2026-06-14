@@ -215,6 +215,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   }
   
   const tipAmount = parseFloat(order.tipAmount || "0");
+  const discountAmount = parseFloat(order.discountAmount || "0");
 
   lines.push(leftRight("Subtotal:", `EUR${subtotal.toFixed(2)}`));
   lines.push(leftRight("Service Fee:", `EUR${serviceFee.toFixed(2)}`));
@@ -222,8 +223,11 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   if (tipAmount > 0) {
     lines.push(leftRight("Driver Tip:", `EUR${tipAmount.toFixed(2)}`));
   }
+  if (discountAmount > 0) {
+    lines.push(leftRight("Discount:", `-EUR${discountAmount.toFixed(2)}`));
+  }
   lines.push(divider("="));
-  lines.push(leftRight("TOTAL:", `EUR${total.toFixed(2)}`));
+  lines.push(leftRight("TOTAL:", `EUR${(total - discountAmount).toFixed(2)}`));
   lines.push(divider("="));
 
   // Item count summary
