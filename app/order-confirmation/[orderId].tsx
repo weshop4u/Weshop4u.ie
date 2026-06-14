@@ -198,7 +198,7 @@ export default function OrderConfirmationScreen() {
             }
             return (
               <View key={item.id} style={{ marginBottom: 10 }}>
-                <View className="flex-row justify-between">
+                <View className="flex-row -between">
                   <Text className="text-foreground flex-1 font-semibold">
                     {item.quantity}x {item.productName}
                   </Text>
@@ -246,6 +246,12 @@ export default function OrderConfirmationScreen() {
             <Text className="text-muted">Delivery Fee</Text>
             <Text className="text-foreground">€{parseFloat(order.deliveryFee).toFixed(2)}</Text>
           </View>
+          {parseFloat((order as any).discountAmount || "0") > 0 && (
+            <View className="flex-row justify-between mb-3">
+              <Text style={{ color: colors.success }}>Discount</Text>
+              <Text style={{ color: colors.success }}>-€{parseFloat((order as any).discountAmount).toFixed(2)}</Text>
+            </View>
+          )}
           
           <View className="flex-row justify-between mb-3">
             <Text className="text-foreground font-bold text-lg">Total</Text>
