@@ -12,6 +12,18 @@ export default function AdminLayout() {
   // Check user role — redirect store_staff away from admin
   const { data: user, isLoading } = trpc.auth.me.useQuery();
 
+  // Preload Google Maps script so driver map loads instantly
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if ((window as any).google?.maps) return;
+    const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+    if (!key) return;
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker&loading=async`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
   useEffect(() => {
     if (!isLoading && user) {
       if (user.role === "store_staff") {
