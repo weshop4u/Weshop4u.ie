@@ -284,8 +284,10 @@ export default function DriverEarningsScreen() {
             </View>
           ) : (
             filteredDeliveries.map((delivery, idx) => (
-              <View
+              <TouchableOpacity
                 key={delivery.id}
+                onPress={() => router.push(`/driver/active-delivery?orderId=${delivery.id}`)}
+                activeOpacity={0.7}
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
