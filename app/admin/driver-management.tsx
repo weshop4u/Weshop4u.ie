@@ -65,7 +65,17 @@ function AdminDriverManagementContent() {
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
-
+const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
+    onSuccess: () => {
+      refetch();
+      setSuccessMsg("Cash settled successfully");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
+  });
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -232,6 +242,35 @@ function AdminDriverManagementContent() {
                             {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
                           </Text>
                         </View>
+                        {/* Cash Settlement */}
+                        {(driver as any).unsettledBalance > 0 && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <View className="flex-row justify-between items-center mb-2">
+                              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted }}>UNSETTLED CASH</Text>
+                              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.warning }}>
+                                €{(driver as any).unsettledBalance.toFixed(2)}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => markAllSettledMutation.mutate({ driverId: driver.userId, adminUserId: 1 })}
+                              disabled={markAllSettledMutation.isPending}
+                              style={{
+                                backgroundColor: '#22C55E15',
+                                borderWidth: 1,
+                                borderColor: '#22C55E',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                opacity: markAllSettledMutation.isPending ? 0.5 : 1,
+                              }}
+                            >
+                              <Text style={{ color: '#15803D', fontWeight: '700', fontSize: 14 }}>
+                                {markAllSettledMutation.isPending ? 'Settling...' : '✓ Mark All Settled'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
                         {/* Force Offline — only show when driver is online */}
                         {driver.isOnline && (
                           <View className="mt-3 pt-3 border-t border-border">
