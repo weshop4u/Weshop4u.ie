@@ -393,8 +393,35 @@ export default function StoreDetailScreen() {
                   </View>
                 );
               })()}
+            {/* Required modifier validation */}
+            {(() => {
+              const missingRequired = modifierDataWithSelection.filter(
+                (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+              );
+              const isDisabled = missingRequired.length > 0;
+              return (
+                <>
+                  {isDisabled && (
+                    <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      Please select from: {missingRequired.map((g: any) => g.name).join(', ')}
+                    </Text>
+                  )}
             <TouchableOpacity
+              disabled={isDisabled}
               onPress={async () => {
+                // Safety net: check required modifiers even if button should be disabled
+                const missingGroups = modifierDataWithSelection.filter(
+                  (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+                );
+                if (missingGroups.length > 0) {
+                  Alert.alert(
+                    "Required Selections",
+                    `Please make a selection from: ${missingGroups.map((g: any) => g.name).join(', ')}`,
+                    [{ text: "OK" }]
+                  );
+                  return;
+                }
+
                 // Build modifiers array from selected modifiers
                 const modifiersArray: CartItemModifier[] = [];
                 for (const group of modifierDataWithSelection) {
@@ -470,10 +497,13 @@ export default function StoreDetailScreen() {
                 setOptionQuantities({});
                 setModalQuantity(1);
               }}
-              style={styles.addToCartButton}
+              style={[styles.addToCartButton, isDisabled && { backgroundColor: '#9CA3AF' }]}
             >
               <Text style={styles.addToCartText}>Add to Cart</Text>
             </TouchableOpacity>
+                </>
+              );
+            })()}
             </View>
           </View>
         </View>
