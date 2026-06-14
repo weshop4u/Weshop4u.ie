@@ -397,8 +397,8 @@ export default function ActiveDeliveryScreen() {
   // Get store receipt total for driver (excludes WSS items)
   const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
   const storeReceiptTotal = receiptData?.storeReceipt?.total || orderTotal;
-  const displayTotal = storeReceiptTotal; // Driver sees store receipt total
-
+  const discountAmount = parseFloat((order as any).discountAmount || "0");
+const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store receipt total minus discount
   return (
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
