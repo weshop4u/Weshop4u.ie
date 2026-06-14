@@ -24,7 +24,7 @@ function timeAgo(isoString: string | null): string {
 
 function DriverMapContent() {
   const { data: driverLocations, isLoading, refetch } = trpc.admin.getDriverLocations.useQuery(undefined, {
-    refetchInterval: 10000,
+    refetchInterval: 5000,
   });
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
   const [showOffline, setShowOffline] = useState(true);
@@ -519,7 +519,7 @@ scriptEl.defer = true;
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Auto-refreshes every 10 seconds • Drivers report GPS every 10 seconds when online</Text>
+          <Text style={styles.footerText}>Auto-refreshes every 5 seconds • Drivers report GPS every 5 seconds when online</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
