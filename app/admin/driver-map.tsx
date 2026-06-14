@@ -9,6 +9,8 @@ import { useRouter } from "expo-router";
 const BALBRIGGAN_LAT = 53.6108;
 const BALBRIGGAN_LNG = -6.1811;
 
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
 function timeAgo(isoString: string | null): string {
   if (!isoString) return "No location";
   const diff = Date.now() - new Date(isoString).getTime();
@@ -22,7 +24,7 @@ function timeAgo(isoString: string | null): string {
 
 function DriverMapContent() {
   const { data: driverLocations, isLoading, refetch } = trpc.admin.getDriverLocations.useQuery(undefined, {
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 10000,
   });
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
   const [showOffline, setShowOffline] = useState(true);
@@ -33,192 +35,236 @@ function DriverMapContent() {
   const [mapReady, setMapReady] = useState(false);
   const router = useRouter();
 
-  // Initialize Leaflet map (web only)
+  // Initialize Google Maps (web only)
   useEffect(() => {
     if (Platform.OS !== "web") return;
+    if ((window as any).google?.maps) {
+      initMap();
+      return;
+    }
 
-    // Load Leaflet CSS
-    const linkEl = document.createElement("link");
-    linkEl.rel = "stylesheet";
-    linkEl.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(linkEl);
-
-    // Load Leaflet JS
+    // Load Google Maps JS API
     const scriptEl = document.createElement("script");
-    scriptEl.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    scriptEl.onload = () => {
-      if (!mapContainerRef.current || mapRef.current) return;
-      const L = (window as any).L;
-      const map = L.map(mapContainerRef.current).setView([BALBRIGGAN_LAT, BALBRIGGAN_LNG], 14);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
-      mapRef.current = map;
-      setMapReady(true);
-    };
+    scriptEl.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=maps,marker`;
+    scriptEl.async = true;
+    scriptEl.onload = () => initMap();
     document.head.appendChild(scriptEl);
 
     return () => {
       if (mapRef.current) {
-        mapRef.current.remove();
         mapRef.current = null;
       }
     };
   }, []);
 
+  const initMap = () => {
+    if (!mapContainerRef.current || mapRef.current) return;
+    const google = (window as any).google;
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: { lat: BALBRIGGAN_LAT, lng: BALBRIGGAN_LNG },
+      zoom: 14,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+      zoomControl: true,
+      styles: [
+        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+      ],
+    });
+    mapRef.current = map;
+    setMapReady(true);
+  };
+
   // Update markers when data changes
   useEffect(() => {
     if (!mapReady || !mapRef.current || !driverLocations) return;
-    const L = (window as any).L;
-    if (!L) return;
+    const google = (window as any).google;
+    if (!google) return;
 
     // Clear existing markers and route lines
-    Object.values(markersRef.current).forEach(m => m.remove());
+    Object.values(markersRef.current).forEach((m: any) => m.setMap(null));
     markersRef.current = {};
-    routeLinesRef.current.forEach(l => l.remove());
+    routeLinesRef.current.forEach((l: any) => l.setMap(null));
     routeLinesRef.current = [];
 
     const onlineWithLocation = driverLocations.filter(d => d.isOnline && d.latitude && d.longitude);
     const offlineWithLocation = showOffline ? driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude) : [];
 
-    // Add online driver markers (green)
+    const infoWindow = new google.maps.InfoWindow();
+
+    // Add online driver markers
     onlineWithLocation.forEach(driver => {
       const isDelivering = driver.activeOrders.length > 0;
-      const color = isDelivering ? "#F59E0B" : "#22C55E"; // amber if delivering, green if available
+      const color = isDelivering ? "#F59E0B" : "#22C55E";
       const statusText = isDelivering
-        ? `Delivering: ${driver.activeOrders.map(o => o.orderNumber).join(", ")}`
+        ? `Delivering: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
         : driver.isAvailable ? "Available" : "Online (busy)";
 
-      const icon = L.divIcon({
-        className: "custom-driver-marker",
-        html: `<div style="
-          background: ${color};
-          color: white;
-          border: 3px solid white;
-          border-radius: 50%;
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 13px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          position: relative;
-        ">${driver.displayNumber || "?"}</div>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-      });
+      const markerEl = document.createElement("div");
+      markerEl.style.cssText = `
+        background: ${color};
+        color: white;
+        border: 3px solid white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 13px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+      `;
+      markerEl.textContent = driver.displayNumber || "?";
 
-      const marker = L.marker([driver.latitude, driver.longitude], { icon })
-        .addTo(mapRef.current)
-        .bindPopup(`
-          <div style="min-width: 180px; font-family: system-ui, sans-serif;">
-            <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">${driver.label}</div>
-            <div style="color: ${color}; font-weight: 600; font-size: 13px; margin-bottom: 6px;">${statusText}</div>
-            ${driver.phone ? `<div style="color: #334155; font-size: 12px; margin-bottom: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1; text-decoration: none;">${driver.phone}</a></div>` : ""}
-            ${driver.vehicleType ? `<div style="color: #64748B; font-size: 12px;">Vehicle: ${driver.vehicleType}</div>` : ""}
-            <div style="color: #64748B; font-size: 12px;">Last update: ${timeAgo(driver.lastLocationUpdate)}</div>
-            ${driver.activeOrders.length > 0 ? driver.activeOrders.map(o =>
-              `<div style="margin-top: 6px; padding: 4px 8px; background: #FEF3C7; border-radius: 4px; font-size: 12px;">
-                <strong>${o.orderNumber}</strong> — ${o.status.replace(/_/g, " ")}
-                <div style="color: #92400E; font-size: 11px;">${o.deliveryAddress}</div>
-              </div>`
-            ).join("") : ""}
-          </div>
-        `);
+      let marker: any;
+      try {
+        // Try AdvancedMarkerElement first
+        marker = new google.maps.marker.AdvancedMarkerElement({
+          position: { lat: driver.latitude!, lng: driver.longitude! },
+          map: mapRef.current,
+          content: markerEl,
+          title: driver.label,
+        });
+      } catch {
+        // Fallback to standard Marker
+        marker = new google.maps.Marker({
+          position: { lat: driver.latitude!, lng: driver.longitude! },
+          map: mapRef.current,
+          label: { text: driver.displayNumber || "?", color: "white", fontWeight: "bold" },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 20,
+            fillColor: color,
+            fillOpacity: 1,
+            strokeColor: "white",
+            strokeWeight: 3,
+          },
+        });
+      }
+
+      const popupContent = `
+        <div style="min-width: 200px; font-family: system-ui, sans-serif; padding: 4px;">
+          <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">${driver.label}</div>
+          <div style="color: ${color}; font-weight: 600; font-size: 13px; margin-bottom: 6px;">${statusText}</div>
+          ${driver.phone ? `<div style="font-size: 12px; margin-bottom: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1;">${driver.phone}</a></div>` : ""}
+          ${driver.vehicleType ? `<div style="color: #64748B; font-size: 12px;">🚗 ${driver.vehicleType}</div>` : ""}
+          <div style="color: #64748B; font-size: 12px;">Last update: ${timeAgo(driver.lastLocationUpdate)}</div>
+          ${driver.activeOrders.length > 0 ? driver.activeOrders.map((o: any) =>
+            `<div style="margin-top: 6px; padding: 6px 8px; background: #FEF3C7; border-radius: 6px; font-size: 12px;">
+              <strong>${o.orderNumber}</strong> — ${o.status.replace(/_/g, " ")}
+              <div style="color: #92400E; font-size: 11px;">${o.deliveryAddress}</div>
+            </div>`
+          ).join("") : ""}
+        </div>
+      `;
+
+      const clickHandler = () => {
+        infoWindow.setContent(popupContent);
+        infoWindow.open(mapRef.current, marker);
+        setSelectedDriver(driver.id);
+      };
+
+      if (marker.addListener) {
+        marker.addListener("click", clickHandler);
+      } else if (marker.element) {
+        marker.element.addEventListener("click", clickHandler);
+      }
 
       markersRef.current[driver.id] = marker;
+
+      // Draw route lines to delivery destinations
+      if (driver.activeOrders.length > 0) {
+        driver.activeOrders.forEach((order: any) => {
+          if (order.deliveryLatitude && order.deliveryLongitude) {
+            const routeLine = new google.maps.Polyline({
+              path: [
+                { lat: driver.latitude!, lng: driver.longitude! },
+                { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
+              ],
+              geodesic: true,
+              strokeColor: "#F59E0B",
+              strokeOpacity: 0.7,
+              strokeWeight: 3,
+              icons: [{
+                icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 },
+                offset: "0",
+                repeat: "20px",
+              }],
+              map: mapRef.current,
+            });
+            routeLinesRef.current.push(routeLine);
+
+            // Destination marker
+            const destMarker = new google.maps.Marker({
+              position: { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
+              map: mapRef.current,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: "#EF4444",
+                fillOpacity: 1,
+                strokeColor: "white",
+                strokeWeight: 2,
+              },
+              title: order.orderNumber,
+            });
+            destMarker.addListener("click", () => {
+              infoWindow.setContent(`
+                <div style="font-family: system-ui, sans-serif; padding: 4px;">
+                  <div style="font-weight: 700; font-size: 13px;">📦 ${order.orderNumber}</div>
+                  <div style="font-size: 12px; color: #64748B;">${order.deliveryAddress}</div>
+                  <div style="font-size: 11px; color: #F59E0B; font-weight: 600; margin-top: 4px;">Driver ${driver.displayNumber || "?"} en route</div>
+                </div>
+              `);
+              infoWindow.open(mapRef.current, destMarker);
+            });
+            routeLinesRef.current.push(destMarker);
+          }
+        });
+      }
     });
 
     // Add offline driver markers (grey, smaller)
     offlineWithLocation.forEach(driver => {
-      const icon = L.divIcon({
-        className: "custom-driver-marker-offline",
-        html: `<div style="
-          background: #94A3B8;
-          color: white;
-          border: 2px solid white;
-          border-radius: 50%;
-          width: 28px;
-          height: 28px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 11px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-          opacity: 0.6;
-        ">${driver.displayNumber || "?"}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+      const marker = new google.maps.Marker({
+        position: { lat: driver.latitude!, lng: driver.longitude! },
+        map: mapRef.current,
+        label: { text: driver.displayNumber || "?", color: "white", fontWeight: "bold", fontSize: "11px" },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 14,
+          fillColor: "#94A3B8",
+          fillOpacity: 0.7,
+          strokeColor: "white",
+          strokeWeight: 2,
+        },
+        opacity: 0.6,
       });
-
-      const marker = L.marker([driver.latitude, driver.longitude], { icon })
-        .addTo(mapRef.current)
-        .bindPopup(`
-          <div style="min-width: 160px; font-family: system-ui, sans-serif;">
-            <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">${driver.label}</div>
-            <div style="color: #94A3B8; font-weight: 600; font-size: 13px;">Offline</div>
-            ${driver.phone ? `<div style="color: #334155; font-size: 12px; margin-top: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1; text-decoration: none;">${driver.phone}</a></div>` : ""}
+      marker.addListener("click", () => {
+        infoWindow.setContent(`
+          <div style="min-width: 160px; font-family: system-ui, sans-serif; padding: 4px;">
+            <div style="font-weight: 700; font-size: 14px;">${driver.label}</div>
+            <div style="color: #94A3B8; font-size: 13px;">Offline</div>
+            ${driver.phone ? `<div style="font-size: 12px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1;">${driver.phone}</a></div>` : ""}
             <div style="color: #64748B; font-size: 12px;">Last seen: ${timeAgo(driver.lastLocationUpdate)}</div>
           </div>
         `);
-
+        infoWindow.open(mapRef.current, marker);
+      });
       markersRef.current[driver.id] = marker;
     });
 
-    // Draw delivery route lines from driver to customer
-    onlineWithLocation.forEach(driver => {
-      if (!driver.activeOrders || driver.activeOrders.length === 0) return;
-      driver.activeOrders.forEach((order: any) => {
-        if (order.deliveryLatitude && order.deliveryLongitude) {
-          // Dashed line from driver to delivery address
-          const routeLine = L.polyline(
-            [[driver.latitude, driver.longitude], [order.deliveryLatitude, order.deliveryLongitude]],
-            { color: "#F59E0B", weight: 3, opacity: 0.7, dashArray: "8, 8" }
-          ).addTo(mapRef.current);
-          routeLinesRef.current.push(routeLine);
-
-          // Small destination marker (pin icon)
-          const destIcon = L.divIcon({
-            className: "custom-dest-marker",
-            html: `<div style="
-              background: #EF4444;
-              color: white;
-              border: 2px solid white;
-              border-radius: 50%;
-              width: 20px;
-              height: 20px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-            ">🏠</div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-          });
-          const destMarker = L.marker([order.deliveryLatitude, order.deliveryLongitude], { icon: destIcon })
-            .addTo(mapRef.current)
-            .bindPopup(`
-              <div style="font-family: system-ui, sans-serif; min-width: 140px;">
-                <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">📦 ${order.orderNumber}</div>
-                <div style="font-size: 12px; color: #64748B;">${order.deliveryAddress}</div>
-                <div style="font-size: 11px; color: #F59E0B; font-weight: 600; margin-top: 4px;">Driver ${driver.displayNumber || "?"} en route</div>
-              </div>
-            `);
-          routeLinesRef.current.push(destMarker);
-        }
-      });
-    });
-
-    // If we have online drivers, fit bounds to show them all
+    // Fit bounds to show all online drivers
     if (onlineWithLocation.length > 0) {
-      const bounds = L.latLngBounds(onlineWithLocation.map((d: any) => [d.latitude, d.longitude]));
-      // Add some padding
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      const bounds = new google.maps.LatLngBounds();
+      onlineWithLocation.forEach(d => bounds.extend({ lat: d.latitude!, lng: d.longitude! }));
+      mapRef.current.fitBounds(bounds, 80);
+      // Don't zoom in too much for a single driver
+      const listener = google.maps.event.addListenerOnce(mapRef.current, "idle", () => {
+        if (mapRef.current.getZoom() > 16) mapRef.current.setZoom(16);
+      });
     }
   }, [driverLocations, mapReady, showOffline]);
 
@@ -236,32 +282,30 @@ function DriverMapContent() {
   const driversWithLocation = allDrivers.filter(d => d.latitude && d.longitude);
   const deliveringDrivers = onlineDrivers.filter(d => d.activeOrders.length > 0);
 
-  // Center map on a specific driver and open their popup
   const centerOnDriver = (driverId: number, lat: number | null, lng: number | null) => {
     if (!mapRef.current || !lat || !lng) return;
     setSelectedDriver(driverId);
-    mapRef.current.flyTo([lat, lng], 17, { duration: 0.8 });
-    // Open the marker popup
+    mapRef.current.panTo({ lat, lng });
+    mapRef.current.setZoom(17);
     const marker = markersRef.current[driverId];
     if (marker) {
-      setTimeout(() => marker.openPopup(), 400);
+      const google = (window as any).google;
+      new google.maps.event.trigger(marker, "click");
     }
   };
 
-  // Reset map to show all drivers
   const showAllDrivers = () => {
     if (!mapRef.current) return;
     setSelectedDriver(null);
-    // Close any open popups
-    mapRef.current.closePopup();
-    const L = (window as any).L;
-    if (!L) return;
+    const google = (window as any).google;
     const allWithLocation = allDrivers.filter(d => d.latitude && d.longitude);
     if (allWithLocation.length > 0) {
-      const bounds = L.latLngBounds(allWithLocation.map((d: any) => [d.latitude, d.longitude]));
-      mapRef.current.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.8 });
+      const bounds = new google.maps.LatLngBounds();
+      allWithLocation.forEach((d: any) => bounds.extend({ lat: d.latitude, lng: d.longitude }));
+      mapRef.current.fitBounds(bounds, 80);
     } else {
-      mapRef.current.flyTo([BALBRIGGAN_LAT, BALBRIGGAN_LNG], 14, { duration: 0.8 });
+      mapRef.current.panTo({ lat: BALBRIGGAN_LAT, lng: BALBRIGGAN_LNG });
+      mapRef.current.setZoom(14);
     }
   };
 
@@ -283,7 +327,7 @@ function DriverMapContent() {
           </View>
         </View>
 
-        {/* Stats bar — clickable badges */}
+        {/* Stats bar */}
         <View style={styles.statsRow}>
           <TouchableOpacity
             style={[styles.statCard, { borderLeftColor: "#22C55E" }]}
@@ -323,7 +367,7 @@ function DriverMapContent() {
           </TouchableOpacity>
         </View>
 
-        {/* Map (web only) */}
+        {/* Google Map */}
         {Platform.OS === "web" ? (
           <View style={styles.mapWrapper}>
             <div
@@ -348,7 +392,6 @@ function DriverMapContent() {
         <View style={styles.listSection}>
           <Text style={styles.listTitle}>All Drivers</Text>
 
-          {/* Online drivers first */}
           {onlineDrivers.length > 0 && (
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.groupLabel}>🟢 Online ({onlineDrivers.length})</Text>
@@ -370,7 +413,7 @@ function DriverMapContent() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.driverName}>{driver.label}</Text>
                     {driver.phone ? (
-                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
+                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { (window as any).open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
                         <Text style={styles.driverPhone}>📞 {driver.phone}</Text>
                       </TouchableOpacity>
                     ) : null}
@@ -384,7 +427,7 @@ function DriverMapContent() {
                     </View>
                     {driver.activeOrders.length > 0 && (
                       <View style={{ marginTop: 4 }}>
-                        {driver.activeOrders.map((o, i) => (
+                        {driver.activeOrders.map((o: any, i: number) => (
                           <Text key={i} style={styles.orderTag}>
                             🚗 {o.orderNumber} — {o.status.replace(/_/g, " ")}
                           </Text>
@@ -415,7 +458,6 @@ function DriverMapContent() {
             </View>
           )}
 
-          {/* Offline drivers */}
           {showOffline && offlineDrivers.length > 0 && (
             <View>
               <Text style={styles.groupLabel}>⚫ Offline ({offlineDrivers.length})</Text>
@@ -437,7 +479,7 @@ function DriverMapContent() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.driverName, { color: "#64748B" }]}>{driver.label}</Text>
                     {driver.phone ? (
-                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
+                      <TouchableOpacity onPress={() => { if (Platform.OS === "web") { (window as any).open(`tel:${driver.phone}`, "_self"); } else { Linking.openURL(`tel:${driver.phone}`); } }} activeOpacity={0.7}>
                         <Text style={[styles.driverPhone, { color: "#64748B" }]}>📞 {driver.phone}</Text>
                       </TouchableOpacity>
                     ) : null}
@@ -474,7 +516,6 @@ function DriverMapContent() {
           )}
         </View>
 
-        {/* Auto-refresh notice */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Auto-refreshes every 10 seconds • Drivers report GPS every 10 seconds when online</Text>
         </View>
@@ -492,213 +533,38 @@ export default function AdminDriverMapPage() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  refreshBtn: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  refreshText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#334155",
-  },
-  showAllBtn: {
-    backgroundColor: "#E0F2FE",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  showAllText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0369A1",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-    flexWrap: "wrap",
-  },
-  statCard: {
-    flex: 1,
-    minWidth: 100,
-    backgroundColor: "#ffffff",
-    borderRadius: 10,
-    padding: 14,
-    borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#64748B",
-    marginTop: 2,
-  },
-  statBadgeHint: {
-    fontSize: 10,
-    color: "#0EA5E9",
-    fontWeight: "500",
-    marginTop: 4,
-  },
-  mapWrapper: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    overflow: "hidden",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    position: "relative" as any,
-  },
-  mapLoading: {
-    position: "absolute" as any,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F8FAFC",
-  },
-  noMapBox: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    padding: 32,
-    alignItems: "center",
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  noMapText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 4,
-  },
-  noMapSub: {
-    fontSize: 14,
-    color: "#64748B",
-  },
-  listSection: {
-    marginBottom: 20,
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 12,
-  },
-  groupLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#475569",
-    marginBottom: 8,
-  },
-  driverRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 6,
-  },
-  driverRowOnline: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  driverRowOffline: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-  },
-  driverRowSelected: {
-    borderColor: "#0EA5E9",
-    borderWidth: 2,
-    backgroundColor: "#F0F9FF",
-  },
-  driverBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  driverBadgeText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  driverName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0F172A",
-  },
-  driverPhone: {
-    fontSize: 12,
-    color: "#0369A1",
-    fontWeight: "500",
-    marginTop: 1,
-  },
-  driverMeta: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  orderTag: {
-    fontSize: 12,
-    color: "#92400E",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: "flex-start",
-    overflow: "hidden",
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  emptyState: {
-    alignItems: "center",
-    padding: 40,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  footer: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  locateHint: {
-    fontSize: 10,
-    color: "#0EA5E9",
-    fontWeight: "500",
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#94A3B8",
-  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  title: { fontSize: 24, fontWeight: "700", color: "#0F172A" },
+  refreshBtn: { backgroundColor: "#F1F5F9", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  refreshText: { fontSize: 14, fontWeight: "600", color: "#334155" },
+  showAllBtn: { backgroundColor: "#E0F2FE", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  showAllText: { fontSize: 14, fontWeight: "600", color: "#0369A1" },
+  statsRow: { flexDirection: "row", gap: 12, marginBottom: 20, flexWrap: "wrap" },
+  statCard: { flex: 1, minWidth: 100, backgroundColor: "#ffffff", borderRadius: 10, padding: 14, borderLeftWidth: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+  statNumber: { fontSize: 24, fontWeight: "800", color: "#0F172A" },
+  statLabel: { fontSize: 12, fontWeight: "500", color: "#64748B", marginTop: 2 },
+  statBadgeHint: { fontSize: 10, color: "#0EA5E9", fontWeight: "500", marginTop: 4 },
+  mapWrapper: { backgroundColor: "#ffffff", borderRadius: 12, overflow: "hidden", marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, position: "relative" as any },
+  mapLoading: { position: "absolute" as any, top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFC" },
+  noMapBox: { backgroundColor: "#F8FAFC", borderRadius: 12, padding: 32, alignItems: "center", marginBottom: 20, borderWidth: 1, borderColor: "#E2E8F0" },
+  noMapText: { fontSize: 16, fontWeight: "600", color: "#334155", marginBottom: 4 },
+  noMapSub: { fontSize: 14, color: "#64748B" },
+  listSection: { marginBottom: 20 },
+  listTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 },
+  groupLabel: { fontSize: 14, fontWeight: "600", color: "#475569", marginBottom: 8 },
+  driverRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 10, marginBottom: 6 },
+  driverRowOnline: { backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#E2E8F0" },
+  driverRowOffline: { backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#F1F5F9" },
+  driverRowSelected: { borderColor: "#0EA5E9", borderWidth: 2, backgroundColor: "#F0F9FF" },
+  driverBadge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  driverBadgeText: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
+  driverName: { fontSize: 15, fontWeight: "600", color: "#0F172A" },
+  driverPhone: { fontSize: 12, color: "#0369A1", fontWeight: "500", marginTop: 1 },
+  driverMeta: { fontSize: 12, color: "#64748B" },
+  orderTag: { fontSize: 12, color: "#92400E", backgroundColor: "#FEF3C7", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: "flex-start", overflow: "hidden" },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  emptyState: { alignItems: "center", padding: 40, backgroundColor: "#F8FAFC", borderRadius: 12, borderWidth: 1, borderColor: "#E2E8F0" },
+  footer: { alignItems: "center", paddingVertical: 12 },
+  locateHint: { fontSize: 10, color: "#0EA5E9", fontWeight: "500" },
+  footerText: { fontSize: 12, color: "#94A3B8" },
 });
