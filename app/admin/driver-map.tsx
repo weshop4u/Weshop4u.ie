@@ -45,8 +45,9 @@ function DriverMapContent() {
 
     // Load Google Maps JS API
     const scriptEl = document.createElement("script");
-    scriptEl.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=maps,marker`;
-    scriptEl.async = true;
+    scriptEl.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=maps,marker&loading=async`;
+scriptEl.async = true;
+scriptEl.defer = true;
     scriptEl.onload = () => initMap();
     document.head.appendChild(scriptEl);
 
@@ -371,9 +372,10 @@ function DriverMapContent() {
         {Platform.OS === "web" ? (
           <View style={styles.mapWrapper}>
             <div
-              ref={(el: any) => { mapContainerRef.current = el; }}
-              style={{ width: "100%", height: 500, borderRadius: 12, overflow: "hidden" }}
-            />
+  ref={(el: any) => { mapContainerRef.current = el; }}
+  style={{ width: "100%", height: 500, borderRadius: 12, overflow: "hidden" }}
+  suppressHydrationWarning
+/>
             {!mapReady && (
               <View style={styles.mapLoading}>
                 <ActivityIndicator size="large" color="#00E5FF" />
