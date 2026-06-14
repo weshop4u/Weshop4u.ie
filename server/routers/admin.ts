@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews, orderItemModifiers, driverQueue } from "../../drizzle/schema";
+import { orders, drivers, users, stores, orderItems, products, orderOffers, storeStaff as storeStaffTable, savedAddresses, modifierGroups, modifiers, multiBuyDeals, driverRatings, driverShifts, appSettings, productViews, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, desc, asc, gte, sql, count, inArray, isNull } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
 import { sendPushNotification, sendNewOrderNotification } from "../services/notifications";
@@ -459,12 +459,24 @@ export const adminRouter = router({
       }
     });
 
+    // Get unsettled balances per driver
+    const unsettledShifts = await db
+      .select({ driverId: driverShifts.driverId, netOwed: driverShifts.netOwed })
+      .from(driverShifts)
+      .where(and(eq(driverShifts.status, "ended"), sql`${driverShifts.settledAt} IS NULL`));
+
+    const driverUnsettledMap: Record<number, number> = {};
+    unsettledShifts.forEach(s => {
+      driverUnsettledMap[s.driverId] = (driverUnsettledMap[s.driverId] || 0) + parseFloat(s.netOwed || "0");
+    });
+
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
       email: userMap[driver.userId]?.email || "",
       phone: userMap[driver.userId]?.phone || "",
       earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
+      unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
     }));
   }),
 
@@ -1226,62 +1238,26 @@ export const adminRouter = router({
         message: `Driver deleted successfully.${driver.displayNumber ? ` Display number #${String(driver.displayNumber).padStart(2, '0')} is now available.` : ''}` 
       };
     }),
-
-  // Force a driver offline (admin action)
+  // Force a driver offline (admin override)
   forceDriverOffline: publicProcedure
-    .input(z.object({ driverId: z.number() }))
+    .input(z.object({ driverUserId: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      // Get the driver record
-      const [driver] = await db
-        .select({ id: drivers.id, userId: drivers.userId, isOnline: drivers.isOnline })
-        .from(drivers)
-        .where(eq(drivers.id, input.driverId))
-        .limit(1);
-
-      if (!driver) {
-        throw new Error("Driver not found.");
-      }
-
-      if (!driver.isOnline) {
-        return { success: true, message: "Driver is already offline." };
-      }
+      const { driverQueue } = await import("../../drizzle/schema");
 
       // Set driver offline and unavailable
-      await db
-        .update(drivers)
+      await db.update(drivers)
         .set({ isOnline: false, isAvailable: false, updatedAt: new Date() })
-        .where(eq(drivers.id, input.driverId));
+        .where(eq(drivers.userId, input.driverUserId));
 
       // Remove from driver queue
-      if (driver.userId) {
-        await db.delete(driverQueue).where(eq(driverQueue.driverId, driver.userId));
+      await db.delete(driverQueue)
+        .where(eq(driverQueue.driverId, input.driverUserId));
 
-        // Expire any pending offers for this driver
-        await db
-          .update(orderOffers)
-          .set({ status: "expired", respondedAt: new Date() })
-          .where(
-            and(
-              eq(orderOffers.driverId, driver.userId),
-              eq(orderOffers.status, "pending")
-            )
-          );
-      }
-
-      // Get driver name for the success message
-      const [driverUser] = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, driver.userId!))
-        .limit(1);
-
-      return {
-        success: true,
-        message: `${driverUser?.name || "Driver"} has been forced offline.`,
-      };
+      console.log(`[Admin] Driver ${input.driverUserId} forced offline`);
+      return { success: true };
     }),
 
   // Get pending driver applications
