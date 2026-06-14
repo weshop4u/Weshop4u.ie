@@ -338,7 +338,8 @@ export default function DriverEarningsScreen() {
                     )}
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
+            ))
             ))
           )}
         </View>
