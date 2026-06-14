@@ -229,12 +229,13 @@ export const discountsRouter = router({
         code: z.string().transform(v => v.toUpperCase().replace(/\s/g, "")),
         storeId: z.number(),
         orderTotal: z.number(),
-        customerId: z.number(),
+        customerId: z.number().nullable().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
+      if (!input.customerId) return { valid: false, error: "Please log in to use a discount code" };
       // Find the code
       const [discountCode] = await db
         .select()
