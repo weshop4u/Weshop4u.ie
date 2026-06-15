@@ -43,13 +43,25 @@ function DriverMapContent() {
       return;
     }
 
-    // Load Google Maps JS API
-    const scriptEl = document.createElement("script");
-    scriptEl.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=maps,marker&loading=async`;
-scriptEl.async = true;
-scriptEl.defer = true;
-    scriptEl.onload = () => initMap();
-    document.head.appendChild(scriptEl);
+    let retries = 0;
+    const tryInit = () => {
+      if ((window as any).google?.maps) {
+        initMap();
+        return;
+      }
+      if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+        const scriptEl = document.createElement("script");
+        scriptEl.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=maps,marker,directions&callback=__googleMapsAdminReady`;
+        (window as any).__googleMapsAdminReady = () => initMap();
+        document.head.appendChild(scriptEl);
+        return;
+      }
+      if (retries < 50) {
+        retries++;
+        setTimeout(tryInit, 300);
+      }
+    };
+    tryInit();
 
     return () => {
       if (mapRef.current) {
@@ -156,6 +168,7 @@ scriptEl.defer = true;
             `<div style="margin-top: 6px; padding: 6px 8px; background: #FEF3C7; border-radius: 6px; font-size: 12px;">
               <strong>${o.orderNumber}</strong> — ${o.status.replace(/_/g, " ")}
               <div style="color: #92400E; font-size: 11px;">${o.deliveryAddress}</div>
+              <div id="eta-admin-${o.id}" style="color: #0a7ea4; font-size: 11px; font-weight: 600; margin-top: 2px;">Calculating ETA...</div>
             </div>`
           ).join("") : ""}
         </div>
@@ -179,23 +192,36 @@ scriptEl.defer = true;
       if (driver.activeOrders.length > 0) {
         driver.activeOrders.forEach((order: any) => {
           if (order.deliveryLatitude && order.deliveryLongitude) {
-            const routeLine = new google.maps.Polyline({
-              path: [
-                { lat: driver.latitude!, lng: driver.longitude! },
-                { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
-              ],
-              geodesic: true,
-              strokeColor: "#F59E0B",
-              strokeOpacity: 0.7,
-              strokeWeight: 3,
-              icons: [{
-                icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 },
-                offset: "0",
-                repeat: "20px",
-              }],
-              map: mapRef.current,
+            const directionsService = new google.maps.DirectionsService();
+            const directionsRenderer = new google.maps.DirectionsRenderer({
+              suppressMarkers: true,
+              polylineOptions: {
+                strokeColor: "#F59E0B",
+                strokeWeight: 4,
+                strokeOpacity: 0.8,
+              },
             });
-            routeLinesRef.current.push(routeLine);
+            directionsRenderer.setMap(mapRef.current);
+            routeLinesRef.current.push(directionsRenderer);
+
+            directionsService.route(
+              {
+                origin: { lat: driver.latitude!, lng: driver.longitude! },
+                destination: { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
+                travelMode: google.maps.TravelMode.DRIVING,
+              },
+              (result: any, status: any) => {
+                if (status === "OK") {
+                  directionsRenderer.setDirections(result);
+                  const leg = result.routes[0]?.legs[0];
+                  if (leg?.duration?.text) {
+                    // Update popup with real ETA
+                    const etaEl = document.getElementById(`eta-admin-${order.id}`);
+                    if (etaEl) etaEl.textContent = `ETA: ${leg.duration.text}`;
+                  }
+                }
+              }
+            );
 
             // Destination marker
             const destMarker = new google.maps.Marker({
