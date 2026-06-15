@@ -86,32 +86,27 @@ function LiveMapWeb({
   const markersRef = useRef<any[]>([]);
 
   // Load Google Maps script if not already present
-  useEffect(() => {
+ useEffect(() => {
     if (Platform.OS !== "web") return;
-    if ((window as any).google?.maps) {
-      initMap();
-      return;
-    }
-    const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-    if (!key) return;
-    // Check if script already loading
-    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-      const interval = setInterval(() => {
-        if ((window as any).google?.maps) {
-          clearInterval(interval);
-          initMap();
-        }
-      }, 100);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker,directions&loading=async`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => initMap();
-    document.head.appendChild(script);
-  }, []);
 
+    const tryInit = () => {
+      if ((window as any).google?.maps) {
+        initMap();
+        return;
+      }
+      const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+      if (!key) return;
+      if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker,directions`;
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      setTimeout(tryInit, 200);
+    };
+    tryInit();
+  }, []);
+    
   // Re-draw when positions change
   useEffect(() => {
     if ((window as any).google?.maps && googleMapRef.current) {
