@@ -89,6 +89,7 @@ function LiveMapWeb({
  useEffect(() => {
     if (Platform.OS !== "web") return;
 
+    let retries = 0;
     const tryInit = () => {
       if ((window as any).google?.maps) {
         initMap();
@@ -98,11 +99,15 @@ function LiveMapWeb({
       if (!key) return;
       if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
         const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker,directions`;
-        script.async = true;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker,directions&callback=__googleMapsReady`;
+        (window as any).__googleMapsReady = () => initMap();
         document.head.appendChild(script);
+        return;
       }
-      setTimeout(tryInit, 200);
+      if (retries < 50) {
+        retries++;
+        setTimeout(tryInit, 300);
+      }
     };
     tryInit();
   }, []);
