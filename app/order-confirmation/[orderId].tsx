@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 export default function OrderConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -19,16 +20,19 @@ export default function OrderConfirmationScreen() {
 
   if (isLoading) {
     return (
+      <ScreenWrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color="#00E5FF" />
         <Text className="text-muted mt-4">Loading order details...</Text>
       </ScreenContainer>
+        </ScreenWrapper>
     );
   }
 
   if (!order) {
     return (
-      <ScreenContainer className="items-center justify-center p-4">
+      <ScreenWrapper>
+        <ScreenContainer className="items-center justify-center p-4">
         <Text className="text-2xl mb-4">❌</Text>
         <Text className="text-foreground text-lg mb-2">Order not found</Text>
         <TouchableOpacity
@@ -36,8 +40,9 @@ export default function OrderConfirmationScreen() {
           className="bg-primary px-6 py-3 rounded-lg mt-4 active:opacity-70"
         >
           <Text className="text-background font-semibold">Back to Home</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> 
       </ScreenContainer>
+        </ScreenWrapper>
     );
   }
 
@@ -58,6 +63,7 @@ export default function OrderConfirmationScreen() {
   const statusDisplay = getStatusDisplay(order.status);
 
   return (
+    <ScreenWrapper>
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
         {/* Success Header */}
@@ -284,5 +290,6 @@ export default function OrderConfirmationScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
+      </ScreenWrapper>
   );
 }
