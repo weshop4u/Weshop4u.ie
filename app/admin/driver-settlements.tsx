@@ -2,10 +2,8 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } fr
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
-import { useAuth } from "@/lib/auth";
 
 function DriverSettlementsContent() {
-  const { user } = useAuth();
   const { data: drivers, isLoading, error, refetch } = trpc.drivers.getUnsettledBalances.useQuery();
 
   const markAllSettled = trpc.drivers.markAllSettled.useMutation({
@@ -41,7 +39,7 @@ function DriverSettlementsContent() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Settle",
-          onPress: () => markAllSettled.mutate({ driverId, adminId: user?.id || 0 }),
+          onPress: () => markAllSettled.mutate({ driverId, adminId: 0 }),
         },
       ]
     );
