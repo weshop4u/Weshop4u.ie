@@ -816,8 +816,8 @@ export const driversRouter = router({
       // SMS #2 / Push — Driver at Store notification
       // Strategy: Send push to customers WITH a push token (app users).
       // Send SMS to customers WITHOUT a push token (guests + web-only users).
-      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
-      const trackingUrl = `${baseUrl}/track/${input.orderId}`;
+      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.ie';
+const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
 
       if (customer && customer.pushToken && store) {
         // App user — send push notification (free)
