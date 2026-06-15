@@ -275,7 +275,13 @@ export default function OrderConfirmationScreen() {
         {/* Action Buttons */}
         <View style={{ marginBottom: Math.max(insets.bottom, 16) + 16, gap: 12 }}>
           <TouchableOpacity
-            onPress={() => router.push(`/order-tracking/${orderId}`)}
+            onPress={() => {
+  if (typeof window !== "undefined") {
+    window.location.href = `/api/web/order-tracking/${orderId}`;
+  } else {
+    router.push(`/order-tracking/${orderId}`);
+  }
+}}
             className="bg-primary p-4 rounded-lg items-center active:opacity-70"
           >
             <Text className="text-background font-bold text-lg">Track Order</Text>
