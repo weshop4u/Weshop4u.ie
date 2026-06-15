@@ -549,7 +549,7 @@ export default function OrderTrackingScreen() {
         )}
 
         {/* Live Driver Map */}
-        {locationData && !isCancelled && !isDelivered && (
+        {!isCancelled && !isDelivered && (order?.store?.latitude || locationData) && (
           <View style={{
             marginHorizontal: 16,
             marginTop: 16,
@@ -561,9 +561,9 @@ export default function OrderTrackingScreen() {
           }}>
             <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
               <Text className="text-foreground font-bold text-base">
-                {locationData.hasLocation ? "Live Driver Location" : "Order Location"}
+                {locationData?.hasLocation ? "Live Driver Location" : "Order Location"}
               </Text>
-              {locationData.hasLocation && locationData.driver?.name && (
+              {locationData?.hasLocation && locationData.driver?.name && (
                 <Text style={{ color: "#687076", fontSize: 12, marginTop: 2 }}>
                   {locationData.driver.name}
                   {locationData.driver.lastUpdate && (
@@ -575,16 +575,16 @@ export default function OrderTrackingScreen() {
             {/* OpenStreetMap embed showing driver, store, and delivery locations */}
             {Platform.OS === "web" ? (
               <LiveMapWeb
-                driverLat={locationData.driver?.latitude ?? null}
-                driverLng={locationData.driver?.longitude ?? null}
-                storeLat={locationData.store?.latitude ?? null}
-                storeLng={locationData.store?.longitude ?? null}
-                deliveryLat={locationData.delivery?.latitude ?? null}
-                deliveryLng={locationData.delivery?.longitude ?? null}
-                storeName={locationData.store?.name || "Store"}
-                hasDriver={locationData.hasLocation}
-                onEtaUpdate={(mins) => setRealEtaMinutes(mins)}
-              />
+  driverLat={locationData?.driver?.latitude ?? null}
+  driverLng={locationData?.driver?.longitude ?? null}
+  storeLat={locationData?.store?.latitude ?? order?.store?.latitude ?? null}
+  storeLng={locationData?.store?.longitude ?? order?.store?.longitude ?? null}
+  deliveryLat={locationData?.delivery?.latitude ?? order?.deliveryLatitude ?? null}
+  deliveryLng={locationData?.delivery?.longitude ?? order?.deliveryLongitude ?? null}
+  storeName={locationData?.store?.name ?? order?.store?.name ?? "Store"}
+  hasDriver={locationData?.hasLocation ?? false}
+  onEtaUpdate={(mins) => setRealEtaMinutes(mins)}
+/>
             ) : (
               <View style={{ height: 200, alignItems: "center", justifyContent: "center", backgroundColor: "#F9FAFB" }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>
