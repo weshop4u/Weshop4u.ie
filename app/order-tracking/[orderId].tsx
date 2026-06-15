@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Platform, 
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ChatPanel } from "@/components/chat-panel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/hooks/use-auth";
@@ -59,7 +59,6 @@ function getElapsed(dateStr: DateLike): string {
   return formatIrishTimeAgo(dateStr);
 }
 
-/** Leaflet-based live map for web - shows driver, store, and delivery markers */
 function LiveMapWeb({
   driverLat,
   driverLng,
@@ -69,6 +68,7 @@ function LiveMapWeb({
   deliveryLng,
   storeName,
   hasDriver,
+  onEtaUpdate,
 }: {
   driverLat: number | null;
   driverLng: number | null;
@@ -78,66 +78,184 @@ function LiveMapWeb({
   deliveryLng: number | null;
   storeName: string;
   hasDriver: boolean;
+  onEtaUpdate?: (minutes: number) => void;
 }) {
-  // Build a static map URL using OpenStreetMap tiles via an iframe with Leaflet
-  // Center on driver if available, otherwise on store, otherwise on delivery
-  const centerLat = driverLat ?? storeLat ?? deliveryLat ?? 53.6;
-  const centerLng = driverLng ?? storeLng ?? deliveryLng ?? -6.18;
-  const zoom = hasDriver ? 14 : 13;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<any>(null);
+  const routeRendererRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
 
-  // Build markers JS for Leaflet
-  const markers: string[] = [];
-  if (storeLat && storeLng) {
-    markers.push(
-      `L.marker([${storeLat},${storeLng}],{icon:L.divIcon({html:'<div style="font-size:24px">\uD83C\uDFEA</div>',iconSize:[30,30],iconAnchor:[15,15],className:''})}).addTo(map).bindPopup('${storeName.replace(/'/g, "\\'")}');`
-    );
+  // Load Google Maps script if not already present
+ useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    let retries = 0;
+    const tryInit = () => {
+      if ((window as any).google?.maps) {
+        initMap();
+        return;
+      }
+      const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+      if (!key) return;
+      if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker,directions&callback=__googleMapsReady`;
+        (window as any).__googleMapsReady = () => initMap();
+        document.head.appendChild(script);
+        return;
+      }
+      if (retries < 50) {
+        retries++;
+        setTimeout(tryInit, 300);
+      }
+    };
+    tryInit();
+  }, []);
+    
+  // Re-draw when positions change
+  useEffect(() => {
+    if ((window as any).google?.maps && googleMapRef.current) {
+      updateMap();
+    }
+  }, [driverLat, driverLng, deliveryLat, deliveryLng]);
+
+  function initMap() {
+    if (!mapRef.current) return;
+    const center = {
+      lat: driverLat ?? storeLat ?? deliveryLat ?? 53.6101,
+      lng: driverLng ?? storeLng ?? deliveryLng ?? -6.1840,
+    };
+    googleMapRef.current = new (window as any).google.maps.Map(mapRef.current, {
+      center,
+      zoom: 14,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      styles: [
+        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+      ],
+    });
+    routeRendererRef.current = new (window as any).google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: {
+        strokeColor: "#0a7ea4",
+        strokeWeight: 4,
+        strokeOpacity: 0.8,
+      },
+    });
+    routeRendererRef.current.setMap(googleMapRef.current);
+    updateMap();
   }
-  if (deliveryLat && deliveryLng) {
-    markers.push(
-      `L.marker([${deliveryLat},${deliveryLng}],{icon:L.divIcon({html:'<div style="font-size:24px">\uD83C\uDFE0</div>',iconSize:[30,30],iconAnchor:[15,15],className:''})}).addTo(map).bindPopup('Delivery Address');`
-    );
+
+  function updateMap() {
+    if (!googleMapRef.current) return;
+    const google = (window as any).google;
+
+    // Clear existing markers
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+
+    const bounds = new google.maps.LatLngBounds();
+
+    // Store marker
+    if (storeLat && storeLng) {
+      const storeMarker = new google.maps.Marker({
+        position: { lat: storeLat, lng: storeLng },
+        map: googleMapRef.current,
+        icon: {
+          url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="16" fill="#F59E0B" stroke="white" stroke-width="2"/>
+              <text x="18" y="23" text-anchor="middle" font-size="18">🏪</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(36, 36),
+          anchor: new google.maps.Point(18, 18),
+        },
+        title: storeName,
+      });
+      markersRef.current.push(storeMarker);
+      bounds.extend({ lat: storeLat, lng: storeLng });
+    }
+
+    // Delivery marker
+    if (deliveryLat && deliveryLng) {
+      const deliveryMarker = new google.maps.Marker({
+        position: { lat: deliveryLat, lng: deliveryLng },
+        map: googleMapRef.current,
+        icon: {
+          url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="16" fill="#22C55E" stroke="white" stroke-width="2"/>
+              <text x="18" y="23" text-anchor="middle" font-size="18">🏠</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(36, 36),
+          anchor: new google.maps.Point(18, 18),
+        },
+        title: "Delivery Address",
+      });
+      markersRef.current.push(deliveryMarker);
+      bounds.extend({ lat: deliveryLat, lng: deliveryLng });
+    }
+
+    // Driver marker
+    if (hasDriver && driverLat && driverLng) {
+      const driverMarker = new google.maps.Marker({
+        position: { lat: driverLat, lng: driverLng },
+        map: googleMapRef.current,
+        icon: {
+          url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="20" fill="#0a7ea4" stroke="white" stroke-width="3"/>
+              <text x="22" y="28" text-anchor="middle" font-size="22">🚗</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(44, 44),
+          anchor: new google.maps.Point(22, 22),
+        },
+        title: "Your Driver",
+        zIndex: 999,
+      });
+      markersRef.current.push(driverMarker);
+      bounds.extend({ lat: driverLat, lng: driverLng });
+
+      // Draw route from driver to delivery address
+      if (deliveryLat && deliveryLng) {
+        const directionsService = new google.maps.DirectionsService();
+        directionsService.route(
+          {
+            origin: { lat: driverLat, lng: driverLng },
+            destination: { lat: deliveryLat, lng: deliveryLng },
+            travelMode: google.maps.TravelMode.DRIVING,
+          },
+          (result: any, status: any) => {
+            if (status === "OK") {
+              routeRendererRef.current.setDirections(result);
+              // Extract real ETA
+              const leg = result.routes[0]?.legs[0];
+              if (leg?.duration?.value && onEtaUpdate) {
+                const minutes = Math.ceil(leg.duration.value / 60);
+                onEtaUpdate(minutes);
+              }
+            }
+          }
+        );
+      }
+    } else {
+      // No driver yet — clear any route
+      routeRendererRef.current?.setDirections({ routes: [] });
+    }
+
+    // Fit map to all markers
+    if (!bounds.isEmpty()) {
+      googleMapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    }
   }
-  if (hasDriver && driverLat && driverLng) {
-    markers.push(
-      `L.marker([${driverLat},${driverLng}],{icon:L.divIcon({html:'<div style="font-size:28px">\uD83D\uDE97</div>',iconSize:[34,34],iconAnchor:[17,17],className:''})}).addTo(map).bindPopup('Driver').openPopup();`
-    );
-  }
-
-  // Fit bounds to show all markers
-  const allPoints: string[] = [];
-  if (storeLat && storeLng) allPoints.push(`[${storeLat},${storeLng}]`);
-  if (deliveryLat && deliveryLng) allPoints.push(`[${deliveryLat},${deliveryLng}]`);
-  if (hasDriver && driverLat && driverLng) allPoints.push(`[${driverLat},${driverLng}]`);
-
-  const fitBoundsJs = allPoints.length >= 2
-    ? `map.fitBounds([${allPoints.join(",")}],{padding:[30,30]});`
-    : `map.setView([${centerLat},${centerLng}],${zoom});`;
-
-  const html = `<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
-</head><body>
-<div id="map"></div>
-<script>
-var map=L.map('map',{zoomControl:false});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'',maxZoom:18}).addTo(map);
-${markers.join("\n")}
-${fitBoundsJs}
-</script></body></html>`;
-
-  const srcDoc = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 
   return (
-    <View style={{ height: 250, width: "100%" }}>
-      {/* @ts-ignore - iframe works on web */}
-      <iframe
-        src={srcDoc}
-        style={{ width: "100%", height: "100%", border: "none" }}
-        title="Driver Location Map"
-      />
-    </View>
+    // @ts-ignore
+    <div ref={mapRef} style={{ width: "100%", height: 280 }} />
   );
 }
 
@@ -190,6 +308,7 @@ export default function OrderTrackingScreen() {
   const estimated = order ? getEstimatedDelivery(order) : null;
 
   // Chat state
+  const [realEtaMinutes, setRealEtaMinutes] = useState<number | null>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
   const { user: authUser } = useAuth();
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -358,7 +477,7 @@ export default function OrderTrackingScreen() {
                 {estimated.label}
               </Text>
               <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800" }}>
-                {estimated.minutes !== null ? `~${estimated.minutes} min` : "Calculating..."}
+                {realEtaMinutes !== null ? `~${realEtaMinutes} min` : estimated.minutes !== null ? `~${estimated.minutes} min` : "Calculating..."}
               </Text>
             </View>
             <View style={{
@@ -430,7 +549,7 @@ export default function OrderTrackingScreen() {
         )}
 
         {/* Live Driver Map */}
-        {locationData && !isCancelled && !isDelivered && (
+        {!isCancelled && !isDelivered && (order?.store?.latitude || locationData) && (
           <View style={{
             marginHorizontal: 16,
             marginTop: 16,
@@ -442,9 +561,9 @@ export default function OrderTrackingScreen() {
           }}>
             <View style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
               <Text className="text-foreground font-bold text-base">
-                {locationData.hasLocation ? "Live Driver Location" : "Order Location"}
+                {locationData?.hasLocation ? "Live Driver Location" : "Order Location"}
               </Text>
-              {locationData.hasLocation && locationData.driver?.name && (
+              {locationData?.hasLocation && locationData.driver?.name && (
                 <Text style={{ color: "#687076", fontSize: 12, marginTop: 2 }}>
                   {locationData.driver.name}
                   {locationData.driver.lastUpdate && (
@@ -456,22 +575,23 @@ export default function OrderTrackingScreen() {
             {/* OpenStreetMap embed showing driver, store, and delivery locations */}
             {Platform.OS === "web" ? (
               <LiveMapWeb
-                driverLat={locationData.driver?.latitude ?? null}
-                driverLng={locationData.driver?.longitude ?? null}
-                storeLat={locationData.store?.latitude ?? null}
-                storeLng={locationData.store?.longitude ?? null}
-                deliveryLat={locationData.delivery?.latitude ?? null}
-                deliveryLng={locationData.delivery?.longitude ?? null}
-                storeName={locationData.store?.name || "Store"}
-                hasDriver={locationData.hasLocation}
-              />
+  driverLat={locationData?.driver?.latitude ?? null}
+  driverLng={locationData?.driver?.longitude ?? null}
+  storeLat={locationData?.store?.latitude ?? order?.store?.latitude ?? null}
+  storeLng={locationData?.store?.longitude ?? order?.store?.longitude ?? null}
+  deliveryLat={locationData?.delivery?.latitude ?? order?.deliveryLatitude ?? null}
+  deliveryLng={locationData?.delivery?.longitude ?? order?.deliveryLongitude ?? null}
+  storeName={locationData?.store?.name ?? order?.store?.name ?? "Store"}
+  hasDriver={locationData?.hasLocation ?? false}
+  onEtaUpdate={(mins) => setRealEtaMinutes(mins)}
+/>
             ) : (
               <View style={{ height: 200, alignItems: "center", justifyContent: "center", backgroundColor: "#F9FAFB" }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>
-                  {locationData.hasLocation ? "🚗" : "📍"}
+                  {locationData?.hasLocation ? "🚗" : "📍"}
                 </Text>
                 <Text style={{ color: "#687076", fontSize: 13, textAlign: "center", paddingHorizontal: 20 }}>
-                  {locationData.hasLocation
+                  {locationData?.hasLocation
                     ? "Driver is on the way! Open the app in a browser for the live map."
                     : "Map will show driver location once order is picked up."}
                 </Text>
