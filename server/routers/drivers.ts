@@ -816,8 +816,8 @@ export const driversRouter = router({
       // SMS #2 / Push — Driver at Store notification
       // Strategy: Send push to customers WITH a push token (app users).
       // Send SMS to customers WITHOUT a push token (guests + web-only users).
-      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
-      const trackingUrl = `${baseUrl}/track/${input.orderId}`;
+      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.ie';
+const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
 
       if (customer && customer.pushToken && store) {
         // App user — send push notification (free)
@@ -1073,13 +1073,43 @@ export const driversRouter = router({
         .where(eq(drivers.userId, input.driverId))
         .limit(1);
 
+      // Card/cash breakdown — today
+      const todayCardEarnings = todayOrders
+        .filter(o => o.paymentMethod !== 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
+      const todayCashCollected = todayOrders
+        .filter(o => o.paymentMethod === 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.total), 0);
+      const todayCashFees = todayOrders
+        .filter(o => o.paymentMethod === 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
+      const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCashFees);
+
+      // Card/cash breakdown — this week
+      const weekCardEarnings = weekOrders
+        .filter(o => o.paymentMethod !== 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
+      const weekCashCollected = weekOrders
+        .filter(o => o.paymentMethod === 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.total), 0);
+      const weekCashFees = weekOrders
+        .filter(o => o.paymentMethod === 'cash_on_delivery')
+        .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
+      const weekCashOwedToOffice = Math.max(0, weekCashCollected - weekCashFees);
+
       return {
         todayEarnings,
         todayTips,
         todayDeliveries: todayOrders.length,
+        todayCardEarnings,
+        todayCashCollected,
+        todayCashOwedToOffice,
         weekEarnings,
         weekTips,
         weekDeliveries: weekOrders.length,
+        weekCardEarnings,
+        weekCashCollected,
+        weekCashOwedToOffice,
         totalEarnings,
         totalTips,
         totalDeliveries: completedOrders.length,
@@ -2289,5 +2319,104 @@ export const driversRouter = router({
 
       console.log(`[Driver] Reordered batch ${input.batchId}: ${input.orderSequence.map(o => `#${o.orderId}→${o.sequence}`).join(", ")}`);
       return { success: true };
+    }),
+  // Mark a single shift as settled (admin action)
+  markSettled: publicProcedure
+    .input(z.object({ shiftId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [shift] = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.id, input.shiftId))
+        .limit(1);
+
+      if (!shift) throw new Error("Shift not found");
+      if (shift.settledAt) throw new Error("Shift already settled");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(eq(driverShifts.id, input.shiftId));
+
+      return { success: true };
+    }),
+
+  // Mark all unsettled shifts for a driver as settled (admin action)
+  markAllSettled: publicProcedure
+    .input(z.object({ driverId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        );
+
+      return { success: true };
+    }),
+
+  // Get all drivers with unsettled balances (admin view)
+  getUnsettledBalances: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const unsettledShifts = await db
+        .select({
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          shiftId: driverShifts.id,
+          netOwed: driverShifts.netOwed,
+          totalJobs: driverShifts.totalJobs,
+          endedAt: driverShifts.endedAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(
+          and(
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        )
+        .orderBy(desc(driverShifts.endedAt));
+
+      const byDriver = new Map<number, {
+        driverId: number;
+        driverName: string;
+        totalOwed: number;
+        shiftCount: number;
+        shifts: { shiftId: number; netOwed: number; totalJobs: number; endedAt: Date | null }[];
+      }>();
+
+      for (const row of unsettledShifts) {
+        const existing = byDriver.get(row.driverId);
+        const netOwed = parseFloat(row.netOwed || "0");
+        if (existing) {
+          existing.totalOwed = Math.round((existing.totalOwed + netOwed) * 100) / 100;
+          existing.shiftCount++;
+          existing.shifts.push({ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt });
+        } else {
+          byDriver.set(row.driverId, {
+            driverId: row.driverId,
+            driverName: row.driverName || "Unknown",
+            totalOwed: Math.round(netOwed * 100) / 100,
+            shiftCount: 1,
+            shifts: [{ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt }],
+          });
+        }
+      }
+
+      return Array.from(byDriver.values())
+        .sort((a, b) => Math.abs(b.totalOwed) - Math.abs(a.totalOwed));
     }),
 });
