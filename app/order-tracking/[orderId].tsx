@@ -583,10 +583,10 @@ export default function OrderTrackingScreen() {
             ) : (
               <View style={{ height: 200, alignItems: "center", justifyContent: "center", backgroundColor: "#F9FAFB" }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>
-                  {locationData.hasLocation ? "🚗" : "📍"}
+                  {locationData?.hasLocation ? "🚗" : "📍"}
                 </Text>
                 <Text style={{ color: "#687076", fontSize: 13, textAlign: "center", paddingHorizontal: 20 }}>
-                  {locationData.hasLocation
+                  {locationData?.hasLocation
                     ? "Driver is on the way! Open the app in a browser for the live map."
                     : "Map will show driver location once order is picked up."}
                 </Text>
