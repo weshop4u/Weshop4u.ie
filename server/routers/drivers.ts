@@ -2320,4 +2320,103 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       console.log(`[Driver] Reordered batch ${input.batchId}: ${input.orderSequence.map(o => `#${o.orderId}→${o.sequence}`).join(", ")}`);
       return { success: true };
     }),
+  // Mark a single shift as settled (admin action)
+  markSettled: publicProcedure
+    .input(z.object({ shiftId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [shift] = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.id, input.shiftId))
+        .limit(1);
+
+      if (!shift) throw new Error("Shift not found");
+      if (shift.settledAt) throw new Error("Shift already settled");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(eq(driverShifts.id, input.shiftId));
+
+      return { success: true };
+    }),
+
+  // Mark all unsettled shifts for a driver as settled (admin action)
+  markAllSettled: publicProcedure
+    .input(z.object({ driverId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        );
+
+      return { success: true };
+    }),
+
+  // Get all drivers with unsettled balances (admin view)
+  getUnsettledBalances: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const unsettledShifts = await db
+        .select({
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          shiftId: driverShifts.id,
+          netOwed: driverShifts.netOwed,
+          totalJobs: driverShifts.totalJobs,
+          endedAt: driverShifts.endedAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(
+          and(
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        )
+        .orderBy(desc(driverShifts.endedAt));
+
+      const byDriver = new Map<number, {
+        driverId: number;
+        driverName: string;
+        totalOwed: number;
+        shiftCount: number;
+        shifts: { shiftId: number; netOwed: number; totalJobs: number; endedAt: Date | null }[];
+      }>();
+
+      for (const row of unsettledShifts) {
+        const existing = byDriver.get(row.driverId);
+        const netOwed = parseFloat(row.netOwed || "0");
+        if (existing) {
+          existing.totalOwed = Math.round((existing.totalOwed + netOwed) * 100) / 100;
+          existing.shiftCount++;
+          existing.shifts.push({ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt });
+        } else {
+          byDriver.set(row.driverId, {
+            driverId: row.driverId,
+            driverName: row.driverName || "Unknown",
+            totalOwed: Math.round(netOwed * 100) / 100,
+            shiftCount: 1,
+            shifts: [{ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt }],
+          });
+        }
+      }
+
+      return Array.from(byDriver.values())
+        .sort((a, b) => Math.abs(b.totalOwed) - Math.abs(a.totalOwed));
+    }),
 });
