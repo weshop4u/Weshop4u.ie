@@ -1749,6 +1749,18 @@ export const adminRouter = router({
       .from(orders)
       .where(eq(orders.status, "delivered"));
 
+    // Drivers currently on an active job (used to show "On Job" instead of relying on isOnline)
+    const activeJobOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.driverId} IS NOT NULL`,
+          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+        )
+      );
+    const activeJobDriverIds = new Set(activeJobOrders.map(o => o.driverId));
+
     // Build per-driver stats
     const driverStats = driversList.map(driver => {
       const driverOrders = deliveredOrders.filter(o => o.driverId === driver.userId);
@@ -1804,6 +1816,7 @@ export const adminRouter = router({
         phone: userMap[driver.userId]?.phone || "",
         vehicleType: driver.vehicleType,
         isOnline: driver.isOnline,
+        hasActiveJob: activeJobDriverIds.has(driver.userId),
         totalDeliveries: driver.totalDeliveries || 0,
         totalReturns: driver.totalReturns || 0,
         rating: driver.rating ? parseFloat(driver.rating) : null,
