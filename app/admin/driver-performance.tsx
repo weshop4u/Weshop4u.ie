@@ -79,7 +79,7 @@ function PerformanceTab() {
   const getDeliveries = (driver: (typeof sortedDrivers)[0]) => {
     if (timeFilter === "today") return driver.deliveriesToday;
     if (timeFilter === "week") return driver.deliveriesThisWeek;
-    if (timeFilter === "all") return driver.totalDeliveries;
+    if (timeFilter === "all") return (driver as any).deliveriesAllTime ?? driver.totalDeliveries;
     return driver.deliveries30d;
   };
 
