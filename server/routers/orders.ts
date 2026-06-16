@@ -146,6 +146,8 @@ export const ordersRouter = router({
         guestName: z.string().optional(),
         guestPhone: z.string().optional(),
         guestEmail: z.string().optional(),
+        // Guest age verification — required when the cart contains age-restricted items
+        guestDateOfBirth: z.string().optional(), // ISO date string, e.g. "1990-05-12"
         // Discount code
         discountCodeId: z.number().optional(),
         discountCodeName: z.string().optional(),
@@ -174,6 +176,57 @@ export const ordersRouter = router({
       if (!storeData.latitude || !storeData.longitude) {
         throw new Error("Store location not available");
       }
+
+      // ========== SERVER-SIDE AGE VERIFICATION CHECK ==========
+      // Mirrors the check on the checkout screen, but enforced here too so it
+      // can't be bypassed by calling the API directly.
+      const productIdsForAgeCheck = input.items.map(item => item.productId);
+      const productsWithCategory = await db
+        .select({
+          id: products.id,
+          ageRestricted: productCategories.ageRestricted,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      const hasAgeRestrictedItems = productsWithCategory.some(p => p.ageRestricted === true);
+
+      if (hasAgeRestrictedItems) {
+        if (input.customerId) {
+          const [customerRecord] = await db
+            .select({ ageVerified: users.ageVerified })
+            .from(users)
+            .where(eq(users.id, input.customerId))
+            .limit(1);
+
+          if (!customerRecord?.ageVerified) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+        } else {
+          // Guest order — validate the declared date of birth proves 18+
+          if (!input.guestDateOfBirth) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+
+          const dob = new Date(input.guestDateOfBirth);
+          if (isNaN(dob.getTime())) {
+            throw new Error("Invalid date of birth provided.");
+          }
+
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          const hasHadBirthdayThisYear =
+            today.getMonth() > dob.getMonth() ||
+            (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+          if (!hasHadBirthdayThisYear) age--;
+
+          if (age < 18) {
+            throw new Error("You must be at least 18 years old to order age restricted items.");
+          }
+        }
+      }
+      // ========== END AGE VERIFICATION CHECK ==========
 
       // Calculate distance and delivery fee
       const distance = calculateDistance(
@@ -282,6 +335,7 @@ export const ordersRouter = router({
         guestName: input.guestName || null,
         guestPhone: input.guestPhone || null,
         guestEmail: input.guestEmail || null,
+        guestDateOfBirth: input.guestDateOfBirth || null,
         // Store receipt data as JSON
         receiptData: JSON.stringify(receiptData),
       });
