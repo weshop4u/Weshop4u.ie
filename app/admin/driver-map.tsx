@@ -88,6 +88,22 @@ function DriverMapContent() {
     });
     mapRef.current = map;
     setMapReady(true);
+
+    // The map can initialize while its container still has a zero/incorrect
+    // size (page still laying out), which causes Google's "can't load Google
+    // Maps correctly" grey error overlay even though the key/billing is fine.
+    // Re-trigger a resize once the container settles into its real size.
+    if ((window as any).ResizeObserver) {
+      let hasFixedInitialRender = false;
+      const resizeObserver = new ResizeObserver(() => {
+        google.maps.event.trigger(map, "resize");
+        if (!hasFixedInitialRender) {
+          hasFixedInitialRender = true;
+          map.setCenter({ lat: BALBRIGGAN_LAT, lng: BALBRIGGAN_LNG });
+        }
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
   };
 
   // Update markers when data changes
