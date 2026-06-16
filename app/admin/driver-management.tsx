@@ -76,17 +76,6 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
-  const endShiftMutation = trpc.drivers.endShift.useMutation({
-  onSuccess: () => {
-    refetch();
-    setSuccessMsg("Shift ended successfully");
-    setTimeout(() => setSuccessMsg(""), 3000);
-  },
-  onError: (err) => {
-    setErrorMsg(err.message);
-    setTimeout(() => setErrorMsg(""), 5000);
-  },
-});
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -198,7 +187,7 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                           </View>
                         </View>
                         <View className="items-end">
-                          <Text className="text-sm text-muted">{driver.totalDeliveries || 0} deliveries</Text>
+                          <Text className="text-sm text-muted">{driver.totalDeliveries || 0} total · {driver.todayDeliveries || 0} today</Text>
                           {driver.earningsToday > 0 && (
                             <Text style={{ fontSize: 14, fontWeight: "700", color: "#22C55E" }}>
                               €{driver.earningsToday.toFixed(2)} today
@@ -240,9 +229,13 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                           </Text>
                         </View>
                         <View className="flex-row justify-between">
-                          <Text className="text-sm text-muted">Total Deliveries</Text>
-                          <Text className="text-sm text-foreground font-medium">{driver.totalDeliveries || 0}</Text>
-                        </View>
+  <Text className="text-sm text-muted">Today's Deliveries</Text>
+  <Text className="text-sm text-foreground font-medium">{(driver as any).todayDeliveries || 0}</Text>
+</View>
+<View className="flex-row justify-between">
+  <Text className="text-sm text-muted">Total Deliveries</Text>
+  <Text className="text-sm text-foreground font-medium">{driver.totalDeliveries || 0}</Text>
+</View>
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Returns</Text>
                           <Text className="text-sm text-foreground">{driver.totalReturns || 0}</Text>
@@ -304,26 +297,6 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                             </TouchableOpacity>
                           </View>
                         )}
-                        {/* End Shift */}
-                        <View className="mt-3 pt-3 border-t border-border">
-                          <TouchableOpacity
-                            onPress={() => endShiftMutation.mutate({ driverId: driver.userId })}
-                            disabled={endShiftMutation.isPending}
-                            style={{
-                              backgroundColor: '#6366F115',
-                              borderWidth: 1,
-                              borderColor: '#6366F1',
-                              paddingVertical: 10,
-                              paddingHorizontal: 16,
-                              borderRadius: 10,
-                              alignItems: 'center',
-                            }}
-                          >
-                            <Text style={{ color: '#6366F1', fontWeight: '700', fontSize: 14 }}>
-                              {endShiftMutation.isPending ? 'Ending Shift...' : '🏁 End Shift'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
 
                         {/* Delete Driver */}
                         <View className="mt-3 pt-3 border-t border-border">
