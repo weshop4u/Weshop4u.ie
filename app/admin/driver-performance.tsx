@@ -83,6 +83,13 @@ function PerformanceTab() {
     return driver.deliveries30d;
   };
 
+  const getCardTips = (driver: (typeof sortedDrivers)[0]) => {
+    if (timeFilter === "today") return (driver as any).cardTipsToday || 0;
+    if (timeFilter === "week") return (driver as any).cardTipsThisWeek || 0;
+    if (timeFilter === "all") return (driver as any).cardTipsAllTime || 0;
+    return (driver as any).cardTips30d || 0;
+  };
+
   return (
     <>
       {/* Summary cards */}
@@ -142,6 +149,9 @@ function PerformanceTab() {
           <TouchableOpacity style={styles.tableCell} onPress={() => toggleSort("earnings30d")}>
             <Text style={styles.tableHeaderText}>Earnings {sortField === "earnings30d" ? (sortDir === "asc" ? "\u25B2" : "\u25BC") : ""}</Text>
           </TouchableOpacity>
+          <View style={styles.tableCell}>
+            <Text style={styles.tableHeaderText}>Tips</Text>
+          </View>
           <TouchableOpacity style={styles.tableCell} onPress={() => toggleSort("avgDeliveryTime")}>
             <Text style={styles.tableHeaderText}>Avg Time {sortField === "avgDeliveryTime" ? (sortDir === "asc" ? "\u25B2" : "\u25BC") : ""}</Text>
           </TouchableOpacity>
@@ -158,6 +168,7 @@ function PerformanceTab() {
           const isExpanded = expandedDriver === driver.id;
           const deliveries = getDeliveries(driver);
           const earnings = getEarnings(driver);
+          const cardTips = getCardTips(driver);
 
           return (
             <View key={driver.id}>
@@ -180,6 +191,9 @@ function PerformanceTab() {
                 </View>
                 <View style={styles.tableCell}>
                   <Text style={[styles.cellValue, { color: "#059669" }]}>{"\u20AC"}{earnings.toFixed(2)}</Text>
+                </View>
+                <View style={styles.tableCell}>
+                  <Text style={[styles.cellValue, { color: "#0EA5E9" }]}>{"\u20AC"}{cardTips.toFixed(2)}</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <Text style={styles.cellValue}>
