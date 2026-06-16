@@ -1854,7 +1854,10 @@ export const adminRouter = router({
     // Sort by total deliveries descending
     driverStats.sort((a, b) => b.deliveries30d - a.deliveries30d);
 
-    // Aggregate totals
+    // Aggregate totals for each period (used by the top summary cards)
+    const totalsTodayOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
+    const totalsWeekOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
+
     const totals = {
       totalDrivers: driversList.length,
       onlineNow: driversList.filter(d => d.isOnline).length,
@@ -1862,6 +1865,12 @@ export const adminRouter = router({
       totalEarnings30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalCardTips30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalCardTipsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesToday: totalsTodayOrders.length,
+      totalEarningsToday: Math.round(totalsTodayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesThisWeek: totalsWeekOrders.length,
+      totalEarningsThisWeek: Math.round(totalsWeekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesAllTime: allTimeOrders.length,
+      totalEarningsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
     };
 
     return { drivers: driverStats, totals };
