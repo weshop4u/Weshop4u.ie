@@ -894,9 +894,6 @@ function ManageStoresScreenContent() {
                   <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#BAE6FD" }}>
                     <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}>
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -1063,9 +1060,6 @@ function ManageStoresScreenContent() {
           </View>
           <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 6 }}>
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
           </TouchableOpacity>
         </View>
         {showDeleteConfirm && renderDeleteConfirm()}
