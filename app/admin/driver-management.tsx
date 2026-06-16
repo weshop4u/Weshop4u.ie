@@ -76,6 +76,17 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
+  const endShiftMutation = trpc.drivers.endShift.useMutation({
+  onSuccess: () => {
+    refetch();
+    setSuccessMsg("Shift ended successfully");
+    setTimeout(() => setSuccessMsg(""), 3000);
+  },
+  onError: (err) => {
+    setErrorMsg(err.message);
+    setTimeout(() => setErrorMsg(""), 5000);
+  },
+});
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -293,6 +304,26 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                             </TouchableOpacity>
                           </View>
                         )}
+                        {/* End Shift */}
+                        <View className="mt-3 pt-3 border-t border-border">
+                          <TouchableOpacity
+                            onPress={() => endShiftMutation.mutate({ driverId: driver.userId })}
+                            disabled={endShiftMutation.isPending}
+                            style={{
+                              backgroundColor: '#6366F115',
+                              borderWidth: 1,
+                              borderColor: '#6366F1',
+                              paddingVertical: 10,
+                              paddingHorizontal: 16,
+                              borderRadius: 10,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text style={{ color: '#6366F1', fontWeight: '700', fontSize: 14 }}>
+                              {endShiftMutation.isPending ? 'Ending Shift...' : '🏁 End Shift'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
 
                         {/* Delete Driver */}
                         <View className="mt-3 pt-3 border-t border-border">
