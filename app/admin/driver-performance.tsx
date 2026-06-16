@@ -206,12 +206,18 @@ function PerformanceTab() {
                   </Text>
                 </View>
                 <View style={[styles.tableCell, { flex: 0.8 }]}>
-                  <View style={[styles.statusPill, { backgroundColor: driver.isOnline ? "#D1FAE5" : "#F1F5F9" }]}>
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: driver.isOnline ? "#059669" : "#64748B" }}>
-                      {driver.isOnline ? "Online" : "Offline"}
-                    </Text>
-                  </View>
+            {(() => {
+              const onJob = (driver as any).hasActiveJob;
+              const bg = onJob ? "#FEF3C7" : driver.isOnline ? "#D1FAE5" : "#F1F5F9";
+              const color = onJob ? "#B45309" : driver.isOnline ? "#059669" : "#64748B";
+              const label = onJob ? "On Job" : driver.isOnline ? "Online" : "Offline";
+              return (
+                <View style={[styles.statusPill, { backgroundColor: bg }]}>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color }}>{label}</Text>
                 </View>
+              );
+            })()}
+          </View>
               </TouchableOpacity>
 
               {/* Expanded detail row */}
