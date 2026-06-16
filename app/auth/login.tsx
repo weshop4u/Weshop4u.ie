@@ -191,7 +191,8 @@ export default function LoginScreen() {
     <ScreenWrapper>
     <ScreenContainer>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "web" ? undefined : "padding"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 25 : 0}
         style={styles.flex1}
       >
         <View style={styles.container}>
