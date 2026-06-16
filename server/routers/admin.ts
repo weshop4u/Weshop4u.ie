@@ -490,6 +490,18 @@ export const adminRouter = router({
       }
     });
 
+    // Drivers currently on an active job (used to show "On Job" instead of relying solely on isOnline)
+    const activeJobOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.driverId} IS NOT NULL`,
+          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+        )
+      );
+    const activeJobDriverIds = new Set(activeJobOrders.map(o => o.driverId));
+
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
@@ -499,6 +511,7 @@ export const adminRouter = router({
       todayDeliveries: driverTodayDeliveries[driver.userId] || 0,
       totalDeliveries: driverTotalDeliveries[driver.userId] || 0,
       unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
+      hasActiveJob: activeJobDriverIds.has(driver.userId),
     }));
   }),
 
