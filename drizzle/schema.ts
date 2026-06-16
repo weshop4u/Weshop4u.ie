@@ -263,6 +263,7 @@ export const orders = mysqlTable(
     guestName: varchar("guest_name", { length: 255 }),
     guestPhone: varchar("guest_phone", { length: 25 }),
     guestEmail: varchar("guest_email", { length: 255 }),
+    guestDateOfBirth: date("guest_date_of_birth"), // Age-verification record for guest orders containing restricted items
     driverId: int("driver_id"),
     status: mysqlEnum("status", [
       "pending",
