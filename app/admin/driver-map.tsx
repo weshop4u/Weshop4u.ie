@@ -33,6 +33,7 @@ function DriverMapContent() {
   const markersRef = useRef<Record<number, any>>({});
   const routeLinesRef = useRef<any[]>([]);
   const directionsCacheRef = useRef<Record<number, { result: any; etaText: string; timestamp: number }>>({});
+  const lastFitDriverIdsRef = useRef<string>("");
   const [mapReady, setMapReady] = useState(false);
   const router = useRouter();
 
@@ -293,8 +294,11 @@ function DriverMapContent() {
       markersRef.current[driver.id] = marker;
     });
 
-    // Fit bounds to show all online drivers
-    if (onlineWithLocation.length > 0) {
+    // Fit bounds only when the set of online drivers actually changes, not on every 5s poll —
+    // otherwise manual zoom/pan keeps getting reset
+    const currentOnlineIds = onlineWithLocation.map(d => d.id).sort().join(",");
+    if (onlineWithLocation.length > 0 && currentOnlineIds !== lastFitDriverIdsRef.current) {
+      lastFitDriverIdsRef.current = currentOnlineIds;
       const bounds = new google.maps.LatLngBounds();
       onlineWithLocation.forEach(d => bounds.extend({ lat: d.latitude!, lng: d.longitude! }));
       mapRef.current.fitBounds(bounds, 80);
