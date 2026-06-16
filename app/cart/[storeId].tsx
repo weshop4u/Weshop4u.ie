@@ -11,6 +11,36 @@ import { ScreenWrapper } from "@/components/native-wrapper";
 
 const GUEST_CASH_LIMIT = 30; // €30 cash limit for guest orders
 
+// Format raw digits into DD-MM-YYYY as the user types
+function formatDOBInput(text: string) {
+  const cleaned = text.replace(/\D/g, "");
+  if (cleaned.length <= 2) return cleaned;
+  if (cleaned.length <= 4) return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
+  return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4, 8)}`;
+}
+
+// Validate a DD-MM-YYYY string and confirm the person is 18+
+function validateAndCheckAge(dobString: string) {
+  if (!dobString || dobString.length !== 10) {
+    return { valid: false, message: "Please enter date in DD-MM-YYYY format" };
+  }
+  const [day, month, year] = dobString.split("-").map(Number);
+  if (!day || !month || !year || day < 1 || day > 31 || month < 1 || month > 12) {
+    return { valid: false, message: "Invalid date of birth" };
+  }
+  const dob = new Date(year, month - 1, day);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const hasHadBirthday =
+    today.getMonth() > dob.getMonth() ||
+    (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+  if (!hasHadBirthday) age--;
+  if (age < 18) {
+    return { valid: false, message: "You must be at least 18 years old" };
+  }
+  return { valid: true, message: "", day, month, year };
+}
+
 export default function CartScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
@@ -34,7 +64,15 @@ export default function CartScreen() {
   
   // Error banner state
   const [errorMessage, setErrorMessage] = useState("");
-  const [showAgeVerifyButton, setShowAgeVerifyButton] = useState(false);
+
+  // Inline age verification (DOB) state — shown directly on checkout, never navigates away
+  const [ageDobInput, setAgeDobInput] = useState(""); // DD-MM-YYYY as typed
+  const [ageDobError, setAgeDobError] = useState("");
+  const [ageDobSubmitting, setAgeDobSubmitting] = useState(false);
+  const [localAgeVerified, setLocalAgeVerified] = useState(false); // optimistic flag for logged-in users right after confirming, before refetch lands
+  const [guestDobConfirmed, setGuestDobConfirmed] = useState(false);
+  const [guestDobIso, setGuestDobIso] = useState<string | null>(null);
+  const [guestDobDisplay, setGuestDobDisplay] = useState("");
   
   // Guest user fields
   const [guestName, setGuestName] = useState("");
@@ -52,6 +90,7 @@ export default function CartScreen() {
   
   const sendOtpMutation = trpc.otp.sendCode.useMutation();
   const verifyOtpMutation = trpc.otp.verifyCode.useMutation();
+  const updateProfileMutation = trpc.users.updateProfile.useMutation();
   
   // OTP cooldown timer
   useEffect(() => {
@@ -247,13 +286,13 @@ export default function CartScreen() {
     }
   }, [cartContext.storeId, storeIdNum]);
 
-  // Auto-dismiss error after 5 seconds (but not age verification errors)
+  // Auto-dismiss error after 5 seconds
   useEffect(() => {
-    if (errorMessage && !showAgeVerifyButton) {
+    if (errorMessage) {
       const timer = setTimeout(() => setErrorMessage(""), 5000);
       return () => clearTimeout(timer);
     }
-  }, [errorMessage, showAgeVerifyButton]);
+  }, [errorMessage]);
 
   const updateQuantity = (productId: number, delta: number, cartItemKey?: string) => {
     // Try to find by cartItemKey first, then fall back to productId match
@@ -299,6 +338,14 @@ export default function CartScreen() {
     const product = products.find(p => p.id === item.productId);
     return product ? { ...product, cartQuantity: item.quantity, cartItem: item } : null;
   }).filter(Boolean) || [];
+
+  // Whether the cart contains anything age-restricted, and whether the person is currently
+  // cleared to order it (already-verified account, or DOB confirmed inline this session).
+  const hasAgeRestrictedItems = cartItems.some(item => 
+    (item as any)?.category?.ageRestricted === true
+  );
+  const isAgeVerifiedForCheckout = isGuest ? guestDobConfirmed : (user?.ageVerified || localAgeVerified);
+
   const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
   const serviceFee = subtotal * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
@@ -312,6 +359,44 @@ export default function CartScreen() {
   
   // Check if guest cash limit is exceeded
   const guestCashLimitExceeded = isGuest && paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT;
+
+  // Confirm a typed DOB — saves permanently for logged-in users, or just for this order for guests.
+  // Never navigates anywhere; checkout stays exactly where it is.
+  const handleConfirmDob = async () => {
+    setAgeDobError("");
+    const validation = validateAndCheckAge(ageDobInput);
+    if (!validation.valid) {
+      setAgeDobError(validation.message);
+      return;
+    }
+    const { day, month, year } = validation;
+    const isoDateString = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    if (isGuest) {
+      // No account to save to — confirmed for this order only
+      setGuestDobIso(isoDateString);
+      setGuestDobDisplay(ageDobInput);
+      setGuestDobConfirmed(true);
+      setAgeDobInput("");
+      return;
+    }
+
+    setAgeDobSubmitting(true);
+    try {
+      await updateProfileMutation.mutateAsync({
+        name: user?.name || "",
+        dateOfBirth: isoDateString,
+        ageVerified: true,
+      });
+      setLocalAgeVerified(true);
+      setAgeDobInput("");
+      trpcUtils.auth.me.invalidate();
+    } catch (error) {
+      setAgeDobError("Failed to confirm date of birth. Please try again.");
+    } finally {
+      setAgeDobSubmitting(false);
+    }
+  };
 
   const handleCheckout = async () => {
     console.log("[Checkout] Starting checkout process...");
@@ -352,25 +437,10 @@ export default function CartScreen() {
     }
 
     // ========== AGE VERIFICATION CHECK ==========
-    // Check if any cart items are age-restricted
-    const hasAgeRestrictedItems = cartItems.some(item => 
-      (item as any)?.category?.ageRestricted === true
-    );
-
-    if (hasAgeRestrictedItems) {
-      // Guests cannot order age-restricted items
-      if (isGuest) {
-        setErrorMessage("Your cart contains age restricted items. Guests cannot order these items. Please create an account and verify your age to continue.");
-        setShowAgeVerifyButton(false);
-        return;
-      }
-      
-      // Logged-in users must have age verification
-      if (!user?.ageVerified) {
-        setErrorMessage("Your cart contains age restricted items. Please verify your age before continuing.");
-        setShowAgeVerifyButton(true);
-        return;
-      }
+    // hasAgeRestrictedItems / isAgeVerifiedForCheckout are computed above the inline DOB section uses them too
+    if (hasAgeRestrictedItems && !isAgeVerifiedForCheckout) {
+      setErrorMessage("Please confirm your date of birth above to continue — your cart contains age restricted items.");
+      return;
     }
     // ========== END AGE VERIFICATION CHECK ==========
 
@@ -403,6 +473,7 @@ export default function CartScreen() {
         guestName: isGuest ? guestName.trim() : undefined,
         guestPhone: isGuest ? guestPhone.trim() : undefined,
         guestEmail: isGuest ? guestEmail.trim() || undefined : undefined,
+        guestDateOfBirth: isGuest ? (guestDobIso || undefined) : undefined,
         // Discount code
         discountCodeId: appliedDiscount?.id || undefined,
         discountCodeName: appliedDiscount?.code || undefined,
@@ -414,6 +485,9 @@ export default function CartScreen() {
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
       setErrorMessage("");
+      setGuestDobConfirmed(false);
+      setGuestDobIso(null);
+      setGuestDobDisplay("");
 
       // For card payments, redirect to Elavon payment page
       if (paymentMethod === "card") {
@@ -643,16 +717,13 @@ export default function CartScreen() {
         </View>
       </View>
 
-      {/* Error Banner — shows regular errors only (not age verification) */}
-      {errorMessage && !showAgeVerifyButton ? (
+      {/* Error Banner */}
+      {errorMessage ? (
         <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
             <TouchableOpacity 
-              onPress={() => {
-                setErrorMessage("");
-                setShowAgeVerifyButton(false);
-              }} 
+              onPress={() => setErrorMessage("")} 
               className="active:opacity-70"
             >
               <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
@@ -1333,39 +1404,69 @@ export default function CartScreen() {
           </View>
         )}
 
-        {/* Age Verification Error Banner — appears just above checkout button */}
-        {showAgeVerifyButton && errorMessage && (
-          <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
-              <TouchableOpacity 
-                onPress={() => {
-                  setErrorMessage("");
-                  setShowAgeVerifyButton(false);
-                }} 
-                className="active:opacity-70"
-              >
-                <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity
-              onPress={() => {
-                router.push("/(tabs)/profile");
-                setErrorMessage("");
-                setShowAgeVerifyButton(false);
-              }}
-              style={{
-                backgroundColor: colors.error,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-                borderRadius: 6,
-                alignItems: 'center',
-              }}
-              className="active:opacity-70"
-            >
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Verify Age</Text>
-            </TouchableOpacity>
+        {/* Age Verification — shown inline whenever cart has age-restricted items, never navigates away */}
+        {hasAgeRestrictedItems && (
+          <View style={{ backgroundColor: isAgeVerifiedForCheckout ? '#F0FDF4' : colors.surface, borderColor: isAgeVerifiedForCheckout ? '#22C55E' : '#F59E0B', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 15, marginBottom: 4 }}>
+              {isAgeVerifiedForCheckout ? '✅ Age Verified' : '🔞 Age Verification Required'}
+            </Text>
+
+            {!isAgeVerifiedForCheckout && (
+              <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 10 }}>
+                Your cart contains age restricted items. Please confirm your date of birth to continue — you must be 18 or over.
+              </Text>
+            )}
+
+            {/* Already-verified logged-in user — read-only confirmation, no input shown */}
+            {!isGuest && (user?.ageVerified || localAgeVerified) && (
+              <Text style={{ color: '#16A34A', fontSize: 13, fontWeight: '600' }}>
+                Your age has been verified{user?.dateOfBirth ? ` (DOB: ${user.dateOfBirth})` : ''}. You're all set.
+              </Text>
+            )}
+
+            {/* Guest, already confirmed for this order */}
+            {isGuest && guestDobConfirmed && (
+              <Text style={{ color: '#16A34A', fontSize: 13, fontWeight: '600' }}>
+                Date of birth confirmed: {guestDobDisplay}
+              </Text>
+            )}
+
+            {/* DOB input — shown for unverified logged-in users, and every time for guests until confirmed */}
+            {((!isGuest && !user?.ageVerified && !localAgeVerified) || (isGuest && !guestDobConfirmed)) && (
+              <View>
+                <TextInput
+                  placeholder="DD-MM-YYYY"
+                  placeholderTextColor={colors.muted}
+                  value={ageDobInput}
+                  onChangeText={(text) => setAgeDobInput(formatDOBInput(text))}
+                  maxLength={10}
+                  keyboardType="numeric"
+                  style={{ backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: ageDobError ? colors.error : colors.border, fontSize: 16, marginBottom: 8 }}
+                />
+                {ageDobError ? (
+                  <Text style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>{ageDobError}</Text>
+                ) : null}
+                <TouchableOpacity
+                  onPress={handleConfirmDob}
+                  disabled={ageDobSubmitting || ageDobInput.length !== 10}
+                  style={{
+                    backgroundColor: ageDobSubmitting || ageDobInput.length !== 10 ? colors.surface : colors.primary,
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {ageDobSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={{ color: ageDobSubmitting || ageDobInput.length !== 10 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                      Confirm Date of Birth
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
