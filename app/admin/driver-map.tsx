@@ -100,8 +100,8 @@ function DriverMapContent() {
     routeLinesRef.current.forEach((l: any) => l.setMap(null));
     routeLinesRef.current = [];
 
-    const onlineWithLocation = driverLocations.filter(d => d.isOnline && d.latitude && d.longitude);
-    const offlineWithLocation = showOffline ? driverLocations.filter(d => !d.isOnline && d.latitude && d.longitude) : [];
+    const onlineWithLocation = driverLocations.filter(d => (d.isOnline || d.activeOrders.length > 0) && d.latitude && d.longitude);
+    const offlineWithLocation = showOffline ? driverLocations.filter(d => !d.isOnline && d.activeOrders.length === 0 && d.latitude && d.longitude) : [];
 
     const infoWindow = new google.maps.InfoWindow();
 
@@ -110,8 +110,8 @@ function DriverMapContent() {
       const isDelivering = driver.activeOrders.length > 0;
       const color = isDelivering ? "#F59E0B" : "#22C55E";
       const statusText = isDelivering
-        ? `Delivering: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
-        : driver.isAvailable ? "Available" : "Online (busy)";
+        ? `On Job: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
+        : "Free";
 
       const markerEl = document.createElement("div");
       markerEl.style.cssText = `
@@ -304,8 +304,8 @@ function DriverMapContent() {
   }
 
   const allDrivers = driverLocations || [];
-  const onlineDrivers = allDrivers.filter(d => d.isOnline);
-  const offlineDrivers = allDrivers.filter(d => !d.isOnline);
+  const onlineDrivers = allDrivers.filter(d => d.isOnline || d.activeOrders.length > 0);
+  const offlineDrivers = allDrivers.filter(d => !d.isOnline && d.activeOrders.length === 0);
   const driversWithLocation = allDrivers.filter(d => d.latitude && d.longitude);
   const deliveringDrivers = onlineDrivers.filter(d => d.activeOrders.length > 0);
 
@@ -466,15 +466,11 @@ function DriverMapContent() {
                   <View style={{ alignItems: "flex-end", gap: 4 }}>
                     {driver.activeOrders.length > 0 ? (
                       <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
-                        <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>Delivering</Text>
-                      </View>
-                    ) : driver.isAvailable ? (
-                      <View style={[styles.statusPill, { backgroundColor: "#DCFCE7" }]}>
-                        <Text style={{ color: "#166534", fontSize: 11, fontWeight: "600" }}>Available</Text>
+                        <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>On Job</Text>
                       </View>
                     ) : (
-                      <View style={[styles.statusPill, { backgroundColor: "#E0F2FE" }]}>
-                        <Text style={{ color: "#0369A1", fontSize: 11, fontWeight: "600" }}>Busy</Text>
+                      <View style={[styles.statusPill, { backgroundColor: "#DCFCE7" }]}>
+                        <Text style={{ color: "#166534", fontSize: 11, fontWeight: "600" }}>Free</Text>
                       </View>
                     )}
                     {driver.latitude && driver.longitude && (
