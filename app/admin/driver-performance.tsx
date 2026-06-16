@@ -7,7 +7,7 @@ import { formatIrishDateShort } from "@/lib/timezone";
 
 type SortField = "deliveries30d" | "earningsToday" | "earningsThisWeek" | "earnings30d" | "avgDeliveryTime" | "rating" | "name";
 type SortDir = "asc" | "desc";
-type TimeFilter = "today" | "week" | "30d";
+type TimeFilter = "today" | "week" | "30d" | "all";
 type PageTab = "performance" | "settlements";
 
 // ============================================================
@@ -72,12 +72,14 @@ function PerformanceTab() {
   const getEarnings = (driver: (typeof sortedDrivers)[0]) => {
     if (timeFilter === "today") return driver.earningsToday;
     if (timeFilter === "week") return driver.earningsThisWeek;
+    if (timeFilter === "all") return (driver as any).earningsAllTime || 0;
     return driver.earnings30d;
   };
 
   const getDeliveries = (driver: (typeof sortedDrivers)[0]) => {
     if (timeFilter === "today") return driver.deliveriesToday;
     if (timeFilter === "week") return driver.deliveriesThisWeek;
+    if (timeFilter === "all") return driver.totalDeliveries;
     return driver.deliveries30d;
   };
 
@@ -102,11 +104,15 @@ function PerformanceTab() {
           <Text style={styles.summaryLabel}>Total Earnings (30d)</Text>
         </View>
       </View>
+      <View style={[styles.summaryCard, { borderLeftColor: "#0EA5E9" }]}>
+          <Text style={styles.summaryNumber}>{"\u20AC"}{(totals as any).totalCardTipsAllTime?.toFixed(2) || "0.00"}</Text>
+          <Text style={styles.summaryLabel}>Card Tips (All Time)</Text>
+        </View>
 
       {/* Time filter */}
       <View style={styles.filterRow}>
         <Text style={styles.filterLabel}>Period:</Text>
-        {(["today", "week", "30d"] as TimeFilter[]).map(tf => (
+        {(["today", "week", "30d", "all"] as TimeFilter[]).map(tf => (
           <TouchableOpacity
             key={tf}
             style={[styles.filterBtn, timeFilter === tf && styles.filterBtnActive]}
@@ -114,7 +120,7 @@ function PerformanceTab() {
             activeOpacity={0.7}
           >
             <Text style={[styles.filterBtnText, timeFilter === tf && styles.filterBtnTextActive]}>
-              {tf === "today" ? "Today" : tf === "week" ? "This Week" : "Last 30 Days"}
+              {tf === "today" ? "Today" : tf === "week" ? "This Week" : tf === "30d" ? "Last 30 Days" : "All Time"}
             </Text>
           </TouchableOpacity>
         ))}
