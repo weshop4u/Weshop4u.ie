@@ -470,12 +470,34 @@ export const adminRouter = router({
       driverUnsettledMap[s.driverId] = (driverUnsettledMap[s.driverId] || 0) + parseFloat(s.netOwed || "0");
     });
 
+    // Get total delivered orders per driver from actual orders table
+    const allDeliveredOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
+
+    const driverTotalDeliveries: Record<number, number> = {};
+    allDeliveredOrders.forEach(order => {
+      if (order.driverId) {
+        driverTotalDeliveries[order.driverId] = (driverTotalDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
+    const driverTodayDeliveries: Record<number, number> = {};
+    todayOrders.forEach(order => {
+      if (order.driverId) {
+        driverTodayDeliveries[order.driverId] = (driverTodayDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
       email: userMap[driver.userId]?.email || "",
       phone: userMap[driver.userId]?.phone || "",
-      earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
+      earningsToday: Math.round((driverEarningsToday[driver.userId] || 0) * 100) / 100,
+      todayDeliveries: driverTodayDeliveries[driver.userId] || 0,
+      totalDeliveries: driverTotalDeliveries[driver.userId] || 0,
       unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
     }));
   }),
