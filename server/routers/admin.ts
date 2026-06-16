@@ -1810,6 +1810,7 @@ export const adminRouter = router({
         deliveries30d: driverOrders.length,
         deliveriesToday: todayOrders.length,
         deliveriesThisWeek: weekOrders.length,
+        deliveriesAllTime: driverAllTimeOrders.length,
         earnings30d: Math.round(totalEarnings30d * 100) / 100,
         earningsToday: Math.round(todayEarnings * 100) / 100,
         earningsThisWeek: Math.round(weekEarnings * 100) / 100,
