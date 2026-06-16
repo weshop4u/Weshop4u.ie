@@ -470,12 +470,34 @@ export const adminRouter = router({
       driverUnsettledMap[s.driverId] = (driverUnsettledMap[s.driverId] || 0) + parseFloat(s.netOwed || "0");
     });
 
+    // Get total delivered orders per driver from actual orders table
+    const allDeliveredOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
+
+    const driverTotalDeliveries: Record<number, number> = {};
+    allDeliveredOrders.forEach(order => {
+      if (order.driverId) {
+        driverTotalDeliveries[order.driverId] = (driverTotalDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
+    const driverTodayDeliveries: Record<number, number> = {};
+    todayOrders.forEach(order => {
+      if (order.driverId) {
+        driverTodayDeliveries[order.driverId] = (driverTodayDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
       email: userMap[driver.userId]?.email || "",
       phone: userMap[driver.userId]?.phone || "",
-      earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
+      earningsToday: Math.round((driverEarningsToday[driver.userId] || 0) * 100) / 100,
+      todayDeliveries: driverTodayDeliveries[driver.userId] || 0,
+      totalDeliveries: driverTotalDeliveries[driver.userId] || 0,
       unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
     }));
   }),
@@ -1717,6 +1739,15 @@ export const adminRouter = router({
           gte(orders.deliveredAt, thirtyDaysAgo)
         )
       );
+    // All-time delivered orders (for all-time stats and tips)
+    const allTimeOrders = await db
+      .select({
+        driverId: orders.driverId,
+        deliveryFee: orders.deliveryFee,
+        tipAmount: orders.tipAmount,
+      })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
 
     // Build per-driver stats
     const driverStats = driversList.map(driver => {
@@ -1727,6 +1758,12 @@ export const adminRouter = router({
       const totalEarnings30d = driverOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
       const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
       const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const driverAllTimeOrders = allTimeOrders.filter(o => o.driverId === driver.userId);
+      const totalEarningsAllTime = driverAllTimeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const cardTips30d = driverOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsToday = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsThisWeek = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsAllTime = driverAllTimeOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       // Average delivery time (from order created to delivered)
       const deliveryTimes = driverOrders
@@ -1776,6 +1813,11 @@ export const adminRouter = router({
         earnings30d: Math.round(totalEarnings30d * 100) / 100,
         earningsToday: Math.round(todayEarnings * 100) / 100,
         earningsThisWeek: Math.round(weekEarnings * 100) / 100,
+        earningsAllTime: Math.round(totalEarningsAllTime * 100) / 100,
+        cardTips30d: Math.round(cardTips30d * 100) / 100,
+        cardTipsToday: Math.round(cardTipsToday * 100) / 100,
+        cardTipsThisWeek: Math.round(cardTipsThisWeek * 100) / 100,
+        cardTipsAllTime: Math.round(cardTipsAllTime * 100) / 100,
         avgDeliveryTime,
         dailyBreakdown,
         joinedAt: driver.createdAt,
@@ -1791,6 +1833,8 @@ export const adminRouter = router({
       onlineNow: driversList.filter(d => d.isOnline).length,
       totalDeliveries30d: deliveredOrders.length,
       totalEarnings30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTips30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTipsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
     };
 
     return { drivers: driverStats, totals };
