@@ -146,6 +146,8 @@ export const ordersRouter = router({
         guestName: z.string().optional(),
         guestPhone: z.string().optional(),
         guestEmail: z.string().optional(),
+        // Guest age verification — required when the cart contains age-restricted items
+        guestDateOfBirth: z.string().optional(), // ISO date string, e.g. "1990-05-12"
         // Discount code
         discountCodeId: z.number().optional(),
         discountCodeName: z.string().optional(),
@@ -174,6 +176,57 @@ export const ordersRouter = router({
       if (!storeData.latitude || !storeData.longitude) {
         throw new Error("Store location not available");
       }
+
+      // ========== SERVER-SIDE AGE VERIFICATION CHECK ==========
+      // Mirrors the check on the checkout screen, but enforced here too so it
+      // can't be bypassed by calling the API directly.
+      const productIdsForAgeCheck = input.items.map(item => item.productId);
+      const productsWithCategory = await db
+        .select({
+          id: products.id,
+          ageRestricted: productCategories.ageRestricted,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      const hasAgeRestrictedItems = productsWithCategory.some(p => p.ageRestricted === true);
+
+      if (hasAgeRestrictedItems) {
+        if (input.customerId) {
+          const [customerRecord] = await db
+            .select({ ageVerified: users.ageVerified })
+            .from(users)
+            .where(eq(users.id, input.customerId))
+            .limit(1);
+
+          if (!customerRecord?.ageVerified) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+        } else {
+          // Guest order — validate the declared date of birth proves 18+
+          if (!input.guestDateOfBirth) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+
+          const dob = new Date(input.guestDateOfBirth);
+          if (isNaN(dob.getTime())) {
+            throw new Error("Invalid date of birth provided.");
+          }
+
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          const hasHadBirthdayThisYear =
+            today.getMonth() > dob.getMonth() ||
+            (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+          if (!hasHadBirthdayThisYear) age--;
+
+          if (age < 18) {
+            throw new Error("You must be at least 18 years old to order age restricted items.");
+          }
+        }
+      }
+      // ========== END AGE VERIFICATION CHECK ==========
 
       // Calculate distance and delivery fee
       const distance = calculateDistance(
@@ -282,6 +335,7 @@ export const ordersRouter = router({
         guestName: input.guestName || null,
         guestPhone: input.guestPhone || null,
         guestEmail: input.guestEmail || null,
+        guestDateOfBirth: input.guestDateOfBirth || null,
         // Store receipt data as JSON
         receiptData: JSON.stringify(receiptData),
       });
@@ -403,54 +457,56 @@ export const ordersRouter = router({
         // Don't fail the order if notification fails
       }
 
-      // Send push notification to ALL store staff for this store
-      try {
-        const storeStaffMembers = await db
-          .select({
-            userId: storeStaffTable.userId,
-            pushToken: users.pushToken,
-          })
-          .from(storeStaffTable)
-          .innerJoin(users, eq(storeStaffTable.userId, users.id))
-          .where(eq(storeStaffTable.storeId, storeData.id));
+      if (input.paymentMethod === "cash_on_delivery") {
+        // Send push notification to ALL store staff for this store
+        try {
+          const storeStaffMembers = await db
+            .select({
+              userId: storeStaffTable.userId,
+              pushToken: users.pushToken,
+            })
+            .from(storeStaffTable)
+            .innerJoin(users, eq(storeStaffTable.userId, users.id))
+            .where(eq(storeStaffTable.storeId, storeData.id));
 
-        // Get customer name
-        let customerName = "Customer";
-        if (input.customerId) {
-          const customer = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, input.customerId))
-            .limit(1);
-          customerName = customer.length > 0 ? customer[0].name : "Customer";
-        } else if (input.guestName) {
-          customerName = input.guestName;
-        }
-
-        // Send to each staff member with a push token
-        for (const staff of storeStaffMembers) {
-          if (staff.pushToken) {
-            await sendNewOrderNotification(
-              staff.pushToken,
-              Number(orderId),
-              customerName,
-              input.items.length,
-              total
-            );
-            console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+          // Get customer name
+          let customerName = "Customer";
+          if (input.customerId) {
+            const customer = await db
+              .select()
+              .from(users)
+              .where(eq(users.id, input.customerId))
+              .limit(1);
+            customerName = customer.length > 0 ? customer[0].name : "Customer";
+          } else if (input.guestName) {
+            customerName = input.guestName;
           }
-        }
-      } catch (pushError) {
-        console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
-      }
 
-      // Trigger driver queue - offer to first available driver
-      try {
-        await offerOrderToQueue(Number(orderId));
-        console.log(`[Queue] Order ${orderId} offered to driver queue`);
-      } catch (error) {
-        console.error(`[Queue] Failed to offer order to queue:`, error);
-        // Don't fail the order if queue offering fails
+          // Send to each staff member with a push token
+          for (const staff of storeStaffMembers) {
+            if (staff.pushToken) {
+              await sendNewOrderNotification(
+                staff.pushToken,
+                Number(orderId),
+                customerName,
+                input.items.length,
+                total
+              );
+              console.log(`[Push] Sent new order notification to store staff ${staff.userId} for order ${orderId}`);
+            }
+          }
+        } catch (pushError) {
+          console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
+        }
+
+        // Trigger driver queue - offer to first available driver
+        try {
+          await offerOrderToQueue(Number(orderId));
+          console.log(`[Queue] Order ${orderId} offered to driver queue`);
+        } catch (error) {
+          console.error(`[Queue] Failed to offer order to queue:`, error);
+          // Don't fail the order if queue offering fails
+        }
       }
 
       return {
@@ -784,7 +840,7 @@ export const ordersRouter = router({
       return { success: true };
     }),
 
-  // Return job - driver sends back an accepted job before pickup
+  // Return job - driver s back an accepted job before pickup
   returnJob: publicProcedure
     .input(
       z.object({
@@ -921,7 +977,7 @@ export const ordersRouter = router({
         throw new Error("Order not found");
       }
 
-      // Send SMS at key delivery stages
+      //  SMS at key delivery stages
       const orderData = order[0];
       
       // SMS is NOT sent on status changes from this endpoint.
