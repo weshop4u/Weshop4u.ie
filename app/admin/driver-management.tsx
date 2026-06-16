@@ -149,12 +149,17 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
           <View className="gap-3">
             {sortedDrivers.map(driver => {
               const expanded = expandedId === driver.id;
-              const statusColor = driver.isOnline
-                ? (driver.isAvailable ? "#22C55E" : "#F59E0B")
-                : "#9BA1A6";
-              const statusText = driver.isOnline
-                ? (driver.isAvailable ? "Online - Available" : "Online - Busy")
-                : "Offline";
+              const onJob = (driver as any).hasActiveJob;
+              const statusColor = onJob
+                ? "#F59E0B"
+                : driver.isOnline
+                  ? (driver.isAvailable ? "#22C55E" : "#F59E0B")
+                  : "#9BA1A6";
+              const statusText = onJob
+                ? "On Job"
+                : driver.isOnline
+                  ? (driver.isAvailable ? "Online - Available" : "Online - Busy")
+                  : "Offline";
 
               return (
                 <View
