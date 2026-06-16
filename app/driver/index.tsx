@@ -1142,7 +1142,7 @@ export default function DriverHomeScreen() {
           }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: shiftData.unsettledBalance > 0 ? '#991B1B' : '#166534', marginBottom: 2 }}>
-                {shiftData.unsettledBalance > 0 ? 'You owe the store' : 'The store owes you'}
+                {shiftData.unsettledBalance > 0 ? 'You owe the office' : 'The office owes you'}
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: shiftData.unsettledBalance > 0 ? '#DC2626' : '#16A34A' }}>
                 €{Math.abs(shiftData.unsettledBalance).toFixed(2)}
@@ -1384,7 +1384,7 @@ export default function DriverHomeScreen() {
                     <View style={{ borderTopWidth: 1, borderTopColor: '#CBD5E1', paddingTop: 10, marginTop: 4 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
-                          {shiftSummaryData.netOwed > 0 ? 'You Owe Store' : shiftSummaryData.netOwed < 0 ? 'Store Owes You' : 'Settled'}
+                          {shiftSummaryData.netOwed > 0 ? 'You Owe Office' : shiftSummaryData.netOwed < 0 ? 'Office Owes You' : 'Settled'}
                         </Text>
                         <Text style={{ fontSize: 20, fontWeight: '800', color: shiftSummaryData.netOwed > 0 ? '#DC2626' : shiftSummaryData.netOwed < 0 ? '#16A34A' : '#64748B' }}>
                           €{Math.abs(shiftSummaryData.netOwed).toFixed(2)}
