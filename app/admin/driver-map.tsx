@@ -32,6 +32,7 @@ function DriverMapContent() {
   const mapRef = useRef<any>(null);
   const markersRef = useRef<Record<number, any>>({});
   const routeLinesRef = useRef<any[]>([]);
+  const directionsCacheRef = useRef<Record<number, { result: any; etaText: string; timestamp: number }>>({});
   const [mapReady, setMapReady] = useState(false);
   const router = useRouter();
 
@@ -192,7 +193,6 @@ function DriverMapContent() {
       if (driver.activeOrders.length > 0) {
         driver.activeOrders.forEach((order: any) => {
           if (order.deliveryLatitude && order.deliveryLongitude) {
-            const directionsService = new google.maps.DirectionsService();
             const directionsRenderer = new google.maps.DirectionsRenderer({
               suppressMarkers: true,
               polylineOptions: {
@@ -204,24 +204,34 @@ function DriverMapContent() {
             directionsRenderer.setMap(mapRef.current);
             routeLinesRef.current.push(directionsRenderer);
 
-            directionsService.route(
-              {
-                origin: { lat: driver.latitude!, lng: driver.longitude! },
-                destination: { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
-                travelMode: google.maps.TravelMode.DRIVING,
-              },
-              (result: any, status: any) => {
-                if (status === "OK") {
-                  directionsRenderer.setDirections(result);
-                  const leg = result.routes[0]?.legs[0];
-                  if (leg?.duration?.text) {
-                    // Update popup with real ETA
+            // Reuse the last route for 30s instead of calling Directions on every 5s poll
+            const cached = directionsCacheRef.current[order.id];
+            const cacheAge = cached ? Date.now() - cached.timestamp : Infinity;
+
+            if (cached && cacheAge < 30000) {
+              directionsRenderer.setDirections(cached.result);
+              const etaEl = document.getElementById(`eta-admin-${order.id}`);
+              if (etaEl && cached.etaText) etaEl.textContent = cached.etaText;
+            } else {
+              const directionsService = new google.maps.DirectionsService();
+              directionsService.route(
+                {
+                  origin: { lat: driver.latitude!, lng: driver.longitude! },
+                  destination: { lat: order.deliveryLatitude, lng: order.deliveryLongitude },
+                  travelMode: google.maps.TravelMode.DRIVING,
+                },
+                (result: any, status: any) => {
+                  if (status === "OK") {
+                    directionsRenderer.setDirections(result);
+                    const leg = result.routes[0]?.legs[0];
+                    const etaText = leg?.duration?.text ? `ETA: ${leg.duration.text}` : "";
+                    directionsCacheRef.current[order.id] = { result, etaText, timestamp: Date.now() };
                     const etaEl = document.getElementById(`eta-admin-${order.id}`);
-                    if (etaEl) etaEl.textContent = `ETA: ${leg.duration.text}`;
+                    if (etaEl && etaText) etaEl.textContent = etaText;
                   }
                 }
-              }
-            );
+              );
+            }
 
             // Destination marker
             const destMarker = new google.maps.Marker({
