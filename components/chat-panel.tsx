@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/lib/trpc";
@@ -18,6 +18,13 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const prevMessageCountRef = useRef(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const { data: messages, refetch } = trpc.chat.getMessages.useQuery(
     { orderId },
@@ -122,7 +129,7 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      keyboardVerticalOffset={0}
       style={{
         borderTopWidth: 1,
         borderTopColor: "#E5E7EB",
@@ -151,7 +158,7 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
       {/* Messages */}
       <ScrollView
         ref={scrollRef}
-        style={{ maxHeight: 220, paddingHorizontal: 12, paddingVertical: 8 }}
+        style={{ maxHeight: keyboardVisible ? 120 : 220, paddingHorizontal: 12, paddingVertical: 8 }}
         contentContainerStyle={{ paddingBottom: 8 }}
       >
         {(!messages || messages.length === 0) ? (
