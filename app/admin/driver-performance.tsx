@@ -90,6 +90,22 @@ function PerformanceTab() {
     return (driver as any).cardTips30d || 0;
   };
 
+  const getTotalDeliveries = () => {
+    if (timeFilter === "today") return (totals as any).totalDeliveriesToday ?? 0;
+    if (timeFilter === "week") return (totals as any).totalDeliveriesThisWeek ?? 0;
+    if (timeFilter === "all") return (totals as any).totalDeliveriesAllTime ?? 0;
+    return totals.totalDeliveries30d;
+  };
+
+  const getTotalEarnings = () => {
+    if (timeFilter === "today") return (totals as any).totalEarningsToday ?? 0;
+    if (timeFilter === "week") return (totals as any).totalEarningsThisWeek ?? 0;
+    if (timeFilter === "all") return (totals as any).totalEarningsAllTime ?? 0;
+    return totals.totalEarnings30d;
+  };
+
+  const periodLabel = timeFilter === "today" ? "Today" : timeFilter === "week" ? "This Week" : timeFilter === "all" ? "All Time" : "30d";
+
   return (
     <>
       {/* Summary cards */}
@@ -103,13 +119,13 @@ function PerformanceTab() {
           <Text style={styles.summaryLabel}>Online Now</Text>
         </View>
         <View style={[styles.summaryCard, { borderLeftColor: "#F59E0B" }]}>
-          <Text style={styles.summaryNumber}>{totals.totalDeliveries30d}</Text>
-          <Text style={styles.summaryLabel}>Deliveries (30d)</Text>
-        </View>
-        <View style={[styles.summaryCard, { borderLeftColor: "#8B5CF6" }]}>
-          <Text style={styles.summaryNumber}>{"\u20AC"}{totals.totalEarnings30d.toFixed(2)}</Text>
-          <Text style={styles.summaryLabel}>Total Earnings (30d)</Text>
-        </View>
+            <Text style={styles.summaryNumber}>{getTotalDeliveries()}</Text>
+            <Text style={styles.summaryLabel}>Deliveries ({periodLabel})</Text>
+          </View>
+          <View style={[styles.summaryCard, { borderLeftColor: "#8B5CF6" }]}>
+            <Text style={styles.summaryNumber}>{"\u20AC"}{getTotalEarnings().toFixed(2)}</Text>
+            <Text style={styles.summaryLabel}>Total Earnings ({periodLabel})</Text>
+          </View>
       </View>
       <View style={[styles.summaryCard, { borderLeftColor: "#0EA5E9" }]}>
           <Text style={styles.summaryNumber}>{"\u20AC"}{(totals as any).totalCardTipsAllTime?.toFixed(2) || "0.00"}</Text>
