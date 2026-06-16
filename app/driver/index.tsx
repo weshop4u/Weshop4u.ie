@@ -1145,7 +1145,7 @@ export default function DriverHomeScreen() {
                 {shiftData.unsettledBalance > 0 ? 'You owe the office' : 'The office owes you'}
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: shiftData.unsettledBalance > 0 ? '#DC2626' : '#16A34A' }}>
-                €{Math.abs(shiftData.unsettledBalance).toFixed(2)}
+                {"€" + Math.abs(shiftData.unsettledBalance).toFixed(2)}
               </Text>
               <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
                 {shiftData.unsettledShifts.length} unsettled shift{shiftData.unsettledShifts.length !== 1 ? 's' : ''}
