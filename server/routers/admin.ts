@@ -1698,7 +1698,14 @@ export const adminRouter = router({
     }),
 
   // Get driver performance stats for dashboard
-  getDriverPerformance: publicProcedure.query(async () => {
+  getDriverPerformance: publicProcedure
+    .input(
+      z.object({
+        customStart: z.string().optional(),
+        customEnd: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
 
@@ -1774,6 +1781,34 @@ export const adminRouter = router({
       );
     const activeJobDriverIds = new Set(activeJobOrders.map(o => o.driverId));
 
+    // Custom date range support (used by the "Custom" period option on the Performance tab)
+    let customRangeOrders: typeof deliveredOrders = [];
+    if (input?.customStart && input?.customEnd) {
+      const customStartDate = new Date(input.customStart);
+      customStartDate.setHours(0, 0, 0, 0);
+      const customEndDate = new Date(input.customEnd);
+      customEndDate.setHours(23, 59, 59, 999);
+
+      customRangeOrders = await db
+        .select({
+          id: orders.id,
+          driverId: orders.driverId,
+          deliveryFee: orders.deliveryFee,
+          tipAmount: orders.tipAmount,
+          deliveredAt: orders.deliveredAt,
+          createdAt: orders.createdAt,
+          status: orders.status,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.status, "delivered"),
+            gte(orders.deliveredAt, customStartDate),
+            sql`${orders.deliveredAt} <= ${customEndDate}`
+          )
+        );
+    }
+
     // Build per-driver stats
     const driverStats = driversList.map(driver => {
       const driverOrders = deliveredOrders.filter(o => o.driverId === driver.userId);
@@ -1802,6 +1837,19 @@ export const adminRouter = router({
 
       const avgDeliveryTime = deliveryTimes.length > 0
         ? Math.round(deliveryTimes.reduce((s, t) => s + t, 0) / deliveryTimes.length)
+        : null;
+
+      // Custom date range stats (only populated when customStart/customEnd were provided)
+      const driverCustomOrders = customRangeOrders.filter(o => o.driverId === driver.userId);
+      const customDeliveries = driverCustomOrders.length;
+      const customEarnings = driverCustomOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const customTips = driverCustomOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const customDeliveryTimes = driverCustomOrders
+        .filter(o => o.deliveredAt && o.createdAt)
+        .map(o => (new Date(o.deliveredAt!).getTime() - new Date(o.createdAt!).getTime()) / 60000)
+        .filter(t => t > 0 && t < 300);
+      const customAvgDeliveryTime = customDeliveryTimes.length > 0
+        ? Math.round(customDeliveryTimes.reduce((s, t) => s + t, 0) / customDeliveryTimes.length)
         : null;
 
       // Daily breakdown for last 7 days
@@ -1846,6 +1894,10 @@ export const adminRouter = router({
         cardTipsThisWeek: Math.round(cardTipsThisWeek * 100) / 100,
         cardTipsAllTime: Math.round(cardTipsAllTime * 100) / 100,
         avgDeliveryTime,
+        deliveriesCustom: customDeliveries,
+        earningsCustom: Math.round(customEarnings * 100) / 100,
+        cardTipsCustom: Math.round(customTips * 100) / 100,
+        avgDeliveryTimeCustom: customAvgDeliveryTime,
         dailyBreakdown,
         joinedAt: driver.createdAt,
       };
@@ -1871,6 +1923,8 @@ export const adminRouter = router({
       totalEarningsThisWeek: Math.round(totalsWeekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalDeliveriesAllTime: allTimeOrders.length,
       totalEarningsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesCustom: customRangeOrders.length,
+      totalEarningsCustom: Math.round(customRangeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
     };
 
     return { drivers: driverStats, totals };
