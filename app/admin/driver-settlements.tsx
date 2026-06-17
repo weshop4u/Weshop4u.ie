@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
@@ -18,14 +18,22 @@ function DriverSettlementsContent() {
   const handleSettleAll = (driverId: number, driverName: string, totalOwed: number) => {
     const amount = Math.abs(totalOwed).toFixed(2);
     const direction = totalOwed > 0 ? `Collect €${amount} from` : `Pay €${amount} to`;
-    Alert.alert(
-      "Confirm Settlement",
-      `${direction} ${driverName} and mark all shifts settled?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Settle", onPress: () => markAllSettled.mutate({ driverId, adminId: 0 }) },
-      ]
-    );
+    const message = `${direction} ${driverName} and mark all shifts settled?`;
+
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) {
+        markAllSettled.mutate({ driverId, adminId: 0 });
+      }
+    } else {
+      Alert.alert(
+        "Confirm Settlement",
+        message,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Settle", onPress: () => markAllSettled.mutate({ driverId, adminId: 0 }) },
+        ]
+      );
+    }
   };
 
   // Stats from history
