@@ -202,9 +202,12 @@ function DriverSettlementsContent() {
               groupedHistory.map((group, idx) => {
                 const total = group.shifts!.reduce((sum, s) => sum + s.netOwed, 0);
                 const totalJobs = group.shifts!.reduce((sum, s) => sum + s.totalJobs, 0);
+                const totalCash = group.shifts!.reduce((sum, s) => sum + (s.cashCollected || 0), 0);
+                const totalCardFees = group.shifts!.reduce((sum, s) => sum + (s.deliveryFeesEarned || 0), 0);
+                const totalTips = group.shifts!.reduce((sum, s) => sum + (s.cardTipsEarned || 0), 0);
                 return (
                   <View key={idx} className="bg-surface rounded-lg border border-border p-4">
-                    <View className="flex-row justify-between items-start mb-2">
+                    <View className="flex-row justify-between items-start mb-3">
                       <View>
                         <Text className="text-foreground font-bold">{group.driverName}</Text>
                         <Text className="text-muted text-xs">
@@ -218,6 +221,26 @@ function DriverSettlementsContent() {
                         <Text className={`font-bold ${total > 0 ? "text-error" : total < 0 ? "text-success" : "text-muted"}`}>
                           €{Math.abs(total).toFixed(2)}
                         </Text>
+                        <Text className="text-muted text-xs">
+                          {total > 0 ? "driver owed office" : total < 0 ? "office owed driver" : "settled even"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="bg-background rounded-lg p-3 gap-1">
+                      <View className="flex-row justify-between">
+                        <Text className="text-muted text-sm">Cash collected</Text>
+                        <Text className="text-foreground text-sm">€{totalCash.toFixed(2)}</Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-muted text-sm">Delivery fees earned</Text>
+                        <Text className="text-foreground text-sm">€{totalCardFees.toFixed(2)}</Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-muted text-sm">Card tips earned</Text>
+                        <Text className="text-foreground text-sm">€{totalTips.toFixed(2)}</Text>
+                      </View>
+                      <View className="flex-row justify-between mt-1 pt-1 border-t border-border">
                         <Text className="text-muted text-xs">{group.shifts!.length} shift{group.shifts!.length !== 1 ? "s" : ""} · {totalJobs} jobs</Text>
                       </View>
                     </View>
