@@ -98,15 +98,29 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
     );
   }
 
-  // Sort: online first, then by deliveries
+  // Sort: online (or on job) first, then by deliveries
   const sortedDrivers = [...(drivers || [])].sort((a, b) => {
-    if (a.isOnline && !b.isOnline) return -1;
-    if (!a.isOnline && b.isOnline) return 1;
+    const aOnline = a.isOnline || (a as any).hasActiveJob;
+    const bOnline = b.isOnline || (b as any).hasActiveJob;
+    if (aOnline && !bOnline) return -1;
+    if (!aOnline && bOnline) return 1;
     return (b.totalDeliveries || 0) - (a.totalDeliveries || 0);
   });
 
-  const onlineCount = sortedDrivers.filter(d => d.isOnline).length;
+  const onlineCount = sortedDrivers.filter(d => d.isOnline || (d as any).hasActiveJob).length;
   const availableCount = sortedDrivers.filter(d => d.isOnline && d.isAvailable).length;
+
+  const formatLastOnline = (dateValue: string | Date | null | undefined): string => {
+    if (!dateValue) return "Never";
+    const date = new Date(dateValue);
+    const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hr${diffHours !== 1 ? "s" : ""} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  };
 
   return (
     <ScreenContainer className="bg-background">
@@ -189,6 +203,11 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                               )}
                             </View>
                             <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusText}</Text>
+                            {!onJob && !driver.isOnline && (
+                              <Text style={{ fontSize: 11, color: colors.muted }}>
+                                Last online: {formatLastOnline((driver as any).lastLocationUpdate)}
+                              </Text>
+                            )}
                           </View>
                         </View>
                         <View className="items-end">
@@ -249,6 +268,12 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                           <Text className="text-sm text-muted">Joined</Text>
                           <Text className="text-sm text-foreground">
                             {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
+                          </Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-sm text-muted">Last Online</Text>
+                          <Text className="text-sm text-foreground">
+                            {formatLastOnline((driver as any).lastLocationUpdate)}
                           </Text>
                         </View>
                         {/* Cash Settlement */}
