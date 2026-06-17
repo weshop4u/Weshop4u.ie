@@ -45,6 +45,19 @@ function DriverSettlementsContent() {
   }) || [];
   const totalSettledThisMonth = thisMonth.reduce((sum, s) => sum + Math.max(0, s.netOwed), 0);
 
+  const today = history?.filter(s => {
+    const d = new Date(s.settledAt);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  }) || [];
+  const totalSettledToday = today.reduce((sum, s) => sum + Math.max(0, s.netOwed), 0);
+
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const thisWeek = history?.filter(s => new Date(s.settledAt) >= startOfWeek) || [];
+  const totalSettledThisWeek = thisWeek.reduce((sum, s) => sum + Math.max(0, s.netOwed), 0);
+
   // Group history by settlement date (same settledAt within 1 min = same batch)
   const groupedHistory: { settledAt: string; driverName: string; shifts: typeof history }[] = [];
   if (history) {
@@ -86,12 +99,25 @@ function DriverSettlementsContent() {
         </View>
 
         {/* Stats row */}
-        <View className="flex-row gap-4 mb-6">
+        <View className="flex-row gap-4 mb-4">
+          <View className="flex-1 bg-surface border border-border rounded-lg p-4">
+            <Text className="text-muted text-xs mb-1">Today</Text>
+            <Text className="text-foreground font-bold text-xl">€{totalSettledToday.toFixed(2)}</Text>
+            <Text className="text-muted text-xs">{today.length} shift{today.length !== 1 ? "s" : ""} settled</Text>
+          </View>
+          <View className="flex-1 bg-surface border border-border rounded-lg p-4">
+            <Text className="text-muted text-xs mb-1">This Week</Text>
+            <Text className="text-foreground font-bold text-xl">€{totalSettledThisWeek.toFixed(2)}</Text>
+            <Text className="text-muted text-xs">{thisWeek.length} shift{thisWeek.length !== 1 ? "s" : ""} settled</Text>
+          </View>
           <View className="flex-1 bg-surface border border-border rounded-lg p-4">
             <Text className="text-muted text-xs mb-1">This Month</Text>
             <Text className="text-foreground font-bold text-xl">€{totalSettledThisMonth.toFixed(2)}</Text>
             <Text className="text-muted text-xs">{thisMonth.length} shift{thisMonth.length !== 1 ? "s" : ""} settled</Text>
           </View>
+        </View>
+
+        <View className="flex-row gap-4 mb-6">
           <View className="flex-1 bg-surface border border-border rounded-lg p-4">
             <Text className="text-muted text-xs mb-1">All Time</Text>
             <Text className="text-foreground font-bold text-xl">€{totalSettledAllTime.toFixed(2)}</Text>
