@@ -155,21 +155,28 @@ function DriverSettlementsContent() {
                     </View>
                   </View>
 
-                  <View className="bg-background rounded-lg p-3 mb-3 gap-2">
+                  <View className="bg-background rounded-lg p-3 mb-3 gap-3">
                     {driver.shifts.map((shift) => (
-                      <View key={shift.shiftId} className="flex-row justify-between items-center">
-                        <Text className="text-muted text-sm">
-                          {shift.endedAt
-                            ? new Date(shift.endedAt).toLocaleDateString("en-IE", {
-                                day: "numeric", month: "short",
-                                hour: "2-digit", minute: "2-digit",
-                              })
-                            : "Unknown"}{" "}
-                          · {shift.totalJobs} job{shift.totalJobs !== 1 ? "s" : ""}
-                        </Text>
-                        <Text className={`text-sm font-semibold ${shift.netOwed > 0 ? "text-error" : "text-success"}`}>
-                          €{Math.abs(shift.netOwed).toFixed(2)}
-                        </Text>
+                      <View key={shift.shiftId} className="gap-1">
+                        <View className="flex-row justify-between items-center">
+                          <Text className="text-muted text-sm">
+                            {shift.endedAt
+                              ? new Date(shift.endedAt).toLocaleDateString("en-IE", {
+                                  day: "numeric", month: "short",
+                                  hour: "2-digit", minute: "2-digit",
+                                })
+                              : "Unknown"}{" "}
+                            · {shift.totalJobs} job{shift.totalJobs !== 1 ? "s" : ""}
+                          </Text>
+                          <Text className={`text-sm font-semibold ${shift.netOwed > 0 ? "text-error" : "text-success"}`}>
+                            €{Math.abs(shift.netOwed).toFixed(2)}
+                          </Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-muted text-xs">Cash: €{shift.cashCollected.toFixed(2)}</Text>
+                          <Text className="text-muted text-xs">Fees: €{shift.deliveryFeesEarned.toFixed(2)}</Text>
+                          <Text className="text-muted text-xs">Tips: €{shift.cardTipsEarned.toFixed(2)}</Text>
+                        </View>
                       </View>
                     ))}
                   </View>
