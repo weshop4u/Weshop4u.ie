@@ -198,7 +198,7 @@ function DriverSettlementsContent() {
                             €{Math.abs(shift.netOwed).toFixed(2)}
                           </Text>
                         </View>
-                        <<View className="bg-surface rounded p-2 gap-1 mt-1">
+                        <View className="bg-surface rounded p-2 gap-1 mt-1">
                           <View className="flex-row justify-between">
                             <Text className="text-muted text-xs">Cash collected</Text>
                             <Text className="text-foreground text-xs">€{shift.cashCollected.toFixed(2)}</Text>
