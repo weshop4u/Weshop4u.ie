@@ -194,17 +194,26 @@ export default function ActiveDeliveryScreen() {
     }
   }, [user?.id, orderId, deliveryStatus]);
 
-  // Delivery timer - counts up from when  // Timer for elapsed time
+  // Delivery timer - counts up while active; shows the real fixed duration once delivered
   useEffect(() => {
-    // Don't start timer if delivery is already complete
     if (deliveryStatus === "delivered") {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      // If we have real timestamps (e.g. viewing a completed delivery from history),
+      // show the actual time the delivery took rather than time-since-assignment-until-now.
+      if (order?.deliveredAt && order?.driverAssignedAt) {
+        const assignedTime = new Date(order.driverAssignedAt).getTime();
+        const deliveredTime = new Date(order.deliveredAt).getTime();
+        setElapsedSeconds(Math.max(0, Math.floor((deliveredTime - assignedTime) / 1000)));
+      }
+      // If deliveredAt isn't available yet (delivery was just completed in this session,
+      // before the order has refetched), leave elapsedSeconds as the live value already
+      // ticked up to — that's still accurate, and will snap to the precise value once it refetches.
       return;
     }
-    
+
     if (order?.driverAssignedAt) {
       const assignedTime = new Date(order.driverAssignedAt).getTime();
       const updateTimer = () => {
@@ -222,7 +231,7 @@ export default function ActiveDeliveryScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [order?.driverAssignedAt, deliveryStatus]);
+  }, [order?.driverAssignedAt, deliveryStatus, order?.deliveredAt]);
   const formatElapsed = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
