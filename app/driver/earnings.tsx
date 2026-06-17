@@ -321,6 +321,11 @@ export default function DriverEarningsScreen() {
                   <Text className="text-muted text-xs">
                     {delivery.orderNumber}
                   </Text>
+                  {(delivery as any).deliveryAddress && (
+                    <Text className="text-muted text-xs" numberOfLines={1}>
+                      {(delivery as any).deliveryAddress}
+                    </Text>
+                  )}
                   {delivery.completedAt && (
                     <Text className="text-muted text-xs">
                       {formatIrishSmartDateTime(delivery.completedAt)}
