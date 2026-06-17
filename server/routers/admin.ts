@@ -420,6 +420,7 @@ export const adminRouter = router({
         totalReturns: drivers.totalReturns,
         rating: drivers.rating,
         createdAt: drivers.createdAt,
+        lastLocationUpdate: drivers.lastLocationUpdate,
       })
       .from(drivers);
 
