@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, useWindowDimensions, Platform, Modal, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, useWindowDimensions, Platform, Modal, Alert, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
@@ -7,16 +7,13 @@ import { formatIrishDateShort } from "@/lib/timezone";
 
 type SortField = "deliveries30d" | "earningsToday" | "earningsThisWeek" | "earnings30d" | "avgDeliveryTime" | "rating" | "name";
 type SortDir = "asc" | "desc";
-type TimeFilter = "today" | "week" | "30d" | "all";
+type TimeFilter = "today" | "week" | "30d" | "all" | "custom";
 type PageTab = "performance" | "settlements";
 
 // ============================================================
 // PERFORMANCE TAB (existing)
 // ============================================================
 function PerformanceTab() {
-  const { data, isLoading, refetch } = trpc.admin.getDriverPerformance.useQuery(undefined, {
-    refetchInterval: 30000,
-  });
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 900;
 
@@ -24,6 +21,33 @@ function PerformanceTab() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("30d");
   const [expandedDriver, setExpandedDriver] = useState<number | null>(null);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  const formatDateInput = (text: string) => {
+    const digits = text.replace(/\D/g, "").slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 4) formatted = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+    else if (digits.length > 2) formatted = `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return formatted;
+  };
+
+  const parseDateInput = (text: string): Date | null => {
+    const match = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+    const [, day, month, year] = match;
+    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const customStartParsed = parseDateInput(customStartDate);
+  const customEndParsed = parseDateInput(customEndDate);
+  const customRangeReady = timeFilter === "custom" && !!customStartParsed && !!customEndParsed;
+
+  const { data, isLoading, refetch } = trpc.admin.getDriverPerformance.useQuery(
+    customRangeReady ? { customStart: customStartParsed!.toISOString(), customEnd: customEndParsed!.toISOString() } : undefined,
+    { refetchInterval: 30000 }
+  );
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -70,6 +94,7 @@ function PerformanceTab() {
   const { totals } = data;
 
   const getEarnings = (driver: (typeof sortedDrivers)[0]) => {
+    if (timeFilter === "custom") return (driver as any).earningsCustom || 0;
     if (timeFilter === "today") return driver.earningsToday;
     if (timeFilter === "week") return driver.earningsThisWeek;
     if (timeFilter === "all") return (driver as any).earningsAllTime || 0;
@@ -77,6 +102,7 @@ function PerformanceTab() {
   };
 
   const getDeliveries = (driver: (typeof sortedDrivers)[0]) => {
+    if (timeFilter === "custom") return (driver as any).deliveriesCustom || 0;
     if (timeFilter === "today") return driver.deliveriesToday;
     if (timeFilter === "week") return driver.deliveriesThisWeek;
     if (timeFilter === "all") return (driver as any).deliveriesAllTime ?? driver.totalDeliveries;
@@ -84,6 +110,7 @@ function PerformanceTab() {
   };
 
   const getCardTips = (driver: (typeof sortedDrivers)[0]) => {
+    if (timeFilter === "custom") return (driver as any).cardTipsCustom || 0;
     if (timeFilter === "today") return (driver as any).cardTipsToday || 0;
     if (timeFilter === "week") return (driver as any).cardTipsThisWeek || 0;
     if (timeFilter === "all") return (driver as any).cardTipsAllTime || 0;
@@ -91,6 +118,7 @@ function PerformanceTab() {
   };
 
   const getTotalDeliveries = () => {
+    if (timeFilter === "custom") return (totals as any).totalDeliveriesCustom ?? 0;
     if (timeFilter === "today") return (totals as any).totalDeliveriesToday ?? 0;
     if (timeFilter === "week") return (totals as any).totalDeliveriesThisWeek ?? 0;
     if (timeFilter === "all") return (totals as any).totalDeliveriesAllTime ?? 0;
@@ -98,13 +126,14 @@ function PerformanceTab() {
   };
 
   const getTotalEarnings = () => {
+    if (timeFilter === "custom") return (totals as any).totalEarningsCustom ?? 0;
     if (timeFilter === "today") return (totals as any).totalEarningsToday ?? 0;
     if (timeFilter === "week") return (totals as any).totalEarningsThisWeek ?? 0;
     if (timeFilter === "all") return (totals as any).totalEarningsAllTime ?? 0;
     return totals.totalEarnings30d;
   };
 
-  const periodLabel = timeFilter === "today" ? "Today" : timeFilter === "week" ? "This Week" : timeFilter === "all" ? "All Time" : "30d";
+  const periodLabel = timeFilter === "custom" ? "Custom Range" : timeFilter === "today" ? "Today" : timeFilter === "week" ? "This Week" : timeFilter === "all" ? "All Time" : "30d";
 
   return (
     <>
@@ -135,7 +164,7 @@ function PerformanceTab() {
       {/* Time filter */}
       <View style={styles.filterRow}>
         <Text style={styles.filterLabel}>Period:</Text>
-        {(["today", "week", "30d", "all"] as TimeFilter[]).map(tf => (
+        {(["today", "week", "30d", "all", "custom"] as TimeFilter[]).map(tf => (
           <TouchableOpacity
             key={tf}
             style={[styles.filterBtn, timeFilter === tf && styles.filterBtnActive]}
@@ -143,11 +172,39 @@ function PerformanceTab() {
             activeOpacity={0.7}
           >
             <Text style={[styles.filterBtnText, timeFilter === tf && styles.filterBtnTextActive]}>
-              {tf === "today" ? "Today" : tf === "week" ? "This Week" : tf === "30d" ? "Last 30 Days" : "All Time"}
+              {tf === "today" ? "Today" : tf === "week" ? "This Week" : tf === "30d" ? "Last 30 Days" : tf === "all" ? "All Time" : "Custom"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {timeFilter === "custom" && (
+        <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
+          <View>
+            <Text style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>From (DD-MM-YYYY)</Text>
+            <TextInput
+              value={customStartDate}
+              onChangeText={(t) => setCustomStartDate(formatDateInput(t))}
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, width: 130, fontSize: 13 }}
+            />
+          </View>
+          <View>
+            <Text style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>To (DD-MM-YYYY)</Text>
+            <TextInput
+              value={customEndDate}
+              onChangeText={(t) => setCustomEndDate(formatDateInput(t))}
+              placeholder="DD-MM-YYYY"
+              maxLength={10}
+              style={{ borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, width: 130, fontSize: 13 }}
+            />
+          </View>
+          {!customRangeReady && (customStartDate || customEndDate) && (
+            <Text style={{ fontSize: 12, color: "#DC2626", paddingBottom: 8 }}>Enter both dates as DD-MM-YYYY</Text>
+          )}
+        </View>
+      )}
 
       {/* Driver table */}
       <View style={styles.tableContainer}>
