@@ -198,10 +198,19 @@ function DriverSettlementsContent() {
                             €{Math.abs(shift.netOwed).toFixed(2)}
                           </Text>
                         </View>
-                        <View className="flex-row justify-between">
-                          <Text className="text-muted text-xs">Cash: €{shift.cashCollected.toFixed(2)}</Text>
-                          <Text className="text-muted text-xs">Fees: €{shift.deliveryFeesEarned.toFixed(2)}</Text>
-                          <Text className="text-muted text-xs">Tips: €{shift.cardTipsEarned.toFixed(2)}</Text>
+                        <<View className="bg-surface rounded p-2 gap-1 mt-1">
+                          <View className="flex-row justify-between">
+                            <Text className="text-muted text-xs">Cash collected</Text>
+                            <Text className="text-foreground text-xs">€{shift.cashCollected.toFixed(2)}</Text>
+                          </View>
+                          <View className="flex-row justify-between">
+                            <Text className="text-muted text-xs">Delivery fees earned</Text>
+                            <Text className="text-foreground text-xs">€{shift.deliveryFeesEarned.toFixed(2)}</Text>
+                          </View>
+                          <View className="flex-row justify-between">
+                            <Text className="text-muted text-xs">Card tips earned</Text>
+                            <Text className="text-foreground text-xs">€{shift.cardTipsEarned.toFixed(2)}</Text>
+                          </View>
                         </View>
                       </View>
                     ))}
