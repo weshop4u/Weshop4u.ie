@@ -2419,4 +2419,40 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       return Array.from(byDriver.values())
         .sort((a, b) => Math.abs(b.totalOwed) - Math.abs(a.totalOwed));
     }),
+
+  // Get settlement history (admin view) - all shifts that have been settled
+  getSettlementHistory: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const settledShifts = await db
+        .select({
+          shiftId: driverShifts.id,
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          cashCollected: driverShifts.cashCollected,
+          deliveryFeesEarned: driverShifts.deliveryFeesEarned,
+          cardTipsEarned: driverShifts.cardTipsEarned,
+          netOwed: driverShifts.netOwed,
+          totalJobs: driverShifts.totalJobs,
+          settledAt: driverShifts.settledAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(sql`${driverShifts.settledAt} IS NOT NULL`)
+        .orderBy(desc(driverShifts.settledAt));
+
+      return settledShifts.map(s => ({
+        shiftId: s.shiftId,
+        driverId: s.driverId,
+        driverName: s.driverName || "Unknown",
+        cashCollected: parseFloat(s.cashCollected || "0"),
+        deliveryFeesEarned: parseFloat(s.deliveryFeesEarned || "0"),
+        cardTipsEarned: parseFloat(s.cardTipsEarned || "0"),
+        netOwed: parseFloat(s.netOwed || "0"),
+        totalJobs: s.totalJobs || 0,
+        settledAt: s.settledAt?.toISOString() || "",
+      }));
+    }),
 });
