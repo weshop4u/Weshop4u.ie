@@ -2376,6 +2376,9 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           driverId: driverShifts.driverId,
           driverName: users.name,
           shiftId: driverShifts.id,
+          cashCollected: driverShifts.cashCollected,
+          deliveryFeesEarned: driverShifts.deliveryFeesEarned,
+          cardTipsEarned: driverShifts.cardTipsEarned,
           netOwed: driverShifts.netOwed,
           totalJobs: driverShifts.totalJobs,
           endedAt: driverShifts.endedAt,
@@ -2395,23 +2398,26 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         driverName: string;
         totalOwed: number;
         shiftCount: number;
-        shifts: { shiftId: number; netOwed: number; totalJobs: number; endedAt: Date | null }[];
+        shifts: { shiftId: number; cashCollected: number; deliveryFeesEarned: number; cardTipsEarned: number; netOwed: number; totalJobs: number; endedAt: Date | null }[];
       }>();
 
       for (const row of unsettledShifts) {
         const existing = byDriver.get(row.driverId);
         const netOwed = parseFloat(row.netOwed || "0");
+        const cashCollected = parseFloat(row.cashCollected || "0");
+        const deliveryFeesEarned = parseFloat(row.deliveryFeesEarned || "0");
+        const cardTipsEarned = parseFloat(row.cardTipsEarned || "0");
         if (existing) {
           existing.totalOwed = Math.round((existing.totalOwed + netOwed) * 100) / 100;
           existing.shiftCount++;
-          existing.shifts.push({ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt });
+          existing.shifts.push({ shiftId: row.shiftId, cashCollected, deliveryFeesEarned, cardTipsEarned, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt });
         } else {
           byDriver.set(row.driverId, {
             driverId: row.driverId,
             driverName: row.driverName || "Unknown",
             totalOwed: Math.round(netOwed * 100) / 100,
             shiftCount: 1,
-            shifts: [{ shiftId: row.shiftId, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt }],
+            shifts: [{ shiftId: row.shiftId, cashCollected, deliveryFeesEarned, cardTipsEarned, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt }],
           });
         }
       }
