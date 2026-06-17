@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
@@ -6,6 +6,24 @@ import { useState } from "react";
 
 function DriverSettlementsContent() {
   const [tab, setTab] = useState<"outstanding" | "history">("outstanding");
+  const [historyStartDate, setHistoryStartDate] = useState("");
+  const [historyEndDate, setHistoryEndDate] = useState("");
+
+  const formatDateInput = (text: string) => {
+    const digits = text.replace(/\D/g, "").slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 4) formatted = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+    else if (digits.length > 2) formatted = `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return formatted;
+  };
+
+  const parseDateInput = (text: string): Date | null => {
+    const match = text.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+    const [, day, month, year] = match;
+    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return isNaN(d.getTime()) ? null : d;
+  };
 
   const { data: drivers, isLoading, error, refetch } = trpc.drivers.getUnsettledBalances.useQuery();
   const { data: history, isLoading: historyLoading, refetch: refetchHistory } = trpc.drivers.getSettlementHistory.useQuery();
@@ -58,10 +76,24 @@ function DriverSettlementsContent() {
   const thisWeek = history?.filter(s => new Date(s.settledAt) >= startOfWeek) || [];
   const totalSettledThisWeek = thisWeek.reduce((sum, s) => sum + Math.max(0, s.netOwed), 0);
 
+  // Filter history by selected date range (if set)
+  const startFilter = parseDateInput(historyStartDate);
+  const endFilter = parseDateInput(historyEndDate);
+  const filteredHistory = history?.filter(s => {
+    const settledDate = new Date(s.settledAt);
+    if (startFilter && settledDate < startFilter) return false;
+    if (endFilter) {
+      const endOfDay = new Date(endFilter);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (settledDate > endOfDay) return false;
+    }
+    return true;
+  });
+
   // Group history by settlement date (same settledAt within 1 min = same batch)
   const groupedHistory: { settledAt: string; driverName: string; shifts: typeof history }[] = [];
-  if (history) {
-    for (const s of history) {
+  if (filteredHistory) {
+    for (const s of filteredHistory) {
       const last = groupedHistory[groupedHistory.length - 1];
       if (last && last.driverName === s.driverName &&
         Math.abs(new Date(last.settledAt).getTime() - new Date(s.settledAt).getTime()) < 60000) {
@@ -234,6 +266,36 @@ function DriverSettlementsContent() {
         {/* History tab */}
         {tab === "history" && (
           <View className="gap-3">
+            <View className="bg-surface border border-border rounded-lg p-4 flex-row gap-3 items-end flex-wrap">
+              <View>
+                <Text className="text-muted text-xs mb-1">From (DD-MM-YYYY)</Text>
+                <TextInput
+                  value={historyStartDate}
+                  onChangeText={(t) => setHistoryStartDate(formatDateInput(t))}
+                  placeholder="DD-MM-YYYY"
+                  className="bg-background border border-border rounded px-3 py-2 text-foreground w-36"
+                  maxLength={10}
+                />
+              </View>
+              <View>
+                <Text className="text-muted text-xs mb-1">To (DD-MM-YYYY)</Text>
+                <TextInput
+                  value={historyEndDate}
+                  onChangeText={(t) => setHistoryEndDate(formatDateInput(t))}
+                  placeholder="DD-MM-YYYY"
+                  className="bg-background border border-border rounded px-3 py-2 text-foreground w-36"
+                  maxLength={10}
+                />
+              </View>
+              {(historyStartDate || historyEndDate) && (
+                <TouchableOpacity
+                  onPress={() => { setHistoryStartDate(""); setHistoryEndDate(""); }}
+                  className="px-3 py-2"
+                >
+                  <Text className="text-primary text-sm font-semibold">Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             {historyLoading ? (
               <ActivityIndicator size="small" color="#0a7ea4" />
             ) : groupedHistory.length === 0 ? (
