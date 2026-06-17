@@ -880,6 +880,14 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{storeName}</Text>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Customer</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{customerName}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14, flexShrink: 0 }}>Address</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', flexShrink: 1, marginLeft: 12 }}>{customerAddress}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                 <Text style={{ color: colors.muted, fontSize: 14 }}>Time Taken</Text>
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{formatElapsed(elapsedSeconds)}</Text>
               </View>
