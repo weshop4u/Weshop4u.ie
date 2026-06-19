@@ -335,20 +335,30 @@ export default function StoreDetailScreen() {
                         <Text style={styles.modifierGroupTitle}>
                           {group.name} {group.required ? "*" : ""}
                         </Text>
+                        {group.maxSelections > 0 && (
+                          <Text style={{ fontSize: 12, color: "#9BA1A6", marginBottom: 8, marginTop: -4 }}>
+                            {(selectedModifiers[group.id] || []).length} of {group.maxSelections} selected
+                          </Text>
+                        )}
                         <View style={styles.modifierOptions}>
                           {group.modifiers.map((modifier: any) => {
                             const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
                             const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
+                            const currentCount = (selectedModifiers[group.id] || []).length;
+                            const maxReached = group.maxSelections > 0 && currentCount >= group.maxSelections;
+                            const isDisabledByMax = !isSelected && maxReached;
                             return (
                               <TouchableOpacity
                                 key={modifier.id}
+                                disabled={isDisabledByMax}
                                 onPress={() => {
+                                  if (isDisabledByMax) return;
                                   const updated = isSelected
                                     ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
                                     : [...(selectedModifiers[group.id] || []), modifier.id];
                                   setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
                                 }}
-                                style={[styles.modifierOption, isSelected && styles.modifierOptionSelected]}
+                                style={[styles.modifierOption, isSelected && styles.modifierOptionSelected, isDisabledByMax && { opacity: 0.4 }]}
                               >
                                 <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
                                   {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
