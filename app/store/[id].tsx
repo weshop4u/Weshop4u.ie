@@ -337,46 +337,59 @@ export default function StoreDetailScreen() {
                         </Text>
                         {group.maxSelections > 0 && (
                           <Text style={{ fontSize: 12, color: "#9BA1A6", marginBottom: 8, marginTop: -4 }}>
-                            {(selectedModifiers[group.id] || []).length} of {group.maxSelections} selected
+                            {(selectedModifiers[group.id] || []).reduce((sum: number, id: number) => sum + (optionQuantities[`${group.id}_${id}`] || 1), 0)} of {group.maxSelections} selected
                           </Text>
                         )}
                         <View style={styles.modifierOptions}>
-                          {group.modifiers.map((modifier: any) => {
-                            const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
-                            const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
-                            const currentCount = (selectedModifiers[group.id] || []).length;
-                            const maxReached = group.maxSelections > 0 && currentCount >= group.maxSelections;
-                            const isDisabledByMax = !isSelected && maxReached;
-                            return (
-                              <TouchableOpacity
-                                key={modifier.id}
-                                disabled={isDisabledByMax}
-                                onPress={() => {
-                                  if (isDisabledByMax) return;
-                                  const updated = isSelected
-                                    ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
-                                    : [...(selectedModifiers[group.id] || []), modifier.id];
-                                  setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
-                                }}
-                                style={[styles.modifierOption, isSelected && styles.modifierOptionSelected, isDisabledByMax && { opacity: 0.4 }]}
-                              >
-                                <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
-                                  {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
-                                </Text>
-                                {isSelected && group.allowOptionQuantity && (
-                                  <View style={styles.quantityControl}>
-                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
-                                      <Text style={styles.quantityButtonText}>−</Text>
-                                    </TouchableOpacity>
-                                    <Text style={styles.quantityText}>{quantity}</Text>
-                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 })}>
-                                      <Text style={styles.quantityButtonText}>+</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                )}
-                              </TouchableOpacity>
+                          {(() => {
+                            // Total units selected in this group (sums quantities, not just distinct flavours)
+                            const groupTotalQty = (selectedModifiers[group.id] || []).reduce(
+                              (sum: number, id: number) => sum + (optionQuantities[`${group.id}_${id}`] || 1),
+                              0
                             );
-                          })}
+                            return group.modifiers.map((modifier: any) => {
+                              const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
+                              const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
+                              const maxReached = group.maxSelections > 0 && groupTotalQty >= group.maxSelections;
+                              const isDisabledByMax = !isSelected && maxReached;
+                              const isPlusDisabled = group.maxSelections > 0 && groupTotalQty >= group.maxSelections;
+                              return (
+                                <TouchableOpacity
+                                  key={modifier.id}
+                                  disabled={isDisabledByMax}
+                                  onPress={() => {
+                                    if (isDisabledByMax) return;
+                                    const updated = isSelected
+                                      ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
+                                      : [...(selectedModifiers[group.id] || []), modifier.id];
+                                    setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
+                                  }}
+                                  style={[styles.modifierOption, isSelected && styles.modifierOptionSelected, isDisabledByMax && { opacity: 0.4 }]}
+                                >
+                                  <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
+                                    {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
+                                  </Text>
+                                  {isSelected && group.allowOptionQuantity && (
+                                    <View style={styles.quantityControl}>
+                                      <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
+                                        <Text style={styles.quantityButtonText}>−</Text>
+                                      </TouchableOpacity>
+                                      <Text style={styles.quantityText}>{quantity}</Text>
+                                      <TouchableOpacity
+                                        disabled={isPlusDisabled}
+                                        onPress={() => {
+                                          if (isPlusDisabled) return;
+                                          setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 });
+                                        }}
+                                      >
+                                        <Text style={[styles.quantityButtonText, isPlusDisabled && { opacity: 0.3 }]}>+</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            });
+                          })()}
                         </View>
                       </View>
                     ))}
