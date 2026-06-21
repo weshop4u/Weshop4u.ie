@@ -53,13 +53,18 @@ async function offerOldestOrderToDriver(driverId: number) {
   const excludedOrderIds = previouslyOffered.map(o => o.orderId);
 
   // Get all unassigned orders, oldest first
+  // Payment gate: only cash orders, or card orders that have actually been
+  // confirmed as paid, are eligible for dispatch. This stops declined/pending
+  // card payments from sitting at status "pending" forever and being silently
+  // picked up by this FIFO backfill on every idle driver poll.
   const unassignedOrders = await db
     .select({ id: orders.id })
     .from(orders)
     .where(
       and(
         inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
-        isNull(orders.driverId)
+        isNull(orders.driverId),
+        or(eq(orders.paymentMethod, "cash_on_delivery"), eq(orders.paymentStatus, "completed"))
       )
     )
     .orderBy(asc(orders.createdAt))
@@ -273,6 +278,26 @@ async function tryBatchOfferToEnRouteDriver(orderId: number): Promise<boolean> {
 async function offerToNextDriver(orderId: number) {
   const db = await getDb();
   if (!db) return;
+
+  // Payment gate: never dispatch an order to a driver unless it's cash on
+  // delivery, or a card payment that has actually been confirmed as paid.
+  // Every targeted-order dispatch path (new cash order, decline cascade,
+  // expiry cascade, returned job) goes through this function, so this single
+  // check protects all of them.
+  const [orderForGate] = await db
+    .select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!orderForGate) {
+    console.log(`[Dispatch Gate] Order ${orderId} not found, skipping dispatch`);
+    return;
+  }
+  const isPaymentEligible = orderForGate.paymentMethod === "cash_on_delivery" || orderForGate.paymentStatus === "completed";
+  if (!isPaymentEligible) {
+    console.log(`[Dispatch Gate] Order ${orderId} blocked from dispatch — card payment not completed (status: ${orderForGate.paymentStatus})`);
+    return;
+  }
 
   // Get all drivers who have already been offered this order
   const previousOffers = await db
@@ -1325,6 +1350,24 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       if (offer.status !== "pending") throw new Error("Offer is no longer available");
       if (offer.driverId !== input.driverId) throw new Error("This offer is not for you");
       if (new Date() > offer.expiresAt) throw new Error("Offer has expired");
+
+      // Final safety check: confirm the order is still payment-eligible before
+      // letting the driver lock it in. This is the last line of defence —
+      // protects against any order that slipped through an earlier dispatch
+      // step with a declined or still-pending card payment.
+      const [orderForAcceptGate] = await db
+        .select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(eq(orders.id, offer.orderId))
+        .limit(1);
+      if (!orderForAcceptGate || (orderForAcceptGate.paymentMethod !== "cash_on_delivery" && orderForAcceptGate.paymentStatus !== "completed")) {
+        // Invalidate the bad offer so it isn't kept being offered to anyone else
+        await db
+          .update(orderOffers)
+          .set({ status: "expired", respondedAt: new Date() })
+          .where(eq(orderOffers.id, input.offerId));
+        throw new Error("This order is no longer available (payment not confirmed)");
+      }
 
       const isBatch = offer.isBatchOffer === true;
 
