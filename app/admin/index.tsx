@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Platform, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Platform, useWindowDimensions, TextInput } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { useRouter } from "expo-router";
@@ -57,9 +57,31 @@ function DashboardContent() {
   const { width } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === "web" && width >= 900;
 
-  const { data: stats, isLoading, refetch } = trpc.admin.getDashboardStats.useQuery(undefined, {
-    refetchInterval: 30000,
-  });
+  // Custom date range search (text inputs are separate from the applied
+  // values so the query doesn't refire on every keystroke)
+  const [customStartInput, setCustomStartInput] = useState("");
+  const [customEndInput, setCustomEndInput] = useState("");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  const { data: stats, isLoading, refetch } = trpc.admin.getDashboardStats.useQuery(
+    { customStart: customStart || undefined, customEnd: customEnd || undefined },
+    { refetchInterval: 30000 }
+  );
+
+  const applyCustomRange = useCallback(() => {
+    if (customStartInput && customEndInput) {
+      setCustomStart(customStartInput);
+      setCustomEnd(customEndInput);
+    }
+  }, [customStartInput, customEndInput]);
+
+  const clearCustomRange = useCallback(() => {
+    setCustomStartInput("");
+    setCustomEndInput("");
+    setCustomStart("");
+    setCustomEnd("");
+  }, []);
 
   // Unread messages count for badge
   const { data: unreadData } = trpc.messages.unreadCount.useQuery(undefined, {
@@ -121,6 +143,70 @@ function DashboardContent() {
               <StatCard label="Tips" value={`€${(stats?.orders.today.tips ?? 0).toFixed(2)}`} color="#8B5CF6" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Yesterday - same 4 cards, muted color to distinguish from Today */}
+        <View>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Yesterday</Text>
+          <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
+              <StatCard label="Orders" value={stats?.orders.yesterday?.count ?? 0} color="#64748B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
+              <StatCard label="Revenue" value={`€${(stats?.orders.yesterday?.revenue ?? 0).toFixed(2)}`} subValue={`Fees: €${(stats?.orders.yesterday?.serviceFees ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
+              <StatCard label="Delivery Fees" value={`€${(stats?.orders.yesterday?.deliveryFees ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} activeOpacity={0.7} style={{ flex: 1, minWidth: 200, ...webCursor }}>
+              <StatCard label="Tips" value={`€${(stats?.orders.yesterday?.tips ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Custom Date Range Search */}
+        <View>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Custom Date Range</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <Text style={{ fontSize: 13, color: "#64748B" }}>From:</Text>
+            <TextInput
+              value={customStartInput}
+              onChangeText={setCustomStartInput}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#CBD5E1"
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: "#0F172A", width: 130, outlineStyle: "none" } as any}
+            />
+            <Text style={{ fontSize: 13, color: "#64748B" }}>To:</Text>
+            <TextInput
+              value={customEndInput}
+              onChangeText={setCustomEndInput}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#CBD5E1"
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: "#0F172A", width: 130, outlineStyle: "none" } as any}
+            />
+            <TouchableOpacity
+              onPress={applyCustomRange}
+              disabled={!customStartInput || !customEndInput}
+              style={{ backgroundColor: (!customStartInput || !customEndInput) ? "#CBD5E1" : "#0F172A", paddingHorizontal: 16, paddingVertical: 7, borderRadius: 6, ...webCursor }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>Search</Text>
+            </TouchableOpacity>
+            {(customStart || customEnd) && (
+              <TouchableOpacity onPress={clearCustomRange} style={webCursor}>
+                <Text style={{ fontSize: 13, color: "#EF4444", fontWeight: "600" }}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {stats?.orders.custom ? (
+            <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
+              <StatCard label="Orders" value={stats.orders.custom.count} color="#0EA5E9" />
+              <StatCard label="Revenue" value={`€${stats.orders.custom.revenue.toFixed(2)}`} subValue={`Fees: €${stats.orders.custom.serviceFees.toFixed(2)}`} color="#0EA5E9" />
+              <StatCard label="Delivery Fees" value={`€${stats.orders.custom.deliveryFees.toFixed(2)}`} color="#0EA5E9" />
+              <StatCard label="Tips" value={`€${stats.orders.custom.tips.toFixed(2)}`} color="#0EA5E9" />
+            </View>
+          ) : (
+            <Text style={{ fontSize: 13, color: "#94A3B8" }}>Pick a date range and tap Search to see totals for that period.</Text>
+          )}
         </View>
 
         {/* Two-column layout: Revenue + Live Status */}
@@ -421,6 +507,74 @@ function DashboardContent() {
               <StatCard label="Tips" value={`€${(stats?.orders.today.tips ?? 0).toFixed(2)}`} color="#8B5CF6" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View className="px-4 pt-6">
+          <Text className="text-lg font-bold text-foreground mb-3">Yesterday</Text>
+          <View className="flex-row gap-3 mb-3">
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Orders" value={stats?.orders.yesterday?.count ?? 0} color="#64748B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Revenue" value={`€${(stats?.orders.yesterday?.revenue ?? 0).toFixed(2)}`} subValue={`Fees: €${(stats?.orders.yesterday?.serviceFees ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row gap-3">
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Delivery Fees" value={`€${(stats?.orders.yesterday?.deliveryFees ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/admin/orders" as any)} style={{ flex: 1 }}>
+              <StatCard label="Tips" value={`€${(stats?.orders.yesterday?.tips ?? 0).toFixed(2)}`} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="px-4 pt-6">
+          <Text className="text-lg font-bold text-foreground mb-3">Custom Date Range</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <TextInput
+              value={customStartInput}
+              onChangeText={setCustomStartInput}
+              placeholder="From (YYYY-MM-DD)"
+              placeholderTextColor="#CBD5E1"
+              style={{ flex: 1, minWidth: 130, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#0F172A" } as any}
+            />
+            <TextInput
+              value={customEndInput}
+              onChangeText={setCustomEndInput}
+              placeholder="To (YYYY-MM-DD)"
+              placeholderTextColor="#CBD5E1"
+              style={{ flex: 1, minWidth: 130, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#0F172A" } as any}
+            />
+          </View>
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={applyCustomRange}
+              disabled={!customStartInput || !customEndInput}
+              style={{ flex: 1, backgroundColor: (!customStartInput || !customEndInput) ? "#CBD5E1" : "#0F172A", paddingVertical: 10, borderRadius: 8, alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>Search</Text>
+            </TouchableOpacity>
+            {(customStart || customEnd) && (
+              <TouchableOpacity onPress={clearCustomRange} style={{ paddingVertical: 10, paddingHorizontal: 16, justifyContent: "center" }}>
+                <Text style={{ fontSize: 14, color: "#EF4444", fontWeight: "600" }}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {stats?.orders.custom ? (
+            <>
+              <View className="flex-row gap-3 mb-3">
+                <StatCard label="Orders" value={stats.orders.custom.count} color="#0EA5E9" />
+                <StatCard label="Revenue" value={`€${stats.orders.custom.revenue.toFixed(2)}`} subValue={`Fees: €${stats.orders.custom.serviceFees.toFixed(2)}`} color="#0EA5E9" />
+              </View>
+              <View className="flex-row gap-3">
+                <StatCard label="Delivery Fees" value={`€${stats.orders.custom.deliveryFees.toFixed(2)}`} color="#0EA5E9" />
+                <StatCard label="Tips" value={`€${stats.orders.custom.tips.toFixed(2)}`} color="#0EA5E9" />
+              </View>
+            </>
+          ) : (
+            <Text style={{ fontSize: 13, color: "#94A3B8" }}>Pick a date range and tap Search to see totals for that period.</Text>
+          )}
         </View>
 
         <View className="px-4 pt-6">
