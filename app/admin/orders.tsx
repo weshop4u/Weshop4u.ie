@@ -153,6 +153,29 @@ function AdminOrdersScreenContent() {
     onSuccess: () => { refetch(); setErrorMessage(""); },
     onError: (err) => { setErrorMessage(err.message); },
   });
+  const [paymentCheckResult, setPaymentCheckResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+
+  // Re-verifies directly with Elavon — this is the safe way to fix an order
+  // that's stuck "Awaiting"/"FAILED" even though the customer says they were
+  // charged. It can never falsely mark something paid: it only flips to paid
+  // if Elavon itself confirms the charge, and it runs the exact same
+  // dispatch-to-driver + customer/staff notification logic as a normal
+  // successful checkout.
+  const recheckPaymentMutation = trpc.payments.checkPaymentStatus.useMutation({
+    onSuccess: (data, variables) => {
+      refetch();
+      let message = "";
+      if (data.status === "completed") message = "✅ Confirmed by Elavon — order is now paid and dispatched to a driver.";
+      else if (data.status === "expired") message = "⌛ Payment session expired — the card was never charged.";
+      else if (data.status === "pending") message = "Still no charge found at Elavon. The customer has not completed payment.";
+      else if (data.status === "no_session") message = "No payment session found for this order.";
+      else message = "Could not reach Elavon right now — try again in a moment.";
+      setPaymentCheckResult({ orderId: variables.orderId, message, success: data.status === "completed" });
+    },
+    onError: (err) => {
+      setPaymentCheckResult({ orderId: -1, message: err.message, success: false });
+    },
+  });
 
   const deleteOrdersMutation = trpc.admin.deleteOrders.useMutation({
     onSuccess: () => {
@@ -789,7 +812,40 @@ function AdminOrdersScreenContent() {
                               {markPaidMutation.isPending ? "Marking..." : "Mark as Paid"}
                             </Text>
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
+                          <<Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
+                        </View>
+                      )}
+                      {/* Re-check payment for card orders that look unpaid — safe, since it
+                          only flips to paid if Elavon itself confirms the charge. */}
+                      {order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+                          <TouchableOpacity
+                            onPress={() => { setPaymentCheckResult(null); recheckPaymentMutation.mutate({ orderId: order.id }); }}
+                            disabled={recheckPaymentMutation.isPending}
+                            style={{
+                              backgroundColor: recheckPaymentMutation.isPending ? "#D1D5DB" : "#2563EB",
+                              paddingVertical: 8,
+                              paddingHorizontal: 16,
+                              borderRadius: 8,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              alignSelf: "flex-start",
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ fontSize: 14 }}>🔄</Text>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
+                              {recheckPaymentMutation.isPending ? "Checking with Elavon..." : "Re-check Payment with Elavon"}
+                            </Text>
+                          </TouchableOpacity>
+                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>
+                            If the customer says they were charged but this still shows unpaid, use this.
+                          </Text>
+                          {paymentCheckResult && paymentCheckResult.orderId === order.id && (
+                            <Text style={{ fontSize: 12, fontWeight: "600", color: paymentCheckResult.success ? "#16A34A" : "#D97706", marginTop: 6 }}>
+                              {paymentCheckResult.message}
+                            </Text>
+                          )}
                         </View>
                       )}
                     </View>
@@ -1106,6 +1162,35 @@ function AdminOrdersScreenContent() {
                               </Text>
                             </TouchableOpacity>
                             <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, textAlign: "center" }}>Confirm cash has been collected</Text>
+                          </View>
+                        )}
+                        {order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => { setPaymentCheckResult(null); recheckPaymentMutation.mutate({ orderId: order.id }); }}
+                              disabled={recheckPaymentMutation.isPending}
+                              style={{
+                                backgroundColor: recheckPaymentMutation.isPending ? "#D1D5DB" : "#2563EB",
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 8,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Text style={{ fontSize: 15 }}>🔄</Text>
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                                {recheckPaymentMutation.isPending ? "Checking with Elavon..." : "Re-check Payment with Elavon"}
+                              </Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, textAlign: "center" }}>If the customer says they were charged, use this</Text>
+                            {paymentCheckResult && paymentCheckResult.orderId === order.id && (
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: paymentCheckResult.success ? "#16A34A" : "#D97706", marginTop: 6, textAlign: "center" }}>
+                                {paymentCheckResult.message}
+                              </Text>
+                            )}
                           </View>
                         )}
                       </View>
