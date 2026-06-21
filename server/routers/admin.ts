@@ -46,12 +46,21 @@ function calculateDeliveryFee(distanceKm: number): number {
 
 export const adminRouter = router({
   // Get dashboard overview stats
-  getDashboardStats: publicProcedure.query(async () => {
+  getDashboardStats: publicProcedure
+    .input(
+      z.object({
+        customStart: z.string().optional(),
+        customEnd: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -59,30 +68,49 @@ export const adminRouter = router({
     // Get all orders
     const allOrders = await db.select().from(orders);
 
-    // Today's orders
+    // Today's / yesterday's / this week's / this month's orders
     const todayOrders = allOrders.filter(o => o.createdAt >= todayStart);
+    const yesterdayOrders = allOrders.filter(o => o.createdAt >= yesterdayStart && o.createdAt < todayStart);
     const weekOrders = allOrders.filter(o => o.createdAt >= weekStart);
     const monthOrders = allOrders.filter(o => o.createdAt >= monthStart);
 
-    // Revenue calculations (only delivered orders)
+    // Optional custom date range (used by the dashboard's date search)
+    let customOrders: typeof allOrders = [];
+    if (input?.customStart && input?.customEnd) {
+      const customStartDate = new Date(input.customStart);
+      customStartDate.setHours(0, 0, 0, 0);
+      const customEndDate = new Date(input.customEnd);
+      customEndDate.setHours(23, 59, 59, 999);
+      customOrders = allOrders.filter(o => o.createdAt >= customStartDate && o.createdAt <= customEndDate);
+    }
+
+    // Payment gate: revenue/fees/tips only count a delivered order if it's cash
+    // (always collected at the door) or a card payment that was actually
+    // confirmed paid. A delivered order with a declined/never-completed card
+    // payment is real operational work, but isn't real revenue — the business
+    // never collected the money.
+    const isPayEligible = (o: (typeof allOrders)[number]): boolean =>
+      o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed";
+
+    // Revenue calculations (only delivered AND payment-eligible orders)
     const calcRevenue = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.total), 0);
 
     const calcServiceFees = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.serviceFee), 0);
 
     const calcDeliveryFees = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.deliveryFee), 0);
 
     const calcTips = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.tipAmount || "0"), 0);
 
     // Active orders (not delivered or cancelled)
@@ -143,6 +171,13 @@ export const adminRouter = router({
           deliveryFees: Math.round(calcDeliveryFees(todayOrders) * 100) / 100,
           tips: Math.round(calcTips(todayOrders) * 100) / 100,
         },
+        yesterday: {
+          count: yesterdayOrders.length,
+          revenue: Math.round(calcRevenue(yesterdayOrders) * 100) / 100,
+          serviceFees: Math.round(calcServiceFees(yesterdayOrders) * 100) / 100,
+          deliveryFees: Math.round(calcDeliveryFees(yesterdayOrders) * 100) / 100,
+          tips: Math.round(calcTips(yesterdayOrders) * 100) / 100,
+        },
         thisWeek: {
           count: weekOrders.length,
           revenue: Math.round(calcRevenue(weekOrders) * 100) / 100,
@@ -158,6 +193,14 @@ export const adminRouter = router({
           revenue: Math.round(calcRevenue(allOrders) * 100) / 100,
           serviceFees: Math.round(calcServiceFees(allOrders) * 100) / 100,
         },
+        // Only populated when customStart/customEnd were provided in the input
+        custom: (input?.customStart && input?.customEnd) ? {
+          count: customOrders.length,
+          revenue: Math.round(calcRevenue(customOrders) * 100) / 100,
+          serviceFees: Math.round(calcServiceFees(customOrders) * 100) / 100,
+          deliveryFees: Math.round(calcDeliveryFees(customOrders) * 100) / 100,
+          tips: Math.round(calcTips(customOrders) * 100) / 100,
+        } : null,
         active: activeOrders.length,
         statusBreakdown,
       },
@@ -296,20 +339,20 @@ export const adminRouter = router({
         .limit(limit)
         .offset(offset);
 
-      // Get customer names for orders with customerId
+      // Get customer names + phone numbers for orders with customerId
       const customerIds = ordersList
         .filter(o => o.customerId)
         .map(o => o.customerId!);
 
-      let customerMap: Record<number, string> = {};
+      let customerMap: Record<number, { name: string; phone: string }> = {};
       if (customerIds.length > 0) {
         const uniqueIds = [...new Set(customerIds)];
         const customerRows = await db
-          .select({ id: users.id, name: users.name, email: users.email })
+          .select({ id: users.id, name: users.name, email: users.email, phone: users.phone })
           .from(users)
           .where(sql`${users.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`);
         customerMap = Object.fromEntries(
-          customerRows.map(c => [c.id, c.name || c.email || "Unknown"])
+          customerRows.map(c => [c.id, { name: c.name || c.email || "Unknown", phone: c.phone || "" }])
         );
       }
 
@@ -395,8 +438,11 @@ export const adminRouter = router({
       return ordersList.map(order => ({
         ...order,
         customerName: order.customerId
-          ? customerMap[order.customerId] || "Unknown"
+          ? customerMap[order.customerId]?.name || "Unknown"
           : order.guestName || "Guest",
+        customerPhone: order.customerId
+          ? customerMap[order.customerId]?.phone || ""
+          : order.guestPhone || "",
         driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
         items: itemsMap[order.id] || [],
       }));
@@ -452,9 +498,13 @@ export const adminRouter = router({
         )
       );
 
+    // Payment gate: a delivered order only counts toward a driver's earnings
+    // if it's cash (always collected at the door) or a card payment that was
+    // actually confirmed paid. A declined/never-completed card payment still
+    // counts as a completed delivery, just not as money owed.
     const driverEarningsToday: Record<number, number> = {};
     todayOrders.forEach(order => {
-      if (order.driverId) {
+      if (order.driverId && (order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed")) {
         const earnings = parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0");
         driverEarningsToday[order.driverId] = (driverEarningsToday[order.driverId] || 0) + earnings;
       }
@@ -472,6 +522,8 @@ export const adminRouter = router({
     });
 
     // Get total delivered orders per driver from actual orders table
+    // (deliveries COUNT includes every delivered order regardless of payment —
+    // the driver still did the job — only the money figures above are gated)
     const allDeliveredOrders = await db
       .select({ driverId: orders.driverId })
       .from(orders)
@@ -1752,6 +1804,8 @@ export const adminRouter = router({
         deliveredAt: orders.deliveredAt,
         createdAt: orders.createdAt,
         status: orders.status,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
       })
       .from(orders)
       .where(
@@ -1766,6 +1820,8 @@ export const adminRouter = router({
         driverId: orders.driverId,
         deliveryFee: orders.deliveryFee,
         tipAmount: orders.tipAmount,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
       })
       .from(orders)
       .where(eq(orders.status, "delivered"));
@@ -1799,6 +1855,8 @@ export const adminRouter = router({
           deliveredAt: orders.deliveredAt,
           createdAt: orders.createdAt,
           status: orders.status,
+          paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
         })
         .from(orders)
         .where(
@@ -1810,23 +1868,36 @@ export const adminRouter = router({
         );
     }
 
+    // Payment gate: euro figures only count cash orders (always collected at
+    // the door) or card orders that were actually confirmed paid. A delivered
+    // order with a declined/never-completed card payment still counts toward
+    // delivery COUNTS (the driver did the job), but contributes €0 to earnings/tips.
+    const isPayEligible = (order: any): boolean =>
+      order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
+
     // Build per-driver stats
     const driverStats = driversList.map(driver => {
       const driverOrders = deliveredOrders.filter(o => o.driverId === driver.userId);
       const todayOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
       const weekOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
 
-      const totalEarnings30d = driverOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const driverAllTimeOrders = allTimeOrders.filter(o => o.driverId === driver.userId);
-      const totalEarningsAllTime = driverAllTimeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const cardTips30d = driverOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
-      const cardTipsToday = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
-      const cardTipsThisWeek = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
-      const cardTipsAllTime = driverAllTimeOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const driverOrdersPayEligible = driverOrders.filter(isPayEligible);
+      const todayOrdersPayEligible = todayOrders.filter(isPayEligible);
+      const weekOrdersPayEligible = weekOrders.filter(isPayEligible);
 
-      // Average delivery time (from order created to delivered)
+      const totalEarnings30d = driverOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayEarnings = todayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekEarnings = weekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const driverAllTimeOrders = allTimeOrders.filter(o => o.driverId === driver.userId);
+      const driverAllTimeOrdersPayEligible = driverAllTimeOrders.filter(isPayEligible);
+      const totalEarningsAllTime = driverAllTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const cardTips30d = driverOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsToday = todayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsThisWeek = weekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsAllTime = driverAllTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+
+      // Average delivery time (from order created to delivered) — every delivered
+      // order counts here, since this is about operational speed, not money.
       const deliveryTimes = driverOrders
         .filter(o => o.deliveredAt && o.createdAt)
         .map(o => {
@@ -1842,9 +1913,10 @@ export const adminRouter = router({
 
       // Custom date range stats (only populated when customStart/customEnd were provided)
       const driverCustomOrders = customRangeOrders.filter(o => o.driverId === driver.userId);
+      const driverCustomOrdersPayEligible = driverCustomOrders.filter(isPayEligible);
       const customDeliveries = driverCustomOrders.length;
-      const customEarnings = driverCustomOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const customTips = driverCustomOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const customEarnings = driverCustomOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const customTips = driverCustomOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
       const customDeliveryTimes = driverCustomOrders
         .filter(o => o.deliveredAt && o.createdAt)
         .map(o => (new Date(o.deliveredAt!).getTime() - new Date(o.createdAt!).getTime()) / 60000)
@@ -1853,7 +1925,8 @@ export const adminRouter = router({
         ? Math.round(customDeliveryTimes.reduce((s, t) => s + t, 0) / customDeliveryTimes.length)
         : null;
 
-      // Daily breakdown for last 7 days
+      // Daily breakdown for last 7 days (deliveries count includes every delivered
+      // order; earnings only count pay-eligible ones)
       const dailyBreakdown: { date: string; deliveries: number; earnings: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -1863,10 +1936,11 @@ export const adminRouter = router({
           const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
           return oDate === dateStr;
         });
+        const dayOrdersPayEligible = dayOrders.filter(isPayEligible);
         dailyBreakdown.push({
           date: dateStr,
           deliveries: dayOrders.length,
-          earnings: Math.round(dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+          earnings: Math.round(dayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
         });
       }
 
@@ -1910,22 +1984,27 @@ export const adminRouter = router({
     // Aggregate totals for each period (used by the top summary cards)
     const totalsTodayOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
     const totalsWeekOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
+    const deliveredOrdersPayEligible = deliveredOrders.filter(isPayEligible);
+    const totalsTodayOrdersPayEligible = totalsTodayOrders.filter(isPayEligible);
+    const totalsWeekOrdersPayEligible = totalsWeekOrders.filter(isPayEligible);
+    const allTimeOrdersPayEligible = allTimeOrders.filter(isPayEligible);
+    const customRangeOrdersPayEligible = customRangeOrders.filter(isPayEligible);
 
     const totals = {
       totalDrivers: driversList.length,
       onlineNow: driversList.filter(d => d.isOnline).length,
       totalDeliveries30d: deliveredOrders.length,
-      totalEarnings30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
-      totalCardTips30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
-      totalCardTipsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarnings30d: Math.round(deliveredOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTips30d: Math.round(deliveredOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTipsAllTime: Math.round(allTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalDeliveriesToday: totalsTodayOrders.length,
-      totalEarningsToday: Math.round(totalsTodayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarningsToday: Math.round(totalsTodayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalDeliveriesThisWeek: totalsWeekOrders.length,
-      totalEarningsThisWeek: Math.round(totalsWeekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarningsThisWeek: Math.round(totalsWeekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalDeliveriesAllTime: allTimeOrders.length,
-      totalEarningsAllTime: Math.round(allTimeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarningsAllTime: Math.round(allTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
       totalDeliveriesCustom: customRangeOrders.length,
-      totalEarningsCustom: Math.round(customRangeOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarningsCustom: Math.round(customRangeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
     };
 
     return { drivers: driverStats, totals };
@@ -2258,6 +2337,7 @@ export const adminRouter = router({
           deliveryFee: orders.deliveryFee,
           tipAmount: orders.tipAmount,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
           deliveredAt: orders.deliveredAt,
           storeName: stores.name,
@@ -2306,6 +2386,7 @@ export const adminRouter = router({
           paymentMethod: o.paymentMethod,
           total: parseFloat(o.total || "0"),
           deliveredAt: o.deliveredAt?.toISOString() || "",
+          isPaid: o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed",
         })),
       };
     }),
