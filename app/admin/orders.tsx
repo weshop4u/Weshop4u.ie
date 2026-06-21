@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -700,6 +700,15 @@ function AdminOrdersScreenContent() {
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
+                          {(order as any).customerPhone ? (
+                            <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order as any).customerPhone}`)}>
+                              <Text style={[dtStyles.detailValue, { color: "#2563EB", fontWeight: "600", textDecorationLine: "underline" }]}>
+                                📞 {(order as any).customerPhone}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No phone on file</Text>
+                          )}
                           <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : isAwaitingPayment ? "Awaiting Payment" : "FAILED"})</Text>
                           {order.deliveryDistance && <Text style={dtStyles.detailValue}>Distance: {parseFloat(order.deliveryDistance as string).toFixed(1)} km</Text>}
                           {order.deliveredAt && <Text style={dtStyles.detailValue}>Delivered: {formatDate(order.deliveredAt)}</Text>}
@@ -890,9 +899,54 @@ function AdminOrdersScreenContent() {
                           <Text className="text-sm text-muted">Customer</Text>
                           <Text className="text-sm text-foreground font-medium">{order.customerName}</Text>
                         </View>
+                        {(order as any).customerPhone ? (
+                          <View className="flex-row justify-between">
+                            <Text className="text-sm text-muted">Phone</Text>
+                            <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order as any).customerPhone}`)}>
+                              <Text style={{ fontSize: 14, color: "#2563EB", fontWeight: "600", textDecorationLine: "underline" }}>
+                                📞 {(order as any).customerPhone}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : null}
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Store</Text>
                           <Text className="text-sm text-foreground font-medium">{order.storeName}</Text>
+                        </View>
+                        <View className="mt-2 pt-2 border-t border-border">
+                          <Text className="text-sm text-muted mb-1">Items</Text>
+                          {(() => {
+                            const receiptData = (order as any).receiptData;
+                            const displayItems = (order as any).items || receiptData?.storeReceipt?.items || [];
+                            return displayItems && displayItems.length > 0 ? (
+                              displayItems.map((item: any, idx2: number) => (
+                                <View key={idx2} style={{ marginBottom: 4 }}>
+                                  <View className="flex-row justify-between">
+                                    <Text className="text-sm text-foreground" style={{ flex: 1 }}>
+                                      {item.quantity}x {item.productName}
+                                    </Text>
+                                    <Text className="text-sm text-foreground" style={{ fontWeight: "600", marginLeft: 8 }}>
+                                      €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
+                                    </Text>
+                                  </View>
+                                  {item.modifiers && item.modifiers.length > 0 && (() => {
+                                    const grouped: Record<string, { price: string; count: number }> = {};
+                                    for (const mod of item.modifiers) {
+                                      if (!grouped[mod.modifierName]) grouped[mod.modifierName] = { price: mod.modifierPrice, count: 0 };
+                                      grouped[mod.modifierName].count++;
+                                    }
+                                    return Object.entries(grouped).map(([name, { price, count }], modIdx) => (
+                                      <Text key={modIdx} style={{ fontSize: 12, color: "#64748B", paddingLeft: 12 }}>
+                                        + {name}{count > 1 ? ` ×${count}` : ""}{parseFloat(price) > 0 ? ` +€${(parseFloat(price) * count).toFixed(2)}` : ""}
+                                      </Text>
+                                    ));
+                                  })()}
+                                </View>
+                              ))
+                            ) : (
+                              <Text className="text-sm" style={{ color: "#94A3B8" }}>No items data</Text>
+                            );
+                          })()}
                         </View>
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Driver</Text>
