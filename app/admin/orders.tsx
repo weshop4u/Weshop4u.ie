@@ -65,10 +65,18 @@ function AdminOrdersScreenContent() {
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
   const [bulkAssignModal, setBulkAssignModal] = useState(false);
 
+  // Returns YYYY-MM-DD for a given moment, always in Ireland's timezone —
+  // regardless of what timezone the browser/device is actually running in.
+  // (toISOString() converts to UTC first, which silently rolls the date back
+  // a day whenever Ireland is ahead of UTC, e.g. during BST.)
+  const toIrishDateStr = (date: Date): string => {
+    return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' });
+  };
+
   const applyDatePreset = useCallback((preset: string) => {
     setDatePreset(preset);
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+    const todayStart = toIrishDateStr(now);
     const todayEnd = todayStart;
     switch (preset) {
       case "today":
@@ -76,24 +84,21 @@ function AdminOrdersScreenContent() {
         setDateTo(todayEnd);
         break;
       case "yesterday": {
-        const y = new Date(now);
-        y.setDate(y.getDate() - 1);
-        const yd = y.toISOString().slice(0, 10);
+        const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const yd = toIrishDateStr(y);
         setDateFrom(yd);
         setDateTo(yd);
         break;
       }
       case "7days": {
-        const d7 = new Date(now);
-        d7.setDate(d7.getDate() - 7);
-        setDateFrom(d7.toISOString().slice(0, 10));
+        const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        setDateFrom(toIrishDateStr(d7));
         setDateTo(todayEnd);
         break;
       }
       case "30days": {
-        const d30 = new Date(now);
-        d30.setDate(d30.getDate() - 30);
-        setDateFrom(d30.toISOString().slice(0, 10));
+        const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        setDateFrom(toIrishDateStr(d30));
         setDateTo(todayEnd);
         break;
       }
