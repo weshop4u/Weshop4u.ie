@@ -817,7 +817,7 @@ function AdminOrdersScreenContent() {
                               {markPaidMutation.isPending ? "Marking..." : "Mark as Paid"}
                             </Text>
                           </TouchableOpacity>
-                          <<Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
+                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
                         </View>
                       )}
                       {/* Re-check payment for card orders that look unpaid — safe, since it
