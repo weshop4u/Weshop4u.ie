@@ -30,6 +30,24 @@ const STATUS_FILTERS = ["all", ...ALL_STATUSES];
 // details on Elavon's page), not a declined payment.
 const PAYMENT_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
 
+// Fixed column widths for the desktop table — used for both header and body
+// cells so they can never drift apart. Every cell also clips overflow, so a
+// long name, status, or badge can never push the columns after it out of
+// alignment (which is what was happening before: "Unassigned"/"Cancelled"
+// rows looked shifted compared to rows with shorter content).
+const COL_WIDTHS = {
+  checkbox: 44,
+  date: 116,
+  orderNum: 126,
+  store: 108,
+  customer: 146,
+  status: 138,
+  driver: 108,
+  payment: 104,
+  total: 80,
+  actions: 152,
+};
+
 function formatDate(date: Date | string | null): string {
   return formatIrishSmartDateTime(date);
 }
@@ -245,12 +263,12 @@ function AdminOrdersScreenContent() {
     );
   }
 
-  const SortHeader = ({ field, label, minW }: { field: SortField; label: string; minW?: number }) => (
+  const SortHeader = ({ field, label, width }: { field: SortField; label: string; width?: number }) => (
     <TouchableOpacity
       onPress={() => toggleSort(field)}
-      style={[dtStyles.th, minW ? { minWidth: minW } : { flex: 1 }]}
+      style={[dtStyles.th, width ? { width } : { flex: 1 }]}
     >
-      <Text style={dtStyles.thText}>
+      <Text style={dtStyles.thText} numberOfLines={1}>
         {label} {sortField === field ? (sortDir === "asc" ? "▲" : "▼") : ""}
       </Text>
     </TouchableOpacity>
@@ -454,7 +472,7 @@ function AdminOrdersScreenContent() {
           <View style={dtStyles.tableContainer}>
             {/* Table Header */}
             <View style={dtStyles.thead}>
-            <View style={[dtStyles.th, { minWidth: 40 }]}>
+            <View style={[dtStyles.th, { width: COL_WIDTHS.checkbox }]}>
               <TouchableOpacity onPress={() => {
                 if (selectedOrderIds.size === sortedOrders.length) {
                   setSelectedOrderIds(new Set());
@@ -465,15 +483,15 @@ function AdminOrdersScreenContent() {
                 <Text style={{ fontSize: 16, color: "#0F172A" }}>☐</Text>
               </TouchableOpacity>
             </View>
-            <SortHeader field="date" label="Date" minW={110} />
-            <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
-            <SortHeader field="store" label="Store" minW={100} />
-            <SortHeader field="customer" label="Customer" minW={140} />
-            <SortHeader field="status" label="Status" minW={130} />
-            <View style={[dtStyles.th, { minWidth: 95 }]}><Text style={dtStyles.thText}>Driver</Text></View>
-            <View style={[dtStyles.th, { minWidth: 90 }]}><Text style={dtStyles.thText}>Payment</Text></View>
-            <SortHeader field="total" label="Total" minW={70} />
-            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Actions</Text></View>
+            <SortHeader field="date" label="Date" width={COL_WIDTHS.date} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.orderNum }]}><Text style={dtStyles.thText} numberOfLines={1}>Order #</Text></View>
+            <SortHeader field="store" label="Store" width={COL_WIDTHS.store} />
+            <SortHeader field="customer" label="Customer" width={COL_WIDTHS.customer} />
+            <SortHeader field="status" label="Status" width={COL_WIDTHS.status} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.driver }]}><Text style={dtStyles.thText} numberOfLines={1}>Driver</Text></View>
+            <View style={[dtStyles.th, { width: COL_WIDTHS.payment }]}><Text style={dtStyles.thText} numberOfLines={1}>Payment</Text></View>
+            <SortHeader field="total" label="Total" width={COL_WIDTHS.total} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.actions }]}><Text style={dtStyles.thText} numberOfLines={1}>Actions</Text></View>
             </View>
 
             {/* Table Body */}
@@ -497,7 +515,7 @@ function AdminOrdersScreenContent() {
                     style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isAwaitingPayment && { backgroundColor: "#EFF6FF", borderLeftWidth: 3, borderLeftColor: "#3B82F6" }, isFailedPayment && { backgroundColor: "#FEF2F2", borderLeftWidth: 3, borderLeftColor: "#DC2626" }, isSelected && { backgroundColor: "#E0F2FE" }]}
                   >
                     {/* Checkbox */}
-                    <View style={[dtStyles.td, { minWidth: 40 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.checkbox }]}>
                       <TouchableOpacity onPress={(e) => {
                         e.stopPropagation?.();
                         const newSelected = new Set(selectedOrderIds);
@@ -512,20 +530,20 @@ function AdminOrdersScreenContent() {
                       </TouchableOpacity>
                     </View>
                     {/* Date */}
-                    <View style={[dtStyles.td, { minWidth: 110 }]}>
-                      <Text style={[dtStyles.tdText, { fontSize: 12 }]}>{formatDate(order.createdAt)}</Text>
-                      <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{getTimeSince(order.createdAt)}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.date }]}>
+                      <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{formatDate(order.createdAt)}</Text>
+                      <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }} numberOfLines={1}>{getTimeSince(order.createdAt)}</Text>
                     </View>
                     {/* Order # */}
-                    <View style={[dtStyles.td, { minWidth: 120 }]}>
-                      <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]}>{order.orderNumber}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.orderNum }]}>
+                      <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]} numberOfLines={1}>{order.orderNumber}</Text>
                     </View>
                     {/* Store */}
-                    <View style={[dtStyles.td, { minWidth: 100 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.store }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{order.storeName}</Text>
                     </View>
                     {/* Customer */}
-                    <View style={[dtStyles.td, { minWidth: 140 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.customer }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>
                         {(() => {
                           // Extract first and last name from customerName
@@ -538,18 +556,18 @@ function AdminOrdersScreenContent() {
                       </Text>
                     </View>
                     {/* Status */}
-                    <View style={[dtStyles.td, { minWidth: 130 }]}>
-                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", gap: 5 }}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.status }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", gap: 5, maxWidth: "100%" }}>
                         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sc.text }} />
-                        <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text, letterSpacing: 0.3 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text, letterSpacing: 0.3 }} numberOfLines={1}>
                           {order.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
                         </Text>
                       </View>
                     </View>
                     {/* Driver */}
-                    <View style={[dtStyles.td, { minWidth: 95 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.driver }]}>
                       {order.driverName === "Unassigned" ? (
-                        <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }}>Unassigned</Text>
+                        <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }} numberOfLines={1}>Unassigned</Text>
                       ) : (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
@@ -567,36 +585,36 @@ function AdminOrdersScreenContent() {
                       )}
                     </View>
                     {/* Payment */}
-                    <View style={[dtStyles.td, { minWidth: 90 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.payment }]}>
                       <View style={{ flexDirection: "column", gap: 2 }}>
-                        <Text style={{ fontSize: 11, color: "#64748B" }}>
+                        <Text style={{ fontSize: 11, color: "#64748B" }} numberOfLines={1}>
                           {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}
                         </Text>
                         {order.paymentStatus === "completed" ? (
                           <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>Paid</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }} numberOfLines={1}>Paid</Text>
                           </View>
                         ) : order.paymentMethod === "cash_on_delivery" ? (
                           <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }} numberOfLines={1}>COD</Text>
                           </View>
                         ) : isAwaitingPayment ? (
                           <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#2563EB" }}>Awaiting Payment</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#2563EB" }} numberOfLines={1}>Awaiting</Text>
                           </View>
                         ) : (
                           <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start", borderWidth: 1, borderColor: "#DC2626" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>⚠ FAILED</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }} numberOfLines={1}>⚠ FAILED</Text>
                           </View>
                         )}
                       </View>
                     </View>
                     {/* Total */}
-                    <View style={[dtStyles.td, { minWidth: 70 }]}>
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.total }]}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }} numberOfLines={1}>€{parseFloat(order.total).toFixed(2)}</Text>
                     </View>
                     {/* Actions */}
-                    <View style={[dtStyles.td, { minWidth: 100, flexDirection: "row", gap: 4, alignItems: "center" }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.actions, flexDirection: "row", gap: 6, alignItems: "center" }]}>
                       <TouchableOpacity
                         onPress={(e) => { e.stopPropagation?.(); setExpandedId(expanded ? null : order.id); }}
                         style={[dtStyles.actionBtn, { backgroundColor: expanded ? "#E0F2FE" : "#F1F5F9" }]}
@@ -1349,7 +1367,7 @@ const dtStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
-    minWidth: 1200,
+    minWidth: 1180,
     flexDirection: "column",
   },
   thead: {
@@ -1357,12 +1375,13 @@ const dtStyles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderBottomWidth: 2,
     borderBottomColor: "#E2E8F0",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   th: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     justifyContent: "center",
+    overflow: "hidden",
   },
   thText: {
     fontSize: 11,
@@ -1375,13 +1394,14 @@ const dtStyles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     alignItems: "center",
   },
   td: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     justifyContent: "center",
+    overflow: "hidden",
   },
   tdText: {
     fontSize: 13,
