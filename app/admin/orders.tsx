@@ -682,30 +682,28 @@ function AdminOrdersScreenContent() {
                           <Text style={dtStyles.detailLabel}>Items for Store</Text>
                           {(() => {
                             const receiptData = (order as any).receiptData;
-                            const displayItems = (order as any).items || receiptData?.storeReceipt?.items || [];
-                            return displayItems && displayItems.length > 0 ? (
-                              displayItems.map((item: any, idx2: number) => (
-                                <View key={idx2}>
-                                  <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                                    <Text style={[dtStyles.detailValue, { flex: 1 }]}>
-                                      {item.quantity}x {item.productName}
-                                    </Text>
-                                    <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
-                                      €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
-                                    </Text>
-                                  </View>
-                                  {item.modifiers && item.modifiers.length > 0 && (() => {
-                                    const grouped: Record<string, { price: string; count: number }> = {};
-                                    for (const mod of item.modifiers) {
-                                      if (!grouped[mod.modifierName]) grouped[mod.modifierName] = { price: mod.modifierPrice, count: 0 };
-                                      grouped[mod.modifierName].count++;
-                                    }
-                                    return Object.entries(grouped).map(([name, { price, count }], modIdx) => (
-                                      <Text key={modIdx} style={[dtStyles.detailValue, { color: "#64748B", fontSize: 12, paddingLeft: 12 }]}>
-                                        + {name}{count > 1 ? ` ×${count}` : ""}{parseFloat(price) > 0 ? ` +€${(parseFloat(price) * count).toFixed(2)}` : ""}
-                                      </Text>
-                                    ));
-                                  })()}
+                            const storeReceipt = receiptData?.storeReceipt;
+                            const tip = parseFloat(order.tipAmount || "0");
+                            if (storeReceipt) {
+                              return (
+                                <>
+                                  <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(storeReceipt.subtotal).toFixed(2)}</Text>
+                                  <Text style={dtStyles.detailValue}>Service: €{parseFloat(storeReceipt.serviceFee).toFixed(2)}</Text>
+                                  <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(storeReceipt.deliveryFee).toFixed(2)}</Text>
+                                  {tip > 0 && <Text style={[dtStyles.detailValue, { color: "#8B5CF6", fontWeight: "600" }]}>Tip: €{tip.toFixed(2)}</Text>}
+                                  <Text style={[dtStyles.detailValue, { fontWeight: "600", color: "#059669" }]}>Total: €{parseFloat(storeReceipt.total).toFixed(2)}</Text>
+                                </>
+                              );
+                            }
+                            return (
+                              <>
+                                <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(order.subtotal).toFixed(2)}</Text>
+                                <Text style={dtStyles.detailValue}>Service: €{parseFloat(order.serviceFee).toFixed(2)}</Text>
+                                <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(order.deliveryFee).toFixed(2)}</Text>
+                                {tip > 0 && <Text style={[dtStyles.detailValue, { color: "#8B5CF6", fontWeight: "600" }]}>Tip: €{tip.toFixed(2)}</Text>}
+                              </>
+                            );
+                          })()}
                                 </View>
                               ))
                             ) : (
