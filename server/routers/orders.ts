@@ -177,6 +177,62 @@ export const ordersRouter = router({
         throw new Error("Store location not available");
       }
 
+      // ========== DUPLICATE SUBMISSION GUARD ==========
+      // Protects against double-tap on "Place Order" and network-retry double
+      // submits, which were creating two full order rows — and dispatching two
+      // separate driver jobs — from a single checkout action. If an order from
+      // the same customer (or guest, matched by phone) was created for this
+      // store and delivery address in the last 15 seconds, treat this request
+      // as a duplicate and hand back that existing order instead of creating
+      // a new one. The customer's checkout still succeeds instantly either way.
+      const duplicateWindowStart = new Date(Date.now() - 15 * 1000);
+      const duplicateConditions = [
+        eq(orders.storeId, input.storeId),
+        eq(orders.deliveryAddress, input.deliveryAddress),
+        gte(orders.createdAt, duplicateWindowStart),
+        sql`${orders.status} != 'cancelled'`,
+      ];
+      if (input.customerId) {
+        duplicateConditions.push(eq(orders.customerId, input.customerId));
+      } else if (input.guestPhone) {
+        duplicateConditions.push(eq(orders.guestPhone, input.guestPhone));
+      } else {
+        // No reliable identity to de-duplicate a guest order on — skip the check
+        duplicateConditions.push(sql`1 = 0`);
+      }
+
+      const recentDuplicate = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          subtotal: orders.subtotal,
+          serviceFee: orders.serviceFee,
+          deliveryFee: orders.deliveryFee,
+          discountAmount: orders.discountAmount,
+          total: orders.total,
+          deliveryDistance: orders.deliveryDistance,
+        })
+        .from(orders)
+        .where(and(...duplicateConditions))
+        .orderBy(desc(orders.createdAt))
+        .limit(1);
+
+      if (recentDuplicate.length > 0) {
+        const existing = recentDuplicate[0];
+        console.log(`[Duplicate Guard] Blocked duplicate order submission for store ${input.storeId} — returning existing order ${existing.id} (${existing.orderNumber}) instead of creating a new one`);
+        return {
+          orderId: existing.id,
+          orderNumber: existing.orderNumber,
+          subtotal: parseFloat(existing.subtotal),
+          serviceFee: parseFloat(existing.serviceFee),
+          deliveryFee: parseFloat(existing.deliveryFee),
+          discountAmount: parseFloat(existing.discountAmount || "0"),
+          total: parseFloat(existing.total),
+          distance: parseFloat(existing.deliveryDistance || "0"),
+        };
+      }
+      // ========== END DUPLICATE SUBMISSION GUARD ==========
+
       // ========== SERVER-SIDE AGE VERIFICATION CHECK ==========
       // Mirrors the check on the checkout screen, but enforced here too so it
       // can't be bypassed by calling the API directly.
