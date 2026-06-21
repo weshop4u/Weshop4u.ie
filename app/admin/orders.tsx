@@ -655,6 +655,11 @@ function AdminOrdersScreenContent() {
                     {/* Total */}
                     <View style={[dtStyles.td, { width: COL_WIDTHS.total }]}>
                       <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }} numberOfLines={1}>€{parseFloat(order.total).toFixed(2)}</Text>
+                      {parseFloat(order.tipAmount || "0") > 0 && (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#8B5CF6", marginTop: 1 }} numberOfLines={1}>
+                          💜 €{parseFloat(order.tipAmount).toFixed(2)}
+                        </Text>
+                      )}
                     </View>
                     {/* Actions */}
                     <View style={[dtStyles.td, { width: COL_WIDTHS.actions, flexDirection: "row", gap: 6, alignItems: "center" }]}>
@@ -812,7 +817,7 @@ function AdminOrdersScreenContent() {
                               {markPaidMutation.isPending ? "Marking..." : "Mark as Paid"}
                             </Text>
                           </TouchableOpacity>
-                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
+                          <<Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
                         </View>
                       )}
                       {/* Re-check payment for card orders that look unpaid — safe, since it
