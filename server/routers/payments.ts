@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, storeStaff, users } from "../../drizzle/schema";
+import { orders, storeStaff, users, stores } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { offerOrderToQueue } from "./drivers";
-import { sendNewOrderNotification } from "../services/notifications";
+import { sendNewOrderNotification, sendPushNotification } from "../services/notifications";
+import { sendOrderConfirmationSMS } from "../sms";
 
 
 // Elavon EPG API base URL (production EU)
@@ -183,6 +184,52 @@ export const paymentsRouter = router({
               elavonTransactionId: transactionId || null,
             })
             .where(eq(orders.id, input.orderId));
+
+          // SMS #1 / Push — Order Confirmed (card orders).
+          // This is the customer-facing "thank you for your order" notification.
+          // For cash orders it's sent immediately at checkout (see orders.create),
+          // but for card it's deferred all the way to here — the first point at
+          // which the payment is actually confirmed — so the customer is never
+          // told their order is placed before they've paid for it.
+          try {
+            let smsPhone: string | null = null;
+            let hasPushToken = false;
+
+            if (order.customerId) {
+              const [customerRecord] = await db
+                .select({ phone: users.phone, pushToken: users.pushToken })
+                .from(users)
+                .where(eq(users.id, order.customerId))
+                .limit(1);
+              if (customerRecord?.pushToken) {
+                hasPushToken = true;
+                await sendPushNotification(customerRecord.pushToken, {
+                  title: "Order Placed! \uD83C\uDF89",
+                  body: `Your order #${input.orderId} is confirmed! We'll notify you when the driver arrives.`,
+                  data: { type: "order_update", orderId: input.orderId, status: "pending" },
+                  channelId: "orders",
+                });
+                console.log(`[Push] Order confirmation push sent to customer ${order.customerId} after card payment confirmed`);
+              } else {
+                smsPhone = customerRecord?.phone || null;
+              }
+            } else {
+              smsPhone = order.guestPhone || null;
+            }
+
+            if (!hasPushToken && smsPhone) {
+              const [storeRecord] = await db
+                .select({ name: stores.name })
+                .from(stores)
+                .where(eq(stores.id, order.storeId))
+                .limit(1);
+              await sendOrderConfirmationSMS(smsPhone, storeRecord?.name || "the store", input.orderId);
+              console.log(`[SMS] Order confirmation sent to ${smsPhone} after card payment confirmed`);
+            }
+          } catch (e) {
+            console.error(`[SMS/Push] Failed to send order confirmation for order ${input.orderId}:`, e);
+            // Don't fail the payment confirmation if notification fails
+          }
 
           // Send store notification now that payment is confirmed
           try {
