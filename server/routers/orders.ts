@@ -470,50 +470,53 @@ export const ordersRouter = router({
         }
       }
 
-      // SMS #1 — Order Confirmed
-      // Strategy: Send SMS to customers who DON'T have a push token (guests + web-only users).
-      // App users with push tokens get free push notifications instead.
-      try {
-        let smsPhone: string | null = null;
-        let hasPushToken = false;
-
-        if (input.customerId) {
-          // Logged-in user — check if they have a push token
-          const [customerRecord] = await db
-            .select({ phone: users.phone, pushToken: users.pushToken })
-            .from(users)
-            .where(eq(users.id, input.customerId))
-            .limit(1);
-          if (customerRecord?.pushToken) {
-            hasPushToken = true;
-            // Push notification is sent separately below (store staff notifications section)
-            // Also send a direct push to the customer
-            await sendPushNotification(customerRecord.pushToken, {
-              title: "Order Placed! \uD83C\uDF89",
-              body: `Your ${storeData.name} order #${Number(orderId)} is confirmed! We'll notify you when the driver arrives.`,
-              data: { type: "order_update", orderId: Number(orderId), status: "pending" },
-              channelId: "orders",
-            });
-            console.log(`[Push] Order confirmation push sent to customer ${input.customerId}`);
-          } else {
-            // No push token — use their phone number for SMS
-            smsPhone = customerRecord?.phone || null;
-          }
-        } else {
-          // Guest order — use guest phone
-          smsPhone = input.guestPhone || null;
-        }
-
-        if (!hasPushToken && smsPhone) {
-          await sendOrderConfirmationSMS(smsPhone, storeData.name, Number(orderId));
-          console.log(`[SMS] Order confirmation sent to ${smsPhone}`);
-        }
-      } catch (error) {
-        console.error(`[SMS/Push] Failed to send order confirmation:`, error);
-        // Don't fail the order if notification fails
-      }
-
       if (input.paymentMethod === "cash_on_delivery") {
+        // SMS #1 / Push — Order Confirmed (cash orders only).
+        // Card orders do NOT get this here — it would tell the customer
+        // "thank you for your order" before they've even reached the Elavon
+        // payment page, let alone paid. For card, this same notification is
+        // sent later from payments.checkPaymentStatus, only once the payment
+        // is actually confirmed.
+        try {
+          let smsPhone: string | null = null;
+          let hasPushToken = false;
+
+          if (input.customerId) {
+            // Logged-in user — check if they have a push token
+            const [customerRecord] = await db
+              .select({ phone: users.phone, pushToken: users.pushToken })
+              .from(users)
+              .where(eq(users.id, input.customerId))
+              .limit(1);
+            if (customerRecord?.pushToken) {
+              hasPushToken = true;
+              // Push notification is sent separately below (store staff notifications section)
+              // Also send a direct push to the customer
+              await sendPushNotification(customerRecord.pushToken, {
+                title: "Order Placed! \uD83C\uDF89",
+                body: `Your ${storeData.name} order #${Number(orderId)} is confirmed! We'll notify you when the driver arrives.`,
+                data: { type: "order_update", orderId: Number(orderId), status: "pending" },
+                channelId: "orders",
+              });
+              console.log(`[Push] Order confirmation push sent to customer ${input.customerId}`);
+            } else {
+              // No push token — use their phone number for SMS
+              smsPhone = customerRecord?.phone || null;
+            }
+          } else {
+            // Guest order — use guest phone
+            smsPhone = input.guestPhone || null;
+          }
+
+          if (!hasPushToken && smsPhone) {
+            await sendOrderConfirmationSMS(smsPhone, storeData.name, Number(orderId));
+            console.log(`[SMS] Order confirmation sent to ${smsPhone}`);
+          }
+        } catch (error) {
+          console.error(`[SMS/Push] Failed to send order confirmation:`, error);
+          // Don't fail the order if notification fails
+        }
+
         // Send push notification to ALL store staff for this store
         try {
           const storeStaffMembers = await db
