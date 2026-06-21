@@ -1026,6 +1026,15 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         return isNaN(parsed) ? 0 : parsed;
       };
 
+      // Payment gate: a delivered order only counts toward money owed to the
+      // driver if it's cash on delivery (always collected at the door), or a
+      // card payment that was actually confirmed paid. A delivered order with
+      // a declined/never-completed card payment still counts as a completed
+      // delivery (driver did the job), but earns nothing, since the business
+      // never collected the money in the first place.
+      const isPayEligible = (order: any): boolean =>
+        order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
+
       // Helper to get the effective delivery date (use deliveredAt, fall back to createdAt)
       const getDeliveryDate = (order: any): Date => {
         if (order.deliveredAt) return new Date(order.deliveredAt);
@@ -1043,11 +1052,12 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         const deliveredAt = getDeliveryDate(order);
         return toIrishDateStr(deliveredAt) === todayStr;
       });
-      const todayEarnings = todayOrders.reduce(
+      const todayPayEligible = todayOrders.filter(isPayEligible);
+      const todayEarnings = todayPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const todayTips = todayOrders.reduce(
+      const todayTips = todayPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
@@ -1072,21 +1082,23 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         const deliveredAt = getDeliveryDate(order);
         return weekDateStrs.includes(toIrishDateStr(deliveredAt));
       });
-      const weekEarnings = weekOrders.reduce(
+      const weekPayEligible = weekOrders.filter(isPayEligible);
+      const weekEarnings = weekPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const weekTips = weekOrders.reduce(
+      const weekTips = weekPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
 
       // Total stats
-      const totalEarnings = completedOrders.reduce(
+      const allPayEligible = completedOrders.filter(isPayEligible);
+      const totalEarnings = allPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const totalTips = completedOrders.reduce(
+      const totalTips = allPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
@@ -1099,7 +1111,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         .limit(1);
 
       // Card/cash breakdown — today
-      const todayCardEarnings = todayOrders
+      const todayCardEarnings = todayPayEligible
         .filter(o => o.paymentMethod !== 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
       const todayCashCollected = todayOrders
@@ -1111,7 +1123,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCashFees);
 
       // Card/cash breakdown — this week
-      const weekCardEarnings = weekOrders
+      const weekCardEarnings = weekPayEligible
         .filter(o => o.paymentMethod !== 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
       const weekCashCollected = weekOrders
@@ -1569,6 +1581,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           deliveryAddress: orders.deliveryAddress,
           storeName: stores.name,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
         })
         .from(orders)
@@ -1581,12 +1594,20 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         )
         .orderBy(desc(orders.deliveredAt));
 
+      // Payment gate: only count euro figures for cash orders (always collected
+      // at the door) or card orders that were actually confirmed paid. A
+      // delivered order with a declined/never-completed card payment still
+      // shows up as a completed delivery, but earns nothing.
+      const isPayEligible = (order: any): boolean =>
+        order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
+      const payEligibleOrders = completedOrders.filter(isPayEligible);
+
       // Calculate total earnings
-      const totalEarnings = completedOrders.reduce(
+      const totalEarnings = payEligibleOrders.reduce(
         (sum, order) => sum + parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
         0
       );
-      const totalTips = completedOrders.reduce(
+      const totalTips = payEligibleOrders.reduce(
         (sum, order) => sum + parseFloat(order.tipAmount || "0"),
         0
       );
@@ -1609,6 +1630,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       };
 
       // Build daily breakdown for the past 7 days using Irish timezone
+      // (deliveries count includes every delivered order; earnings only count pay-eligible ones)
       const dailyBreakdown: { date: string; dayLabel: string; earnings: number; deliveries: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
@@ -1617,11 +1639,12 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           const oDate = toIrishDateStr(getDeliveryDate(o));
           return oDate === dateStr;
         });
+        const dayPayEligible = dayOrders.filter(isPayEligible);
         const dayOfMonth = toIrishDayOfMonth(d);
         dailyBreakdown.push({
           date: dateStr,
           dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : toIrishDayLabel(d),
-          earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
+          earnings: dayPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
           deliveries: dayOrders.length,
         });
       }
@@ -1632,8 +1655,9 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         const oDate = toIrishDateStr(getDeliveryDate(o));
         return oDate === todayStr;
       });
-      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const todayTips = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const todayPayEligible = todayOrders.filter(isPayEligible);
+      const todayEarnings = todayPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayTips = todayPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       // This week's earnings using Irish timezone
       const nowForWeek = new Date();
@@ -1648,8 +1672,9 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         const oDate = toIrishDateStr(getDeliveryDate(o));
         return weekDateStrs.includes(oDate);
       });
-      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const weekTips = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const weekPayEligible = weekOrders.filter(isPayEligible);
+      const weekEarnings = weekPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekTips = weekPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       return {
         totalEarnings,
@@ -1664,7 +1689,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         weekEarnings,
         weekTips,
         weekDeliveries: weekOrders.length,
-        todayCardEarnings: todayOrders
+        todayCardEarnings: todayPayEligible
           .filter(o => o.paymentMethod !== 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
         todayCashCollected: todayOrders
@@ -1678,7 +1703,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
             .filter(o => o.paymentMethod === 'cash_on_delivery')
             .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
         ),
-        weekCardEarnings: weekOrders
+        weekCardEarnings: weekPayEligible
           .filter(o => o.paymentMethod !== 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
         weekCashCollected: weekOrders
@@ -1693,17 +1718,21 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
             .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
         ),
         dailyBreakdown,
-        recentDeliveries: completedOrders.slice(0, 50).map(order => ({
-          id: order.id,
-          orderNumber: order.orderNumber,
-          amount: parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
-          baseFee: parseFloat(order.deliveryFee),
-          tip: parseFloat(order.tipAmount || "0"),
-          completedAt: order.deliveredAt,
-          storeName: order.storeName || "Store",
-          deliveryAddress: order.deliveryAddress,
-          paymentMethod: order.paymentMethod,
-        })),
+        recentDeliveries: completedOrders.slice(0, 50).map(order => {
+          const isPaid = isPayEligible(order);
+          return {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            amount: isPaid ? parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0") : 0,
+            baseFee: parseFloat(order.deliveryFee),
+            tip: isPaid ? parseFloat(order.tipAmount || "0") : 0,
+            completedAt: order.deliveredAt,
+            storeName: order.storeName || "Store",
+            deliveryAddress: order.deliveryAddress,
+            paymentMethod: order.paymentMethod,
+            isPaid,
+          };
+        }),
       };
     }),
 
@@ -2114,6 +2143,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           deliveryFee: orders.deliveryFee,
           tipAmount: orders.tipAmount,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
           deliveredAt: orders.deliveredAt,
           storeName: stores.name,
@@ -2131,7 +2161,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
 
       // Calculate settlement
       let cashCollected = 0; // Total cash collected from cash_on_delivery orders
-      let deliveryFeesEarned = 0; // Sum of all delivery fees (driver's base pay)
+      let deliveryFeesEarned = 0; // Sum of delivery fees the driver is actually owed
       let cardTipsEarned = 0; // Tips from card orders (tracked, paid to driver)
 
       for (const order of shiftOrders) {
@@ -2139,16 +2169,21 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
         const tip = parseFloat(order.tipAmount || "0");
         const total = parseFloat(order.total || "0");
 
-        deliveryFeesEarned += fee;
-
         if (order.paymentMethod === "cash_on_delivery") {
-          // Driver collected the full order total in cash
+          // Driver collected the full order total in cash at the door — always
+          // counts, regardless of paymentStatus.
           cashCollected += total;
+          deliveryFeesEarned += fee;
           // Cash tips are invisible - driver keeps them, not tracked
-        } else {
-          // Card payment - tip is tracked and owed to driver
+        } else if (order.paymentStatus === "completed") {
+          // Card payment, confirmed paid — driver is owed the delivery fee and tip.
+          deliveryFeesEarned += fee;
           cardTipsEarned += tip;
         }
+        // else: card payment never completed (declined/abandoned). The driver
+        // still delivered it (counted in totalJobs below), but since the
+        // business never collected payment, no delivery fee or tip is owed
+        // for this order.
       }
 
       // Net owed: positive = driver owes admin, negative = admin owes driver
@@ -2225,6 +2260,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
             paymentMethod: o.paymentMethod,
             total: parseFloat(o.total || "0"),
             deliveredAt: o.deliveredAt?.toISOString() || "",
+            isPaid: o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed",
           })),
         },
       };
