@@ -44,6 +44,11 @@ function calculateDeliveryFee(distanceKm: number): number {
   return Math.round((BASE_FEE + (distanceKm - BASE_DISTANCE) * COST_PER_KM) * 100) / 100;
 }
 
+// PIN required to permanently delete orders. Checked server-side only — this
+// file never ships to the client, so the PIN is never exposed in any bundle.
+// Change this value (and redeploy) any time you want to rotate the PIN.
+const ORDER_DELETE_PIN = "1204";
+
 export const adminRouter = router({
   // Get dashboard overview stats
   getDashboardStats: publicProcedure
@@ -736,6 +741,56 @@ export const adminRouter = router({
       await db.update(orders).set({ paymentStatus: "completed" }).where(eq(orders.id, input.orderId));
       console.log(`[Admin] Order ${input.orderId} marked as paid`);
       return { success: true };
+    }),
+
+  // Permanently delete one or more orders. PIN-gated since this is
+  // destructive and irreversible — removes the order plus its items,
+  // modifiers, offers, and driver ratings.
+  deleteOrders: publicProcedure
+    .input(z.object({
+      orderIds: z.array(z.number()).min(1),
+      pin: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (input.pin !== ORDER_DELETE_PIN) {
+        throw new Error("Incorrect PIN");
+      }
+
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const existingOrders = await db
+        .select({ id: orders.id, orderNumber: orders.orderNumber })
+        .from(orders)
+        .where(inArray(orders.id, input.orderIds));
+
+      if (existingOrders.length === 0) {
+        throw new Error("No matching orders found");
+      }
+
+      const idsToDelete = existingOrders.map(o => o.id);
+
+      // Delete dependent rows first to avoid foreign-key errors: item
+      // modifiers -> items, then offers and ratings, then the orders themselves.
+      const items = await db
+        .select({ id: orderItems.id })
+        .from(orderItems)
+        .where(inArray(orderItems.orderId, idsToDelete));
+      const itemIds = items.map(i => i.id);
+      if (itemIds.length > 0) {
+        await db.delete(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, itemIds));
+      }
+      await db.delete(orderItems).where(inArray(orderItems.orderId, idsToDelete));
+      await db.delete(orderOffers).where(inArray(orderOffers.orderId, idsToDelete));
+      await db.delete(driverRatings).where(inArray(driverRatings.orderId, idsToDelete));
+      await db.delete(orders).where(inArray(orders.id, idsToDelete));
+
+      console.log(`[Admin] Permanently deleted ${idsToDelete.length} order(s): ${existingOrders.map(o => o.orderNumber).join(", ")}`);
+      return {
+        success: true,
+        deletedCount: idsToDelete.length,
+        orderNumbers: existingOrders.map(o => o.orderNumber),
+      };
     }),
 
   // Admin assign driver to order
