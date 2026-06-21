@@ -24,6 +24,12 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 const ALL_STATUSES = ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way", "delivered", "cancelled"] as const;
 const STATUS_FILTERS = ["all", ...ALL_STATUSES];
 
+// A card order isn't shown as FAILED until it's been sitting unpaid for this
+// long. Below this age it's shown as "Awaiting Payment" instead — a customer
+// who just placed the order is very likely still mid-checkout (entering card
+// details on Elavon's page), not a declined payment.
+const PAYMENT_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+
 function formatDate(date: Date | string | null): string {
   return formatIrishSmartDateTime(date);
 }
@@ -471,7 +477,10 @@ function AdminOrdersScreenContent() {
               const sc = STATUS_COLORS[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
-              const isFailedPayment = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const isUnpaidCard = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+              const isAwaitingPayment = isUnpaidCard && orderAgeMs <= PAYMENT_GRACE_PERIOD_MS;
+              const isFailedPayment = isUnpaidCard && orderAgeMs > PAYMENT_GRACE_PERIOD_MS;
               const expanded = expandedId === order.id;
               const isEven = idx % 2 === 0;
               const isSelected = selectedOrderIds.has(order.id);
@@ -480,7 +489,7 @@ function AdminOrdersScreenContent() {
                 <View key={order.id}>
                   <TouchableOpacity
                     onPress={() => setExpandedId(expanded ? null : order.id)}
-                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isFailedPayment && { backgroundColor: "#FEF2F2", borderLeftWidth: 3, borderLeftColor: "#DC2626" }, isSelected && { backgroundColor: "#E0F2FE" }]}
+                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isAwaitingPayment && { backgroundColor: "#EFF6FF", borderLeftWidth: 3, borderLeftColor: "#3B82F6" }, isFailedPayment && { backgroundColor: "#FEF2F2", borderLeftWidth: 3, borderLeftColor: "#DC2626" }, isSelected && { backgroundColor: "#E0F2FE" }]}
                   >
                     {/* Checkbox */}
                     <View style={[dtStyles.td, { minWidth: 40 }]}>
@@ -565,6 +574,10 @@ function AdminOrdersScreenContent() {
                         ) : order.paymentMethod === "cash_on_delivery" ? (
                           <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
                             <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
+                          </View>
+                        ) : isAwaitingPayment ? (
+                          <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#2563EB" }}>Awaiting Payment</Text>
                           </View>
                         ) : (
                           <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start", borderWidth: 1, borderColor: "#DC2626" }}>
@@ -687,7 +700,7 @@ function AdminOrdersScreenContent() {
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
-                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : "FAILED"})</Text>
+                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : isAwaitingPayment ? "Awaiting Payment" : "FAILED"})</Text>
                           {order.deliveryDistance && <Text style={dtStyles.detailValue}>Distance: {parseFloat(order.deliveryDistance as string).toFixed(1)} km</Text>}
                           {order.deliveredAt && <Text style={dtStyles.detailValue}>Delivered: {formatDate(order.deliveredAt)}</Text>}
                           {order.cancelledAt && <Text style={[dtStyles.detailValue, { color: "#DC2626" }]}>Cancelled: {formatDate(order.cancelledAt)}</Text>}
@@ -817,14 +830,17 @@ function AdminOrdersScreenContent() {
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const waitTime = getTimeSince(order.createdAt);
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
-              const isFailedPayment = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const isUnpaidCardMobile = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const orderAgeMsMobile = Date.now() - new Date(order.createdAt).getTime();
+              const isAwaitingPayment = isUnpaidCardMobile && orderAgeMsMobile <= PAYMENT_GRACE_PERIOD_MS;
+              const isFailedPayment = isUnpaidCardMobile && orderAgeMsMobile > PAYMENT_GRACE_PERIOD_MS;
 
               return (
                 <TouchableOpacity
                   key={order.id}
                   onPress={() => setExpandedId(expanded ? null : order.id)}
-                  style={isFailedPayment ? { borderColor: "#DC2626", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : isWaiting ? { borderColor: "#F59E0B", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : undefined}
-                  className={(isFailedPayment || isWaiting) ? "bg-surface" : "bg-surface rounded-xl border border-border overflow-hidden"}
+                  style={isFailedPayment ? { borderColor: "#DC2626", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : isAwaitingPayment ? { borderColor: "#3B82F6", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : isWaiting ? { borderColor: "#F59E0B", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : undefined}
+                  className={(isFailedPayment || isAwaitingPayment || isWaiting) ? "bg-surface" : "bg-surface rounded-xl border border-border overflow-hidden"}
                 >
                   <View className="p-4">
                     <View className="flex-row items-center justify-between mb-2">
@@ -860,8 +876,8 @@ function AdminOrdersScreenContent() {
                           <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : "#D97706" }}>{order.paymentStatus === "completed" ? "PAID" : "CASH"}</Text>
                         </View>
                       ) : (
-                        <View style={{ backgroundColor: order.paymentStatus === "completed" ? "#DCFCE7" : "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
-                          <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : "#DC2626" }}>{order.paymentStatus === "completed" ? "PAID" : "⚠ FAILED"}</Text>
+                        <View style={{ backgroundColor: order.paymentStatus === "completed" ? "#DCFCE7" : isAwaitingPayment ? "#DBEAFE" : "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : isAwaitingPayment ? "#2563EB" : "#DC2626" }}>{order.paymentStatus === "completed" ? "PAID" : isAwaitingPayment ? "AWAITING" : "⚠ FAILED"}</Text>
                         </View>
                       )}
                     </View>
@@ -885,7 +901,7 @@ function AdminOrdersScreenContent() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Payment</Text>
                           <Text className="text-sm text-foreground font-medium">
-                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : "FAILED"})
+                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : isAwaitingPayment ? "Awaiting Payment" : "FAILED"})
                           </Text>
                         </View>
 
