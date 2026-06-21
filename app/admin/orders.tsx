@@ -82,6 +82,9 @@ function AdminOrdersScreenContent() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<number>>(new Set());
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
   const [bulkAssignModal, setBulkAssignModal] = useState(false);
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [deletePin, setDeletePin] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   // Returns YYYY-MM-DD for a given moment, always in Ireland's timezone —
   // regardless of what timezone the browser/device is actually running in.
@@ -149,6 +152,17 @@ function AdminOrdersScreenContent() {
   const markPaidMutation = trpc.admin.markOrderPaid.useMutation({
     onSuccess: () => { refetch(); setErrorMessage(""); },
     onError: (err) => { setErrorMessage(err.message); },
+  });
+
+  const deleteOrdersMutation = trpc.admin.deleteOrders.useMutation({
+    onSuccess: () => {
+      refetch();
+      setBulkDeleteModal(false);
+      setDeletePin("");
+      setDeleteError("");
+      setSelectedOrderIds(new Set());
+    },
+    onError: (err) => { setDeleteError(err.message); },
   });
 
   const onRefresh = useCallback(async () => {
@@ -400,6 +414,12 @@ function AdminOrdersScreenContent() {
               style={{ backgroundColor: "#E0E7FF", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
             >
               <Text style={{ fontSize: 12, fontWeight: "600", color: "#0F172A" }}>📋 Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setDeletePin(""); setDeleteError(""); setBulkDeleteModal(true); }}
+              style={{ backgroundColor: "#DC2626", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#fff" }}>🗑️ Delete</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSelectedOrderIds(new Set())}
@@ -1351,6 +1371,72 @@ function AdminOrdersScreenContent() {
                   </View>
                 }
               />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Bulk Delete Orders Modal — PIN protected */}
+        <Modal visible={bulkDeleteModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+            <View style={{
+              backgroundColor: colors.surface,
+              borderRadius: 16,
+              width: isDesktop ? 380 : "85%",
+              maxWidth: 380,
+              padding: 24,
+            }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#DC2626", marginBottom: 8 }}>
+                ⚠️ Delete {selectedOrderIds.size} Order{selectedOrderIds.size !== 1 ? "s" : ""}?
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 16, lineHeight: 20 }}>
+                This permanently deletes the selected order{selectedOrderIds.size !== 1 ? "s" : ""} and all their items. This cannot be undone.
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Enter PIN to confirm</Text>
+              <TextInput
+                value={deletePin}
+                onChangeText={(v) => { setDeletePin(v.replace(/[^0-9]/g, "").slice(0, 4)); setDeleteError(""); }}
+                placeholder="••••"
+                placeholderTextColor="#CBD5E1"
+                secureTextEntry
+                keyboardType="number-pad"
+                maxLength={4}
+                autoFocus
+                style={{
+                  borderWidth: 1,
+                  borderColor: deleteError ? "#DC2626" : colors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 18,
+                  letterSpacing: 8,
+                  color: colors.foreground,
+                  marginBottom: 8,
+                  textAlign: "center",
+                } as any}
+              />
+              {deleteError ? (
+                <Text style={{ fontSize: 12, color: "#DC2626", marginBottom: 8 }}>{deleteError}</Text>
+              ) : null}
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+                <TouchableOpacity
+                  onPress={() => { setBulkDeleteModal(false); setDeletePin(""); setDeleteError(""); }}
+                  style={[styles.confirmButton, { backgroundColor: colors.border }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (deletePin.length !== 4) { setDeleteError("Enter the 4-digit PIN"); return; }
+                    deleteOrdersMutation.mutate({ orderIds: Array.from(selectedOrderIds), pin: deletePin });
+                  }}
+                  disabled={deleteOrdersMutation.isPending}
+                  style={[styles.confirmButton, { backgroundColor: deleteOrdersMutation.isPending ? "#D1D5DB" : "#DC2626" }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+                    {deleteOrdersMutation.isPending ? "Deleting..." : "Delete"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
