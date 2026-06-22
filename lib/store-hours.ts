@@ -43,7 +43,12 @@ const DAY_LABELS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
 export function parseOpeningHours(openingHoursJson: string | null | undefined): WeeklyHours | null {
   if (!openingHoursJson) return null;
   try {
-    return JSON.parse(openingHoursJson) as WeeklyHours;
+    const parsed = JSON.parse(openingHoursJson);
+    const normalised: any = {};
+    for (const key of Object.keys(parsed)) {
+      normalised[key.toLowerCase()] = parsed[key];
+    }
+    return normalised as WeeklyHours;
   } catch {
     return null;
   }
