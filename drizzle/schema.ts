@@ -164,6 +164,8 @@ export const products = mysqlTable(
     pinPosition: int("pin_position"), // Position in trending (1-10, nullable)
     isWss: boolean("is_wss").default(false), // WeShopStock - product supplied by WESHOP4U, not the store
     trackStock: boolean("track_stock").default(false), // Track inventory for this product
+    availableFrom: varchar("available_from", { length: 5 }),
+    availableUntil: varchar("available_until", { length: 5 }),
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
