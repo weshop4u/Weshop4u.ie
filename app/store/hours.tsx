@@ -59,6 +59,7 @@ export default function StoreHoursScreen() {
   // Load current hours from store data
   useEffect(() => {
     if (!storeInfo) return;
+    if (hasChanges) return;
 
     setIsOpen247(storeInfo.isOpen247 || false);
 
@@ -83,8 +84,8 @@ export default function StoreHoursScreen() {
       }
       setSchedule(newSchedule);
     }
-  }, [storeInfo]);
-
+  }, [storeInfo, hasChanges]);
+  
   const updateDay = (day: DayKey, field: keyof DaySchedule, value: any) => {
     setSchedule(prev => ({
       ...prev,
