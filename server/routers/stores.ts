@@ -162,6 +162,8 @@ export const storesRouter = router({
           priceVerified: products.priceVerified,
           isWss: products.isWss,
           trackStock: products.trackStock,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
           createdAt: products.createdAt,
           updatedAt: products.updatedAt,
           category: {
