@@ -256,6 +256,21 @@ export default function StoreDetailScreen() {
     return sorted;
   }, [categoryProducts, productSearch, sortBy]);
 
+  const isProductTimeAvailable = (product: any): boolean => {
+    if (!product.availableUntil) return true;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const fromMinutes = product.availableFrom
+      ? parseInt(product.availableFrom.split(":")[0]) * 60 + parseInt(product.availableFrom.split(":")[1])
+      : 0;
+    const untilMinutes = parseInt(product.availableUntil.split(":")[0]) * 60 + parseInt(product.availableUntil.split(":")[1]);
+    return currentMinutes >= fromMinutes && currentMinutes < untilMinutes;
+  };
+
+  const getProductTimeLabel = (product: any): string | null => {
+    if (!product.availableUntil) return null;
+    return `Available until ${product.availableUntil}`;
+  };
   const getProductImage = (product: any): string | null => {
     // Try images array first
     if (product.images && product.images.length > 0) {
@@ -1056,7 +1071,7 @@ export default function StoreDetailScreen() {
                           key={product.id}
                           onPress={() => openProductDetail(product)}
                           activeOpacity={0.7}
-                          style={isRestricted ? { opacity: 0.45 } : undefined}
+                          style={isRestricted || !isProductTimeAvailable(product) ? { opacity: 0.45 } : undefined}
                         >
                           <View className="bg-surface rounded-xl p-4 border border-border">
                             <View className="flex-row justify-between items-start">
@@ -1077,6 +1092,9 @@ export default function StoreDetailScreen() {
                                 {product.stockStatus === "out_of_stock" && (
                                   <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
                                 )}
+                                {!isProductTimeAvailable(product) && (
+                                  <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>⏰ {getProductTimeLabel(product)}</Text>
+                                )}
                               </View>
                               <TouchableOpacity
                                 onPress={(e) => {
@@ -1087,8 +1105,8 @@ export default function StoreDetailScreen() {
                                     handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
                                   }
                                 }}
-                                style={[styles.quickAddButton, { backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF" }]}
-                                disabled={product.stockStatus === "out_of_stock"}
+                                style={[styles.quickAddButton, { backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" || !isProductTimeAvailable(product) ? "#9BA1A6" : "#00E5FF" }]}
+                                disabled={product.stockStatus === "out_of_stock" || !isProductTimeAvailable(product)}
                               >
                                 <Text className="text-background font-semibold">
                                   {product.stockStatus === "out_of_stock" ? "N/A" : product.hasModifiers ? "Customise" : quantity > 0 ? `+${quantity}` : "Add"}
