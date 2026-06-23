@@ -164,8 +164,6 @@ export const products = mysqlTable(
     pinPosition: int("pin_position"), // Position in trending (1-10, nullable)
     isWss: boolean("is_wss").default(false), // WeShopStock - product supplied by WESHOP4U, not the store
     trackStock: boolean("track_stock").default(false), // Track inventory for this product
-    availableFrom: varchar("available_from", { length: 5 }),
-    availableUntil: varchar("available_until", { length: 5 }),
     weight: decimal("weight", { precision: 10, scale: 2 }),
     dimensions: varchar("dimensions", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -265,7 +263,6 @@ export const orders = mysqlTable(
     guestName: varchar("guest_name", { length: 255 }),
     guestPhone: varchar("guest_phone", { length: 25 }),
     guestEmail: varchar("guest_email", { length: 255 }),
-    guestDateOfBirth: date("guest_date_of_birth"), // Age-verification record for guest orders containing restricted items
     driverId: int("driver_id"),
     status: mysqlEnum("status", [
       "pending",
