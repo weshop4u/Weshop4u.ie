@@ -489,9 +489,19 @@ export default function StoreDetailScreen() {
                   return;
                 }
 
-                if (selectedCategory?.availabilitySchedule && !isCategoryAvailable(selectedCategory.availabilitySchedule)) {
-                  const msg = getAvailabilityMessage(selectedCategory.availabilitySchedule) || "This product is not available right now.";
+                const productCatSchedule = selectedProduct?.categoryId 
+                  ? categoriesWithProducts[selectedProduct.categoryId]?.availabilitySchedule 
+                  : null;
+                const effectiveCatSchedule = selectedCategory?.availabilitySchedule || productCatSchedule;
+                if (effectiveCatSchedule && !isCategoryAvailable(effectiveCatSchedule)) {
+                  const msg = getAvailabilityMessage(effectiveCatSchedule) || "This product is not available right now.";
                   Alert.alert("Not Available", msg, [{ text: "OK" }]);
+                  return;
+                }
+
+                if (!isProductTimeAvailable(selectedProduct)) {
+                  const label = getProductTimeLabel(selectedProduct);
+                  Alert.alert("Not Available", label || "This product is not available right now.", [{ text: "OK" }]);
                   return;
                 }
 
