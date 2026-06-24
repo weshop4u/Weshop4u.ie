@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
+import { orders, orderItems, products, stores, users, productCategories, orderTracking, drivers, orderItemModifiers } from "../../drizzle/schema";
 import { eq, and, or, like, inArray, desc, sql, gte, isNotNull, isNull, asc, notInArray } from "drizzle-orm";
 import { storeStaff } from "../../drizzle/schema";
 import { sendOrderStatusNotification, sendOrderReadyNotification } from "../services/notifications";
@@ -409,10 +409,12 @@ export const storeRouter = router({
         }
       }
 
-      // Auto-create print job so POS prints receipt immediately on accept
-      // Pass receiptData to avoid race condition where it might not be in DB yet
-      console.log(`[acceptOrder] Order ${orderResult[0].orderNumber}: receiptData=${!!orderResult[0].receiptData}`);
-      await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+      // Auto-create print job only if cash or card payment already confirmed
+        const acceptOrderPayment = await db.select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        const isCashOrPaid = !acceptOrderPayment[0] || acceptOrderPayment[0].paymentMethod !== "card" || acceptOrderPayment[0].paymentStatus === "completed";
+        if (isCashOrPaid) {
+          await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+        }
 
       return { success: true };
     }),
@@ -844,6 +846,8 @@ export const storeRouter = router({
           categoryId: products.categoryId,
           pinnedToTrending: products.pinnedToTrending,
           pinPosition: products.pinPosition,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
         })
         .from(products)
         .where(
@@ -869,6 +873,8 @@ export const storeRouter = router({
           categoryId: products.categoryId,
           pinnedToTrending: products.pinnedToTrending,
           pinPosition: products.pinPosition,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
         })
         .from(products)
         .where(
@@ -961,6 +967,8 @@ export const storeRouter = router({
                 description: products.description,
                 stockStatus: products.stockStatus,
                 categoryId: products.categoryId,
+                availableFrom: products.availableFrom,
+                availableUntil: products.availableUntil,
               })
               .from(products)
               .where(inArray(products.id, trendingProductIds));
@@ -981,53 +989,49 @@ export const storeRouter = router({
         ...allPinned.map((p) => ({ ...p, isPinned: true })),
         ...autoTrending.map((p) => ({ ...p, isPinned: false })),
       ];
-// Check which products have modifiers from all 3 sources:
-      // 1. Direct modifier_groups on the product
-      // 2. Product-level modifier templates
-      // 3. Category-level modifier templates
-      const allProductIds = allProducts.map((p) => p.id);
-      let productsWithModifiers = new Set<number>();
-      if (allProductIds.length > 0) {
-        const { modifierGroups } = await import("../../drizzle/schema");
-        // Source 1: Direct modifier groups
-        const modsResult = await db
+// Check which products have modifiers (via direct product templates or category templates)
+const allProductIds = allProducts.map((p) => p.id);
+let productsWithModifiers = new Set<number>();
+if (allProductIds.length > 0) {
+  const { productModifierTemplates, categoryModifierTemplates, modifierGroups } = await import("../../drizzle/schema");
+  
+  // Direct product-level templates
+  const directMods = await db
+    .select({ productId: productModifierTemplates.productId })
+    .from(productModifierTemplates)
+    .where(inArray(productModifierTemplates.productId, allProductIds));
+  // Legacy direct modifier groups
+        const legacyMods = await db
           .select({ productId: modifierGroups.productId })
           .from(modifierGroups)
           .where(inArray(modifierGroups.productId, allProductIds));
-        modsResult.forEach((m) => productsWithModifiers.add(m.productId));
-
-        // Source 2: Product-level modifier templates
-        const prodTemplateResult = await db
-          .select({ productId: productModifierTemplates.productId })
-          .from(productModifierTemplates)
-          .where(inArray(productModifierTemplates.productId, allProductIds));
-        prodTemplateResult.forEach((r) => productsWithModifiers.add(r.productId));
-
-        // Source 3: Category-level modifier templates
-        const categoryIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
-        if (categoryIds.length > 0) {
-          const catTemplateResult = await db
-            .select({ categoryId: categoryModifierTemplates.categoryId })
-            .from(categoryModifierTemplates)
-            .where(inArray(categoryModifierTemplates.categoryId, categoryIds));
-          const templateCategoryIds = new Set(catTemplateResult.map((r) => r.categoryId));
-          // Mark all products in those categories as having modifiers
-          allProducts.forEach((p) => {
-            if (p.categoryId && templateCategoryIds.has(p.categoryId)) {
-              productsWithModifiers.add(p.id);
-            }
-          });
-        }
-      }
+  
+  // Category-level templates
+  const catIds = allProducts.map((p) => p.categoryId).filter(Boolean) as number[];
+  const catMods = catIds.length > 0 ? await db
+    .select({ categoryId: categoryModifierTemplates.categoryId })
+    .from(categoryModifierTemplates)
+    .where(inArray(categoryModifierTemplates.categoryId, catIds)) : [];
+  
+  const catsWithMods = new Set(catMods.map((c) => c.categoryId));
+  
+  for (const p of allProducts) {
+    if (directMods.some((d) => d.productId === p.id) || legacyMods.some((d) => d.productId === p.id)) {
+      productsWithModifiers.add(p.id);
+    } else if (p.categoryId && catsWithMods.has(p.categoryId)) {
+      productsWithModifiers.add(p.id);
+    }
+  }
+}
       // Get category names for all products
       const catIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
-      let categoryMap: Record<number, string> = {};
+      let categoryMap: Record<number, { name: string; availabilitySchedule: string | null }> = {};
       if (catIds.length > 0) {
         const cats = await db
-          .select({ id: productCategories.id, name: productCategories.name })
+          .select({ id: productCategories.id, name: productCategories.name, availabilitySchedule: productCategories.availabilitySchedule })
           .from(productCategories)
           .where(inArray(productCategories.id, catIds));
-        categoryMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+        categoryMap = Object.fromEntries(cats.map((c) => [c.id, { name: c.name, availabilitySchedule: c.availabilitySchedule }]));
       }
 
       return allProducts.map((p) => {
@@ -1048,7 +1052,10 @@ export const storeRouter = router({
           images: parsedImages,
           description: p.description,
           stockStatus: p.stockStatus,
-          categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
+          categoryName: p.categoryId ? categoryMap[p.categoryId]?.name || "" : "",
+          categoryAvailabilitySchedule: p.categoryId ? categoryMap[p.categoryId]?.availabilitySchedule || null : null,
+          availableFrom: (p as any).availableFrom || null,
+          availableUntil: (p as any).availableUntil || null,
           orderCount: p.orderCount,
           isPinned: "isPinned" in p ? p.isPinned : false,
           hasModifiers: productsWithModifiers.has(p.id),
@@ -1073,6 +1080,7 @@ export const storeRouter = router({
           orderNumber: orders.orderNumber,
           total: orders.total,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           status: orders.status,
           createdAt: orders.createdAt,
           guestName: orders.guestName,
@@ -1085,17 +1093,21 @@ export const storeRouter = router({
         })
         .from(orders)
         .where(
-          and(
-            eq(orders.storeId, input.storeId),
-            or(
-              eq(orders.status, "pending"),
-              and(
-                eq(orders.status, "preparing"),
-                gte(orders.acceptedAt, thirtyMinAgo)
+            and(
+              eq(orders.storeId, input.storeId),
+              or(
+                eq(orders.status, "pending"),
+                and(
+                  eq(orders.status, "preparing"),
+                  gte(orders.acceptedAt, thirtyMinAgo)
+                )
+              ),
+              or(
+                eq(orders.paymentMethod, "cash_on_delivery"),
+                eq(orders.paymentStatus, "completed")
               )
             )
           )
-        )
         .orderBy(desc(orders.createdAt));
 
       // For each order, get item count and total quantity
@@ -1258,8 +1270,12 @@ export const storeRouter = router({
         }
       }
 
-      // Auto-create print job (POS picks this up for printing)
-      await autoCreatePrintJob(input.orderId, input.storeId);
+      // Auto-create print job only if cash or card payment already confirmed
+        const posOrderPayment = await db.select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
+        const posIsCashOrPaid = !posOrderPayment[0] || posOrderPayment[0].paymentMethod !== "card" || posOrderPayment[0].paymentStatus === "completed";
+        if (posIsCashOrPaid) {
+          await autoCreatePrintJob(input.orderId, input.storeId);
+        }
 
       return { success: true, alreadyAccepted: false };
     }),
