@@ -824,7 +824,7 @@ export default function StoreDetailScreen() {
                       return (
                         <TouchableOpacity
                           key={`search-${result.product.id}-${idx}`}
-                          onPress={() => { if (fullProduct) openProductDetail(fullProduct); }}
+                          onPress={() => { const trendCat = result.product.categoryId ? categoriesWithProducts[result.product.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule) || "Not available right now."; Alert.alert("Not Available", msg, [{ text: "OK" }]); return; } if (fullProduct) openProductDetail(fullProduct); }}
                           style={{ backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}
                         >
                           <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center" }}>
@@ -877,7 +877,7 @@ export default function StoreDetailScreen() {
                           return (
                             <TouchableOpacity
                               key={`trending-${item.id}`}
-                              onPress={() => { if (fullProduct) openProductDetail(fullProduct); }}
+                              onPress={() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule) || "Not available right now."; Alert.alert("Not Available", msg, [{ text: "OK" }]); return; } if (fullProduct) openProductDetail(fullProduct); }}
                               style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", opacity: (() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; const catUnavail = trendCat && !isCategoryAvailable(trendCat.availabilitySchedule); const prodUnavail = !isProductTimeAvailable(item); return (catUnavail || prodUnavail) ? 0.5 : 1; })() }}
 
                             >
