@@ -25,7 +25,7 @@ function parseOpeningHours(json: string | null): WeekHours {
     const parsed = JSON.parse(json);
     const result: WeekHours = {};
     for (const day of DAYS) {
-      result[day] = parsed[day] || { open: "08:00", close: "22:00", closed: false };
+      result[day] = parsed[day] || parsed[day.toLowerCase()] || { open: "08:00", close: "22:00", closed: false };
     }
     return result;
   } catch {
@@ -235,7 +235,9 @@ function ManageStoresScreenContent() {
       await updateHoursMutation.mutateAsync({
         storeId: selectedStoreId,
         isOpen247,
-        openingHours: isOpen247 ? undefined : JSON.stringify(weekHours),
+        openingHours: isOpen247 ? undefined : JSON.stringify(
+          Object.fromEntries(Object.entries(weekHours).map(([k, v]) => [k.toLowerCase(), v]))
+        ),
       });
       setMessage("Opening hours updated successfully!");
       setMessageType("success");
