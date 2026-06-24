@@ -884,7 +884,7 @@ export default function StoreDetailScreen() {
                               onPress={() => {
                                 if (catUnavail) {
                                   const msg = getAvailabilityMessage(catSchedule) || "Not available right now.";
-                                  Alert.alert("Not Available", msg, [{ text: "OK" }]);
+                                  if (Platform.OS === "web") { window.alert(msg); } else { Alert.alert("Not Available", msg, [{ text: "OK" }]); }
                                   return;
                                 }
                                 if (fullProduct) openProductDetail(fullProduct);
