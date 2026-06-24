@@ -256,6 +256,21 @@ export default function StoreDetailScreen() {
     return sorted;
   }, [categoryProducts, productSearch, sortBy]);
 
+  const isProductTimeAvailable = (product: any): boolean => {
+    if (!product.availableUntil) return true;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const fromMinutes = product.availableFrom
+      ? parseInt(product.availableFrom.split(":")[0]) * 60 + parseInt(product.availableFrom.split(":")[1])
+      : 0;
+    const untilMinutes = parseInt(product.availableUntil.split(":")[0]) * 60 + parseInt(product.availableUntil.split(":")[1]);
+    return currentMinutes >= fromMinutes && currentMinutes < untilMinutes;
+  };
+
+  const getProductTimeLabel = (product: any): string | null => {
+    if (!product.availableUntil) return null;
+    return `Available until ${product.availableUntil}`;
+  };
   const getProductImage = (product: any): string | null => {
     // Try images array first
     if (product.images && product.images.length > 0) {
@@ -335,38 +350,61 @@ export default function StoreDetailScreen() {
                         <Text style={styles.modifierGroupTitle}>
                           {group.name} {group.required ? "*" : ""}
                         </Text>
+                        {group.maxSelections > 0 && (
+                          <Text style={{ fontSize: 12, color: "#9BA1A6", marginBottom: 8, marginTop: -4 }}>
+                            {(selectedModifiers[group.id] || []).reduce((sum: number, id: number) => sum + (optionQuantities[`${group.id}_${id}`] || 1), 0)} of {group.maxSelections} selected
+                          </Text>
+                        )}
                         <View style={styles.modifierOptions}>
-                          {group.modifiers.map((modifier: any) => {
-                            const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
-                            const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
-                            return (
-                              <TouchableOpacity
-                                key={modifier.id}
-                                onPress={() => {
-                                  const updated = isSelected
-                                    ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
-                                    : [...(selectedModifiers[group.id] || []), modifier.id];
-                                  setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
-                                }}
-                                style={[styles.modifierOption, isSelected && styles.modifierOptionSelected]}
-                              >
-                                <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
-                                  {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
-                                </Text>
-                                {isSelected && group.allowOptionQuantity && (
-                                  <View style={styles.quantityControl}>
-                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
-                                      <Text style={styles.quantityButtonText}>−</Text>
-                                    </TouchableOpacity>
-                                    <Text style={styles.quantityText}>{quantity}</Text>
-                                    <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 })}>
-                                      <Text style={styles.quantityButtonText}>+</Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                )}
-                              </TouchableOpacity>
+                          {(() => {
+                            // Total units selected in this group (sums quantities, not just distinct flavours)
+                            const groupTotalQty = (selectedModifiers[group.id] || []).reduce(
+                              (sum: number, id: number) => sum + (optionQuantities[`${group.id}_${id}`] || 1),
+                              0
                             );
-                          })}
+                            return group.modifiers.map((modifier: any) => {
+                              const isSelected = selectedModifiers[group.id]?.includes(modifier.id);
+                              const quantity = optionQuantities[`${group.id}_${modifier.id}`] || 1;
+                              const maxReached = group.maxSelections > 0 && groupTotalQty >= group.maxSelections;
+                              const isDisabledByMax = !isSelected && maxReached;
+                              const isPlusDisabled = group.maxSelections > 0 && groupTotalQty >= group.maxSelections;
+                              return (
+                                <TouchableOpacity
+                                  key={modifier.id}
+                                  disabled={isDisabledByMax}
+                                  onPress={() => {
+                                    if (isDisabledByMax) return;
+                                    const updated = isSelected
+                                      ? selectedModifiers[group.id].filter((id: number) => id !== modifier.id)
+                                      : [...(selectedModifiers[group.id] || []), modifier.id];
+                                    setSelectedModifiers({ ...selectedModifiers, [group.id]: updated });
+                                  }}
+                                  style={[styles.modifierOption, isSelected && styles.modifierOptionSelected, isDisabledByMax && { opacity: 0.4 }]}
+                                >
+                                  <Text style={[styles.modifierText, isSelected && styles.modifierTextSelected]}>
+                                    {modifier.name} +€{parseFloat(modifier.price).toFixed(2)}
+                                  </Text>
+                                  {isSelected && group.allowOptionQuantity && (
+                                    <View style={styles.quantityControl}>
+                                      <TouchableOpacity onPress={() => setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: Math.max(1, quantity - 1) })}>
+                                        <Text style={styles.quantityButtonText}>−</Text>
+                                      </TouchableOpacity>
+                                      <Text style={styles.quantityText}>{quantity}</Text>
+                                      <TouchableOpacity
+                                        disabled={isPlusDisabled}
+                                        onPress={() => {
+                                          if (isPlusDisabled) return;
+                                          setOptionQuantities({ ...optionQuantities, [`${group.id}_${modifier.id}`]: quantity + 1 });
+                                        }}
+                                      >
+                                        <Text style={[styles.quantityButtonText, isPlusDisabled && { opacity: 0.3 }]}>+</Text>
+                                      </TouchableOpacity>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            });
+                          })()}
                         </View>
                       </View>
                     ))}
@@ -393,8 +431,35 @@ export default function StoreDetailScreen() {
                   </View>
                 );
               })()}
+            {/* Required modifier validation */}
+            {(() => {
+              const missingRequired = modifierDataWithSelection.filter(
+                (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+              );
+              const isDisabled = missingRequired.length > 0;
+              return (
+                <>
+                  {isDisabled && (
+                    <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      Please select from: {missingRequired.map((g: any) => g.name).join(', ')}
+                    </Text>
+                  )}
             <TouchableOpacity
+              disabled={isDisabled}
               onPress={async () => {
+                // Safety net: check required modifiers even if button should be disabled
+                const missingGroups = modifierDataWithSelection.filter(
+                  (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
+                );
+                if (missingGroups.length > 0) {
+                  Alert.alert(
+                    "Required Selections",
+                    `Please make a selection from: ${missingGroups.map((g: any) => g.name).join(', ')}`,
+                    [{ text: "OK" }]
+                  );
+                  return;
+                }
+
                 // Build modifiers array from selected modifiers
                 const modifiersArray: CartItemModifier[] = [];
                 for (const group of modifierDataWithSelection) {
@@ -470,10 +535,13 @@ export default function StoreDetailScreen() {
                 setOptionQuantities({});
                 setModalQuantity(1);
               }}
-              style={styles.addToCartButton}
+              style={[styles.addToCartButton, isDisabled && { backgroundColor: '#9CA3AF' }]}
             >
               <Text style={styles.addToCartText}>Add to Cart</Text>
             </TouchableOpacity>
+                </>
+              );
+            })()}
             </View>
           </View>
         </View>
@@ -800,7 +868,8 @@ export default function StoreDetailScreen() {
                             <TouchableOpacity
                               key={`trending-${item.id}`}
                               onPress={() => { if (fullProduct) openProductDetail(fullProduct); }}
-                              style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}
+                              style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", opacity: (() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; const catUnavail = trendCat && !isCategoryAvailable(trendCat.availabilitySchedule); const prodUnavail = !isProductTimeAvailable(item); return (catUnavail || prodUnavail) ? 0.5 : 1; })() }}
+
                             >
                               {index < 3 && (
                                 <View style={{ position: "absolute", top: 8, left: 8, zIndex: 10, backgroundColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : "#CD7F32", borderRadius: 10, width: 22, height: 22, justifyContent: "center", alignItems: "center" }}>
@@ -831,7 +900,7 @@ export default function StoreDetailScreen() {
                                     </View>
                                   ) : (
                                     <TouchableOpacity
-                                      onPress={(e) => { e.stopPropagation?.(); if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(item.id, item.name, item.price); } }}
+                                      onPress={(e) => { e.stopPropagation?.(); const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if ((trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) || !isProductTimeAvailable(item)) { return; } if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(item.id, item.name, item.price); } }}
                                       style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
                                     >
                                       <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
@@ -841,6 +910,7 @@ export default function StoreDetailScreen() {
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
                                   <Text style={{ fontSize: 10, color: "#9BA1A6" }}>🔥 {item.orderCount} ordered</Text>
                                 </View>
+                                {(() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule); return msg ? <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>🕐 {msg}</Text> : null; } if (!isProductTimeAvailable(item)) { const label = getProductTimeLabel(item); return label ? <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>⏰ {label}</Text> : null; } return null; })()}
                               </View>
                             </TouchableOpacity>
                           );
@@ -1003,7 +1073,7 @@ export default function StoreDetailScreen() {
                           key={product.id}
                           onPress={() => openProductDetail(product)}
                           activeOpacity={0.7}
-                          style={isRestricted ? { opacity: 0.45 } : undefined}
+                          style={isRestricted || !isProductTimeAvailable(product) ? { opacity: 0.45 } : undefined}
                         >
                           <View className="bg-surface rounded-xl p-4 border border-border">
                             <View className="flex-row justify-between items-start">
@@ -1024,6 +1094,9 @@ export default function StoreDetailScreen() {
                                 {product.stockStatus === "out_of_stock" && (
                                   <Text style={{ fontSize: 11, color: "#DC2626", fontWeight: "600", marginTop: 2 }}>Out of stock</Text>
                                 )}
+                                {!isProductTimeAvailable(product) && (
+                                  <Text style={{ fontSize: 11, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>⏰ {getProductTimeLabel(product)}</Text>
+                                )}
                               </View>
                               <TouchableOpacity
                                 onPress={(e) => {
@@ -1034,8 +1107,8 @@ export default function StoreDetailScreen() {
                                     handleAddToCart(product.id, product.name, product.price, selectedCategory?.availabilitySchedule);
                                   }
                                 }}
-                                style={[styles.quickAddButton, { backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" ? "#9BA1A6" : "#00E5FF" }]}
-                                disabled={product.stockStatus === "out_of_stock"}
+                                style={[styles.quickAddButton, { backgroundColor: isRestricted || !storeOpen || product.stockStatus === "out_of_stock" || !isProductTimeAvailable(product) ? "#9BA1A6" : "#00E5FF" }]}
+                                disabled={product.stockStatus === "out_of_stock" || !isProductTimeAvailable(product)}
                               >
                                 <Text className="text-background font-semibold">
                                   {product.stockStatus === "out_of_stock" ? "N/A" : product.hasModifiers ? "Customise" : quantity > 0 ? `+${quantity}` : "Add"}
