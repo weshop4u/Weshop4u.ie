@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { ChatPanel } from "@/components/chat-panel";
 import { BatchOfferBanner } from "@/components/batch-offer-banner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 /** Animated VIEWING badge with a subtle pulse */
 function ViewingBadge() {
@@ -966,12 +967,24 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
             const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
             const displayItems = receiptData?.storeReceipt?.items || order.items || [];
             return displayItems && displayItems.length > 0 ? (
-              displayItems.map((item: any, index: number) => (
+              displayItems.map((item: any, index: number) => {
+              const fullItem = order.items?.find((i: any) => i.productId === item.productId || i.id === item.id);
+              const itemImage = fullItem?.product?.images ? (() => { try { const p = JSON.parse(fullItem.product.images); return Array.isArray(p) ? p[0] : p; } catch { return fullItem.product.images; } })() : null;
+              return (
               <View key={index} className="py-2 border-b border-border">
-                <View className="flex-row justify-between">
-                  <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
-                  <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
-                </View>
+                <View className="flex-row justify-between items-center">
+                  {itemImage ? (
+                    <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+                  ) : (
+                    <View style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 20 }}>📦</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                  <View className="flex-row justify-between">
+                    <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
+                    <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
+                  </View>
                 {item.modifiers && item.modifiers.length > 0 && (
                   <View className="ml-4 mt-1">
                     {(() => {
@@ -990,7 +1003,8 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                   </View>
                 )}
               </View>
-            ))
+            </View>
+            );}
             ) : (
               <Text className="text-muted">No items available</Text>
             );
