@@ -492,7 +492,7 @@ export default function StoreDetailScreen() {
                 const productCatSchedule = selectedProduct?.categoryId 
                   ? categoriesWithProducts[selectedProduct.categoryId]?.availabilitySchedule 
                   : null;
-                const effectiveCatSchedule = selectedCategory?.availabilitySchedule || productCatSchedule;
+                const effectiveCatSchedule = selectedCategory?.availabilitySchedule || productCatSchedule || (selectedProduct as any)?.categoryAvailabilitySchedule;
                 if (effectiveCatSchedule && !isCategoryAvailable(effectiveCatSchedule)) {
                   const msg = getAvailabilityMessage(effectiveCatSchedule) || "This product is not available right now.";
                   Alert.alert("Not Available", msg, [{ text: "OK" }]);
@@ -824,7 +824,7 @@ export default function StoreDetailScreen() {
                       return (
                         <TouchableOpacity
                           key={`search-${result.product.id}-${idx}`}
-                          onPress={() => { const trendCat = result.product.categoryId ? categoriesWithProducts[result.product.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule) || "Not available right now."; Alert.alert("Not Available", msg, [{ text: "OK" }]); return; } if (fullProduct) openProductDetail(fullProduct); }}
+                          onPress={() => { const catSchedule = result.categorySchedule; if (catSchedule && !isCategoryAvailable(catSchedule)) { const msg = getAvailabilityMessage(catSchedule) || "Not available right now."; Alert.alert("Not Available", msg, [{ text: "OK" }]); return; } if (fullProduct) openProductDetail(fullProduct); }}
                           style={{ backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden" }}
                         >
                           <View style={{ width: 150, height: 110, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center" }}>
@@ -874,12 +874,22 @@ export default function StoreDetailScreen() {
                           const itemImage = getProductImage(item);
                           const qty = getProductQuantity(item.id);
                           const fullProduct = item;
+                          const catSchedule = (item as any).categoryAvailabilitySchedule as string | null;
+                          const catUnavail = catSchedule ? !isCategoryAvailable(catSchedule) : false;
+                          const prodUnavail = !isProductTimeAvailable(item);
+                          const itemUnavailable = catUnavail || prodUnavail;
                           return (
                             <TouchableOpacity
                               key={`trending-${item.id}`}
-                              onPress={() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule) || "Not available right now."; Alert.alert("Not Available", msg, [{ text: "OK" }]); return; } if (fullProduct) openProductDetail(fullProduct); }}
-                              style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", opacity: (() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; const catUnavail = trendCat && !isCategoryAvailable(trendCat.availabilitySchedule); const prodUnavail = !isProductTimeAvailable(item); return (catUnavail || prodUnavail) ? 0.5 : 1; })() }}
-
+                              onPress={() => {
+                                if (catUnavail) {
+                                  const msg = getAvailabilityMessage(catSchedule) || "Not available right now.";
+                                  Alert.alert("Not Available", msg, [{ text: "OK" }]);
+                                  return;
+                                }
+                                if (fullProduct) openProductDetail(fullProduct);
+                              }}
+                              style={{ width: 150, backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", overflow: "hidden", opacity: itemUnavailable ? 0.5 : 1 }}
                             >
                               {index < 3 && (
                                 <View style={{ position: "absolute", top: 8, left: 8, zIndex: 10, backgroundColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : "#CD7F32", borderRadius: 10, width: 22, height: 22, justifyContent: "center", alignItems: "center" }}>
@@ -910,7 +920,11 @@ export default function StoreDetailScreen() {
                                     </View>
                                   ) : (
                                     <TouchableOpacity
-                                      onPress={(e) => { e.stopPropagation?.(); const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if ((trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) || !isProductTimeAvailable(item)) { return; } if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(item.id, item.name, item.price); } }}
+                                      onPress={(e) => {
+                                        e.stopPropagation?.();
+                                        if (itemUnavailable) { return; }
+                                        if (fullProduct?.hasModifiers) { if (fullProduct) openProductDetail(fullProduct); } else { handleAddToCart(item.id, item.name, item.price); }
+                                      }}
                                       style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
                                     >
                                       <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{fullProduct?.hasModifiers ? "Customise" : "+ Add"}</Text>
@@ -920,7 +934,11 @@ export default function StoreDetailScreen() {
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}>
                                   <Text style={{ fontSize: 10, color: "#9BA1A6" }}>🔥 {item.orderCount} ordered</Text>
                                 </View>
-                                {(() => { const trendCat = item.categoryId ? categoriesWithProducts[item.categoryId] : null; if (trendCat && !isCategoryAvailable(trendCat.availabilitySchedule)) { const msg = getAvailabilityMessage(trendCat.availabilitySchedule); return msg ? <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>🕐 {msg}</Text> : null; } if (!isProductTimeAvailable(item)) { const label = getProductTimeLabel(item); return label ? <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>⏰ {label}</Text> : null; } return null; })()}
+                                {catUnavail && catSchedule ? (
+                                  <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>🕐 {getAvailabilityMessage(catSchedule)}</Text>
+                                ) : prodUnavail ? (
+                                  <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "600", marginTop: 2 }}>⏰ {getProductTimeLabel(item)}</Text>
+                                ) : null}
                               </View>
                             </TouchableOpacity>
                           );
