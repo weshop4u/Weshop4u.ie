@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
+import { Image } from "expo-image";
 
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
@@ -715,9 +716,10 @@ function AdminOrdersScreenContent() {
                               displayItems.map((item: any, idx2: number) => (
                                 <View key={idx2}>
                                   <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                                    <Text style={[dtStyles.detailValue, { flex: 1 }]}>
-                                      {item.quantity}x {item.productName}
-                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                        {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
+                                        <Text style={[dtStyles.detailValue, { flex: 1 }]}>{item.quantity}x {item.productName}</Text>
+                                      </View>
                                     <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
                                       €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
                                     </Text>
@@ -1029,9 +1031,10 @@ function AdminOrdersScreenContent() {
                               displayItems.map((item: any, idx2: number) => (
                                 <View key={idx2} style={{ marginBottom: 4 }}>
                                   <View className="flex-row justify-between">
-                                    <Text className="text-sm text-foreground" style={{ flex: 1 }}>
-                                      {item.quantity}x {item.productName}
-                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                        {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
+                                        <Text className="text-sm text-foreground" style={{ flex: 1 }}>{item.quantity}x {item.productName}</Text>
+                                      </View>
                                     <Text className="text-sm text-foreground" style={{ fontWeight: "600", marginLeft: 8 }}>
                                       €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
                                     </Text>
