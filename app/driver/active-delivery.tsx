@@ -963,53 +963,33 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
           {(() => {
-            // Use store receipt items for driver (excludes WSS items)
             const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
             const displayItems = receiptData?.storeReceipt?.items || order.items || [];
-            return displayItems && displayItems.length > 0 ? (
-              displayItems.map((item: any, index: number) => {
+            if (!displayItems || displayItems.length === 0) {
+              return <Text className="text-muted">No items available</Text>;
+            }
+            return displayItems.map((item: any, index: number) => {
               const fullItem = order.items?.find((i: any) => i.productId === item.productId || i.id === item.id);
               const itemImage = fullItem?.product?.images ? (() => { try { const p = JSON.parse(fullItem.product.images); return Array.isArray(p) ? p[0] : p; } catch { return fullItem.product.images; } })() : null;
+              const grouped: { name: string; price: string; count: number }[] = [];
+              for (const mod of (item.modifiers || [])) {
+                const cleanName = (mod.modifierName || '').replace(/ ×\d+$/, '');
+                const existing = grouped.find(g => g.name === cleanName && g.price === mod.modifierPrice);
+                if (existing) { existing.count++; } else { grouped.push({ name: cleanName, price: mod.modifierPrice || '0', count: 1 }); }
+              }
               return (
-              <View key={index} className="py-2 border-b border-border">
-                <View className="flex-row justify-between items-center">
-                  {itemImage ? (
-                    <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
-                  ) : (
-                    <View style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 20 }}>📦</Text>
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                  <View className="flex-row justify-between">
-                    <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
-                    <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
-                  </View>
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <View className="ml-4 mt-1">
-                    {(() => {
-                      const grouped: { name: string; price: string; count: number }[] = [];
-                      for (const mod of item.modifiers) {
-                        const cleanName = (mod.modifierName || '').replace(/ ×\d+$/, '');
-                        const existing = grouped.find(g => g.name === cleanName && g.price === mod.modifierPrice);
-                        if (existing) { existing.count++; } else { grouped.push({ name: cleanName, price: mod.modifierPrice || '0', count: 1 }); }
-                      }
-                      return grouped.map((g, mi) => (
-                        <Text key={mi} className="text-muted text-xs">
-                          • {g.name}{g.count > 1 ? ` ×${g.count}` : ''}{parseFloat(g.price) > 0 ? ` (+€${(parseFloat(g.price) * g.count).toFixed(2)})` : ''}
-                        </Text>
-                      ));
-                    })()}
-                  </View>
-                )}
-              </View>
-                  </View>
-            );}
-            ) : (
-              <Text className="text-muted">No items available</Text>
-            );
-          })()}
-        </View>
+                <View key={index} className="py-2 border-b border-border">
+                  <View className="flex-row items-center">
+                    {itemImage ? (
+                      <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+                    ) : (
+                      <View style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 20 }}>📦</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <View className="flex-row justify-between">
+                        <Text className="text-foreground flex-1">{item.quantity}x {item.productName ||
 
         {/* Payment Information */}
         <View className="bg-surface p-4 rounded-lg mb-6">
