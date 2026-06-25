@@ -400,13 +400,16 @@ export const adminRouter = router({
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
+            productId: orderItems.productId,
             productName: orderItems.productName,
             quantity: orderItems.quantity,
             productPrice: orderItems.productPrice,
             subtotal: orderItems.subtotal,
+            productImages: products.images,
           })
           .from(orderItems)
-          .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`);
+          .leftJoin(products, eq(orderItems.productId, products.id))
+          .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`)
 
         // Fetch modifiers for all items
         const itemIds = allItems.map(i => i.id);
