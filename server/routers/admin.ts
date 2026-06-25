@@ -438,6 +438,7 @@ export const adminRouter = router({
             quantity: item.quantity,
             productPrice: item.productPrice,
             subtotal: item.subtotal,
+            productImages: item.productImages || null,
             modifiers: itemModsMap[item.id] || [],
           });
         }
