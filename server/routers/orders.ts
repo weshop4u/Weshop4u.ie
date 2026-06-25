@@ -610,7 +610,8 @@ export const ordersRouter = router({
           subtotal: orderItems.subtotal,
           notes: orderItems.notes,
           productName: products.name,
-          categoryId: products.categoryId,
+            productImages: products.images,
+            categoryId: products.categoryId,
           ageRestricted: productCategories.ageRestricted,
         })
         .from(orderItems)
