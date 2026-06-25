@@ -409,10 +409,7 @@ export default function CartScreen() {
         setErrorMessage("Please enter your phone number");
         return;
       }
-      if (!phoneVerified) {
-        setErrorMessage("Please verify your phone number with the OTP code");
-        return;
-      }
+      
       // Check guest cash limit
       if (paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT) {
         setErrorMessage(`Guest cash orders are limited to €${GUEST_CASH_LIMIT}. Please reduce your cart or switch to card payment.`);
@@ -1291,102 +1288,23 @@ export default function CartScreen() {
           )}
         </View>
 
-        {/* Phone Verification — Guest Only, placed right above Place Order */}
+        {/* Phone Number — Guest Only */}
         {isGuest && (
-          <View style={{ backgroundColor: phoneVerified ? '#F0FDF4' : colors.surface, borderColor: phoneVerified ? '#22C55E' : colors.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16, overflow: 'hidden', maxWidth: 288 }}>
+          <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 }}>
             <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
-              {phoneVerified ? '✅ Phone Verified' : '📱 Verify Your Phone'}
+              📱 Phone Number
             </Text>
-            {!phoneVerified && (
-              <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 12 }}>
-                We need to verify your phone number before you can place your order
-              </Text>
-            )}
-
+            <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 12 }}>
+              Required for delivery updates
+            </Text>
             <TextInput
-              style={{ width: 264, backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: phoneVerified ? 2 : 1, borderColor: phoneVerified ? '#22C55E' : colors.border, fontSize: 16, marginBottom: 8 }}
+              style={{ backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, fontSize: 16 }}
               placeholder="Phone Number *"
               placeholderTextColor={colors.muted}
               value={guestPhone}
               onChangeText={setGuestPhone}
               keyboardType="phone-pad"
-              editable={!phoneVerified}
             />
-            {!phoneVerified && (
-              <TouchableOpacity
-                onPress={handleSendOtp}
-                disabled={otpSending || otpCooldown > 0 || !guestPhone.trim()}
-                style={{
-                  backgroundColor: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.surface : colors.primary,
-                  borderRadius: 8,
-                  paddingVertical: 12,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  width: 264,
-                  marginBottom: 4,
-                }}
-                activeOpacity={0.8}
-              >
-                {otpSending ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={{ color: otpSending || otpCooldown > 0 || !guestPhone.trim() ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                    {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : otpSent ? 'Resend Code' : 'Send Code'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {/* Verified badge */}
-            {phoneVerified && (
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ color: '#22C55E', fontSize: 14, fontWeight: '600' }}>✓ {guestPhone} verified — you're ready to order!</Text>
-              </View>
-            )}
-
-            {/* OTP Input */}
-            {otpSent && !phoneVerified && (
-              <View style={{ marginTop: 12, width: 264, overflow: 'hidden' }}>
-                <Text style={{ color: colors.muted, fontSize: 13, marginBottom: 8 }}>
-                  Enter the 6-digit code sent to {guestPhone}
-                </Text>
-                <TextInput
-                  style={{ width: 264, backgroundColor: colors.background, color: colors.foreground, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, letterSpacing: 4, textAlign: 'center', fontSize: 20, fontWeight: '700', marginBottom: 12 }}
-                  placeholder="000000"
-                  placeholderTextColor={colors.muted}
-                  value={otpCode}
-                  onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-                <TouchableOpacity
-                  onPress={handleVerifyOtp}
-                  disabled={otpVerifying || otpCode.length !== 6}
-                  style={{
-                    backgroundColor: otpVerifying || otpCode.length !== 6 ? colors.surface : colors.primary,
-                    borderRadius: 8,
-                    paddingVertical: 14,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: 264,
-                  }}
-                  activeOpacity={0.8}
-                >
-                  {otpVerifying ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={{ color: otpVerifying || otpCode.length !== 6 ? colors.muted : '#FFFFFF', fontWeight: '700', fontSize: 16 }}>
-                      Confirm Code
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* OTP Error */}
-            {otpError ? (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 8, fontWeight: '500' }}>{otpError}</Text>
-            ) : null}
           </View>
         )}
 
