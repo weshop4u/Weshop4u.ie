@@ -170,7 +170,19 @@ export const paymentsRouter = router({
         const session = await elavonRequest("GET", `/payment-sessions/${order.elavonSessionId}`);
 
         // Check if transaction was created (payment completed)
-        if (session.transaction) {
+        // Also check elavonOrderId as fallback — session.transaction can be slow to populate
+        let transactionFound = !!session.transaction;
+        if (!transactionFound && order.elavonOrderId) {
+          try {
+            const elavonOrder = await elavonRequest("GET", `/orders/${order.elavonOrderId}`);
+            if (elavonOrder.status === "COMPLETE" || elavonOrder.paymentStatus === "CAPTURED") {
+              transactionFound = true;
+            }
+          } catch (e) {
+            console.log("[Elavon] Order status check failed:", e);
+          }
+        }
+        if (transactionFound) {
           const transactionHref = typeof session.transaction === "string"
             ? session.transaction
             : session.transaction.href || session.transaction.id;
