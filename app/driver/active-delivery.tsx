@@ -969,7 +969,7 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
               return <Text className="text-muted">No items available</Text>;
             }
             return displayItems.map((item: any, index: number) => {
-              const fullItem = order.items?.find((i: any) => i.productId === item.productId || i.id === item.id);
+              const fullItem = order.items?.find((i: any) => i.productId === item.productId || i.productId === item.id);
               const itemImage = fullItem?.productImages ? (() => { try { const p = JSON.parse(fullItem.productImages); return Array.isArray(p) ? p[0] : p; } catch { return fullItem.productImages; } })() : null;
               const grouped: { name: string; price: string; count: number }[] = [];
               for (const mod of (item.modifiers || [])) {
