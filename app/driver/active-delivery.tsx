@@ -1003,7 +1003,7 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                   </View>
                 )}
               </View>
-            </View>
+                  </View>
             );}
             ) : (
               <Text className="text-muted">No items available</Text>
