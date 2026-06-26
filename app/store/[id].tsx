@@ -433,24 +433,33 @@ export default function StoreDetailScreen() {
               })()}
             {/* Required modifier validation */}
             {(() => {
-              const missingRequired = modifierDataWithSelection.filter(
-                (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
-              );
+              const missingRequired = modifierDataWithSelection.filter((g: any) => {
+  if (!g.required) return false;
+  const totalSelected = (g.selectedModifiers || []).reduce(
+    (sum: number, id: number) => sum + (optionQuantities[`${g.id}_${id}`] || 1), 0
+  );
+  const minRequired = g.minSelections || 1;
+  return totalSelected < minRequired;
+});
               const isDisabled = missingRequired.length > 0;
               return (
                 <>
                   {isDisabled && (
                     <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
-                      Please select from: {missingRequired.map((g: any) => g.name).join(', ')}
+                      Please select {missingRequired.map((g: any) => `${g.minSelections || 1} from: ${g.name}`).join(', ')}
                     </Text>
                   )}
             <TouchableOpacity
               disabled={isDisabled}
               onPress={async () => {
                 // Safety net: check required modifiers even if button should be disabled
-                const missingGroups = modifierDataWithSelection.filter(
-                  (g: any) => g.required && (!g.selectedModifiers || g.selectedModifiers.length === 0)
-                );
+                const missingGroups = modifierDataWithSelection.filter((g: any) => {
+  if (!g.required) return false;
+  const totalSelected = (g.selectedModifiers || []).reduce(
+    (sum: number, id: number) => sum + (optionQuantities[`${g.id}_${id}`] || 1), 0
+  );
+  return totalSelected < (g.minSelections || 1);
+});
                 if (missingGroups.length > 0) {
                   Alert.alert(
                     "Required Selections",
