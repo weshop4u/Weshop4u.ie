@@ -165,129 +165,155 @@ export const paymentsRouter = router({
         return { status: "no_session" as const, paymentStatus: order.paymentStatus };
       }
 
-      // Check the payment session status with Elavon
+      // ─── Helper: confirm payment, notify, dispatch ────────────────────────
+      // Extracted so both the session path and the reference-search path can
+      // call the same logic without duplicating code.
+      const confirmPayment = async (transactionId: string | null, source: string) => {
+        await db
+          .update(orders)
+          .set({ paymentStatus: "completed", elavonTransactionId: transactionId })
+          .where(eq(orders.id, input.orderId));
+
+        console.log(`[Payment] Order ${order.orderNumber} confirmed via ${source} — txn: ${transactionId}`);
+
+        // Customer notification
+        try {
+          let smsPhone: string | null = null;
+          let hasPushToken = false;
+          if (order.customerId) {
+            const [customerRecord] = await db
+              .select({ phone: users.phone, pushToken: users.pushToken })
+              .from(users)
+              .where(eq(users.id, order.customerId))
+              .limit(1);
+            if (customerRecord?.pushToken) {
+              hasPushToken = true;
+              await sendPushNotification(customerRecord.pushToken, {
+                title: "Order Placed! \uD83C\uDF89",
+                body: `Your order #${order.orderNumber} is confirmed! We'll notify you when the driver arrives.`,
+                data: { type: "order_update", orderId: input.orderId, status: "pending" },
+                channelId: "orders",
+              });
+            } else {
+              smsPhone = customerRecord?.phone || null;
+            }
+          } else {
+            smsPhone = order.guestPhone || null;
+          }
+          if (!hasPushToken && smsPhone) {
+            const [storeRecord] = await db.select({ name: stores.name }).from(stores).where(eq(stores.id, order.storeId)).limit(1);
+            await sendOrderConfirmationSMS(smsPhone, storeRecord?.name || "the store", input.orderId);
+          }
+        } catch (e) {
+          console.error(`[Payment] Notification failed for order ${input.orderId}:`, e);
+        }
+
+        // Store staff notification
+        try {
+          const storeStaffMembers = await db
+            .select({ userId: storeStaff.userId, pushToken: users.pushToken })
+            .from(storeStaff)
+            .innerJoin(users, eq(storeStaff.userId, users.id))
+            .where(eq(storeStaff.storeId, order.storeId));
+          const customerName = order.guestName || (order.customerId ? "Customer" : "Unknown");
+          for (const staff of storeStaffMembers) {
+            if (staff.pushToken) {
+              await sendNewOrderNotification(staff.pushToken, input.orderId, customerName, 0, parseFloat(order.total));
+            }
+          }
+        } catch (e) {
+          console.error(`[Payment] Store notification failed for order ${input.orderId}:`, e);
+        }
+
+        // Dispatch to driver queue
+        try {
+          await offerOrderToQueue(input.orderId);
+        } catch (e) {
+          console.error(`[Payment] Dispatch failed for order ${input.orderId}:`, e);
+        }
+
+        return { status: "completed" as const, paymentStatus: "completed", transactionId };
+      };
+
+      // ─── Step 1: Check the payment session ───────────────────────────────
       try {
         const session = await elavonRequest("GET", `/payment-sessions/${order.elavonSessionId}`);
 
-        // Check if transaction was created (payment completed)
-        // Also check elavonOrderId as fallback — session.transaction can be slow to populate
-        let transactionFound = !!session.transaction;
-        if (!transactionFound && order.elavonOrderId) {
-          try {
-            const elavonOrder = await elavonRequest("GET", `/orders/${order.elavonOrderId}`);
-            if (elavonOrder.status === "COMPLETE" || elavonOrder.paymentStatus === "CAPTURED") {
-              transactionFound = true;
-            }
-          } catch (e) {
-            console.log("[Elavon] Order status check failed:", e);
-          }
-        }
-        if (transactionFound) {
+        // Session has a transaction — payment confirmed via session
+        if (session.transaction) {
           const transactionHref = typeof session.transaction === "string"
             ? session.transaction
             : session.transaction.href || session.transaction.id;
           const transactionId = transactionHref ? String(transactionHref).split("/").pop() : null;
-
-          // Update order as paid
-          await db
-            .update(orders)
-            .set({
-              paymentStatus: "completed",
-              elavonTransactionId: transactionId || null,
-            })
-            .where(eq(orders.id, input.orderId));
-
-          // SMS #1 / Push — Order Confirmed (card orders).
-          // This is the customer-facing "thank you for your order" notification.
-          // For cash orders it's sent immediately at checkout (see orders.create),
-          // but for card it's deferred all the way to here — the first point at
-          // which the payment is actually confirmed — so the customer is never
-          // told their order is placed before they've paid for it.
-          try {
-            let smsPhone: string | null = null;
-            let hasPushToken = false;
-
-            if (order.customerId) {
-              const [customerRecord] = await db
-                .select({ phone: users.phone, pushToken: users.pushToken })
-                .from(users)
-                .where(eq(users.id, order.customerId))
-                .limit(1);
-              if (customerRecord?.pushToken) {
-                hasPushToken = true;
-                await sendPushNotification(customerRecord.pushToken, {
-                  title: "Order Placed! \uD83C\uDF89",
-                  body: `Your order #${input.orderId} is confirmed! We'll notify you when the driver arrives.`,
-                  data: { type: "order_update", orderId: input.orderId, status: "pending" },
-                  channelId: "orders",
-                });
-                console.log(`[Push] Order confirmation push sent to customer ${order.customerId} after card payment confirmed`);
-              } else {
-                smsPhone = customerRecord?.phone || null;
-              }
-            } else {
-              smsPhone = order.guestPhone || null;
-            }
-
-            if (!hasPushToken && smsPhone) {
-              const [storeRecord] = await db
-                .select({ name: stores.name })
-                .from(stores)
-                .where(eq(stores.id, order.storeId))
-                .limit(1);
-              await sendOrderConfirmationSMS(smsPhone, storeRecord?.name || "the store", input.orderId);
-              console.log(`[SMS] Order confirmation sent to ${smsPhone} after card payment confirmed`);
-            }
-          } catch (e) {
-            console.error(`[SMS/Push] Failed to send order confirmation for order ${input.orderId}:`, e);
-            // Don't fail the payment confirmation if notification fails
-          }
-
-          // Send store notification now that payment is confirmed
-          try {
-            const storeStaffMembers = await db
-              .select({ userId: storeStaff.userId, pushToken: users.pushToken })
-              .from(storeStaff)
-              .innerJoin(users, eq(storeStaff.userId, users.id))
-              .where(eq(storeStaff.storeId, order.storeId));
-
-            const customerName = order.guestName || (order.customerId ? "Customer" : "Unknown");
-            for (const staff of storeStaffMembers) {
-              if (staff.pushToken) {
-                await sendNewOrderNotification(staff.pushToken, input.orderId, customerName, 0, parseFloat(order.total));
-              }
-            }
-            console.log(`[Payment] Store staff notified for order ${input.orderId} after card payment confirmed`);
-          } catch (e) {
-            console.error(`[Payment] Failed to notify store staff for order ${input.orderId}:`, e);
-          }
-
-          // Dispatch order to driver queue now that payment is confirmed
-          try {
-            await offerOrderToQueue(input.orderId);
-            console.log(`[Payment] Order ${input.orderId} dispatched to driver queue after card payment confirmed`);
-          } catch (e) {
-            console.error(`[Payment] Failed to dispatch order ${input.orderId} to driver queue:`, e);
-          }
-
-          return {
-            status: "completed" as const,
-            paymentStatus: "completed",
-            transactionId: transactionId,
-          };
+          return await confirmPayment(transactionId, "session");
         }
 
-        // Check if session expired
-        if (session.expiresAt && new Date(session.expiresAt) < new Date()) {
-          await db
-            .update(orders)
-            .set({ paymentStatus: "failed" })
-            .where(eq(orders.id, input.orderId));
-
-          return { status: "expired" as const, paymentStatus: "failed" };
+        // Session not yet expired — still processing (3DS/Apple Pay in progress)
+        if (!session.expiresAt || new Date(session.expiresAt) >= new Date()) {
+          return { status: "pending" as const, paymentStatus: "pending" };
         }
 
-        return { status: "pending" as const, paymentStatus: "pending" };
+        // ─── Step 2: Session expired but no transaction on it ─────────────
+        // This is the critical gap: Apple Pay / 3DS verification completed
+        // AFTER the session object's window closed. The session no longer
+        // carries the transaction reference, but Elavon DID capture the money.
+        // Search directly by order reference — this is the reliable source of
+        // truth regardless of session age, and is how the Elavon portal itself
+        // looks up transactions.
+        console.log(`[Payment] Session expired for order ${order.orderNumber} — searching by order reference`);
+        try {
+          const txSearch = await elavonRequest(
+            "GET",
+            `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
+          );
+
+          // Elavon returns transactions in _embedded.transactions or transactions array
+          const txList: any[] =
+            txSearch?._embedded?.transactions ||
+            txSearch?.transactions ||
+            (txSearch?.id ? [txSearch] : []);
+
+          // Look for a captured/settled/authorised transaction
+          const captured = txList.find((tx: any) => {
+            const s = (tx.status || tx.transactionStatus || "").toUpperCase();
+            return s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
+          });
+
+          if (captured) {
+            const transactionId = captured.id || captured.transactionId ||
+              captured._links?.self?.href?.split("/").pop() || null;
+            console.log(`[Payment] Found transaction ${transactionId} for order ${order.orderNumber} via reference search`);
+            return await confirmPayment(transactionId, "reference-search");
+          }
+
+          // Reference search returned nothing yet.
+          // Only give up if the order is older than 30 minutes — before that,
+          // the customer may still be completing Apple Pay / 3DS verification,
+          // and we should keep checking rather than prematurely failing them.
+          const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+          const GIVE_UP_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+
+          if (orderAgeMs < GIVE_UP_AFTER_MS) {
+            console.log(`[Payment] No transaction yet for order ${order.orderNumber} (age: ${Math.round(orderAgeMs / 60000)}m) — keeping pending`);
+            return { status: "pending" as const, paymentStatus: "pending" };
+          }
+
+          // Order is older than 30 minutes and Elavon has no transaction for it
+          // anywhere — safe to call it genuinely failed/abandoned.
+          console.log(`[Payment] No transaction found for order ${order.orderNumber} after 30 minutes — marking failed`);
+        } catch (searchErr) {
+          console.error(`[Payment] Reference search failed for order ${order.orderNumber}:`, searchErr);
+          // Search itself errored — don't mark as failed, keep pending
+          return { status: "pending" as const, paymentStatus: "pending" };
+        }
+
+        // Confirmed: session expired, order older than 30 minutes, no transaction found
+        await db
+          .update(orders)
+          .set({ paymentStatus: "failed" })
+          .where(eq(orders.id, input.orderId));
+        return { status: "expired" as const, paymentStatus: "failed" };
+
       } catch (error) {
         console.error("[Elavon] Error checking payment status:", error);
         return { status: "error" as const, paymentStatus: order.paymentStatus };
