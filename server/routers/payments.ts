@@ -277,9 +277,15 @@ export const paymentsRouter = router({
 
           // Look for a captured/settled/authorised transaction
           const captured = txList.find((tx: any) => {
-            const s = (tx.status || tx.transactionStatus || "").toUpperCase();
-            return s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
-          });
+  // Must match our order number
+  const ref = (tx.orderReference || tx.order_reference || "").toUpperCase();
+  if (ref !== order.orderNumber.toUpperCase()) return false;
+  // Elavon uses "type":"sale" for successful captures — no separate status field
+  const type = (tx.type || "").toLowerCase();
+  const s = (tx.status || tx.transactionStatus || "").toUpperCase();
+  return type === "sale" || type === "capture" || 
+         s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
+});
 
           if (captured) {
             const transactionId = captured.id || captured.transactionId ||
