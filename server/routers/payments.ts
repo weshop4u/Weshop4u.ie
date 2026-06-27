@@ -266,13 +266,14 @@ export const paymentsRouter = router({
             "GET",
             `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
           );
-          console.log(`[Payment] Elavon reference search raw response:`, JSON.stringify(txSearch).substring(0, 500));
+          console.log(`[Payment] Elavon reference search raw response:`, JSON.stringify(txSearch).substring(0, 2000));
 
           // Elavon returns transactions in _embedded.transactions or transactions array
           const txList: any[] =
-            txSearch?._embedded?.transactions ||
-            txSearch?.transactions ||
-            (txSearch?.id ? [txSearch] : []);
+  txSearch?._embedded?.transactions ||
+  txSearch?.transactions ||
+  txSearch?.items ||
+  (txSearch?.id ? [txSearch] : []);
 
           // Look for a captured/settled/authorised transaction
           const captured = txList.find((tx: any) => {
