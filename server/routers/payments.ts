@@ -266,6 +266,7 @@ export const paymentsRouter = router({
             "GET",
             `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
           );
+          console.log(`[Payment] Elavon reference search raw response:`, JSON.stringify(txSearch).substring(0, 500));
 
           // Elavon returns transactions in _embedded.transactions or transactions array
           const txList: any[] =
