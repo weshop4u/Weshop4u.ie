@@ -137,8 +137,8 @@ function AdminOrdersScreenContent() {
   );
 
   const { data: availableDrivers } = trpc.admin.getAvailableDriversForAssignment.useQuery(undefined, {
-    enabled: assignModalOrderId !== null,
-  });
+  enabled: assignModalOrderId !== null || bulkAssignModal,
+});
 
   const updateStatusMutation = trpc.admin.updateOrderStatus.useMutation({
     onSuccess: () => { refetch(); setErrorMessage(""); },
