@@ -4,6 +4,7 @@
   },
   "build": {
     "production": {
+      "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://weshop4u.ie"
       },
@@ -12,6 +13,7 @@
       }
     },
     "apk": {
+      "channel": "stable-base",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://weshop4u.ie"
       },
