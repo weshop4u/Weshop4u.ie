@@ -169,10 +169,20 @@ export const paymentsRouter = router({
       // Extracted so both the session path and the reference-search path can
       // call the same logic without duplicating code.
       const confirmPayment = async (transactionId: string | null, source: string) => {
-        await db
-          .update(orders)
-          .set({ paymentStatus: "completed", elavonTransactionId: transactionId })
-          .where(eq(orders.id, input.orderId));
+        // If order was cancelled due to payment appearing to fail, reactivate it
+const reactivate = order.status === "cancelled";
+await db
+  .update(orders)
+  .set({
+    paymentStatus: "completed",
+    elavonTransactionId: transactionId,
+    ...(reactivate ? { status: "pending", cancelledAt: null, cancellationReason: null } : {}),
+  })
+  .where(eq(orders.id, input.orderId));
+
+if (reactivate) {
+  console.log(`[Payment] Reactivating cancelled order ${order.orderNumber} — payment confirmed`);
+}
 
         console.log(`[Payment] Order ${order.orderNumber} confirmed via ${source} — txn: ${transactionId}`);
 
