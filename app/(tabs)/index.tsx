@@ -154,7 +154,7 @@ export default function HomeScreen() {
         {/* Stores Grid */}
         <View className="px-4">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-2xl font-bold text-foreground">Browse Our Stores</Text>
+            <Text className="text-2xl font-bold text-foreground">Browse Stores</Text>
             {location && !locationLoading && (
               <Text style={{ fontSize: 12, color: '#687076' }}>
                 Sorted by distance
