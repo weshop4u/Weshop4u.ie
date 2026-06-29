@@ -39,7 +39,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.17",
+  version: "1.0.18",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -54,7 +54,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 7,
+    versionCode: 8,
     adaptiveIcon: {
       backgroundColor: "#0F172A",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -134,6 +134,9 @@ updates: {
   },
   runtimeVersion: {
     policy: "appVersion"
+  },
+  locales: {
+    en: "./appConfigLocale.json"
   },
   experiments: {
     typedRoutes: true,
