@@ -234,6 +234,8 @@ app.get("/favicon.ico", (req, res) => {
   app.get("/", (_req, res) => res.redirect("/api/web/"));
   app.get("/privacy", (_req, res) => res.redirect("/api/web/profile/privacy"));
 app.get("/api", (_req, res) => res.redirect("/api/web"));
+  app.get("/payment-result", (req, res) => res.redirect(`/api/web/payment-result?${new URLSearchParams(req.query as any).toString()}`));
+app.get("/payment-cancel", (req, res) => res.redirect(`/api/web/payment-cancel?${new URLSearchParams(req.query as any).toString()}`));
 
   // Serve static web files - the deployment platform only routes /api/* to Express,
   // so we serve the web app under /api/web/ prefix
@@ -364,3 +366,65 @@ app.get("/api", (_req, res) => res.redirect("/api/web"));
 startServer().catch(console.error);
 // Force Railway rebuild - 1774948853
 // Cache buster: 1774956851884318274
+
+// ─── Background payment recovery job ───────────────────────────────────────
+async function startPaymentRecoveryJob() {
+  const INTERVAL_MS = 1 * 60 * 1000;
+  const MAX_AGE_MS = 20 * 60 * 1000;
+
+  const runCheck = async () => {
+    try {
+      const { getDb } = await import("../db");
+      const { orders } = await import("../../drizzle/schema");
+      const { eq, and, gte, inArray } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return;
+
+      const cutoff = new Date(Date.now() - MAX_AGE_MS);
+
+      const stuckOrders = await db
+        .select({ id: orders.id, orderNumber: orders.orderNumber, paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.paymentMethod, "card"),
+            inArray(orders.paymentStatus, ["pending", "failed"]),
+            gte(orders.createdAt, cutoff)
+          )
+        );
+
+      if (stuckOrders.length === 0) return;
+
+      console.log(`[PaymentRecovery] Checking ${stuckOrders.length} stuck card order(s)...`);
+
+      const { appRouter } = await import("../routers");
+      const { createCallerFactory } = await import("@trpc/server");
+      const callerFactory = createCallerFactory(appRouter);
+      const caller = callerFactory({ req: undefined, res: undefined } as any);
+
+      for (const order of stuckOrders) {
+        try {
+          const result = await caller.payments.checkPaymentStatus({ orderId: order.id });
+          if (result.status === "completed") {
+            console.log(`[PaymentRecovery] ✅ Recovered order ${order.orderNumber}`);
+          } else {
+            console.log(`[PaymentRecovery] Order ${order.orderNumber} still ${result.status}`);
+          }
+        } catch (e) {
+          console.error(`[PaymentRecovery] Error checking order ${order.id}:`, e);
+        }
+      }
+    } catch (e) {
+      console.error("[PaymentRecovery] Job error:", e);
+    }
+  };
+
+  setTimeout(() => {
+    runCheck();
+    setInterval(runCheck, INTERVAL_MS);
+  }, 30000);
+
+  console.log("[PaymentRecovery] Background payment recovery job scheduled");
+}
+
+startPaymentRecoveryJob().catch(console.error);
