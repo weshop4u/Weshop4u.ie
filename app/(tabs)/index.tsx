@@ -115,7 +115,7 @@ export default function HomeScreen() {
         <View className="items-center py-8 px-4">
           <Text className="text-4xl font-bold text-primary mb-2">WESHOP4U</Text>
           <Text className="text-base text-muted text-center mb-6">
-            24/7 Delivery from Your Favourite Stores
+            24/7 Delivery from Your Favorite Stores
           </Text>
           
           {/* Login Button - Centered below tagline */}
