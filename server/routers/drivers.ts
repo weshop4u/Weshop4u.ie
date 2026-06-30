@@ -57,12 +57,15 @@ async function offerOldestOrderToDriver(driverId: number) {
   // confirmed as paid, are eligible for dispatch. This stops declined/pending
   // card payments from sitting at status "pending" forever and being silently
   // picked up by this FIFO backfill on every idle driver poll.
+  // Acceptance gate: an order must have been accepted by the store/POS/admin
+  // before it can reach a driver — "pending" orders are excluded so this
+  // self-healing FIFO backfill can never bypass the accept step.
   const unassignedOrders = await db
     .select({ id: orders.id })
     .from(orders)
     .where(
       and(
-        inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
+        inArray(orders.status, ["accepted", "preparing", "ready_for_pickup"]),
         isNull(orders.driverId),
         or(eq(orders.paymentMethod, "cash_on_delivery"), eq(orders.paymentStatus, "completed"))
       )
