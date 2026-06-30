@@ -169,10 +169,20 @@ export const paymentsRouter = router({
       // Extracted so both the session path and the reference-search path can
       // call the same logic without duplicating code.
       const confirmPayment = async (transactionId: string | null, source: string) => {
-        await db
-          .update(orders)
-          .set({ paymentStatus: "completed", elavonTransactionId: transactionId })
-          .where(eq(orders.id, input.orderId));
+        // If order was cancelled due to payment appearing to fail, reactivate it
+const reactivate = order.status === "cancelled";
+await db
+  .update(orders)
+  .set({
+    paymentStatus: "completed",
+    elavonTransactionId: transactionId,
+    ...(reactivate ? { status: "pending", cancelledAt: null, cancellationReason: null } : {}),
+  })
+  .where(eq(orders.id, input.orderId));
+
+if (reactivate) {
+  console.log(`[Payment] Reactivating cancelled order ${order.orderNumber} — payment confirmed`);
+}
 
         console.log(`[Payment] Order ${order.orderNumber} confirmed via ${source} — txn: ${transactionId}`);
 
@@ -225,9 +235,12 @@ export const paymentsRouter = router({
           console.error(`[Payment] Store notification failed for order ${input.orderId}:`, e);
         }
 
-        // Dispatch now happens only once the order is accepted (store/POS/
-        // admin), not immediately at payment confirmation — see
-        // acceptOrder / acceptOrderFromPOS / updateOrderStatus.
+        // Dispatch to driver queue
+        try {
+          await offerOrderToQueue(input.orderId);
+        } catch (e) {
+          console.error(`[Payment] Dispatch failed for order ${input.orderId}:`, e);
+        }
 
         return { status: "completed" as const, paymentStatus: "completed", transactionId };
       };
@@ -263,18 +276,26 @@ export const paymentsRouter = router({
             "GET",
             `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
           );
+          
 
           // Elavon returns transactions in _embedded.transactions or transactions array
           const txList: any[] =
-            txSearch?._embedded?.transactions ||
-            txSearch?.transactions ||
-            (txSearch?.id ? [txSearch] : []);
+  txSearch?._embedded?.transactions ||
+  txSearch?.transactions ||
+  txSearch?.items ||
+  (txSearch?.id ? [txSearch] : []);
 
           // Look for a captured/settled/authorised transaction
           const captured = txList.find((tx: any) => {
-            const s = (tx.status || tx.transactionStatus || "").toUpperCase();
-            return s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
-          });
+  // Must match our order number
+  const ref = (tx.orderReference || tx.order_reference || "").toUpperCase();
+  if (ref !== order.orderNumber.toUpperCase()) return false;
+  // Elavon uses "type":"sale" for successful captures — no separate status field
+  const type = (tx.type || "").toLowerCase();
+  const s = (tx.status || tx.transactionStatus || "").toUpperCase();
+  return type === "sale" || type === "capture" || 
+         s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
+});
 
           if (captured) {
             const transactionId = captured.id || captured.transactionId ||
