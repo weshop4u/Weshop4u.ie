@@ -715,10 +715,25 @@ function AdminOrdersScreenContent() {
                             style={[dtStyles.actionBtn, { backgroundColor: "#FEE2E2" }]}
                             {...({ title: "Cancel Order" } as any)}
                           >
-                            <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "700" }}>✕</Text>
+                           <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "700" }}>✕</Text>
                           </TouchableOpacity>
                         </>
                       )}
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation?.(); setDuplicateConfirmOrderId(order.id); }}
+                        style={[dtStyles.actionBtn, { backgroundColor: "#FEF3C7" }]}
+                        {...({ title: "Duplicate Order" } as any)}
+                      >
+                        <Text style={{ fontSize: 12 }}>⧉</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation?.(); setReprintResult(null); reprintMutation.mutate({ orderId: order.id, storeId: order.storeId! }); }}
+                        disabled={reprintMutation.isPending}
+                        style={[dtStyles.actionBtn, { backgroundColor: "#E0E7FF" }]}
+                        {...({ title: "Reprint" } as any)}
+                      >
+                        <Text style={{ fontSize: 12 }}>🖨️</Text>
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
 
