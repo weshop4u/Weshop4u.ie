@@ -558,15 +558,9 @@ export const ordersRouter = router({
           console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
         }
 
-        // Trigger driver queue - offer to first available driver
-        try {
-          await offerOrderToQueue(Number(orderId));
-          console.log(`[Queue] Order ${orderId} offered to driver queue`);
-        } catch (error) {
-          console.error(`[Queue] Failed to offer order to queue:`, error);
-          // Don't fail the order if queue offering fails
-        }
-      }
+        // Dispatch now happens only once the order is accepted (store/POS/
+        // admin), not immediately at creation — see acceptOrder /
+        // acceptOrderFromPOS / updateOrderStatus.
 
       return {
         orderId,
