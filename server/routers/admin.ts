@@ -683,6 +683,15 @@ export const adminRouter = router({
           .where(and(eq(orderOffers.orderId, input.orderId), eq(orderOffers.status, "pending")));
       }
 
+      // Once accepted (admin), the order is now eligible for driver dispatch.
+      if (input.status === "accepted") {
+        try {
+          await offerOrderToQueue(input.orderId);
+        } catch (e) {
+          console.error(`[Admin] Failed to offer order ${input.orderId} to queue after acceptance:`, e);
+        }
+      }
+
       // If delivered, mark driver as available again
       if (input.status === "delivered") {
         const [orderData] = await db.select({ driverId: orders.driverId }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
@@ -1032,15 +1041,9 @@ export const adminRouter = router({
         console.log(`[Admin] Card payment order ${orderId} created - store notification will be sent after payment confirmation`);
       }
 
-      // For cash orders, offer to driver queue immediately
-      // For card orders, wait until payment is confirmed before dispatching
-      if (input.paymentMethod !== "card") {
-        try {
-          await offerOrderToQueue(Number(orderId));
-        } catch (e) {
-          console.error(`[Queue] Failed to offer phone order ${orderId} to queue:`, e);
-        }
-      }
+      // Dispatch now happens only once the order is accepted (store/POS/
+      // admin), not immediately at creation — see acceptOrder /
+      // acceptOrderFromPOS / updateOrderStatus.
 
       console.log(`[Admin] Phone order ${orderId} (#${orderNumber}) created for ${input.customerName}`);
       return { orderId: Number(orderId), orderNumber, subtotal, serviceFee, deliveryFee, total, distance };
@@ -3181,12 +3184,9 @@ duplicateOrder: publicProcedure
       }
     }
 
-    // Offer to driver queue (cash order, dispatch immediately)
-    try {
-      await offerOrderToQueue(newOrderId);
-    } catch (e) {
-      console.error(`[Queue] Failed to offer duplicated order ${newOrderId} to queue:`, e);
-    }
+    // Dispatch now happens only once the order is accepted (store/POS/
+    // admin), not immediately at creation — see acceptOrder /
+    // acceptOrderFromPOS / updateOrderStatus.
 
     // Create print job
     try {
