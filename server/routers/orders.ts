@@ -561,6 +561,7 @@ export const ordersRouter = router({
         // Dispatch now happens only once the order is accepted (store/POS/
       // admin), not immediately at creation — see acceptOrder /
       // acceptOrderFromPOS / updateOrderStatus.
+      }
 
       return {
         orderId,
