@@ -3076,4 +3076,127 @@ export const adminRouter = router({
         mostViewedProducts,
       };
     }),
+  // Duplicate an order as a brand new cash order — universal fail-safe for
+// POS issues, driver mistakes, or any case where the order needs to be
+// re-sent. Always created as cash, goes through the exact same pipeline
+// as a normal new order (notifications, print, driver queue).
+duplicateOrder: publicProcedure
+  .input(z.object({ orderId: z.number() }))
+  .mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const [original] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+    if (!original) throw new Error("Order not found");
+
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
+    const itemIds = items.map(i => i.id);
+    let modsByItem: Record<number, any[]> = {};
+    if (itemIds.length > 0) {
+      const mods = await db.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, itemIds));
+      for (const m of mods) {
+        if (!modsByItem[m.orderItemId]) modsByItem[m.orderItemId] = [];
+        modsByItem[m.orderItemId].push(m);
+      }
+    }
+
+    const orderNumber = await generateOrderNumber(original.storeId);
+
+    const [newOrderResult] = await db.insert(orders).values({
+      orderNumber,
+      customerId: original.customerId,
+      storeId: original.storeId,
+      status: "pending",
+      paymentMethod: "cash_on_delivery",
+      paymentStatus: "pending",
+      subtotal: original.subtotal,
+      serviceFee: original.serviceFee,
+      deliveryFee: original.deliveryFee,
+      tipAmount: original.tipAmount,
+      total: original.total,
+      deliveryAddress: original.deliveryAddress,
+      deliveryLatitude: original.deliveryLatitude,
+      deliveryLongitude: original.deliveryLongitude,
+      deliveryDistance: original.deliveryDistance,
+      customerNotes: original.customerNotes,
+      allowSubstitution: original.allowSubstitution,
+      guestName: original.guestName,
+      guestPhone: original.guestPhone,
+      guestEmail: original.guestEmail,
+      receiptData: original.receiptData,
+    });
+
+    const newOrderId = Number(newOrderResult.insertId);
+
+    for (const item of items) {
+      const [newItemResult] = await db.insert(orderItems).values({
+        orderId: newOrderId,
+        productId: item.productId,
+        productName: item.productName,
+        productPrice: item.productPrice,
+        quantity: item.quantity,
+        subtotal: item.subtotal,
+        notes: item.notes,
+      });
+      const newItemId = Number(newItemResult.insertId);
+      const mods = modsByItem[item.id] || [];
+      for (const m of mods) {
+        await db.insert(orderItemModifiers).values({
+          orderItemId: newItemId,
+          groupName: m.groupName,
+          modifierName: m.modifierName,
+          modifierPrice: m.modifierPrice,
+        });
+      }
+    }
+
+    // Notify store staff (same as a normal new cash order)
+    try {
+      const storeStaffMembers = await db
+        .select({ userId: storeStaffTable.userId, pushToken: users.pushToken })
+        .from(storeStaffTable)
+        .innerJoin(users, eq(storeStaffTable.userId, users.id))
+        .where(eq(storeStaffTable.storeId, original.storeId));
+
+      const customerName = original.guestName || "Customer";
+      for (const staff of storeStaffMembers) {
+        if (staff.pushToken) {
+          await sendNewOrderNotification(staff.pushToken, newOrderId, customerName, items.length, parseFloat(original.total));
+        }
+      }
+    } catch (e) {
+      console.error(`[Admin] Failed to notify store staff for duplicated order ${newOrderId}:`, e);
+    }
+
+    // Notify customer if registered
+    if (original.customerId) {
+      const [customer] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, original.customerId)).limit(1);
+      if (customer?.pushToken) {
+        await sendPushNotification(customer.pushToken, {
+          title: "Order Confirmed!",
+          body: `Order #${orderNumber} has been confirmed.`,
+          data: { type: "order_update", orderId: newOrderId, status: "pending" },
+          channelId: "orders",
+        });
+      }
+    }
+
+    // Offer to driver queue (cash order, dispatch immediately)
+    try {
+      await offerOrderToQueue(newOrderId);
+    } catch (e) {
+      console.error(`[Queue] Failed to offer duplicated order ${newOrderId} to queue:`, e);
+    }
+
+    // Create print job
+    try {
+      const { autoCreatePrintJob } = await import("./print");
+      await autoCreatePrintJob(newOrderId, original.storeId, original.receiptData || undefined);
+    } catch (e) {
+      console.error(`[Admin] Failed to create print job for duplicated order ${newOrderId}:`, e);
+    }
+
+    console.log(`[Admin] Order ${input.orderId} duplicated as new order ${newOrderId} (#${orderNumber})`);
+    return { success: true, newOrderId, orderNumber };
+  }),
 });
