@@ -893,6 +893,16 @@ function AdminOrdersScreenContent() {
                           )}
                         </View>
                       )}
+                      {duplicateResult && duplicateResult.orderId === order.id && (
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: duplicateResult.success ? "#16A34A" : "#D97706", marginTop: 12 }}>
+                          {duplicateResult.message}
+                        </Text>
+                      )}
+                      {reprintResult && reprintResult.orderId === order.id && (
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: reprintResult.success ? "#16A34A" : "#D97706", marginTop: 6 }}>
+                          {reprintResult.message}
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -1263,6 +1273,36 @@ function AdminOrdersScreenContent() {
   function renderModals() {
     return (
       <>
+        {/* Duplicate Order Confirmation */}
+        {duplicateConfirmOrderId !== null && (
+          <View style={styles.overlay}>
+            <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>Duplicate Order?</Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 20 }}>
+                This creates a brand new cash order with the same items and address, and sends it to the store and a driver. Use this as a fail-safe if the original order needs to be re-sent.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setDuplicateConfirmOrderId(null)}
+                  style={[styles.confirmButton, { backgroundColor: colors.border }]}
+                  disabled={duplicateOrderMutation.isPending}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setDuplicateResult(null); duplicateOrderMutation.mutate({ orderId: duplicateConfirmOrderId }); }}
+                  disabled={duplicateOrderMutation.isPending}
+                  style={[styles.confirmButton, { backgroundColor: duplicateOrderMutation.isPending ? "#D1D5DB" : "#D97706" }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+                    {duplicateOrderMutation.isPending ? "Duplicating..." : "Yes, Duplicate"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Cancel Confirmation */}
         {cancelConfirmOrderId !== null && (
           <View style={styles.overlay}>
