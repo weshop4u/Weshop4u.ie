@@ -313,17 +313,25 @@ async function offerToNextDriver(orderId: number) {
     .orderBy(asc(driverQueue.position));
 
   // Find next AVAILABLE driver who hasn't been offered yet
-  // Available means: in queue AND isAvailable=true (not currently on a delivery)
+  // Available means: online (genuinely, not a stale queue row) AND
+  // isAvailable=true (not currently on a delivery)
   let nextDriver = null;
   for (const q of queue) {
     if (offeredDriverIds.includes(q.driverId)) continue;
-    // Check if driver is actually available
+    // Check if driver is actually online and available
     const driverCheck = await db
-      .select({ isAvailable: drivers.isAvailable })
+      .select({ isOnline: drivers.isOnline, isAvailable: drivers.isAvailable })
       .from(drivers)
       .where(eq(drivers.userId, q.driverId))
       .limit(1);
-    if (driverCheck.length > 0 && driverCheck[0].isAvailable) {
+    if (driverCheck.length === 0 || !driverCheck[0].isOnline) {
+      // Stale queue entry — driver isn't actually online. Clean it up so it
+      // doesn't keep intercepting offers ahead of real drivers.
+      await db.delete(driverQueue).where(eq(driverQueue.driverId, q.driverId));
+      console.log(`[Queue] Removed stale queue entry for driver ${q.driverId} (not online)`);
+      continue;
+    }
+    if (driverCheck[0].isAvailable) {
       nextDriver = q;
       break;
     }
@@ -1162,10 +1170,35 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       if (!db) throw new Error("Database not available");
 
       // Get all queue entries ordered by position
-      const queue = await db
+      const rawQueue = await db
         .select()
         .from(driverQueue)
         .orderBy(asc(driverQueue.position));
+
+      // Ghost-entry guard: a driverQueue row can outlive a driver actually
+      // going offline (app crash, force-close, lost connection before the
+      // toggle-off mutation completes). Cross-check against the drivers
+      // table's isOnline flag — the source of truth shown in admin — and
+      // silently drop + clean up any stale entries so position/count always
+      // reflects drivers who are genuinely online.
+      const queueDriverIds = rawQueue.map(q => q.driverId);
+      let onlineDriverIds = new Set<number>();
+      if (queueDriverIds.length > 0) {
+        const onlineRows = await db
+          .select({ userId: drivers.userId })
+          .from(drivers)
+          .where(and(inArray(drivers.userId, queueDriverIds), eq(drivers.isOnline, true)));
+        onlineDriverIds = new Set(onlineRows.map(r => r.userId));
+      }
+
+      const staleEntries = rawQueue.filter(q => !onlineDriverIds.has(q.driverId));
+      if (staleEntries.length > 0) {
+        const staleIds = staleEntries.map(q => q.driverId);
+        await db.delete(driverQueue).where(inArray(driverQueue.driverId, staleIds));
+        console.log(`[Queue] Cleaned up ${staleIds.length} stale queue entr${staleIds.length === 1 ? "y" : "ies"}: ${staleIds.join(", ")}`);
+      }
+
+      const queue = rawQueue.filter(q => onlineDriverIds.has(q.driverId));
 
       const myEntry = queue.find(q => q.driverId === input.driverId);
       if (!myEntry) {
