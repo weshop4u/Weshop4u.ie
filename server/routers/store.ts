@@ -414,6 +414,13 @@ export const storeRouter = router({
         const isCashOrPaid = !acceptOrderPayment[0] || acceptOrderPayment[0].paymentMethod !== "card" || acceptOrderPayment[0].paymentStatus === "completed";
         if (isCashOrPaid) {
           await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+          // Now that the order is accepted, offer it to the driver queue
+          try {
+            const { offerOrderToQueue } = await import("./drivers");
+            await offerOrderToQueue(input.orderId);
+          } catch (e) {
+            console.error(`[Store] Failed to offer order ${input.orderId} to driver queue after accept:`, e);
+          }
         }
 
       return { success: true };
@@ -1275,6 +1282,13 @@ if (allProductIds.length > 0) {
         const posIsCashOrPaid = !posOrderPayment[0] || posOrderPayment[0].paymentMethod !== "card" || posOrderPayment[0].paymentStatus === "completed";
         if (posIsCashOrPaid) {
           await autoCreatePrintJob(input.orderId, input.storeId);
+          // Now that the order is accepted, offer it to the driver queue
+          try {
+            const { offerOrderToQueue } = await import("./drivers");
+            await offerOrderToQueue(input.orderId);
+          } catch (e) {
+            console.error(`[Store] Failed to offer order ${input.orderId} to driver queue after accept:`, e);
+          }
         }
 
       return { success: true, alreadyAccepted: false };
