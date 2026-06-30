@@ -225,12 +225,9 @@ export const paymentsRouter = router({
           console.error(`[Payment] Store notification failed for order ${input.orderId}:`, e);
         }
 
-        // Dispatch to driver queue
-        try {
-          await offerOrderToQueue(input.orderId);
-        } catch (e) {
-          console.error(`[Payment] Dispatch failed for order ${input.orderId}:`, e);
-        }
+        // Dispatch now happens only once the order is accepted (store/POS/
+        // admin), not immediately at payment confirmation — see
+        // acceptOrder / acceptOrderFromPOS / updateOrderStatus.
 
         return { status: "completed" as const, paymentStatus: "completed", transactionId };
       };
