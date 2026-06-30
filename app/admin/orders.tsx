@@ -178,6 +178,29 @@ function AdminOrdersScreenContent() {
     },
   });
 
+  const [duplicateConfirmOrderId, setDuplicateConfirmOrderId] = useState<number | null>(null);
+  const [duplicateResult, setDuplicateResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+  const duplicateOrderMutation = trpc.admin.duplicateOrder.useMutation({
+    onSuccess: (data, variables) => {
+      refetch();
+      setDuplicateConfirmOrderId(null);
+      setDuplicateResult({ orderId: variables.orderId, message: `✅ Duplicated as new cash order #${data.orderNumber}`, success: true });
+    },
+    onError: (err, variables) => {
+      setDuplicateConfirmOrderId(null);
+      setDuplicateResult({ orderId: variables.orderId, message: err.message, success: false });
+    },
+  });
+
+  const [reprintResult, setReprintResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+  const reprintMutation = trpc.print.createPrintJob.useMutation({
+    onSuccess: (data, variables) => {
+      setReprintResult({ orderId: variables.orderId, message: "✅ Reprint job sent to POS", success: true });
+    },
+    onError: (err, variables) => {
+      setReprintResult({ orderId: variables.orderId, message: err.message, success: false });
+    },
+  });
   const deleteOrdersMutation = trpc.admin.deleteOrders.useMutation({
     onSuccess: () => {
       refetch();
