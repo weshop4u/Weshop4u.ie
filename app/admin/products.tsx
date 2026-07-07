@@ -27,9 +27,10 @@ function ProductsManagementScreenContent() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const utils = trpc.useUtils();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedStore, setSelectedStore] = useState<number | null>(null);
+  const params = useLocalSearchParams<{ store?: string; search?: string }>();
+  const [searchQuery, setSearchQuery] = useState(params.search || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(params.search || "");
+  const [selectedStore, setSelectedStore] = useState<number | null>(params.store ? parseInt(params.store) : null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
