@@ -287,9 +287,11 @@ if (reactivate) {
   // Must match our order number
   const ref = (tx.orderReference || tx.order_reference || "").toUpperCase();
   if (ref !== order.orderNumber.toUpperCase()) return false;
-  // Elavon uses "type":"sale" for successful captures — no separate status field
-  const type = (tx.type || "").toLowerCase();
+  // Explicitly exclude declined transactions first
   const s = (tx.status || tx.transactionStatus || "").toUpperCase();
+  if (s === "DECLINED" || s === "FAILED" || s === "REJECTED" || s === "CANCELLED") return false;
+  // Elavon uses "type":"sale" for captures — but only count it if not declined above
+  const type = (tx.type || "").toLowerCase();
   return type === "sale" || type === "capture" || 
          s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
 });
