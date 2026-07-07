@@ -756,7 +756,9 @@ function AdminOrdersScreenContent() {
                                   <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                         {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
-                                        <Text style={[dtStyles.detailValue, { flex: 1 }]}>{item.quantity}x {item.productName}</Text>
+                                        <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`/api/web/admin/manage-products?store=${order.storeId}&search=${encodeURIComponent(item.productName)}`, "_blank"); } }}>
+                                          <Text style={[dtStyles.detailValue, { flex: 1, color: "#2563EB", textDecorationLine: "underline" }]}>{item.quantity}x {item.productName}</Text>
+                                        </TouchableOpacity>
                                       </View>
                                     <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
                                       €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
