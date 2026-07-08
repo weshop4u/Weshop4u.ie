@@ -284,6 +284,35 @@ export const ordersRouter = router({
       }
       // ========== END AGE VERIFICATION CHECK ==========
 
+      // ========== SERVER-SIDE TIME AVAILABILITY CHECK ==========
+      const productsForTimeCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
+        })
+        .from(products)
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+      for (const item of input.items) {
+        const p = productsForTimeCheck.find(pr => pr.id === item.productId);
+        if (!p || !p.availableUntil) continue;
+
+        const fromMinutes = p.availableFrom
+          ? parseInt(p.availableFrom.split(":")[0]) * 60 + parseInt(p.availableFrom.split(":")[1])
+          : 0;
+        const untilMinutes = parseInt(p.availableUntil.split(":")[0]) * 60 + parseInt(p.availableUntil.split(":")[1]);
+
+        const isAvailable = nowMinutes >= fromMinutes && nowMinutes < untilMinutes;
+        if (!isAvailable) {
+          throw new Error(`${p.name} is not available right now. Available ${p.availableFrom || "00:00"}–${p.availableUntil}.`);
+        }
+      }
+      // ========== END TIME AVAILABILITY CHECK ==========
+
       // Calculate distance and delivery fee
       const distance = calculateDistance(
         parseFloat(storeData.latitude),
