@@ -2,7 +2,7 @@ import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, S
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
