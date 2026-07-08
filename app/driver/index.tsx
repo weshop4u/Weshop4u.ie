@@ -462,7 +462,7 @@ export default function DriverHomeScreen() {
         );
       };
       sendLocation(); // Send immediately
-      locationIntervalRef.current = setInterval(sendLocation, 10000);
+      locationIntervalRef.current = setInterval(sendLocation, 5000);
     } else {
       // Native: use expo-location
       (async () => {
@@ -476,8 +476,8 @@ export default function DriverHomeScreen() {
           locationSubRef.current = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.Balanced,
-              timeInterval: 10000,
-              distanceInterval: 10,
+              timeInterval: 5000,
+              distanceInterval: 0,
             },
             (loc) => {
               updateLocationMutation.mutate({
