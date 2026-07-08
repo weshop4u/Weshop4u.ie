@@ -173,7 +173,7 @@ export default function ActiveDeliveryScreen() {
             {
               accuracy: Location.Accuracy.High,
               timeInterval: 5000, // Update every 5 seconds
-              distanceInterval: 10,
+              distanceInterval: 0,
             },
             (loc) => {
               updateLocationMutation.mutate({
