@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshCon
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
@@ -66,6 +66,7 @@ function AdminOrdersScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 900;
 
+  const router = useRouter();
   const params = useLocalSearchParams<{ status?: string }>();
   const [statusFilter, setStatusFilter] = useState(params.status || "all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -756,7 +757,7 @@ function AdminOrdersScreenContent() {
                                   <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                         {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
-                                        <TouchableOpacity onPress={() => { if (Platform.OS === "web") { window.open(`https://weshop4u.ie/api/web/admin/products?store=${order.storeId}&search=${encodeURIComponent(item.productName)}`, "_blank"); } }}>
+                                        <TouchableOpacity onPress={() => { router.push({ pathname: "/admin/products", params: { store: String(order.storeId), search: item.productName } }); }
                                           <Text style={[dtStyles.detailValue, { flex: 1, color: "#2563EB", textDecorationLine: "underline" }]}>{item.quantity}x {item.productName}</Text>
                                         </TouchableOpacity>
                                       </View>
