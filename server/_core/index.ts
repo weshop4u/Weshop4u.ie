@@ -113,10 +113,10 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Import admin auth middleware
-  const { adminAuthMiddleware } = await import("./admin-auth-middleware.js");
+  // Import admin auth are
+  const { adminAuthare } = await import("./admin-auth-are.js");
 
-  // Protect admin routes at server level - MUST be before static file middleware
+  // Protect admin routes at server level - MUST be before static file are
   // This prevents non-admin users from accessing /api/web/admin* pages
   app.use("/api/web/admin", adminAuthMiddleware);
 
@@ -229,6 +229,41 @@ app.get("/favicon.ico", (req, res) => {
       createContext,
     }),
   );
+
+  // Plain REST endpoint for background driver location pings (Android
+  // expo-task-manager background task — cannot use the tRPC batch client
+  // since it runs outside the React tree). Deliberately simple: no auth
+  // middleware beyond a driverId check, no superjson envelope.
+  app.post("/api/driver-location-ping", express.json(), async (req, res) => {
+    try {
+      const { driverId, latitude, longitude } = req.body;
+      if (!driverId || typeof latitude !== "number" || typeof longitude !== "number") {
+        res.status(400).json({ error: "Missing or invalid driverId/latitude/longitude" });
+        return;
+      }
+      const { getDb } = await import("../db");
+      const { drivers } = await import("../../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) {
+        res.status(500).json({ error: "Database not available" });
+        return;
+      }
+      await db
+        .update(drivers)
+        .set({
+          currentLatitude: String(latitude),
+          currentLongitude: String(longitude),
+          lastLocationUpdate: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(drivers.userId, driverId));
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[BackgroundLocation] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Redirect root /api/ to /api/web so users always land on the web app
   app.get("/", (_req, res) => res.redirect("/api/web/"));
