@@ -99,7 +99,6 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "expo-updates",
-    "@notifee/react-native",
     [
       "expo-audio",
       {
