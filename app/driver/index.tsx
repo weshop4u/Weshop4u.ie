@@ -9,7 +9,7 @@ import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
-
+import { startDriverForegroundService, stopDriverForegroundService } from "@/lib/driver-foreground-service";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -493,6 +493,18 @@ export default function DriverHomeScreen() {
       }
     };
   }, [isOnline, user?.id]);
+  
+  // Foreground service (Android only) — persistent "You're Online" notification
+  // keeps the app process alive so location/offers can continue while
+  // backgrounded or the phone is locked.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (isOnline && user?.id) {
+      startDriverForegroundService();
+    } else {
+      stopDriverForegroundService();
+    }
+  }, [isOnline, user?.id]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -504,6 +516,7 @@ export default function DriverHomeScreen() {
       if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
       if (locationSubRef.current) locationSubRef.current.remove();
       stopWebAlarm();
+      stopDriverForegroundService();
     };
   }, []);
 
