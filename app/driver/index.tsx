@@ -10,12 +10,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 import { startDriverForegroundService, stopDriverForegroundService } from "@/lib/driver-foreground-service";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
+
+  // Register push token for job-offer notifications — drivers land here
+  // directly and may never visit the customer (tabs) layout, so this can't
+  // rely on the registration that happens there.
+  usePushNotifications(user?.id);
 
 
   // Audio player for alarm sound (native)
