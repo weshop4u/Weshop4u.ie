@@ -26,6 +26,7 @@ export default function ProfileScreen() {
   // Fetch fresh profile data from server to ensure we have latest profilePicture
   const { data: profileData } = trpc.users.getProfile.useQuery();
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
+  const toggleOnlineMutation = trpc.drivers.toggleOnlineStatus.useMutation();
 
   useEffect(() => {
     // Load current mode from storage
@@ -148,9 +149,21 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     console.log("[Logout] Starting logout process...");
     try {
+      // 0. If this is a driver, take them offline on the server first — otherwise
+      // they stay "phantom online" indefinitely after logging out, since nothing
+      // else clears isOnline when the session ends.
+      if (user && (user as any).role === "driver") {
+        try {
+          await toggleOnlineMutation.mutateAsync({ driverId: user.id, isOnline: false });
+          console.log("[Logout] Driver set offline on server");
+        } catch (e) {
+          console.error("[Logout] Failed to set driver offline:", e);
+          // Don't block logout if this fails
+        }
+      }
+
       // 1. Call the useAuth logout which clears API session + SecureStore + sets user to null
       await authLogout();
-      console.log("[Logout] Auth logout completed");
 
       // 2. Clear ALL local storage data (appMode, etc.)
       console.log("[Logout] Clearing AsyncStorage...");
