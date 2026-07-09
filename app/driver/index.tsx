@@ -11,6 +11,7 @@ import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
 import { startDriverForegroundService, stopDriverForegroundService } from "@/lib/driver-foreground-service";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { DRIVER_LOCATION_TASK, setBackgroundLocationDriverId } from "@/lib/driver-location-task";
 
 export default function DriverHomeScreen() {
   const router = useRouter();
@@ -482,6 +483,35 @@ export default function DriverHomeScreen() {
               });
             }
           );
+
+          // Android: also start a background location task so pings keep
+          // going while the app is backgrounded/locked, protected by the
+          // foreground service notification started in the effect below.
+          if (Platform.OS === "android") {
+            try {
+              const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+              if (bgStatus === "granted") {
+                setBackgroundLocationDriverId(user!.id);
+                const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+                if (!alreadyStarted) {
+                  await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
+                    accuracy: Location.Accuracy.Balanced,
+                    timeInterval: 15000,
+                    distanceInterval: 0,
+                    foregroundService: {
+                      notificationTitle: "🟢 WeShop4U — You're Online",
+                      notificationBody: "Sharing your location while online",
+                    },
+                  });
+                  console.log("[Driver] Background location task started");
+                }
+              } else {
+                console.log("[Driver] Background location permission not granted");
+              }
+            } catch (e) {
+              console.log("[Driver] Failed to start background location task:", e);
+            }
+          }
         } catch (e) {
           console.log("[Driver] Location tracking not available:", e);
         }
@@ -489,16 +519,31 @@ export default function DriverHomeScreen() {
     }
 
     return () => {
-      if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-      }
-      if (locationSubRef.current) {
-        locationSubRef.current.remove();
-        locationSubRef.current = null;
-      }
-    };
-  }, [isOnline, user?.id]);
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    if (locationSubRef.current) {
+      locationSubRef.current.remove();
+      locationSubRef.current = null;
+    }
+    if (Platform.OS === "android") {
+      (async () => {
+        try {
+          const Location = await import("expo-location");
+          const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+          if (started) {
+            await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+            console.log("[Driver] Background location task stopped");
+          }
+        } catch (e) {
+          console.log("[Driver] Failed to stop background location task:", e);
+        }
+      })();
+      setBackgroundLocationDriverId(null);
+    }
+  };
+}, [isOnline, user?.id]);
   
   // Foreground service (Android only) — persistent "You're Online" notification
   // keeps the app process alive so location/offers can continue while
