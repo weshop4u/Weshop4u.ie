@@ -949,7 +949,7 @@ function AdminOrdersScreenContent() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border" contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border" style={{ maxHeight: 52 }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" }}>
         {STATUS_FILTERS.map(status => {
           const active = statusFilter === status;
           const label = status === "all" ? "All" : status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -1084,9 +1084,9 @@ function AdminOrdersScreenContent() {
                                   <View className="flex-row justify-between">
                                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                                         {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
-                                        <Text className="text-sm text-foreground" style={{ flex: 1 }}>{item.quantity}x {item.productName}</Text>
+                                        <Text style={{ flex: 1, fontSize: 14, color: "#0F172A" }}>{item.quantity}x {item.productName}</Text>
                                       </View>
-                                    <Text className="text-sm text-foreground" style={{ fontWeight: "600", marginLeft: 8 }}>
+                                    <Text style={{ fontSize: 14, fontWeight: "600", marginLeft: 8, color: "#0F172A" }}>
                                       €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
                                     </Text>
                                   </View>
