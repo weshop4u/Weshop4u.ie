@@ -65,7 +65,12 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+    ],
     intentFilters: [
       {
         action: "VIEW",
