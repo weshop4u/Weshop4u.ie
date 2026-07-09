@@ -114,7 +114,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // Import admin auth are
-  const { adminAuthare } = await import("./admin-auth-are.js");
+  const { adminAuthMiddleware } = await import("./admin-auth-middleware.js");
 
   // Protect admin routes at server level - MUST be before static file are
   // This prevents non-admin users from accessing /api/web/admin* pages
