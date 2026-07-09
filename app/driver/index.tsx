@@ -135,28 +135,17 @@ export default function DriverHomeScreen() {
     { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
 
-  // Force driver offline on login - they must manually toggle online when ready
-  // BUT skip this if driver has active deliveries (returning from active-delivery screen)
+  // Sync online status from the server on load — the server is the single
+  // source of truth. Previously this forced the driver offline on every
+  // mount (including in-app navigation and tab reloads, not just true
+  // logins), which was silently taking drivers offline mid-shift while they
+  // still believed they were online. Now it just reflects reality.
   useEffect(() => {
-    if (hasSyncedProfile.current) return; // Only run once
-    // Wait until both profile AND activeDelivery queries have loaded
+    if (hasSyncedProfile.current) return; // Only run once per mount
     if (!driverProfile || !user?.id || activeDeliveryLoading) return;
     hasSyncedProfile.current = true;
-    // If driver has active deliveries, sync online state from DB instead of forcing offline
-    if (activeDelivery && activeDelivery.id) {
-      console.log('[Driver] Has active deliveries, syncing online state from DB');
-      setIsOnline(driverProfile.isOnline ?? true); // Default to online if DB says so
-      return;
-    }
-    // No active deliveries — start offline regardless of DB state
-    setIsOnline(false);
-    // Ensure server also knows we're offline
-    if (driverProfile.isOnline) {
-      toggleOnlineMutation.mutate(
-        { driverId: user.id, isOnline: false },
-        { onSuccess: () => console.log('[Driver] Forced offline on login') }
-      );
-    }
+    console.log('[Driver] Syncing online state from DB:', driverProfile.isOnline);
+    setIsOnline(driverProfile.isOnline ?? false);
   }, [driverProfile, user?.id, activeDelivery, activeDeliveryLoading]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
