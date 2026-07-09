@@ -755,7 +755,7 @@ function AdminOrdersScreenContent() {
                               displayItems.map((item: any, idx2: number) => (
                                 <View key={idx2}>
                                   <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
                                         {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
                                         <TouchableOpacity onPress={() => { router.push({ pathname: "/admin/products", params: { store: String(order.storeId), search: item.productName } }); }}>
                                           <Text style={[dtStyles.detailValue, { flex: 1, color: "#2563EB", textDecorationLine: "underline" }]}>{item.quantity}x {item.productName}</Text>
@@ -1082,7 +1082,7 @@ function AdminOrdersScreenContent() {
                               displayItems.map((item: any, idx2: number) => (
                                 <View key={idx2} style={{ marginBottom: 4 }}>
                                   <View className="flex-row justify-between">
-                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
                                         {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
                                         <Text style={{ flex: 1, fontSize: 14, color: "#0F172A" }}>{item.quantity}x {item.productName}</Text>
                                       </View>
