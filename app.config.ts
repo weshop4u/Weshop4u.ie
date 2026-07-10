@@ -132,7 +132,7 @@ const config: ExpoConfig = {
       projectId: "c0c1895b-8b0b-446b-9473-9e72fd25754a"
     }
   },
-updates: {
+  updates: {
     enabled: true,
     url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a",
     checkAutomatically: "ON_LOAD",
