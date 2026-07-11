@@ -374,8 +374,12 @@ export async function autoCreatePrintJob(orderId: number, storeId: number, recei
       console.log(`[AutoPrint] Pending print job already exists for order ${order.orderNumber} — skipping duplicate`);
       return;
     }
-    // Fetch modifiers for items
-    const itemMods = await fetchItemModifiers(items.map(i => i.id));
+    // Fetch modifiers ONLY for DB-sourced items. Items from receiptData carry
+    // their own embedded modifiers, and their `id` is the PRODUCT id, not the
+    // order_item id — passing product ids to fetchItemModifiers can collide
+    // with unrelated order_item ids and print ghost modifiers from other
+    // orders (the "Red Bull Syrup" bug).
+    const itemMods = receiptDataObj ? undefined : await fetchItemModifiers(items.map(i => i.id));
     // receiptDataObj is already parsed above, use it directly
     // Format and create print job with receiptData
     const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
@@ -492,8 +496,6 @@ export const printRouter = router({
         if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
-      // Fetch modifiers for items
-      const itemMods = await fetchItemModifiers(items.map(i => i.id));
       // Parse receiptData for correct totals
       let receiptDataObj: any = null;
       if (order.receiptData) {
@@ -503,6 +505,9 @@ export const printRouter = router({
           console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}`);
         }
       }
+      // Fetch modifiers ONLY for DB-sourced items (receiptData items embed
+      // their own modifiers and their id is a product id — see ghost bug).
+      const itemMods = receiptDataObj ? undefined : await fetchItemModifiers(items.map(i => i.id));
       // Format and create print job with receiptData
       const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
 
@@ -698,8 +703,6 @@ export const printRouter = router({
         if (order.guestPhone) customerPhone = order.guestPhone;
       }
 
-      // Fetch modifiers for items
-      const itemMods = await fetchItemModifiers(items.map(i => i.id));
       // Parse receiptData for correct totals
       let receiptDataObj: any = null;
       if (order.receiptData) {
@@ -709,6 +712,9 @@ export const printRouter = router({
           console.warn(`[Print] Failed to parse receiptData for order ${input.orderId}`);
         }
       }
+      // Fetch modifiers ONLY for DB-sourced items (receiptData items embed
+      // their own modifiers and their id is a product id — see ghost bug).
+      const itemMods = receiptDataObj ? undefined : await fetchItemModifiers(items.map(i => i.id));
 
       const receiptContent = formatReceipt(order, storeResult[0], items, customerName, customerPhone, itemMods, receiptDataObj);
 
