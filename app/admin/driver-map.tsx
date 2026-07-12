@@ -126,8 +126,11 @@ function DriverMapContent() {
     // Add online driver markers
     onlineWithLocation.forEach(driver => {
       const isDelivering = driver.activeOrders.length > 0;
-      const color = isDelivering ? "#F59E0B" : "#22C55E";
-      const statusText = isDelivering
+      const isStale = driver.isStale === true;
+      const color = isStale ? "#F59E0B" : isDelivering ? "#F59E0B" : "#22C55E";
+      const statusText = isStale
+        ? `⚠️ No signal ${driver.staleMinutes ?? "?"}m`
+        : isDelivering
         ? `On Job: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
         : "Free";
 
@@ -440,7 +443,7 @@ function DriverMapContent() {
                   onPress={() => centerOnDriver(driver.id, driver.latitude, driver.longitude)}
                   disabled={!driver.latitude || !driver.longitude}
                 >
-                  <View style={[styles.driverBadge, { backgroundColor: driver.activeOrders.length > 0 ? "#F59E0B" : "#22C55E" }]}>
+                  <View style={[styles.driverBadge, { backgroundColor: driver.isStale ? "#F59E0B" : driver.activeOrders.length > 0 ? "#F59E0B" : "#22C55E" }]}>
                     <Text style={styles.driverBadgeText}>{driver.displayNumber || "?"}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -469,7 +472,11 @@ function DriverMapContent() {
                     )}
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 4 }}>
-                    {driver.activeOrders.length > 0 ? (
+                    {driver.isStale ? (
+                      <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
+                        <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>No signal {driver.staleMinutes ?? "?"}m</Text>
+                      </View>
+                    ) : driver.activeOrders.length > 0 ? (
                       <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
                         <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>On Job</Text>
                       </View>
