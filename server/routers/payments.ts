@@ -47,6 +47,24 @@ async function elavonRequest(method: string, path: string, body?: any) {
 
   return response.json();
 }
+// ─── Transaction outcome verification ─────────────────────────────────────
+// A transaction EXISTING at Elavon does not mean it succeeded — declined
+// attempts are also stored with type "sale". Payment may only be confirmed
+// on positive evidence of success. Unknown/missing state = NOT paid.
+function getTransactionState(tx: any): string {
+  return String(tx?.state ?? tx?.status ?? tx?.transactionState ?? tx?.transactionStatus ?? tx?.outcome ?? "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+function isTransactionSuccessful(tx: any): boolean {
+  const s = getTransactionState(tx);
+  if (!s) return false; // no state info = no proof of payment
+  if (["declined", "failed", "rejected", "cancelled", "canceled", "voided", "expired", "error"].some(f => s.includes(f))) {
+    return false;
+  }
+  return ["captured", "settled", "authorized", "authorised", "success"].some(ok => s.includes(ok));
+}
 
 export const paymentsRouter = router({
   // Create an Elavon payment session for a card order
@@ -235,12 +253,9 @@ if (reactivate) {
           console.error(`[Payment] Store notification failed for order ${input.orderId}:`, e);
         }
 
-        // Dispatch to driver queue
-        try {
-          await offerOrderToQueue(input.orderId);
-        } catch (e) {
-          console.error(`[Payment] Dispatch failed for order ${input.orderId}:`, e);
-        }
+        // Dispatch now happens only once the order is accepted (store/POS/
+        // admin), not immediately at payment confirmation — see
+        // acceptOrder / acceptOrderFromPOS / updateOrderStatus.
 
         return { status: "completed" as const, paymentStatus: "completed", transactionId };
       };
@@ -249,13 +264,27 @@ if (reactivate) {
       try {
         const session = await elavonRequest("GET", `/payment-sessions/${order.elavonSessionId}`);
 
-        // Session has a transaction — payment confirmed via session
+        // Session has a transaction — but existing does NOT mean succeeded.
+        // Declined attempts also create a transaction on the session
+        // (doCreateTransaction: true). Verify the transaction's actual state
+        // before confirming — blind confirmation here was the root cause of
+        // declined orders being marked paid.
         if (session.transaction) {
           const transactionHref = typeof session.transaction === "string"
             ? session.transaction
             : session.transaction.href || session.transaction.id;
           const transactionId = transactionHref ? String(transactionHref).split("/").pop() : null;
-          return await confirmPayment(transactionId, "session");
+          if (transactionId) {
+            try {
+              const sessionTx = await elavonRequest("GET", `/transactions/${transactionId}`);
+              if (isTransactionSuccessful(sessionTx)) {
+                return await confirmPayment(transactionId, "session");
+              }
+              console.log(`[Payment] Order ${order.orderNumber}: session txn ${transactionId} state "${getTransactionState(sessionTx) || "unknown"}" — NOT confirming`);
+            } catch (txErr) {
+              console.error(`[Payment] Order ${order.orderNumber}: could not verify session txn ${transactionId} — not confirming on unverified evidence:`, txErr);
+            }
+          }
         }
 
         // Session not yet expired — still processing (3DS/Apple Pay in progress)
@@ -285,20 +314,32 @@ if (reactivate) {
   txSearch?.items ||
   (txSearch?.id ? [txSearch] : []);
 
-          // Look for a captured/settled/authorised transaction
-          const captured = txList.find((tx: any) => {
-  // Must match our order number
-  const ref = (tx.orderReference || tx.order_reference || "").toUpperCase();
-  if (ref !== order.orderNumber.toUpperCase()) return false;
-  // Explicitly exclude declined transactions first
-  const s = (tx.status || tx.transactionStatus || "").toUpperCase();
-  if (s === "DECLINED" || s === "FAILED" || s === "REJECTED" || s === "CANCELLED") return false;
-  // Elavon uses "type":"sale" for captures — but only count it if not declined above
-  const type = (tx.type || "").toLowerCase();
-  return type === "sale" || type === "capture" || 
-         s === "CAPTURED" || s === "SETTLED" || s === "AUTHORIZED" || s === "AUTHORISED" || s === "SUCCESS";
-});
-
+          // Look for a transaction with POSITIVE proof of success. Type
+          // "sale" alone is not proof — declined attempts are also sales.
+          // If a list item carries no state field, fetch the full transaction
+          // to check, rather than guessing.
+          let captured: any = null;
+          for (const tx of txList) {
+            const ref = (tx.orderReference || tx.order_reference || "").toUpperCase();
+            if (ref !== order.orderNumber.toUpperCase()) continue;
+            let candidate = tx;
+            if (!getTransactionState(candidate)) {
+              const txId = tx.id || tx.transactionId || tx._links?.self?.href?.split("/").pop();
+              if (txId) {
+                try {
+                  candidate = await elavonRequest("GET", `/transactions/${txId}`);
+                } catch (detailErr) {
+                  console.error(`[Payment] Could not fetch txn detail ${txId} for order ${order.orderNumber}:`, detailErr);
+                  continue;
+                }
+              }
+            }
+            if (isTransactionSuccessful(candidate)) {
+              captured = candidate;
+              break;
+            }
+            console.log(`[Payment] Order ${order.orderNumber}: txn state "${getTransactionState(candidate) || "unknown"}" rejected as proof of payment`);
+          }
           if (captured) {
             const transactionId = captured.id || captured.transactionId ||
               captured._links?.self?.href?.split("/").pop() || null;
