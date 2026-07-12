@@ -211,6 +211,7 @@ export default function CartScreen() {
   const [allowSubstitution, setAllowSubstitution] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash_on_delivery">("cash_on_delivery");
   const [deliveryFeeCalculated, setDeliveryFeeCalculated] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [tipAmount, setTipAmount] = useState(0);
   const [customTip, setCustomTip] = useState("");
   const [showCustomTip, setShowCustomTip] = useState(false);
@@ -399,6 +400,8 @@ export default function CartScreen() {
   };
 
   const handleCheckout = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     console.log("[Checkout] Starting checkout process...");
     if (isGuest) {
       if (!guestName.trim()) {
@@ -495,6 +498,8 @@ export default function CartScreen() {
     } catch (error: any) {
       console.error("[Checkout] Error placing order:", error);
       setErrorMessage(error.message || "Failed to place order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1391,12 +1396,17 @@ export default function CartScreen() {
         
         {/* Checkout Button */}
         <TouchableOpacity
-          onPress={handleCheckout}
-          style={{ marginBottom: Math.max(insets.bottom, 16) + 16 }}
-          className="p-4 rounded-lg items-center bg-primary active:opacity-70"
-        >
-          <Text className="font-bold text-lg text-background">Place Order</Text>
-        </TouchableOpacity>
+            onPress={handleCheckout}
+            disabled={isSubmitting}
+            style={{ marginBottom: Math.max(insets.bottom, 16) + 16, opacity: isSubmitting ? 0.6 : 1 }}
+            className="p-4 rounded-lg items-center bg-primary active:opacity-70"
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text className="font-bold text-lg text-background">Place Order</Text>
+            )}
+          </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>
     </ScreenWrapper>
