@@ -1795,12 +1795,16 @@ export const adminRouter = router({
       }
     });
 
-    const lastPing = driver.lastLocationUpdate ? new Date(driver.lastLocationUpdate) : null;
+    return driversList.map(driver => {
+      const realName = userMap[driver.userId]?.name || "";
+      const phone = userMap[driver.userId]?.phone || "";
+      const label = driver.displayNumber ? `Driver ${driver.displayNumber}` : "Driver";
+      const lastPing = driver.lastLocationUpdate ? new Date(driver.lastLocationUpdate) : null;
       const staleMs = lastPing ? Date.now() - lastPing.getTime() : Infinity;
       const STALE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
       const isStale = driver.isOnline && staleMs > STALE_THRESHOLD_MS;
-      const staleMinutes = isStale ? Math.floor(staleMs / 60000) : null;  
-    return {
+      const staleMinutes = isStale ? Math.floor(staleMs / 60000) : null;
+      return {
         id: driver.id,
         userId: driver.userId,
         label: realName ? `${label} — ${realName}` : label,
