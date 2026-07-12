@@ -131,49 +131,24 @@ function DriverMapContent() {
         ? `On Job: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
         : "Free";
 
-      const markerEl = document.createElement("div");
-      markerEl.style.cssText = `
-        background: ${color};
-        color: white;
-        border: 3px solid white;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 13px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        cursor: pointer;
-      `;
-      markerEl.textContent = driver.displayNumber || "?";
-
-      let marker: any;
-      try {
-        // Try AdvancedMarkerElement first
-        marker = new google.maps.marker.AdvancedMarkerElement({
-          position: { lat: driver.latitude!, lng: driver.longitude! },
-          map: mapRef.current,
-          content: markerEl,
-          title: driver.label,
-        });
-      } catch {
-        // Fallback to standard Marker
-        marker = new google.maps.Marker({
-          position: { lat: driver.latitude!, lng: driver.longitude! },
-          map: mapRef.current,
-          label: { text: driver.displayNumber || "?", color: "white", fontWeight: "bold" },
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 20,
-            fillColor: color,
-            fillOpacity: 1,
-            strokeColor: "white",
-            strokeWeight: 3,
-          },
-        });
-      }
+      // Use a standard Marker (same proven approach as offline drivers below)
+      // rather than AdvancedMarkerElement, which requires a mapId to be set
+      // on map creation and otherwise fails to render ("map is initialised
+      // without a valid Map ID" warning) even though it doesn't throw.
+      const marker = new google.maps.Marker({
+        position: { lat: driver.latitude!, lng: driver.longitude! },
+        map: mapRef.current,
+        label: { text: driver.displayNumber || "?", color: "white", fontWeight: "bold", fontSize: "13px" },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 20,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: "white",
+          strokeWeight: 3,
+        },
+        title: driver.label,
+      });
 
       const popupContent = `
         <div style="min-width: 200px; font-family: system-ui, sans-serif; padding: 4px;">
