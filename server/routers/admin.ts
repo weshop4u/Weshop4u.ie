@@ -295,6 +295,9 @@ export const adminRouter = router({
     .input(
       z.object({
         status: z.string().optional(),
+        search: z.string().optional(),
+        dateFrom: z.string().optional(), // YYYY-MM-DD
+        dateTo: z.string().optional(),   // YYYY-MM-DD
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       }).optional()
@@ -311,6 +314,32 @@ export const adminRouter = router({
       if (input?.status && input.status !== "all") {
         conditions.push(eq(orders.status, input.status as any));
       }
+      // Server-side search: order number, guest name/phone, or registered
+      // customer name/phone — searches the WHOLE table, not just loaded rows
+      if (input?.search && input.search.trim()) {
+        const term = `%${input.search.trim()}%`;
+        conditions.push(
+          sql`(${orders.orderNumber} LIKE ${term} OR ${orders.guestName} LIKE ${term} OR ${orders.guestPhone} LIKE ${term} OR ${orders.customerId} IN (SELECT id FROM users WHERE name LIKE ${term} OR phone LIKE ${term}))`
+        );
+      }
+      // Server-side date range (inclusive, full days)
+      if (input?.dateFrom) {
+        const from = new Date(input.dateFrom);
+        from.setHours(0, 0, 0, 0);
+        conditions.push(gte(orders.createdAt, from));
+      }
+      if (input?.dateTo) {
+        const to = new Date(input.dateTo);
+        to.setHours(23, 59, 59, 999);
+        conditions.push(sql`${orders.createdAt} <= ${to}`);
+      }
+
+      // Total matching count (for "Showing X of Y" and Load more)
+      const [countRow] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(orders)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      const totalCount = Number(countRow?.total ?? 0);
 
       const ordersList = await db
         .select({
@@ -444,17 +473,20 @@ export const adminRouter = router({
         }
       }
 
-      return ordersList.map(order => ({
-        ...order,
-        customerName: order.customerId
-          ? customerMap[order.customerId]?.name || "Unknown"
-          : order.guestName || "Guest",
-        customerPhone: order.customerId
-          ? customerMap[order.customerId]?.phone || ""
-          : order.guestPhone || "",
-        driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
-        items: itemsMap[order.id] || [],
-      }));
+      return {
+        total: totalCount,
+        orders: ordersList.map(order => ({
+          ...order,
+          customerName: order.customerId
+            ? customerMap[order.customerId]?.name || "Unknown"
+            : order.guestName || "Guest",
+          customerPhone: order.customerId
+            ? customerMap[order.customerId]?.phone || ""
+            : order.guestPhone || "",
+          driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
+          items: itemsMap[order.id] || [],
+        })),
+      };
     }),
 
   // Get all drivers with details
