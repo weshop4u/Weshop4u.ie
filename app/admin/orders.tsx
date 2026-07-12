@@ -559,14 +559,6 @@ function AdminOrdersScreenContent() {
         <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>
           Showing {sortedOrders.length} of {serverTotal ?? orders?.length ?? 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
         </Text>
-        {(serverTotal ?? 0) > (orders?.length ?? 0) || (orders?.length ?? 0) >= fetchLimit ? (
-          <TouchableOpacity
-            onPress={() => setFetchLimit(l => l + 200)}
-            style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 10 }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>⬇ Load more orders</Text>
-          </TouchableOpacity>
-        ) : null}
 
         {/* Desktop Table */}
         <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 20 }} contentContainerStyle={{ minWidth: '100%' }}>
@@ -953,6 +945,16 @@ function AdminOrdersScreenContent() {
             </ScrollView>
           </View>
         </ScrollView>
+
+        {/* Load more — sits under the table where it belongs */}
+        {(serverTotal ?? 0) > (orders?.length ?? 0) || (orders?.length ?? 0) >= fetchLimit ? (
+          <TouchableOpacity
+            onPress={() => setFetchLimit(l => l + 200)}
+            style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 10 }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>⬇ Load more orders</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Modals (same for desktop) */}
         {renderModals()}
