@@ -132,10 +132,27 @@ function AdminOrdersScreenContent() {
     }
   }, []);
 
-  const { data: orders, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
-    { status: statusFilter, limit: 100 },
+  const [fetchLimit, setFetchLimit] = useState(100);
+  // Debounce the search box so we don't query the server per keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const { data: ordersRaw, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
+    {
+      status: statusFilter,
+      limit: fetchLimit,
+      search: debouncedSearch || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    } as any,
     { refetchInterval: 10000 }
   );
+  // Works with both server shapes: old = array, new = { total, orders }
+  const orders: any[] | undefined = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw as any)?.orders;
+  const serverTotal: number | undefined = Array.isArray(ordersRaw) ? undefined : (ordersRaw as any)?.total;
 
   const { data: availableDrivers } = trpc.admin.getAvailableDriversForAssignment.useQuery(undefined, {
   enabled: assignModalOrderId !== null || bulkAssignModal,
@@ -238,6 +255,14 @@ function AdminOrdersScreenContent() {
 
   const handleAssignDriver = (orderId: number, driverUserId: number) => {
     assignDriverMutation.mutate({ orderId, driverUserId });
+  };
+
+  // Auto-format date typing: "20260626" → "2026-06-26"
+  const formatDateInput = (v: string) => {
+    const d = v.replace(/[^0-9]/g, "").slice(0, 8);
+    if (d.length <= 4) return d;
+    if (d.length <= 6) return `${d.slice(0, 4)}-${d.slice(4)}`;
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
   };
 
   const toggleSort = (field: SortField) => {
@@ -509,7 +534,7 @@ function AdminOrdersScreenContent() {
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>From:</Text>
             <TextInput
               value={dateFrom}
-              onChangeText={(v) => { setDateFrom(v); setDatePreset("custom"); }}
+              onChangeText={(v) => { setDateFrom(formatDateInput(v)); setDatePreset("custom"); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#CBD5E1"
               style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
@@ -517,7 +542,7 @@ function AdminOrdersScreenContent() {
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>To:</Text>
             <TextInput
               value={dateTo}
-              onChangeText={(v) => { setDateTo(v); setDatePreset("custom"); }}
+              onChangeText={(v) => { setDateTo(formatDateInput(v)); setDatePreset("custom"); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#CBD5E1"
               style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
@@ -532,8 +557,16 @@ function AdminOrdersScreenContent() {
 
         {/* Showing count */}
         <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>
-          Showing {sortedOrders.length} of {orders?.length || 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
+          Showing {sortedOrders.length} of {serverTotal ?? orders?.length ?? 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
         </Text>
+        {(serverTotal ?? 0) > (orders?.length ?? 0) || (orders?.length ?? 0) >= fetchLimit ? (
+          <TouchableOpacity
+            onPress={() => setFetchLimit(l => l + 200)}
+            style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 10 }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>⬇ Load more orders</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Desktop Table */}
         <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ borderRadius: 10, overflow: 'hidden', marginBottom: 20 }} contentContainerStyle={{ minWidth: '100%' }}>
