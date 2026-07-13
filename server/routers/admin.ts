@@ -1442,6 +1442,36 @@ export const adminRouter = router({
       return { success: true };
     }),
 
+  // Send a wake-up push to a driver who appears stale/idle — asks them to
+  // reopen the app to reconnect, or log out if they're done for the day.
+  sendDriverWakeUp: publicProcedure
+    .input(z.object({ driverUserId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [driverUser] = await db
+        .select({ pushToken: users.pushToken, name: users.name })
+        .from(users)
+        .where(eq(users.id, input.driverUserId))
+        .limit(1);
+
+      if (!driverUser) throw new Error("Driver not found");
+      if (!driverUser.pushToken) {
+        throw new Error("This driver has no push token registered — can't reach their phone. They'll need to log in again on the app.");
+      }
+
+      await sendPushNotification(driverUser.pushToken, {
+        title: "⚠️ Are you still online?",
+        body: "You appear inactive in the WeShop4U driver app. Open the app to reconnect, or go offline if you're finished for the day.",
+        data: { type: "driver_wake_up" },
+        channelId: "driver",
+      });
+
+      console.log(`[Admin] Wake-up push sent to driver ${input.driverUserId}`);
+      return { success: true };
+    }),
+
   // Get pending driver applications
   getPendingDrivers: publicProcedure.query(async () => {
     const db = await getDb();
