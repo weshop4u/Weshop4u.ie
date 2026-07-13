@@ -77,6 +77,7 @@ export default function DriverHomeScreen() {
   const [reorderToast, setReorderToast] = useState(false);
   const [viewedJobsScreen, setViewedJobsScreen] = useState(false);
   const [appState, setAppState] = useState<string>(AppState.currentState);
+  const [resyncNonce, setResyncNonce] = useState(0);
   const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showReorderToast = () => {
     setReorderToast(true);
@@ -120,6 +121,20 @@ export default function DriverHomeScreen() {
       // Reset viewed flag when app comes to foreground
       if (state === "active") {
         setViewedJobsScreen(false);
+        // Re-sync with the server on resume — server is the source of truth
+        // for isOnline. If we're online, bump resyncNonce so the location
+        // effect restarts tracking in case Android killed the background task.
+        (async () => {
+          try {
+            const res = await refetchProfile();
+            const serverOnline = res.data?.isOnline ?? false;
+            console.log('[Driver] App resumed — server isOnline:', serverOnline);
+            setIsOnline(serverOnline);
+            if (serverOnline) setResyncNonce(n => n + 1);
+          } catch (e) {
+            console.log('[Driver] Resume re-sync failed:', e);
+          }
+        })();
       }
     };
     
@@ -137,7 +152,7 @@ export default function DriverHomeScreen() {
   // Load driver profile to get actual online status from DB
   // Only fetch once on mount - don't refetch automatically to avoid overriding local state
   const hasSyncedProfile = useRef(false);
-  const { data: driverProfile } = trpc.drivers.getProfile.useQuery(
+  const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
@@ -543,7 +558,7 @@ export default function DriverHomeScreen() {
       setBackgroundLocationDriverId(null);
     }
   };
-}, [isOnline, user?.id]);
+}, [isOnline, user?.id, resyncNonce]);
   
   // Foreground service (Android only) — persistent "You're Online" notification
   // keeps the app process alive so location/offers can continue while
