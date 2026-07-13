@@ -26,6 +26,29 @@ function DriverMapContent() {
   const { data: driverLocations, isLoading, refetch } = trpc.admin.getDriverLocations.useQuery(undefined, {
     refetchInterval: 5000,
   });
+  const sendWakeUpMutation = trpc.admin.sendDriverWakeUp.useMutation();
+
+  // Expose a global handler so the HTML button inside the Google Maps
+  // InfoWindow (plain HTML string, not React) can trigger the mutation.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    (window as any).__sendDriverWakeUp = (driverUserId: number) => {
+      const btn = document.getElementById(`wakeup-btn-${driverUserId}`);
+      if (btn) { btn.textContent = "Sending..."; (btn as any).disabled = true; }
+      sendWakeUpMutation.mutate(
+        { driverUserId },
+        {
+          onSuccess: () => {
+            if (btn) { btn.textContent = "✓ Push sent"; btn.style.background = "#DCFCE7"; btn.style.color = "#166534"; btn.style.borderColor = "#22C55E"; }
+          },
+          onError: (err) => {
+            if (btn) { btn.textContent = "✕ " + (err.message.includes("push token") ? "No push token" : "Failed"); btn.style.background = "#FEE2E2"; btn.style.color = "#DC2626"; btn.style.borderColor = "#EF4444"; }
+          },
+        }
+      );
+    };
+    return () => { delete (window as any).__sendDriverWakeUp; };
+  }, []);
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
   const [showOffline, setShowOffline] = useState(true);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -160,6 +183,7 @@ function DriverMapContent() {
           ${driver.phone ? `<div style="font-size: 12px; margin-bottom: 2px;">📞 <a href="tel:${driver.phone}" style="color: #0369A1;">${driver.phone}</a></div>` : ""}
           ${driver.vehicleType ? `<div style="color: #64748B; font-size: 12px;">🚗 ${driver.vehicleType}</div>` : ""}
           <div style="color: #64748B; font-size: 12px;">Last update: ${timeAgo(driver.lastLocationUpdate)}</div>
+          ${isStale ? `<button id="wakeup-btn-${driver.userId}" onclick="__sendDriverWakeUp(${driver.userId})" style="margin-top: 8px; width: 100%; padding: 8px 12px; background: #E0F2FE; color: #0369A1; border: 1px solid #0EA5E9; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: system-ui, sans-serif;">📣 Send Wake-Up Push</button>` : ""}
           ${driver.activeOrders.length > 0 ? driver.activeOrders.map((o: any) =>
             `<div style="margin-top: 6px; padding: 6px 8px; background: #FEF3C7; border-radius: 6px; font-size: 12px;">
               <strong>${o.orderNumber}</strong> — ${o.status.replace(/_/g, " ")}
