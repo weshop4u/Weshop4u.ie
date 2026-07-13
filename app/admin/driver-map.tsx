@@ -151,8 +151,13 @@ function DriverMapContent() {
       const isDelivering = driver.activeOrders.length > 0;
       const isStale = driver.isStale === true;
       const color = isStale ? "#F59E0B" : isDelivering ? "#F59E0B" : "#22C55E";
+      const formatStale = (m: number | null) => {
+        if (m == null) return "?";
+        if (m < 60) return `${m}m`;
+        return `${Math.floor(m / 60)}h ${m % 60}m`;
+      };
       const statusText = isStale
-        ? `⚠️ No signal ${driver.staleMinutes ?? "?"}m`
+        ? `⚠️ No signal ${formatStale(driver.staleMinutes)}`
         : isDelivering
         ? `On Job: ${driver.activeOrders.map((o: any) => o.orderNumber).join(", ")}`
         : "Free";
@@ -498,7 +503,7 @@ function DriverMapContent() {
                   <View style={{ alignItems: "flex-end", gap: 4 }}>
                     {driver.isStale ? (
                       <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
-                        <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>No signal {driver.staleMinutes ?? "?"}m</Text>
+                        <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "600" }}>No signal {driver.staleMinutes == null ? "?" : driver.staleMinutes < 60 ? `${driver.staleMinutes}m` : `${Math.floor(driver.staleMinutes / 60)}h ${driver.staleMinutes % 60}m`}</Text>
                       </View>
                     ) : driver.activeOrders.length > 0 ? (
                       <View style={[styles.statusPill, { backgroundColor: "#FEF3C7" }]}>
