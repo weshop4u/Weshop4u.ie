@@ -52,6 +52,11 @@ export function usePushNotifications(userId: number | undefined) {
       return;
     }
 
+    let cancelled = false;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 10000; // 10s between attempts
+
     async function registerPushToken() {
       try {
         const Notifications = getNotifications();
@@ -97,11 +102,19 @@ export function usePushNotifications(userId: number | undefined) {
         hasRegistered.current = true;
         console.log("[Push] Token registered with server for user", userId);
       } catch (error) {
-        console.log("[Push] Failed to register push token (expected in Expo Go):", error);
+        console.log(`[Push] Attempt ${attempt + 1} failed to register push token:`, error);
+        attempt++;
+        if (!cancelled && attempt < MAX_ATTEMPTS && !hasRegistered.current) {
+          console.log(`[Push] Retrying in ${RETRY_DELAY_MS / 1000}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
+          setTimeout(() => {
+            if (!cancelled && !hasRegistered.current) registerPushToken();
+          }, RETRY_DELAY_MS);
+        }
       }
     }
 
     registerPushToken();
+    return () => { cancelled = true; };
   }, [userId]);
 
   // Reset registration flag when user changes (e.g., logout + re-login)
@@ -179,6 +192,14 @@ export async function setupNotificationChannels() {
     // Store channel - for store new order alerts
     await Notifications.setNotificationChannelAsync("store", {
       name: "Store Orders",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 250, 500],
+      sound: "default",
+    });
+
+    // Driver channel - for driver alerts (assignments, wake-ups, settlements)
+    await Notifications.setNotificationChannelAsync("driver", {
+      name: "Driver Alerts",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 500, 250, 500],
       sound: "default",
