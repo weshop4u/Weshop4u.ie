@@ -94,6 +94,7 @@ export default function ActiveDeliveryScreen() {
   const [statusError, setStatusError] = useState("");
   const [showReorderPanel, setShowReorderPanel] = useState(false);
   const [idConfirmed, setIdConfirmed] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<{ uri: string; name: string } | null>(null);
   const colors = useColors();
   const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
 
@@ -981,7 +982,12 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                 <View key={index} className="py-2 border-b border-border">
                   <View className="flex-row items-center">
                     {itemImage ? (
-                      <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+                      <TouchableOpacity
+                        onPress={() => setEnlargedImage({ uri: itemImage, name: item.productName || `Item #${item.productId}` })}
+                        activeOpacity={0.7}
+                      >
+                        <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+                      </TouchableOpacity>
                     ) : (
                       <View style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={{ fontSize: 20 }}>📦</Text>
@@ -1053,6 +1059,32 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
         {/* Bottom safe area spacer */}
         <View style={{ height: Math.max(insets.bottom, 16) }} />
       </ScrollView>
+
+      {/* Enlarged product image viewer */}
+      {enlargedImage && (
+        <Pressable
+          onPress={() => setEnlargedImage(null)}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.88)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+            padding: 20,
+          }}
+        >
+          <Image
+            source={{ uri: enlargedImage.uri }}
+            style={{ width: '100%', height: '70%' }}
+            contentFit="contain"
+          />
+          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginTop: 16, textAlign: 'center' }}>
+            {enlargedImage.name}
+          </Text>
+          <Text style={{ color: '#94A3B8', fontSize: 13, marginTop: 6 }}>Tap anywhere to close</Text>
+        </Pressable>
+      )}
 
       {/* Chat Panel */}
       {orderId && user?.id && deliveryStatus !== "delivered" && (
