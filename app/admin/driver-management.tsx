@@ -65,7 +65,19 @@ function AdminDriverManagementContent() {
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
-const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
+const sendWakeUpMutation = trpc.admin.sendDriverWakeUp.useMutation({
+    onSuccess: () => {
+      setSuccessMsg("Wake-up push sent to driver's phone");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setSuccessMsg("");
+      setTimeout(() => setErrorMsg(""), 8000);
+    },
+  });
+  const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
     onSuccess: () => {
       refetch();
       setSuccessMsg("Cash settled successfully");
@@ -305,6 +317,29 @@ const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
                             </TouchableOpacity>
                           </View>
                         )}
+                        {/* Send Wake-Up Push — only show when driver is online */}
+                        {driver.isOnline && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => sendWakeUpMutation.mutate({ driverUserId: driver.userId })}
+                              disabled={sendWakeUpMutation.isPending}
+                              style={{
+                                backgroundColor: '#0EA5E915',
+                                borderWidth: 1,
+                                borderColor: '#0EA5E9',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Text style={{ color: '#0EA5E9', fontWeight: '700', fontSize: 14 }}>
+                                {sendWakeUpMutation.isPending ? 'Sending...' : '📣 Send Wake-Up Push'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
                         {/* Force Offline — only show when driver is online */}
                         {driver.isOnline && (
                           <View className="mt-3 pt-3 border-t border-border">
