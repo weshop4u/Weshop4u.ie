@@ -511,7 +511,11 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
             {
               accuracy: Location.Accuracy.Balanced,
               timeInterval: 5000,
-              distanceInterval: 0,
+              distanceInterval: 10, // meters — 0 means "report on any movement,"
+              // including GPS jitter while stationary, which was re-touching
+              // the location foreground-service notification 1-2x/second and
+              // causing it to visibly flicker. 10m gates out jitter while
+              // still updating promptly once actually moving.
             },
             (loc) => {
               updateLocationMutation.mutate({
@@ -541,7 +545,7 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
                   await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
                     accuracy: Location.Accuracy.Balanced,
                     timeInterval: 15000,
-                    distanceInterval: 0,
+                    distanceInterval: 10,
                     foregroundService: {
                       notificationTitle: "🟢 WeShop4U — You're Online",
                       notificationBody: "Sharing your location while online",
