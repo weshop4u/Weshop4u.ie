@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "264713635574",
+    "project_id": "weshop4u-d4442",
+    "storage_bucket": "weshop4u-d4442.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:264713635574:android:75452f3866280fd8770ed7",
+        "android_client_info": {
+          "package_name": "ie.weshop4u.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBDapCdfbXlrSP5u0kBpWaKct-ZhoXjts"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
