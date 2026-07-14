@@ -114,13 +114,29 @@ export default function DriverHomeScreen() {
   }, [refetchActiveDelivery, refetchBatch, refetchStats, refetchJobsCount]);
 
   // Track app state (foreground/background)
+  const lastResyncAtRef = useRef(0);
+  const prevAppStateRef = useRef(AppState.currentState);
+
   useEffect(() => {
     if (Platform.OS === "web") return; // AppState only works on native
-    
+
     const handleAppStateChange = (state: string) => {
+      const prevState = prevAppStateRef.current;
+      prevAppStateRef.current = state;
       setAppState(state);
       // Reset viewed flag when app comes to foreground
-      if (state === "active") {
+      // Only treat this as a genuine resume if we're transitioning FROM a
+      // non-active state INTO active — AppState can fire "active" repeatedly
+      // in quick succession for reasons that aren't a real backgrounding
+      // (window focus churn, notification shade being pulled down, permission
+      // dialogs), and re-running the resync + location-restart on every one
+      // of those causes the foreground service notification to flicker on/off.
+      // A short cooldown guards against any remaining rapid-fire duplicates.
+      const now = Date.now();
+      const isGenuineResume = state === "active" && prevState !== "active" && (now - lastResyncAtRef.current) > 2000;
+      if (isGenuineResume) {
+        lastResyncAtRef.current = now;
+        setViewedJobsScreen(false);
         setViewedJobsScreen(false);
         // Re-sync with the server on resume — server is the source of truth
         // for isOnline. If we're online, bump resyncNonce so the location
@@ -137,6 +153,8 @@ export default function DriverHomeScreen() {
             console.log('[Driver] Resume re-sync failed:', e);
           }
         })();
+      } else if (state === "active") {
+        setViewedJobsScreen(false);
       }
     };
     
@@ -170,7 +188,9 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
     if (!driverProfile || !user?.id || activeDeliveryLoading) return;
     hasSyncedProfile.current = true;
     console.log('[Driver] Syncing online state from DB:', driverProfile.isOnline);
-    setIsOnline(driverProfile.isOnline ?? false);
+    const serverOnline = driverProfile.isOnline ?? false;
+    setIsOnline(serverOnline);
+    if (serverOnline) setResyncNonce(n => n + 1);
   }, [driverProfile, user?.id, activeDelivery, activeDeliveryLoading]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
