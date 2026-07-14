@@ -79,6 +79,7 @@ export default function DriverHomeScreen() {
   const [appState, setAppState] = useState<string>(AppState.currentState);
   const [resyncNonce, setResyncNonce] = useState(0);
   const refetchProfileRef = useRef<(() => Promise<any>) | null>(null);
+  const trackingActiveRef = useRef(false);
   const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showReorderToast = () => {
     setReorderToast(true);
@@ -148,7 +149,11 @@ export default function DriverHomeScreen() {
             const serverOnline = res.data?.isOnline ?? false;
             console.log('[Driver] App resumed — server isOnline:', serverOnline);
             setIsOnline(serverOnline);
-            if (serverOnline) setResyncNonce(n => n + 1);
+            // Only restart tracking if it isn't already running — otherwise
+            // a resume triggered by the location task's own foreground
+            // service starting (which can itself cause a brief app-state
+            // blip) creates a self-sustaining restart loop.
+            if (serverOnline && !trackingActiveRef.current) setResyncNonce(n => n + 1);
           } catch (e) {
             console.log('[Driver] Resume re-sync failed:', e);
           }
@@ -478,6 +483,7 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
 
     if (!isOnline || !user?.id) return;
 
+    trackingActiveRef.current = true;
     console.log('[Driver] Starting GPS location reporting (online)');
 
     if (Platform.OS === "web") {
@@ -593,6 +599,7 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
       })();
       setBackgroundLocationDriverId(null);
     }
+    trackingActiveRef.current = false;
   };
 }, [isOnline, user?.id, resyncNonce]);
   
