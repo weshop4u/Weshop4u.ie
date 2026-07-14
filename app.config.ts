@@ -137,7 +137,9 @@ const config: ExpoConfig = {
     enabled: true,
     url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a",
     checkAutomatically: "ON_LOAD",
-    fallbackToCacheTimeout: 3000,
+    fallbackToCacheTimeout: 20000, // was 3000ms — too short for these devices'
+    // networks to complete an update check, causing every launch to silently
+    // time out and fall back to the cached bundle with no visible error.
   },
   runtimeVersion: {
     policy: "appVersion"
