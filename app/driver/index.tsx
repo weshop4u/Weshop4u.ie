@@ -528,12 +528,11 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
                     },
                   });
                   console.log("[Driver] Background location task started");
-        } catch (e) {
-          console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
-        }
+      } catch (e) {
+        console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
       }
-                }
-              } else {
+    }
+            } else {
                 console.log("[Driver] Background location permission not granted");
               }
             } catch (e) {
