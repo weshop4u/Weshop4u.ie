@@ -127,7 +127,6 @@ const config: ExpoConfig = {
         },
       },
     ],
-    "@notifee/react-native",
   ],
   extra: {
     eas: {
