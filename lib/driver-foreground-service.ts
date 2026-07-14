@@ -1,5 +1,4 @@
 import { Platform } from "react-native";
-
 // Notifee is a native-only module — guard all access so this file
 // never breaks web or SSR builds.
 let notifee: any = null;
@@ -13,9 +12,14 @@ if (Platform.OS === "android") {
     console.log("[ForegroundService] Notifee not available:", e);
   }
 }
-
 const CHANNEL_ID = "driver-online-status";
 const NOTIFICATION_ID = "driver-foreground-service";
+
+// Track whether the service is already running so repeated calls (e.g. from
+// a React effect re-firing on every object-reference change of `user`) don't
+// re-post the same notification over and over — that repeated re-display is
+// what causes the notification icon to visibly flicker on/off.
+let isServiceRunning = false;
 
 async function ensureChannel() {
   if (!notifee) return;
@@ -25,9 +29,9 @@ async function ensureChannel() {
     importance: AndroidImportance.LOW, // low = no sound/heads-up, just persistent
   });
 }
-
 export async function startDriverForegroundService() {
   if (Platform.OS !== "android" || !notifee) return;
+  if (isServiceRunning) return; // already showing — don't re-post
   try {
     await ensureChannel();
     await notifee.displayNotification({
@@ -43,17 +47,18 @@ export async function startDriverForegroundService() {
         color: "#22C55E",
       },
     });
+    isServiceRunning = true;
     console.log("[ForegroundService] Started");
   } catch (e) {
     console.log("[ForegroundService] Failed to start:", e);
   }
 }
-
 export async function stopDriverForegroundService() {
   if (Platform.OS !== "android" || !notifee) return;
   try {
     await notifee.stopForegroundService();
     await notifee.cancelNotification(NOTIFICATION_ID);
+    isServiceRunning = false;
     console.log("[ForegroundService] Stopped");
   } catch (e) {
     console.log("[ForegroundService] Failed to stop:", e);
