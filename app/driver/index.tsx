@@ -13,6 +13,18 @@ import { startDriverForegroundService, stopDriverForegroundService } from "@/lib
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { DRIVER_LOCATION_TASK, setBackgroundLocationDriverId } from "@/lib/driver-location-task";
 
+// Module-level (not per-instance) locks. If the driver screen is ever
+// mounted more than once simultaneously (e.g. a duplicate navigation push
+// that never unmounted), per-instance refs can't prevent both instances
+// from independently restarting location tracking and triggering each
+// other in a feedback loop — confirmed via device logs showing paired
+// '[Driver] App resumed' lines firing in the same millisecond, repeating
+// every ~900ms, which only makes sense as two live component instances.
+// These locks are shared across every instance so only one can ever be
+// "starting tracking" or "just resynced" at a time.
+let globalTrackingActive = false;
+let globalLastResyncAt = 0;
+
 export default function DriverHomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -79,7 +91,6 @@ export default function DriverHomeScreen() {
   const [appState, setAppState] = useState<string>(AppState.currentState);
   const [resyncNonce, setResyncNonce] = useState(0);
   const refetchProfileRef = useRef<(() => Promise<any>) | null>(null);
-  const trackingActiveRef = useRef(false);
   const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showReorderToast = () => {
     setReorderToast(true);
@@ -115,7 +126,6 @@ export default function DriverHomeScreen() {
   }, [refetchActiveDelivery, refetchBatch, refetchStats, refetchJobsCount]);
 
   // Track app state (foreground/background)
-  const lastResyncAtRef = useRef(0);
   const prevAppStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -132,12 +142,13 @@ export default function DriverHomeScreen() {
       // (window focus churn, notification shade being pulled down, permission
       // dialogs), and re-running the resync + location-restart on every one
       // of those causes the foreground service notification to flicker on/off.
-      // A short cooldown guards against any remaining rapid-fire duplicates.
+      // A short cooldown guards against any remaining rapid-fire duplicates,
+      // and it's stored at module level so it holds even if the screen is
+      // ever mounted more than once simultaneously.
       const now = Date.now();
-      const isGenuineResume = state === "active" && prevState !== "active" && (now - lastResyncAtRef.current) > 2000;
+      const isGenuineResume = state === "active" && prevState !== "active" && (now - globalLastResyncAt) > 2000;
       if (isGenuineResume) {
-        lastResyncAtRef.current = now;
-        setViewedJobsScreen(false);
+        globalLastResyncAt = now;
         setViewedJobsScreen(false);
         // Re-sync with the server on resume — server is the source of truth
         // for isOnline. If we're online, bump resyncNonce so the location
@@ -153,7 +164,7 @@ export default function DriverHomeScreen() {
             // a resume triggered by the location task's own foreground
             // service starting (which can itself cause a brief app-state
             // blip) creates a self-sustaining restart loop.
-            if (serverOnline && !trackingActiveRef.current) setResyncNonce(n => n + 1);
+            if (serverOnline && !globalTrackingActive) setResyncNonce(n => n + 1);
           } catch (e) {
             console.log('[Driver] Resume re-sync failed:', e);
           }
@@ -173,15 +184,15 @@ export default function DriverHomeScreen() {
       setViewedJobsScreen(false);
     }
   }, [isOnline]);
-const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile.useQuery(
+
+  // Load driver profile to get actual online status from DB
+  // Only fetch once on mount - don't refetch automatically to avoid overriding local state
+  const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
   refetchProfileRef.current = refetchProfile;
-  // Load driver profile to get actual online status from DB
-  // Only fetch once on mount - don't refetch automatically to avoid overriding local state
   const hasSyncedProfile = useRef(false);
-  
 
   // Sync online status from the server on load — the server is the single
   // source of truth. Previously this forced the driver offline on every
@@ -195,7 +206,12 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
     console.log('[Driver] Syncing online state from DB:', driverProfile.isOnline);
     const serverOnline = driverProfile.isOnline ?? false;
     setIsOnline(serverOnline);
-    if (serverOnline) setResyncNonce(n => n + 1);
+    // A killed-and-relaunched app is a fresh mount, not an AppState "resume" —
+    // the resume-re-sync effect never fires for it. If the server says we're
+    // online, bump resyncNonce here too so the location effect (re)starts
+    // tracking instead of silently doing nothing while the server thinks
+    // we're pinging. Guarded the same way — only if not already tracking.
+    if (serverOnline && !globalTrackingActive) setResyncNonce(n => n + 1);
   }, [driverProfile, user?.id, activeDelivery, activeDeliveryLoading]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
@@ -483,7 +499,7 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
 
     if (!isOnline || !user?.id) return;
 
-    trackingActiveRef.current = true;
+    globalTrackingActive = true;
     console.log('[Driver] Starting GPS location reporting (online)');
 
     if (Platform.OS === "web") {
@@ -519,9 +535,8 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
               timeInterval: 5000,
               distanceInterval: 10, // meters — 0 means "report on any movement,"
               // including GPS jitter while stationary, which was re-touching
-              // the location foreground-service notification 1-2x/second and
-              // causing it to visibly flicker. 10m gates out jitter while
-              // still updating promptly once actually moving.
+              // the location foreground-service notification. 10m gates out
+              // jitter while still updating promptly once actually moving.
             },
             (loc) => {
               updateLocationMutation.mutate({
@@ -548,21 +563,21 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
                 }
                 if (!alreadyStarted) {
                   try {
-                  await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
-                    accuracy: Location.Accuracy.Balanced,
-                    timeInterval: 15000,
-                    distanceInterval: 10,
-                    foregroundService: {
-                      notificationTitle: "🟢 WeShop4U — You're Online",
-                      notificationBody: "Sharing your location while online",
-                    },
-                  });
-                  console.log("[Driver] Background location task started");
-      } catch (e) {
-        console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
-      }
-    }
-            } else {
+                    await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
+                      accuracy: Location.Accuracy.Balanced,
+                      timeInterval: 15000,
+                      distanceInterval: 10,
+                      foregroundService: {
+                        notificationTitle: "🟢 WeShop4U — You're Online",
+                        notificationBody: "Sharing your location while online",
+                      },
+                    });
+                    console.log("[Driver] Background location task started");
+                  } catch (e) {
+                    console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
+                  }
+                }
+              } else {
                 console.log("[Driver] Background location permission not granted");
               }
             } catch (e) {
@@ -576,32 +591,32 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
     }
 
     return () => {
-    if (locationIntervalRef.current) {
-      clearInterval(locationIntervalRef.current);
-      locationIntervalRef.current = null;
-    }
-    if (locationSubRef.current) {
-      locationSubRef.current.remove();
-      locationSubRef.current = null;
-    }
-    if (Platform.OS === "android") {
-      (async () => {
-        try {
-          const Location = await import("expo-location");
-          const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
-          if (started) {
-            await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK);
-            console.log("[Driver] Background location task stopped");
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+      if (locationSubRef.current) {
+        locationSubRef.current.remove();
+        locationSubRef.current = null;
+      }
+      if (Platform.OS === "android") {
+        (async () => {
+          try {
+            const Location = await import("expo-location");
+            const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+            if (started) {
+              await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+              console.log("[Driver] Background location task stopped");
+            }
+          } catch (e) {
+            console.log("[Driver] Failed to stop background location task:", e);
           }
-        } catch (e) {
-          console.log("[Driver] Failed to stop background location task:", e);
-        }
-      })();
-      setBackgroundLocationDriverId(null);
-    }
-    trackingActiveRef.current = false;
-  };
-}, [isOnline, user?.id, resyncNonce]);
+        })();
+        setBackgroundLocationDriverId(null);
+      }
+      globalTrackingActive = false;
+    };
+  }, [isOnline, user?.id, resyncNonce]);
   
   // Foreground service (Android only) — persistent "You're Online" notification
   // keeps the app process alive so location/offers can continue while
