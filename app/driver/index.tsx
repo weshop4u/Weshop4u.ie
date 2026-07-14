@@ -510,8 +510,14 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
               const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
               if (bgStatus === "granted") {
                 setBackgroundLocationDriverId(user!.id);
-                const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+                let alreadyStarted = false;
+                try {
+                  alreadyStarted = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+                } catch (e) {
+                  console.log("[Driver] Background location task unavailable on this build:", e);
+                }
                 if (!alreadyStarted) {
+                  try {
                   await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
                     accuracy: Location.Accuracy.Balanced,
                     timeInterval: 15000,
@@ -522,6 +528,10 @@ const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile
                     },
                   });
                   console.log("[Driver] Background location task started");
+        } catch (e) {
+          console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
+        }
+      }
                 }
               } else {
                 console.log("[Driver] Background location permission not granted");
