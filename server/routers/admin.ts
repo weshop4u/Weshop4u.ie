@@ -737,9 +737,7 @@ export const adminRouter = router({
         const [customer] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, orderData.customerId)).limit(1);
         if (customer?.pushToken) {
           const msgs: Record<string, { title: string; body: string }> = {
-            accepted: { title: "Order Confirmed!", body: `Order #${orderData.orderNumber} has been confirmed.` },
             preparing: { title: "Preparing Your Order", body: `Order #${orderData.orderNumber} is being prepared.` },
-            ready_for_pickup: { title: "Order Ready", body: `Order #${orderData.orderNumber} is ready for pickup.` },
             on_the_way: { title: "On the Way!", body: `Order #${orderData.orderNumber} is on its way to you!` },
             delivered: { title: "Order Delivered!", body: `Order #${orderData.orderNumber} has been delivered. Enjoy!` },
             cancelled: { title: "Order Cancelled", body: `Order #${orderData.orderNumber} has been cancelled.` },
