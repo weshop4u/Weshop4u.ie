@@ -37,11 +37,10 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function calculateDeliveryFee(distanceKm: number): number {
-  const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 2.8;
-  const COST_PER_KM = 1.00;
-  if (distanceKm <= BASE_DISTANCE) return BASE_FEE;
-  return Math.round((BASE_FEE + (distanceKm - BASE_DISTANCE) * COST_PER_KM) * 100) / 100;
+  if (distanceKm <= 2.8) return 3.50;
+  if (distanceKm <= 3.99) return 4.00;
+  if (distanceKm <= 4.99) return 4.90;
+  return Math.round(distanceKm * 100) / 100;
 }
 
 // PIN required to permanently delete orders. Checked server-side only — this
