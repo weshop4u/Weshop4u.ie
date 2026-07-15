@@ -1131,8 +1131,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       const todayCashFees = todayOrders
         .filter(o => o.paymentMethod === 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
-      const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCashFees);
-
+      const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCardEarnings - todayCashFees);
       // Card/cash breakdown — this week
       const weekCardEarnings = weekPayEligible
         .filter(o => o.paymentMethod !== 'cash_on_delivery')
@@ -1143,8 +1142,7 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
       const weekCashFees = weekOrders
         .filter(o => o.paymentMethod === 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
-      const weekCashOwedToOffice = Math.max(0, weekCashCollected - weekCashFees);
-
+      const weekCashOwedToOffice = Math.max(0, weekCashCollected - weekCardEarnings - weekCashFees);
       return {
         todayEarnings,
         todayTips,
@@ -1732,13 +1730,16 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           .filter(o => o.paymentMethod === 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
         todayCashOwedToOffice: Math.max(0,
-          todayOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
-          - todayOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
-        ),
+    todayOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+    - todayPayEligible
+      .filter(o => o.paymentMethod !== 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0)
+    - todayOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+  ),
         weekCardEarnings: weekPayEligible
           .filter(o => o.paymentMethod !== 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
@@ -1746,13 +1747,16 @@ const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
           .filter(o => o.paymentMethod === 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
         weekCashOwedToOffice: Math.max(0,
-          weekOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
-          - weekOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
-        ),
+    weekOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+    - weekPayEligible
+      .filter(o => o.paymentMethod !== 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0)
+    - weekOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+  ),
         dailyBreakdown,
         recentDeliveries: completedOrders.slice(0, 50).map(order => {
           const isPaid = isPayEligible(order);
