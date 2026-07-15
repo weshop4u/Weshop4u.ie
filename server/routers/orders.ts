@@ -54,17 +54,10 @@ function calculateDistance(
 
 // Helper function to calculate delivery fee based on distance
 function calculateDeliveryFee(distanceKm: number): number {
-  const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 2.8;
-  const COST_PER_KM = 1.00;
-
-  if (distanceKm <= BASE_DISTANCE) {
-    return BASE_FEE;
-  }
-
-  const additionalDistance = distanceKm - BASE_DISTANCE;
-  const additionalCost = additionalDistance * COST_PER_KM;
-  return Math.round((BASE_FEE + additionalCost) * 100) / 100; // Round to 2 decimal places
+  if (distanceKm <= 2.8) return 3.50;
+  if (distanceKm <= 3.99) return 4.00;
+  if (distanceKm <= 4.99) return 4.90;
+  return Math.round(distanceKm * 100) / 100;
 }
 
 export const ordersRouter = router({
