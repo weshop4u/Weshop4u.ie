@@ -1084,21 +1084,9 @@ export const ordersRouter = router({
       // Send notification if we have a push token
       if (pushToken) {
         const notificationMessages: Record<string, { title: string; body: string }> = {
-          accepted: {
-            title: "Order Confirmed! 🎉",
-            body: `Order #${orderData.orderNumber} has been confirmed and is being prepared.`,
-          },
           preparing: {
             title: "Preparing Your Order 👨‍🍳",
             body: `Order #${orderData.orderNumber} is being prepared.`,
-          },
-          ready_for_pickup: {
-            title: "Order Ready for Pickup 📦",
-            body: `Order #${orderData.orderNumber} is ready! A driver will pick it up soon.`,
-          },
-          picked_up: {
-            title: "Driver Picked Up Order 📦",
-            body: `Order #${orderData.orderNumber} has been picked up by the driver.`,
           },
           on_the_way: {
             title: "Driver on the Way 🚗",
