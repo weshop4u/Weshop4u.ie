@@ -188,7 +188,7 @@ export default function DriverEarningsScreen() {
                     <Text style={{ fontSize: 18 }}>🏦</Text>
                     <View>
                       <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14 }}>Cash owed to office</Text>
-                      <Text style={{ color: colors.muted, fontSize: 11 }}>Cash collected minus your delivery fees</Text>
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>Cash collected minus all delivery earnings</Text>
                     </View>
                   </View>
                   <Text style={{ color: colors.warning, fontWeight: '800', fontSize: 17 }}>
