@@ -39,7 +39,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.19",
+  version: "1.0.20",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -54,7 +54,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 9,
+    versionCode: 10,
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
       backgroundColor: "#0F172A",
