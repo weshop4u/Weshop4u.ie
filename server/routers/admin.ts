@@ -1369,10 +1369,14 @@ export const adminRouter = router({
     }),
 
   // Delete a driver account and recycle their display number
-  deleteDriver: publicProcedure
-    .input(z.object({ driverId: z.number() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
+    // Requires the server-side delete PIN (same PIN as order deletion)
+    deleteDriver: publicProcedure
+      .input(z.object({ driverId: z.number(), pin: z.string() }))
+      .mutation(async ({ input }) => {
+        if (input.pin !== ORDER_DELETE_PIN) {
+          throw new Error("Incorrect PIN");
+        }
+        const db = await getDb();
       if (!db) throw new Error("Database not available");
       
       // Check if driver has any active deliveries (assigned/picked_up/in_transit)
