@@ -148,7 +148,7 @@ function AdminOrdersScreenContent() {
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
     } as any,
-    { refetchInterval: 10000 }
+    { refetchInterval: 10000, placeholderData: (prev: any) => prev }
   );
   // Works with both server shapes: old = array, new = { total, orders }
   const orders: any[] | undefined = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw as any)?.orders;
