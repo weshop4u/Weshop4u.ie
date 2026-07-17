@@ -711,7 +711,7 @@ function AdminOrdersScreenContent() {
                       )}
                       {order.discountCodeName && parseFloat(order.discountAmount || "0") > 0 && (
                         <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706", marginTop: 1 }} numberOfLines={1}>
-                          🎟️ {order.discountCodeName}
+                          🎟️ {order.discountCodeName} -€{parseFloat(order.discountAmount).toFixed(2)}
                         </Text>
                       )}
                     </View>
