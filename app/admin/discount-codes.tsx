@@ -55,12 +55,15 @@ export default function DiscountCodesScreen() {
   const [form, setForm] = useState<CreateForm>({ ...emptyForm });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [toast, setToast] = useState("");
-
+  const [viewUsageId, setViewUsageId] = useState<number | null>(null);
   const { data: codes, refetch } = trpc.discounts.list.useQuery(
     { includeInactive: showInactive }
   );
   const { data: stores } = trpc.stores.getAll.useQuery();
-
+  const { data: usageDetail, isLoading: usageLoading } = trpc.discounts.getById.useQuery(
+    { id: viewUsageId! },
+    { enabled: viewUsageId !== null }
+  );
   const createMutation = trpc.discounts.create.useMutation({
     onSuccess: () => {
       refetch();
@@ -308,6 +311,12 @@ export default function DiscountCodesScreen() {
 
               {/* Actions */}
               <View style={styles.actionRow}>
+                <Pressable
+                  onPress={() => setViewUsageId(code.id)}
+                  style={({ pressed }) => [styles.actionBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={[styles.actionBtnText, { color: colors.primary }]}>View Usage ({code.currentUsesTotal || 0})</Text>
+                </Pressable>
                 <Pressable
                   onPress={() => handleEdit(code)}
                   style={({ pressed }) => [styles.actionBtn, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}
@@ -581,6 +590,63 @@ export default function DiscountCodesScreen() {
                   </Text>
                 </Pressable>
               </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* View Usage Modal */}
+      <Modal visible={viewUsageId !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <ScrollView>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <Text style={[styles.modalTitle, { color: colors.foreground, marginBottom: 0 }]}>
+                  {usageDetail ? `${usageDetail.code} — Usage` : "Usage"}
+                </Text>
+                <Pressable onPress={() => setViewUsageId(null)}>
+                  <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
+                </Pressable>
+              </View>
+
+              {usageLoading && (
+                <Text style={{ color: colors.muted, textAlign: "center", paddingVertical: 24 }}>Loading...</Text>
+              )}
+
+              {usageDetail && usageDetail.usage.length === 0 && (
+                <Text style={{ color: colors.muted, textAlign: "center", paddingVertical: 24 }}>No redemptions yet</Text>
+              )}
+
+              {usageDetail && usageDetail.usage.map((u) => (
+                <View
+                  key={u.id}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 8,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                      {u.customerName || "Unknown"}
+                    </Text>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#D97706" }}>
+                      -€{parseFloat(u.discountAmount || "0").toFixed(2)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: colors.muted }}>{u.customerEmail || "No email"}</Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>
+                      {u.orderId ? `Order #${u.orderId}` : "No order linked"}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>
+                      {u.usedAt ? new Date(u.usedAt).toLocaleString() : ""}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </ScrollView>
           </View>
         </View>
