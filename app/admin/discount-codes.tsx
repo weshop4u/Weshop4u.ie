@@ -56,6 +56,9 @@ export default function DiscountCodesScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [toast, setToast] = useState("");
   const [viewUsageId, setViewUsageId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; code: string } | null>(null);
+  const [deletePin, setDeletePin] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const { data: codes, refetch } = trpc.discounts.list.useQuery(
     { includeInactive: showInactive }
   );
@@ -95,8 +98,12 @@ export default function DiscountCodesScreen() {
   const deleteMutation = trpc.discounts.delete.useMutation({
     onSuccess: () => {
       refetch();
+      setDeleteTarget(null);
+      setDeletePin("");
+      setDeleteError("");
       showToast("Discount code deleted");
     },
+    onError: (err) => setDeleteError(err.message),
   });
 
   function showToast(msg: string) {
@@ -146,16 +153,9 @@ export default function DiscountCodesScreen() {
   }
 
   function handleDelete(id: number, codeName: string) {
-    if (Platform.OS === "web") {
-      if (confirm(`Delete discount code "${codeName}"? This cannot be undone.`)) {
-        deleteMutation.mutate({ id });
-      }
-    } else {
-      Alert.alert("Delete Code", `Delete "${codeName}"? This cannot be undone.`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ id }) },
-      ]);
-    }
+    setDeleteTarget({ id, code: codeName });
+    setDeletePin("");
+    setDeleteError("");
   }
 
   function formatDiscountLabel(type: string, value: string | null) {
@@ -648,6 +648,62 @@ export default function DiscountCodesScreen() {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation — PIN protected */}
+      <Modal visible={deleteTarget !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border, maxWidth: 380 }]}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: "#DC2626", marginBottom: 8 }}>
+              ⚠️ Delete "{deleteTarget?.code}"?
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 16, lineHeight: 20 }}>
+              This permanently deletes the discount code and its usage history. This cannot be undone.
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Enter PIN to confirm</Text>
+            <TextInput
+              value={deletePin}
+              onChangeText={(v) => { setDeletePin(v.replace(/[^0-9]/g, "").slice(0, 4)); setDeleteError(""); }}
+              placeholder="••••"
+              placeholderTextColor={colors.muted}
+              secureTextEntry
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+              style={[styles.input, {
+                borderColor: deleteError ? "#DC2626" : colors.border,
+                color: colors.foreground,
+                fontSize: 18,
+                letterSpacing: 8,
+                textAlign: "center",
+                marginBottom: 8,
+              }]}
+            />
+            {deleteError ? (
+              <Text style={{ fontSize: 12, color: "#DC2626", marginBottom: 8 }}>{deleteError}</Text>
+            ) : null}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+              <Pressable
+                onPress={() => { setDeleteTarget(null); setDeletePin(""); setDeleteError(""); }}
+                style={[styles.cancelBtn, { borderColor: colors.border, flex: 1 }]}
+              >
+                <Text style={[styles.cancelBtnText, { color: colors.foreground, textAlign: "center" }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (deletePin.length !== 4) { setDeleteError("Enter the 4-digit PIN"); return; }
+                  if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id, pin: deletePin });
+                }}
+                disabled={deleteMutation.isPending}
+                style={[styles.saveBtn, { backgroundColor: deleteMutation.isPending ? "#D1D5DB" : "#DC2626", flex: 1 }]}
+              >
+                <Text style={[styles.saveBtnText, { textAlign: "center" }]}>
+                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
