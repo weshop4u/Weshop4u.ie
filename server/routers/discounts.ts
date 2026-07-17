@@ -210,10 +210,13 @@ export const discountsRouter = router({
       return { success: true, isActive: !code.isActive };
     }),
 
-  // Delete a discount code (admin)
+  // Delete a discount code (admin). PIN-gated since this is destructive.
   delete: publicProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.number(), pin: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (input.pin !== "1204") {
+        throw new Error("Incorrect PIN");
+      }
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       // Delete usage records first
