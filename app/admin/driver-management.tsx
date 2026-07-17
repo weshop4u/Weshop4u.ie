@@ -17,6 +17,7 @@ function AdminDriverManagementContent() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [deletePin, setDeletePin] = useState("");
 
   const { data: drivers, isLoading, refetch } = trpc.admin.getAllDrivers.useQuery(undefined, {
     refetchInterval: 15000,
@@ -26,6 +27,7 @@ function AdminDriverManagementContent() {
     onSuccess: (result) => {
       refetch();
       setDeleteConfirm(null);
+      setDeletePin("");
       setExpandedId(null);
       setSuccessMsg(result.message);
       setErrorMsg("");
@@ -33,6 +35,7 @@ function AdminDriverManagementContent() {
     },
     onError: (err) => {
       setDeleteConfirm(null);
+      setDeletePin("");
       setErrorMsg(err.message);
       setSuccessMsg("");
       setTimeout(() => setErrorMsg(""), 5000);
@@ -447,12 +450,24 @@ const sendWakeUpMutation = trpc.admin.sendDriverWakeUp.useMutation({
             <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 4 }}>
               Are you sure you want to delete <Text style={{ fontWeight: '700', color: colors.foreground }}>{deleteConfirm.name}</Text>?
             </Text>
-            <Text style={{ fontSize: 13, color: colors.error, marginBottom: 20 }}>
+            <Text style={{ fontSize: 13, color: colors.error, marginBottom: 16 }}>
               This will permanently remove their account and free their display number. This cannot be undone.
             </Text>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 20 }}>
+              <TextInput
+                value={deletePin}
+                onChangeText={setDeletePin}
+                placeholder="Enter PIN to confirm"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                style={{ fontSize: 16, color: colors.foreground, textAlign: "center", letterSpacing: 4 }}
+              />
+            </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
-                onPress={() => setDeleteConfirm(null)}
+                onPress={() => { setDeleteConfirm(null); setDeletePin(""); }}
                 style={{
                   flex: 1, backgroundColor: colors.surface, paddingVertical: 12,
                   borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
@@ -461,12 +476,12 @@ const sendWakeUpMutation = trpc.admin.sendDriverWakeUp.useMutation({
                 <Text style={{ color: colors.foreground, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => deleteDriverMutation.mutate({ driverId: deleteConfirm.id })}
-                disabled={deleteDriverMutation.isPending}
+                onPress={() => deleteDriverMutation.mutate({ driverId: deleteConfirm.id, pin: deletePin })}
+                disabled={deleteDriverMutation.isPending || deletePin.length === 0}
                 style={{
                   flex: 1, backgroundColor: colors.error, paddingVertical: 12,
                   borderRadius: 10, alignItems: 'center',
-                  opacity: deleteDriverMutation.isPending ? 0.5 : 1,
+                  opacity: (deleteDriverMutation.isPending || deletePin.length === 0) ? 0.5 : 1,
                 }}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
