@@ -710,6 +710,11 @@ function AdminOrdersScreenContent() {
                           💜 €{parseFloat(order.tipAmount).toFixed(2)}
                         </Text>
                       )}
+                      {order.discountCodeName && parseFloat(order.discountAmount || "0") > 0 && (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706", marginTop: 1 }} numberOfLines={1}>
+                          🎟️ {order.discountCodeName}
+                        </Text>
+                      )}
                     </View>
                     {/* Actions */}
                     <View style={[dtStyles.td, { width: COL_WIDTHS.actions, flexDirection: "row", gap: 6, alignItems: "center" }]}>
