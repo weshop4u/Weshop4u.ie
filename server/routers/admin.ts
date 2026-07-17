@@ -316,9 +316,9 @@ export const adminRouter = router({
       // Server-side search: order number, guest name/phone, or registered
       // customer name/phone — searches the WHOLE table, not just loaded rows
       if (input?.search && input.search.trim()) {
-        const term = `%${input.search.trim()}%`;
+        const term = `%${input.search.trim().toLowerCase()}%`;
         conditions.push(
-          sql`(${orders.orderNumber} LIKE ${term} OR ${orders.guestName} LIKE ${term} OR ${orders.guestPhone} LIKE ${term} OR ${orders.customerId} IN (SELECT id FROM users WHERE name LIKE ${term} OR phone LIKE ${term}))`
+          sql`(LOWER(${orders.orderNumber}) LIKE ${term} OR LOWER(${orders.guestName}) LIKE ${term} OR LOWER(${orders.guestPhone}) LIKE ${term} OR ${orders.customerId} IN (SELECT id FROM users WHERE LOWER(name) LIKE ${term} OR LOWER(phone) LIKE ${term}))`
         );
       }
       // Server-side date range (inclusive, full days)
