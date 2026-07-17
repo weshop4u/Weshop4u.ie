@@ -44,7 +44,7 @@ const COL_WIDTHS = {
   status: 138,
   driver: 108,
   payment: 104,
-  total: 130,
+  total: 160,
   actions: 152,
 };
 
