@@ -355,6 +355,8 @@ export const adminRouter = router({
           deliveryAddress: orders.deliveryAddress,
           deliveryDistance: orders.deliveryDistance,
           customerNotes: orders.customerNotes,
+          discountCodeName: orders.discountCodeName,
+          discountAmount: orders.discountAmount,
           createdAt: orders.createdAt,
           deliveredAt: orders.deliveredAt,
           cancelledAt: orders.cancelledAt,
