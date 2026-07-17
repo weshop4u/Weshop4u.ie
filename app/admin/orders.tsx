@@ -8,7 +8,6 @@ import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
 import { Image } from "expo-image";
-
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -708,6 +707,11 @@ function AdminOrdersScreenContent() {
                       {parseFloat(order.tipAmount || "0") > 0 && (
                         <Text style={{ fontSize: 10, fontWeight: "700", color: "#8B5CF6", marginTop: 1 }} numberOfLines={1}>
                           💜 €{parseFloat(order.tipAmount).toFixed(2)}
+                        </Text>
+                      )}
+                      {order.discountCodeName && parseFloat(order.discountAmount || "0") > 0 && (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706", marginTop: 1 }} numberOfLines={1}>
+                          🎟️ {order.discountCodeName}
                         </Text>
                       )}
                     </View>
