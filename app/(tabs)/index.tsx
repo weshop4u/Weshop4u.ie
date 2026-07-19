@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, TextInput, Platform, Modal } from "react-native";
 import { ScreenWrapper } from "@/components/native-wrapper";
 import WebHome from "./web-home";
 import { Image } from "expo-image";
@@ -6,9 +6,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
+
+const LOCATION_DISCLOSURE_KEY = "locationDisclosureShown";
 
 type StoreCategory = "convenience" | "restaurant" | "hardware" | "electrical" | "clothing" | "grocery" | "pharmacy" | "other";
 
@@ -37,8 +40,34 @@ export default function HomeScreen() {
   const { data: activeBanners } = trpc.banners.getActive.useQuery();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const { location, loading: locationLoading, permissionDenied } = useLocation();
+  const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
+  const [disclosureChecked, setDisclosureChecked] = useState(false);
+  const hasCheckedDisclosureRef = useRef(false);
+  const { location, loading: locationLoading, permissionDenied, refresh: refreshLocation } = useLocation(true);
 
+  // Show the location disclosure once, before requesting location — Google
+  // Play's Prominent Disclosure & Consent requirement. Skips straight to
+  // fetching if already acknowledged on this device.
+  useEffect(() => {
+    if (hasCheckedDisclosureRef.current) return;
+    hasCheckedDisclosureRef.current = true;
+    (async () => {
+      const seen = await AsyncStorage.getItem(LOCATION_DISCLOSURE_KEY);
+      if (seen === "true") {
+        setDisclosureChecked(true);
+        refreshLocation();
+      } else {
+        setShowLocationDisclosure(true);
+      }
+    })();
+  }, []);
+
+  const acknowledgeLocationDisclosure = async () => {
+    await AsyncStorage.setItem(LOCATION_DISCLOSURE_KEY, "true");
+    setShowLocationDisclosure(false);
+    setDisclosureChecked(true);
+    refreshLocation();
+  };
   // Filter stores based on search query
   const filteredStores = useMemo(() => {
     if (!stores) return [];
@@ -345,6 +374,28 @@ export default function HomeScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Location Disclosure — shown once, before the OS permission prompt */}
+      <Modal visible={showLocationDisclosure} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%' }}>
+            <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>📍</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 12 }}>
+              Use Your Location
+            </Text>
+            <Text style={{ fontSize: 14, color: '#475569', lineHeight: 21, marginBottom: 20 }}>
+              WeShop4U uses your location to show nearby stores sorted by distance and to help calculate accurate delivery fees. Location is only used while you're using the app.{"\n\n"}
+              You'll be asked to allow this on the next screen.
+            </Text>
+            <TouchableOpacity
+              onPress={acknowledgeLocationDisclosure}
+              style={{ backgroundColor: '#00E5FF', borderRadius: 10, padding: 14, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 15 }}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
