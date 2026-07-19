@@ -1588,7 +1588,6 @@ export default function DriverHomeScreen() {
             </ScrollView>
           </View>
         </View>
-      </View>
       </Modal>
 
       {/* Background Location Disclosure — shown once, before the OS permission
