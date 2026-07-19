@@ -38,7 +38,7 @@ export function calculateDistance(
   return R * c;
 }
 
-export function useLocation(): UseLocationResult {
+export function useLocation(skipAutoFetch?: boolean): UseLocationResult {
   const [location, setLocation] = useState<UserLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,8 +123,12 @@ export function useLocation(): UseLocationResult {
   }, []);
 
   useEffect(() => {
+    if (skipAutoFetch) {
+      setLoading(false);
+      return;
+    }
     fetchLocation();
-  }, [fetchLocation]);
+  }, [fetchLocation, skipAutoFetch]);
 
   return {
     location,
