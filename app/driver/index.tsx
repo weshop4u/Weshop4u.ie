@@ -67,6 +67,23 @@ export default function DriverHomeScreen() {
   const [countdown, setCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
+  const locationDisclosureResolveRef = useRef<(() => void) | null>(null);
+
+  // Shows the background-location disclosure once per device, before the
+  // OS permission prompt ever appears (Google Play "Prominent Disclosure"
+  // requirement). Resolves immediately if already acknowledged.
+  const ensureLocationDisclosure = useCallback(async (): Promise<void> => {
+    const seen = await AsyncStorage.getItem("bgLocationDisclosureShown");
+    if (seen === "true") return;
+    return new Promise((resolve) => {
+      locationDisclosureResolveRef.current = () => {
+        AsyncStorage.setItem("bgLocationDisclosureShown", "true");
+        resolve();
+      };
+      setShowLocationDisclosure(true);
+    });
+  }, []);
   const lastNotifiedOfferId = useRef<number | null>(null);
   const isAutoTogglingOffRef = useRef(false);
   const lastExpiredOfferId = useRef<number | null>(null);
@@ -552,6 +569,7 @@ export default function DriverHomeScreen() {
           // foreground service notification started in the effect below.
           if (Platform.OS === "android") {
             try {
+              await ensureLocationDisclosure();
               const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
               if (bgStatus === "granted") {
                 setBackgroundLocationDriverId(user!.id);
@@ -1568,6 +1586,38 @@ export default function DriverHomeScreen() {
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Done</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </View>
+      </Modal>
+
+      {/* Background Location Disclosure — shown once, before the OS permission
+          prompt, per Google Play's Prominent Disclosure & Consent requirement */}
+      <Modal
+        visible={showLocationDisclosure}
+        transparent
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%' }}>
+            <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>📍</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 12 }}>
+              Background Location Access
+            </Text>
+            <Text style={{ fontSize: 14, color: '#475569', lineHeight: 21, marginBottom: 20 }}>
+              While you're online for a delivery, WeShop4U shares your location in the background — even when the app isn't open — so we can dispatch nearby orders to you and let customers track their delivery in real time.{"\n\n"}
+              Location sharing stops as soon as you go offline or end your shift. You'll be asked to allow this on the next screen.
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLocationDisclosure(false);
+                locationDisclosureResolveRef.current?.();
+                locationDisclosureResolveRef.current = null;
+              }}
+              style={{ backgroundColor: '#0a7ea4', borderRadius: 10, padding: 14, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
