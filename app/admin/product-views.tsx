@@ -4,6 +4,17 @@ import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 
+function timeAgo(ms?: number | null): string | null {
+  if (!ms) return null;
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function AdminProductViews() {
   const [timePeriod, setTimePeriod] = useState<"today" | "week" | "month" | "all">("week");
   const [storeId, setStoreId] = useState<number | null>(null);
@@ -146,6 +157,11 @@ export default function AdminProductViews() {
                     <Text style={{ fontSize: 11, color: "#687076", marginTop: 2 }}>
                       {product.storeName || "All Stores"}
                     </Text>
+                    {timeAgo((product as any).lastViewedAtMs) && (
+                      <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                        Last viewed {timeAgo((product as any).lastViewedAtMs)}
+                      </Text>
+                    )}
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
                     <Text style={{ fontSize: 14, fontWeight: "700", color: "#00E5FF" }}>
