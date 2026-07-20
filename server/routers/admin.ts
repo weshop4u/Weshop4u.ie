@@ -2838,40 +2838,35 @@ export const adminRouter = router({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
 
-      let allOrders = await db.select().from(orders).where(
-        gte(orders.createdAt, startDate)
-      );
-
-      // Filter by store if storeId is provided
+      // Single JOIN query replaces the old per-order + per-item loop
+      // (thousands of sequential DB round trips — the 30-60s load time)
+      const conditions = [gte(orders.createdAt, startDate)];
       if (input.storeId) {
-        allOrders = allOrders.filter(order => order.storeId === input.storeId);
+        conditions.push(eq(orders.storeId, input.storeId));
       }
 
-      const topProducts: Record<number, { name: string; quantity: number; revenue: number }> = {};
+      const rows = await db
+        .select({
+          productId: orderItems.productId,
+          name: sql<string>`MAX(${products.name})`,
+          quantity: sql<number>`SUM(${orderItems.quantity})`,
+          revenue: sql<number>`COALESCE(SUM(CAST(${orderItems.productPrice} AS DECIMAL(10,2)) * ${orderItems.quantity}), 0)`,
+        })
+        .from(orderItems)
+        .innerJoin(orders, eq(orderItems.orderId, orders.id))
+        .innerJoin(products, eq(orderItems.productId, products.id))
+        .where(and(...conditions))
+        .groupBy(orderItems.productId)
+        .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+        .limit(input.limit);
 
-      for (const order of allOrders) {
-        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-        for (const item of items) {
-          const product = await db.select().from(products).where(eq(products.id, item.productId));
-          if (product.length > 0) {
-            const p = product[0];
-            if (!topProducts[p.id]) {
-              topProducts[p.id] = { name: p.name, quantity: 0, revenue: 0 };
-            }
-            topProducts[p.id].quantity += item.quantity;
-            // Safely parse price, default to 0 if invalid
-            const price = item.productPrice ? parseFloat(String(item.productPrice)) : 0;
-            const itemRevenue = isNaN(price) ? 0 : price * item.quantity;
-            topProducts[p.id].revenue += itemRevenue;
-          }
-        }
-      }
-
-      const sorted = Object.values(topProducts)
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, input.limit);
-
-      return { topProducts: sorted };
+      return {
+        topProducts: rows.map(r => ({
+          name: r.name,
+          quantity: Number(r.quantity),
+          revenue: Number(r.revenue) || 0,
+        })),
+      };
     }),
 
   // Get peak hours analytics
