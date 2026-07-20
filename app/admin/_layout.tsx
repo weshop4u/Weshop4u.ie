@@ -194,6 +194,12 @@ export default function AdminLayout() {
         }}
       />
       <Stack.Screen
+        name="product-views"
+        options={{
+          title: "Product Views",
+        }}
+      />
+      <Stack.Screen
         name="driver-feedback"
         options={{
           title: "Driver Feedback",
