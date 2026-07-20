@@ -3108,20 +3108,23 @@ export const adminRouter = router({
       }
 
       // Step 1: Get the most viewed product IDs (without joins to avoid GROUP BY issues)
-      let viewQuery = db
+      // Conditions combined with and() — previously chaining .where() twice
+      // replaced the date filter whenever a store was selected.
+      const viewConditions = [gte(productViews.viewedAt, startDate)];
+      if (input.storeId) {
+        viewConditions.push(eq(productViews.storeId, input.storeId));
+      }
+
+      const viewResults = await db
         .select({
           productId: productViews.productId,
           storeId: productViews.storeId,
           viewCount: count(productViews.id),
+          // Epoch seconds — timezone-proof for the "Xm ago" display
+          lastViewedAt: sql<number>`UNIX_TIMESTAMP(MAX(${productViews.viewedAt}))`,
         })
         .from(productViews)
-        .where(gte(productViews.viewedAt, startDate));
-
-      if (input.storeId) {
-        viewQuery = viewQuery.where(eq(productViews.storeId, input.storeId));
-      }
-
-      const viewResults = await viewQuery
+        .where(and(...viewConditions))
         .groupBy(productViews.productId, productViews.storeId)
         .orderBy(({ viewCount }) => desc(viewCount))
         .limit(input.limit);
@@ -3139,10 +3142,12 @@ export const adminRouter = router({
             .from(stores)
             .where(eq(stores.id, view.storeId))
             .limit(1);
+          
           return {
             name: product?.name || `Product #${view.productId}`,
             storeName: store?.name || "Unknown Store",
             viewCount: view.viewCount,
+            lastViewedAtMs: view.lastViewedAt ? Number(view.lastViewedAt) * 1000 : null,
           };
         })
       );
