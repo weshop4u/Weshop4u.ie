@@ -305,6 +305,7 @@ export const ordersRouter = router({
         }
       }
       // ========== END TIME AVAILABILITY CHECK ==========
+
       // Calculate distance and delivery fee
       const distance = calculateDistance(
         parseFloat(storeData.latitude),
@@ -580,8 +581,8 @@ export const ordersRouter = router({
         }
 
         // Dispatch now happens only once the order is accepted (store/POS/
-      // admin), not immediately at creation — see acceptOrder /
-      // acceptOrderFromPOS / updateOrderStatus.
+        // admin), not immediately at creation — see acceptOrder /
+        // acceptOrderFromPOS / updateOrderStatus.
       }
 
       return {
@@ -1100,6 +1101,7 @@ export const ordersRouter = router({
             body: `Order #${orderData.orderNumber} has been cancelled.`,
           },
         };
+
         const notification = notificationMessages[input.status];
         if (notification) {
           await sendPushNotification(pushToken, {
