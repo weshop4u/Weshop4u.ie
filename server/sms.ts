@@ -39,26 +39,48 @@ function normalizeIrishPhone(phone: string): string {
  * Send an SMS message using Alpha Sender ID "WeShop4U"
  */
 export async function sendSMS({ to, message }: SendSMSParams): Promise<boolean> {
+  const normalizedTo = normalizeIrishPhone(to);
+
+  // 1) Phone gateway first — free SMS via Tesco Mobile SIM (0894626262)
+  const gateUser = process.env.SMSGATE_USER;
+  const gatePass = process.env.SMSGATE_PASS;
+  if (gateUser && gatePass) {
+    try {
+      const res = await fetch('https://api.sms-gate.app/3rdparty/v1/message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Basic ' + Buffer.from(`${gateUser}:${gatePass}`).toString('base64'),
+        },
+        body: JSON.stringify({ message, phoneNumbers: [normalizedTo] }),
+      });
+      if (res.ok) {
+        console.log(`[SMS] Sent via phone gateway to ${normalizedTo}`);
+        return true;
+      }
+      console.error(`[SMS] Gateway responded ${res.status}, falling back to Twilio`);
+    } catch (error: any) {
+      console.error('[SMS] Gateway error, falling back to Twilio:', error.message);
+    }
+  }
+
+  // 2) Fallback: Twilio
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-
     if (!accountSid || !authToken) {
-      console.log('[SMS] Twilio not configured. Logging SMS to console:');
+      console.log('[SMS] No SMS provider configured. Logging SMS to console:');
       console.log(`[SMS] To: ${to}`);
       console.log(`[SMS] Message: ${message}`);
       return true;
     }
-
-    const normalizedTo = normalizeIrishPhone(to);
     const client = twilio(accountSid, authToken);
     const result = await client.messages.create({
       body: message,
       from: ALPHA_SENDER_ID,
       to: normalizedTo,
     });
-
-    console.log(`[SMS] Sent to ${normalizedTo}. SID: ${result.sid}, Status: ${result.status}`);
+    console.log(`[SMS] Sent via Twilio to ${normalizedTo}. SID: ${result.sid}, Status: ${result.status}`);
     return true;
   } catch (error: any) {
     console.error('[SMS] Error sending SMS:', error.message);
