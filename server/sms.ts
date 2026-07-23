@@ -111,6 +111,18 @@ export async function sendOrderConfirmationSMS(
  * "Your driver has arrived at Spar Balbriggan to collect your order WS4U/SPR/070!
  *  Track your driver here: https://..."
  */
+/**
+ * SMS #3 — Order Delivered + App Plug
+ * Triggered: when the order is marked delivered
+ * Only sent to customers without the app (no push token)
+ */
+export async function sendOrderDeliveredSMS(
+  phoneNumber: string
+): Promise<boolean> {
+  const message = `Order delivered - thank you for using WeShop4U! Get our app on the Play Store for faster ordering next time.\n- WeShop4U`;
+  return sendSMS({ to: phoneNumber, message });
+}
+
 export async function sendDriverAtStoreSMS(
   phoneNumber: string,
   storeName: string,
