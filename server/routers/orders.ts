@@ -4,7 +4,7 @@ import { getDb } from "../db";
 import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
-import { sendOrderConfirmationSMS } from "../sms";
+import { sendOrderConfirmationSMS, sendOrderDeliveredSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 import { calculateDualReceipts } from "../services/receipt-calculator";
@@ -1115,6 +1115,27 @@ export const ordersRouter = router({
             channelId: "orders",
           });
           console.log(`[Push] Sent status update notification to customer for order ${input.orderId}: ${input.status}`);
+        }
+      }
+
+      // SMS #3 — Order Delivered + app plug (customers without the app only)
+      if (input.status === "delivered" && !pushToken) {
+        let smsPhone: string | null = orderData.guestPhone || null;
+        if (!smsPhone && orderData.customerId) {
+          const [cust] = await db
+            .select({ phone: users.phone })
+            .from(users)
+            .where(eq(users.id, orderData.customerId))
+            .limit(1);
+          smsPhone = cust?.phone || null;
+        }
+        if (smsPhone) {
+          try {
+            await sendOrderDeliveredSMS(smsPhone);
+            console.log(`[SMS] Delivered SMS sent to ${smsPhone} for order ${orderData.orderNumber}`);
+          } catch (smsError) {
+            console.error(`[SMS] Failed to send delivered SMS:`, smsError);
+          }
         }
       }
 
