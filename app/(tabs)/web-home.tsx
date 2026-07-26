@@ -163,6 +163,14 @@ export default function WebHome() {
           Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
 
+        {/* Temporary hours notice */}
+        <View style={styles.hoursNotice}>
+          <Text style={styles.hoursNoticeTitle}>⏰ Opening Hours Adjusted</Text>
+          <Text style={styles.hoursNoticeText}>
+            Our 24-hour service is on hold for a few weeks. We're open 8:30am – 10pm, Monday to Sunday. Round-the-clock service will resume in the near future!
+          </Text>
+        </View>
+
         {/* Smart Search Bar */}
         <View style={styles.searchWrapper}>
           <View style={styles.searchContainer}>
@@ -270,6 +278,8 @@ export default function WebHome() {
           )}
         </View>
       </View>
+
+      
 
       {/* Popular Stores Section */}
       {featuredStores && featuredStores.length > 0 && !searchQuery && (
@@ -648,6 +658,30 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     lineHeight: 24,
     marginBottom: 28,
+  },
+  hoursNotice: {
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1.5,
+    borderColor: "#F59E0B",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    maxWidth: 500,
+    width: "100%",
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  hoursNoticeTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#B45309",
+    marginBottom: 4,
+  },
+  hoursNoticeText: {
+    fontSize: 13.5,
+    color: "#92400E",
+    textAlign: "center",
+    lineHeight: 20,
   },
   searchWrapper: {
     width: "100%",
