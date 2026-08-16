@@ -305,6 +305,7 @@ if (reactivate) {
             "GET",
             `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
           );
+          console.log(`[Payment] Raw reference-search response for ${order.orderNumber}:`, JSON.stringify(txSearch).slice(0, 3000));
           
 
           // Elavon returns transactions in _embedded.transactions or transactions array
