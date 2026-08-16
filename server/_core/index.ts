@@ -463,3 +463,6 @@ async function startPaymentRecoveryJob() {
 }
 
 startPaymentRecoveryJob().catch(console.error);
+
+// ─── Pending-order watchdog (office/driver alerts for unaccepted orders) ───
+import("../watchdog").then((m) => m.startWatchdog()).catch(console.error);
