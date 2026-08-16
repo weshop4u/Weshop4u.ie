@@ -143,3 +143,28 @@ async function watchdogTick() {
         if (ADMIN_PHONE && !track.adminSmsed) {
           track.adminSmsed = true;
           const extra = noDrivers ? " (NO DRIVERS ONLINE)" : "";
+          sendSMS({ to: ADMIN_PHONE, message: msg + extra }).catch(() => {});
+        }
+      }
+
+      // ---- Office repeat every 10 min while still stuck ----
+      if (track.officeAlerted && mins - track.lastOfficeRepeat >= OFFICE_REPEAT_MIN) {
+        track.lastOfficeRepeat = mins;
+        sendSMS({ to: OFFICE_PHONE, message: msg }).catch(() => {});
+      }
+
+      // ---- Admin repeat at 30 min ----
+      if (ADMIN_PHONE && mins >= ADMIN_REPEAT_AT_MIN && !track.adminRepeated) {
+        track.adminRepeated = true;
+        sendSMS({ to: ADMIN_PHONE, message: `STUCK 30+ MIN — ${msg}` }).catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.error("[Watchdog] tick failed:", e);
+  }
+}
+
+export function startWatchdog() {
+  console.log("[Watchdog] started — checking pending orders every 60s");
+  setInterval(watchdogTick, 60 * 1000);
+}
