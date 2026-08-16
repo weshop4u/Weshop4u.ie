@@ -67,17 +67,28 @@ async function watchdogTick() {
     }
     if (stuck.length === 0) return;
 
-    const onlineDrivers = await db
+    // A driver counts as reachable if online OR currently out on a delivery
+    // (taking a job flips is_online to 0, but on-job drivers should still
+    // get watchdog alerts).
+    const activeDriverRows = await db
+      .select({ driverUserId: orders.driverId })
+      .from(orders)
+      .where(inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"]));
+    const activeDriverUserIds = new Set(activeDriverRows.map(r => r.driverUserId).filter((x): x is number => x != null));
+
+    const allDrivers = await db
       .select({
         driverId: drivers.id,
         userId: drivers.userId,
         name: users.name,
         phone: users.phone,
         pushToken: users.pushToken,
+        isOnline: drivers.isOnline,
       })
       .from(drivers)
-      .innerJoin(users, eq(users.id, drivers.userId))
-      .where(eq(drivers.isOnline, true));
+      .innerJoin(users, eq(users.id, drivers.userId));
+
+    const onlineDrivers = allDrivers.filter(d => d.isOnline || activeDriverUserIds.has(d.userId) || activeDriverUserIds.has(d.driverId));
 
     const storeIds = [...new Set(stuck.map(o => o.storeId).filter((x): x is number => x != null))];
     const storeRows = storeIds.length
