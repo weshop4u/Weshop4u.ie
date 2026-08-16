@@ -110,7 +110,9 @@ async function watchdogTick() {
                 title: "⚠️ Pending order not accepted",
                 body: msg,
                 data: { type: "watchdog", orderId: order.id },
-              } as any).catch(() => {});
+              } as any)
+                .then((ok) => console.log(`[Watchdog] admin push: ${ok}`))
+                .catch((e) => console.error("[Watchdog] admin push FAILED:", e));
             }
           }
         } catch (e) {
@@ -127,7 +129,9 @@ async function watchdogTick() {
               title: "⚠️ Order waiting — office may not know",
               body: msg,
               data: { type: "watchdog", orderId: order.id },
-            } as any).catch(() => {});
+            } as any)
+              .then((ok) => console.log(`[Watchdog] driver push to ${d.name}: ${ok}`))
+              .catch((e) => console.error(`[Watchdog] driver push to ${d.name} FAILED:`, e));
           }
         }
       }
@@ -143,7 +147,7 @@ async function watchdogTick() {
         if (ADMIN_PHONE && !track.adminSmsed) {
           track.adminSmsed = true;
           const extra = noDrivers ? " (NO DRIVERS ONLINE)" : "";
-          sendSMS({ to: ADMIN_PHONE, message: msg + extra }).catch(() => {});
+          sendSMS({ to: ADMIN_PHONE, message: "ADMIN: " + msg + extra }).catch(() => {});
         }
       }
 
@@ -156,7 +160,7 @@ async function watchdogTick() {
       // ---- Admin repeat at 30 min ----
       if (ADMIN_PHONE && mins >= ADMIN_REPEAT_AT_MIN && !track.adminRepeated) {
         track.adminRepeated = true;
-        sendSMS({ to: ADMIN_PHONE, message: `STUCK 30+ MIN — ${msg}` }).catch(() => {});
+        sendSMS({ to: ADMIN_PHONE, message: `ADMIN: STUCK 30+ MIN — ${msg}` }).catch(() => {});
       }
     }
   } catch (e) {
