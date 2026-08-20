@@ -298,38 +298,62 @@ app.get("/payment-cancel", (req, res) => res.redirect(`/api/web/payment-cancel?$
       }
     }
     
-    if (webDistPath && fs.existsSync(webDistPath)) {
+        if (webDistPath && fs.existsSync(webDistPath)) {
       console.log(`[web] ✓ Found web-dist at ${webDistPath}`);
       console.log(`[web] Serving static files from ${webDistPath} under /api/web/`);
+
+      // Serve an index.html with the Google Analytics (GA4) tag injected into
+      // <head>. Done at serve-time so every route is covered and rebuilds
+      // can't drop the tag.
+      const GA_TAG = `<script async src="https://www.googletagmanager.com/gtag/js?id=G-TSGXJ1LZY4"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-TSGXJ1LZY4');</script>`;
+      const sendIndexWithGA = (filePath: string, res: any) => {
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).send("Web app not found");
+        }
+        try {
+          let html = fs.readFileSync(filePath, "utf8");
+          if (!html.includes("G-TSGXJ1LZY4")) {
+            html = html.replace("<head>", "<head>" + GA_TAG);
+          }
+          res.set("Content-Type", "text/html; charset=UTF-8");
+          return res.send(html);
+        } catch (e) {
+          return res.sendFile(filePath);
+        }
+      };
       // Serve static assets under /api/web/ but skip /api/web/admin* (protected by middleware)
-      app.use("/api/web", (req, res, next) => {
+            app.use("/api/web", (req, res, next) => {
           // Skip static file serving for admin routes - they're protected by middleware
           if (req.path.startsWith("/admin")) {
-            const rootIndex = path.join(webDistPath, "index.html");
-            if (fs.existsSync(rootIndex)) {
-              return res.sendFile(rootIndex);
+            return sendIndexWithGA(path.join(webDistPath, "index.html"), res);
+          }
+          // Intercept HTML page requests so the GA tag gets injected. Requests
+          // for a bare route ("/", "/store", etc.) or an .html file resolve to
+          // an index.html; everything else (js, css, images) goes to static.
+          const rel = req.path.replace(/^\//, "");
+          const candidateHtml = rel === "" || rel.endsWith("/")
+            ? path.join(webDistPath, rel, "index.html")
+            : (rel.endsWith(".html") ? path.join(webDistPath, rel) : null);
+          if (candidateHtml && fs.existsSync(candidateHtml)) {
+            return sendIndexWithGA(candidateHtml, res);
+          }
+          // For extensionless route paths (client-side routes), serve the
+          // matching built index.html with GA injected, else fall through.
+          if (!path.extname(rel)) {
+            const routeIndex = path.join(webDistPath, rel, "index.html");
+            if (fs.existsSync(routeIndex)) {
+              return sendIndexWithGA(routeIndex, res);
             }
-            return res.status(404).send("Web app not found");
           }
           express.static(webDistPath, { maxAge: "1d" })(req, res, next);
         });
-      // Root /api/web serves index.html
+            // Root /api/web serves index.html (with GA tag injected)
       app.get("/api/web", (_req, res) => {
-        const rootIndex = path.join(webDistPath, "index.html");
-        if (fs.existsSync(rootIndex)) {
-          res.sendFile(rootIndex);
-        } else {
-          res.status(404).send("Web app not found");
-        }
+        sendIndexWithGA(path.join(webDistPath, "index.html"), res);
       });
-      // Also handle /api/web/ (with trailing slash) by serving index.html
+      // Also handle /api/web/ (with trailing slash)
       app.get("/api/web/", (_req, res) => {
-        const rootIndex = path.join(webDistPath, "index.html");
-        if (fs.existsSync(rootIndex)) {
-          res.sendFile(rootIndex);
-        } else {
-          res.status(404).send("Web app not found");
-        }
+        sendIndexWithGA(path.join(webDistPath, "index.html"), res);
       });
       // For any /api/web/* route, serve the matching HTML file or fall back to index.html
       // Note: Admin routes are already protected by adminAuthMiddleware, so this won't be reached for /api/web/admin*
@@ -338,26 +362,22 @@ app.get("/payment-cancel", (req, res) => res.redirect(`/api/web/payment-cancel?$
         if (req.path.startsWith("/api/web/admin")) {
           return res.status(403).json({ error: "Forbidden: Admin access required" });
         }
-        const subPath = req.path.replace(/^\/api\/web/, "") || "/";
+                const subPath = req.path.replace(/^\/api\/web/, "") || "/";
         // Try to find an exact HTML file for this route
         const htmlPath = path.join(webDistPath, subPath.endsWith(".html") ? subPath : subPath + ".html");
         if (fs.existsSync(htmlPath)) {
-          res.sendFile(htmlPath);
+          sendIndexWithGA(htmlPath, res);
           return;
         }
         // Try index.html in a subdirectory
         const dirIndexPath = path.join(webDistPath, subPath, "index.html");
         if (fs.existsSync(dirIndexPath)) {
-          res.sendFile(dirIndexPath);
+          sendIndexWithGA(dirIndexPath, res);
           return;
         }
         // Fall back to root index.html for client-side routing
-        const rootIndex = path.join(webDistPath, "index.html");
-        if (fs.existsSync(rootIndex)) {
-          res.sendFile(rootIndex);
-          return;
-        }
-        res.status(404).send("Not Found");
+        sendIndexWithGA(path.join(webDistPath, "index.html"), res);
+        return;
       });
     } else {
       console.log(`[web] No web-dist directory found, setting up Metro proxy for development`);
@@ -463,3 +483,6 @@ async function startPaymentRecoveryJob() {
 }
 
 startPaymentRecoveryJob().catch(console.error);
+
+// ─── Pending-order watchdog (office/driver alerts for unaccepted orders) ───
+import("../watchdog").then((m) => m.startWatchdog()).catch(console.error);
