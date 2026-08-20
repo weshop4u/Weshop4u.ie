@@ -322,14 +322,28 @@ app.get("/payment-cancel", (req, res) => res.redirect(`/api/web/payment-cancel?$
         }
       };
       // Serve static assets under /api/web/ but skip /api/web/admin* (protected by middleware)
-      app.use("/api/web", (req, res, next) => {
+            app.use("/api/web", (req, res, next) => {
           // Skip static file serving for admin routes - they're protected by middleware
           if (req.path.startsWith("/admin")) {
-            const rootIndex = path.join(webDistPath, "index.html");
-            if (fs.existsSync(rootIndex)) {
-              return res.sendFile(rootIndex);
+            return sendIndexWithGA(path.join(webDistPath, "index.html"), res);
+          }
+          // Intercept HTML page requests so the GA tag gets injected. Requests
+          // for a bare route ("/", "/store", etc.) or an .html file resolve to
+          // an index.html; everything else (js, css, images) goes to static.
+          const rel = req.path.replace(/^\//, "");
+          const candidateHtml = rel === "" || rel.endsWith("/")
+            ? path.join(webDistPath, rel, "index.html")
+            : (rel.endsWith(".html") ? path.join(webDistPath, rel) : null);
+          if (candidateHtml && fs.existsSync(candidateHtml)) {
+            return sendIndexWithGA(candidateHtml, res);
+          }
+          // For extensionless route paths (client-side routes), serve the
+          // matching built index.html with GA injected, else fall through.
+          if (!path.extname(rel)) {
+            const routeIndex = path.join(webDistPath, rel, "index.html");
+            if (fs.existsSync(routeIndex)) {
+              return sendIndexWithGA(routeIndex, res);
             }
-            return res.status(404).send("Web app not found");
           }
           express.static(webDistPath, { maxAge: "1d" })(req, res, next);
         });
