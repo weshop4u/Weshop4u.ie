@@ -301,18 +301,29 @@ if (reactivate) {
         // looks up transactions.
         console.log(`[Payment] Session expired for order ${order.orderNumber} — searching by order reference`);
         try {
-          const txSearch = await elavonRequest(
-            "GET",
-            `/transactions?order-reference=${encodeURIComponent(order.orderNumber)}&limit=5`
-          );
-          
-
-          // Elavon returns transactions in _embedded.transactions or transactions array
-          const txList: any[] =
-  txSearch?._embedded?.transactions ||
-  txSearch?.transactions ||
-  txSearch?.items ||
-  (txSearch?.id ? [txSearch] : []);
+          // NOTE: Elavon IGNORES the order-reference query param (confirmed
+          // 16 Aug 2026 — response href echoes only "limit"). It returns the
+          // most recent transactions account-wide, so we must page through
+          // and match the reference client-side.
+          const txList: any[] = [];
+          let pagePath: string | null = `/transactions?limit=50`;
+          for (let page = 0; page < 4 && pagePath; page++) {
+            const txSearch: any = await elavonRequest("GET", pagePath);
+            const pageItems: any[] =
+              txSearch?._embedded?.transactions ||
+              txSearch?.transactions ||
+              txSearch?.items ||
+              (txSearch?.id ? [txSearch] : []);
+            txList.push(...pageItems);
+            // Stop early once we've matched the reference
+            if (pageItems.some((tx: any) =>
+              String(tx.orderReference || tx.order_reference || "").toUpperCase() === order.orderNumber.toUpperCase()
+            )) break;
+            pagePath = txSearch?.nextPageToken
+              ? `/transactions?limit=50&pageToken=${encodeURIComponent(txSearch.nextPageToken)}`
+              : null;
+          }
+          console.log(`[Payment] Reference search for ${order.orderNumber}: scanned ${txList.length} transactions`);
 
           // Look for a transaction with POSITIVE proof of success. Type
           // "sale" alone is not proof — declined attempts are also sales.
