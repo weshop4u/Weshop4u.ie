@@ -10,9 +10,7 @@
  * Uses Twilio with Alpha Sender ID "WeShop4U" for consistent branding.
  */
 
-import twilio from 'twilio';
-
-const ALPHA_SENDER_ID = 'WeShop4U';
+const RETRY_DELAYS_MS = [60_000, 300_000]; // retry failed sends after 1 min, then 5 min
 
 interface SendSMSParams {
   to: string;
@@ -41,51 +39,54 @@ function normalizeIrishPhone(phone: string): string {
 export async function sendSMS({ to, message }: SendSMSParams): Promise<boolean> {
   const normalizedTo = normalizeIrishPhone(to);
 
-  // 1) Phone gateway first — free SMS via Tesco Mobile SIM (0894626262)
+  const ok = await tryGatewaySend(normalizedTo, message);
+  if (ok) return true;
+
+  // Gateway failed — retry in the background (1 min, then 5 min) so a
+  // short sms-gate.app outage doesn't silently eat messages.
+  scheduleRetries(normalizedTo, message);
+  return false;
+}
+
+async function tryGatewaySend(normalizedTo: string, message: string): Promise<boolean> {
   const gateUser = process.env.SMSGATE_USER;
   const gatePass = process.env.SMSGATE_PASS;
-  if (gateUser && gatePass) {
-    try {
-      const res = await fetch('https://api.sms-gate.app/3rdparty/v1/message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Basic ' + Buffer.from(`${gateUser}:${gatePass}`).toString('base64'),
-        },
-        body: JSON.stringify({ message, phoneNumbers: [normalizedTo] }),
-      });
-      if (res.ok) {
-        console.log(`[SMS] Sent via phone gateway to ${normalizedTo}`);
-        return true;
-      }
-      console.error(`[SMS] Gateway responded ${res.status}, falling back to Twilio`);
-    } catch (error: any) {
-      console.error('[SMS] Gateway error, falling back to Twilio:', error.message);
-    }
-  }
-
-  // 2) Fallback: Twilio
-  try {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!accountSid || !authToken) {
-      console.log('[SMS] No SMS provider configured. Logging SMS to console:');
-      console.log(`[SMS] To: ${to}`);
-      console.log(`[SMS] Message: ${message}`);
-      return true;
-    }
-    const client = twilio(accountSid, authToken);
-    const result = await client.messages.create({
-      body: message,
-      from: ALPHA_SENDER_ID,
-      to: normalizedTo,
-    });
-    console.log(`[SMS] Sent via Twilio to ${normalizedTo}. SID: ${result.sid}, Status: ${result.status}`);
-    return true;
-  } catch (error: any) {
-    console.error('[SMS] Error sending SMS:', error.message);
+  if (!gateUser || !gatePass) {
+    console.error('[SMS] Gateway credentials not configured — SMS not sent');
     return false;
   }
+  try {
+    const res = await fetch('https://api.sms-gate.app/3rdparty/v1/message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Basic ' + Buffer.from(`${gateUser}:${gatePass}`).toString('base64'),
+      },
+      body: JSON.stringify({ message, phoneNumbers: [normalizedTo] }),
+    });
+    if (res.ok) {
+      console.log(`[SMS] Sent via phone gateway to ${normalizedTo}`);
+      return true;
+    }
+    console.error(`[SMS] Gateway responded ${res.status} for ${normalizedTo}`);
+    return false;
+  } catch (error: any) {
+    console.error('[SMS] Gateway error:', error.message);
+    return false;
+  }
+}
+
+function scheduleRetries(normalizedTo: string, message: string) {
+  RETRY_DELAYS_MS.forEach((delay, i) => {
+    setTimeout(async () => {
+      const ok = await tryGatewaySend(normalizedTo, message);
+      if (ok) {
+        console.log(`[SMS] Retry ${i + 1} succeeded for ${normalizedTo}`);
+      } else if (i === RETRY_DELAYS_MS.length - 1) {
+        console.error(`[SMS] All retries exhausted — SMS to ${normalizedTo} LOST`);
+      }
+    }, delay);
+  });
 }
 
 /**
