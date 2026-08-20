@@ -65,6 +65,7 @@ function CategoriesScreenContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<number | undefined>(1);
+  const [storeSearch, setStoreSearch] = useState('');
 
   const { data: stores } = trpc.stores.getAll.useQuery();
 const { data: categories, refetch } = trpc.categories.getAllWithCounts.useQuery(
@@ -350,17 +351,30 @@ const { data: categories, refetch } = trpc.categories.getAllWithCounts.useQuery(
               <Text className="text-xs text-muted">Time Limited</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
-  {[{ id: undefined, name: 'All' }, ...(stores || []).map((s: any) => ({ id: s.id, name: s.name }))].map((s) => (
-    <TouchableOpacity
-      key={String(s.id)}
-      onPress={() => setSelectedStoreId(s.id)}
-      style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: selectedStoreId === s.id ? '#00E5FF' : '#f5f5f5', borderWidth: 1, borderColor: selectedStoreId === s.id ? '#00E5FF' : '#E5E7EB' }}
-    >
-      <Text style={{ fontWeight: '700', color: selectedStoreId === s.id ? '#fff' : '#687076' }}>{s.name}</Text>
-    </TouchableOpacity>
-  ))}
-</ScrollView>
+                    {/* Store search + filtered chips */}
+          <View style={{ marginBottom: 8 }}>
+            <TextInput
+              value={storeSearch}
+              onChangeText={setStoreSearch}
+              placeholder="Search stores..."
+              placeholderTextColor="#9CA3AF"
+              style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, backgroundColor: '#fff', marginBottom: 8 }}
+            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 8 }}>
+              {[{ id: undefined, name: 'All' }, ...(stores || [])
+                .filter((s: any) => s.name.toLowerCase().includes(storeSearch.toLowerCase()))
+                .map((s: any) => ({ id: s.id, name: s.name }))]
+                .map((s) => (
+                  <TouchableOpacity
+                    key={String(s.id)}
+                    onPress={() => setSelectedStoreId(s.id)}
+                    style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: selectedStoreId === s.id ? '#00E5FF' : '#f5f5f5', borderWidth: 1, borderColor: selectedStoreId === s.id ? '#00E5FF' : '#E5E7EB' }}
+                  >
+                    <Text style={{ fontWeight: '700', color: selectedStoreId === s.id ? '#fff' : '#687076' }}>{s.name}</Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </View>
 
           {/* ADD Category Button */}
           <TouchableOpacity
