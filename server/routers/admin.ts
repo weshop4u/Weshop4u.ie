@@ -1590,7 +1590,14 @@ export const adminRouter = router({
         // Geocoding is optional, continue without coordinates
       }
 
+            // Get next sequential ID
+      const allStoreIds = await db.select({ id: stores.id }).from(stores).orderBy(stores.id);
+      const existingIds = allStoreIds.map(s => s.id);
+      let nextId = 1;
+      while (existingIds.includes(nextId)) nextId++;
+
       const result = await db.insert(stores).values({
+        id: nextId,
         name: input.name,
         slug,
         description: input.description || null,
@@ -1609,7 +1616,7 @@ export const adminRouter = router({
         isActive: true,
       });
 
-      return { success: true, storeId: Number(result[0].insertId) };
+      return { success: true, storeId: nextId };
     }),
 
   // Duplicate a store with all its products, modifier groups, modifiers, and multi-buy deals
@@ -1654,7 +1661,14 @@ export const adminRouter = router({
       }
 
       // Create new store (copy settings from source)
+            // Get next sequential ID
+      const allStoreIds2 = await db.select({ id: stores.id }).from(stores).orderBy(stores.id);
+      const existingIds2 = allStoreIds2.map(s => s.id);
+      let nextId2 = 1;
+      while (existingIds2.includes(nextId2)) nextId2++;
+
       const [newStoreResult] = await db.insert(stores).values({
+        id: nextId2,
         name: input.newName,
         slug: finalSlug,
         description: sourceStore.description,
@@ -1668,14 +1682,14 @@ export const adminRouter = router({
         email: input.newEmail || sourceStore.email,
         isOpen247: sourceStore.isOpen247,
         openingHours: sourceStore.openingHours,
-        isActive: false, // Start inactive so admin can review before going live
+        isActive: false,
         shortCode: input.newShortCode || null,
         orderCounter: 0,
         sortPosition: 999,
         isFeatured: false,
       });
 
-      const newStoreId = Number(newStoreResult.insertId);
+      const newStoreId = nextId2;
       let productsCopied = 0;
       let modifiersCopied = 0;
       let dealsCopied = 0;
