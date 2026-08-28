@@ -1117,6 +1117,14 @@ if (allProductIds.length > 0) {
           )
         .orderBy(desc(orders.createdAt));
 
+            // Store name for multi-store POS terminals
+      const posStore = await db
+        .select({ name: stores.name })
+        .from(stores)
+        .where(eq(stores.id, input.storeId))
+        .limit(1);
+      const posStoreName = posStore.length > 0 ? posStore[0].name : "";
+
       // For each order, get item count and total quantity
       const result = [];
       for (const order of pendingOrders) {
@@ -1169,9 +1177,11 @@ if (allProductIds.length > 0) {
           if (customer.length > 0) customerName = customer[0].name;
         }
 
-        result.push({
+                result.push({
           id: order.id,
           orderNumber: order.orderNumber,
+          storeId: input.storeId,
+          storeName: posStoreName,
           total: adjustedTotal.toString(),
           paymentMethod: order.paymentMethod,
           status: order.status,
