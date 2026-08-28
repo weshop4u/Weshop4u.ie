@@ -14,16 +14,17 @@ jobs:
 
     steps:
       - name: Checkout stable-base
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: stable-base
 
-            - name: Install Android SDK
+      - name: Install Android SDK
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y android-sdk google-android-platform-23-installer python3-pil
           find /usr/lib/android-sdk -name "dx" 2>/dev/null || true
           find /usr/lib/android-sdk -name "aapt" 2>/dev/null || true
+
       - name: Build APK
         run: |
           cd pos-apk
