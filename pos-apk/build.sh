@@ -41,20 +41,13 @@ cat > "$BUILD_DIR/res/values/strings.xml" << 'EOF'
 </resources>
 EOF
 
-# Generate launcher icon
-python3 -c "
-from PIL import Image, ImageDraw, ImageFont
-img = Image.new('RGBA', (48, 48), (10, 126, 164, 255))
-draw = ImageDraw.Draw(img)
-# Printer icon shape
-draw.rectangle([8, 12, 40, 36], fill=(255, 255, 255, 255))
-draw.rectangle([12, 8, 36, 16], fill=(200, 200, 200, 255))
-draw.rectangle([12, 28, 36, 34], fill=(0, 229, 255, 255))
-draw.rectangle([14, 30, 34, 32], fill=(255, 255, 255, 255))
-# Green dot (running indicator)
-draw.ellipse([34, 6, 44, 16], fill=(34, 197, 94, 255))
-img.save('$BUILD_DIR/res/mipmap-hdpi/ic_launcher.png')
-"
+# Copy launcher icons from res folder
+for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+    if [ -f "$PROJECT_DIR/res/mipmap-$density/ic_launcher.png" ]; then
+        mkdir -p "$BUILD_DIR/res/mipmap-$density"
+        cp "$PROJECT_DIR/res/mipmap-$density/ic_launcher.png" "$BUILD_DIR/res/mipmap-$density/ic_launcher.png"
+    fi
+done
 
 # [3] Generate R.java
 echo "[3/8] Generating R.java..."
