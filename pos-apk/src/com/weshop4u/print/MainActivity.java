@@ -483,7 +483,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private LinearLayout createOrderCard(JSONObject order) {
+        private LinearLayout createOrderCard(final JSONObject order) {
         try {
             final int orderId = order.getInt("id");
             final String orderNumber = order.optString("orderNumber", "#" + orderId);
