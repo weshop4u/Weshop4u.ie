@@ -108,7 +108,13 @@ echo "[5/8] Converting to DEX..."
 if [[ "$DX" == *"d8"* ]]; then
     $DX --output="$BUILD_DIR/classes.dex" $(find "$BUILD_DIR/classes" -name "*.class")
 else
+    if [ -f "/usr/local/lib/dx.jar" ]; then
+    java -jar /usr/local/lib/dx.jar --dex --output="$BUILD_DIR/classes.dex" "$BUILD_DIR/classes"
+elif [ -f "/tmp/bt/android-9/lib/dx.jar" ]; then
+    java -jar /tmp/bt/android-9/lib/dx.jar --dex --output="$BUILD_DIR/classes.dex" "$BUILD_DIR/classes"
+else
     $DX --dex --output="$BUILD_DIR/classes.dex" "$BUILD_DIR/classes"
+fi
 fi
 
 # [6] Package
