@@ -48,6 +48,7 @@ import java.util.Set;
  * Settings: hidden behind gear icon (top-right)
  * Tap order card to expand/collapse item details
  * Auto-prints receipt on accept, shows details on screen as fallback
+ * Supports comma-separated store IDs for multi-store polling
  */
 public class MainActivity extends Activity {
 
@@ -220,8 +221,8 @@ public class MainActivity extends Activity {
         settingsPanel.addView(serverUrlInput);
         addSpacer(settingsPanel, 12);
 
-        settingsPanel.addView(createLabel("Store ID:"));
-        storeIdInput = createInput("1", InputType.TYPE_CLASS_NUMBER);
+        settingsPanel.addView(createLabel("Store ID(s) — comma separated for multiple stores (e.g. 2,4,5,6):"));
+        storeIdInput = createInput("1", InputType.TYPE_CLASS_TEXT);
         settingsPanel.addView(storeIdInput);
         addSpacer(settingsPanel, 12);
 
@@ -326,7 +327,6 @@ public class MainActivity extends Activity {
                 alertVolume = seekBar.getProgress();
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
                     .putInt("alert_volume", alertVolume).apply();
-                // Recreate tone generator with new volume
                 if (toneGenerator != null) {
                     toneGenerator.release();
                 }
@@ -443,7 +443,6 @@ public class MainActivity extends Activity {
 
             noOrdersText.setVisibility(View.GONE);
 
-            // Check for new pending orders to trigger alert
             boolean hasNewPending = false;
             boolean hasPending = false;
             int newPendingCount = 0;
@@ -461,11 +460,9 @@ public class MainActivity extends Activity {
                 }
             }
 
-            // Update badge count
             pendingCount = newPendingCount;
             updateOrderCountBadge();
 
-            // Start looping alert if there are pending orders, stop if none
             if (hasPending && (hasNewPending || !alertPlaying)) {
                 startOrderAlert();
             } else if (!hasPending) {
@@ -490,10 +487,10 @@ public class MainActivity extends Activity {
             final int orderId = order.getInt("id");
             final String orderNumber = order.optString("orderNumber", "#" + orderId);
             String total = order.optString("total", "0.00");
-            int itemCount = order.optInt("itemCount", 0);
             int totalQuantity = order.optInt("totalQuantity", 0);
             String customerName = order.optString("customerName", "Guest");
             String paymentMethod = order.optString("paymentMethod", "card");
+            String storeName = order.optString("storeName", "");
 
             final String orderStatus = order.optString("status", "pending");
             final boolean isPending = "pending".equals(orderStatus);
@@ -538,7 +535,18 @@ public class MainActivity extends Activity {
             topRow.addView(orderNumText);
 
             card.addView(topRow);
-            addSpacer(card, 8);
+            addSpacer(card, 4);
+
+            // Store name row (important for multi-store POS)
+            if (!storeName.isEmpty()) {
+                TextView storeText = new TextView(this);
+                storeText.setText("\uD83C\uDFEA " + storeName);
+                storeText.setTextSize(12);
+                storeText.setTextColor(Color.parseColor("#00E5FF"));
+                storeText.setTypeface(null, Typeface.BOLD);
+                card.addView(storeText);
+                addSpacer(card, 4);
+            }
 
             // Summary row
             LinearLayout summaryRow = new LinearLayout(this);
@@ -690,7 +698,7 @@ public class MainActivity extends Activity {
                 acceptBtn.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        acceptOrder(orderId, orderNumber);
+                        acceptOrder(orderId, orderNumber, order.optInt("storeId", 1));
                     }
                 });
                 card.addView(acceptBtn);
@@ -710,7 +718,7 @@ public class MainActivity extends Activity {
 
     // ===== ORDER ACCEPTANCE =====
 
-    private void acceptOrder(final int orderId, final String orderNumber) {
+    private void acceptOrder(final int orderId, final String orderNumber, final int storeId) {
         appendLog("Accepting order " + orderNumber + "...");
         acceptedOrderIds.add(orderId);
         stopOrderAlert();
@@ -721,7 +729,6 @@ public class MainActivity extends Activity {
                 try {
                     SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
                     String serverUrl = prefs.getString("server_url", "");
-                    int storeId = prefs.getInt("store_id", 1);
 
                     ApiClient api = new ApiClient(serverUrl);
                     JSONObject result = api.acceptOrder(orderId, storeId);
@@ -775,7 +782,8 @@ public class MainActivity extends Activity {
                 try {
                     SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
                     String serverUrl = prefs.getString("server_url", "");
-                    int storeId = prefs.getInt("store_id", 1);
+                    String storeIdsStr = prefs.getString("store_ids", "1");
+                    int storeId = parseFirstStoreId(storeIdsStr);
 
                     ApiClient api = new ApiClient(serverUrl);
                     final boolean success = api.reprintOrder(orderId, storeId);
@@ -832,7 +840,6 @@ public class MainActivity extends Activity {
         if (alertPlaying) return;
         alertPlaying = true;
 
-        // Start looping ringtone via MediaPlayer
         try {
             if (alertPlayer != null) {
                 alertPlayer.release();
@@ -843,13 +850,11 @@ public class MainActivity extends Activity {
                 alertPlayer.setDataSource(this, alertRingtoneUri);
                 alertPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
                 alertPlayer.setLooping(true);
-                // Set volume based on slider (0.0 to 1.0)
                 float vol = alertVolume / 100f;
                 alertPlayer.setVolume(vol, vol);
                 alertPlayer.prepare();
                 alertPlayer.start();
             } else {
-                // Fallback to ToneGenerator if no ringtone found
                 if (toneGenerator != null) {
                     try {
                         toneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 1500);
@@ -857,7 +862,6 @@ public class MainActivity extends Activity {
                 }
             }
         } catch (Exception e) {
-            // Fallback to ToneGenerator
             if (toneGenerator != null) {
                 try {
                     toneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, 1500);
@@ -865,7 +869,6 @@ public class MainActivity extends Activity {
             }
         }
 
-        // Vibrate on loop
         alertLoopRunnable = new Runnable() {
             @Override
             public void run() {
@@ -921,7 +924,7 @@ public class MainActivity extends Activity {
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         serverUrlInput.setText(prefs.getString("server_url", ""));
-        storeIdInput.setText(String.valueOf(prefs.getInt("store_id", 1)));
+        storeIdInput.setText(prefs.getString("store_ids", "1"));
         autoStartCheckbox.setChecked(prefs.getBoolean("auto_start", true));
     }
 
@@ -932,16 +935,16 @@ public class MainActivity extends Activity {
             return;
         }
         if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
-        int sid = 1;
-        try { sid = Integer.parseInt(storeIdInput.getText().toString().trim()); } catch (Exception e) {}
+        String storeIds = storeIdInput.getText().toString().trim();
+        if (storeIds.isEmpty()) storeIds = "1";
 
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
             .putString("server_url", url)
-            .putInt("store_id", sid)
+            .putString("store_ids", storeIds)
             .putBoolean("auto_start", autoStartCheckbox.isChecked())
             .apply();
         Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
-        appendLog("Settings saved - Server: " + url + ", Store: " + sid);
+        appendLog("Settings saved - Server: " + url + ", Stores: " + storeIds);
     }
 
     private void startPolling() {
@@ -951,12 +954,12 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Enter server URL first", Toast.LENGTH_SHORT).show();
             return;
         }
-        int sid = 1;
-        try { sid = Integer.parseInt(storeIdInput.getText().toString().trim()); } catch (Exception e) {}
+        String storeIds = storeIdInput.getText().toString().trim();
+        if (storeIds.isEmpty()) storeIds = "1";
 
         Intent i = new Intent(this, OrderPollingService.class);
         i.putExtra("server_url", url);
-        i.putExtra("store_id", sid);
+        i.putExtra("store_ids", storeIds);
         startService(i);
         isServiceRunning = true;
 
@@ -964,7 +967,7 @@ public class MainActivity extends Activity {
             .putBoolean("was_running", true).apply();
 
         updateServiceUI();
-        appendLog("Polling started");
+        appendLog("Polling started for stores: " + storeIds);
 
         if (settingsVisible) {
             settingsVisible = false;
@@ -1050,6 +1053,15 @@ public class MainActivity extends Activity {
                 if (logText != null) logText.setText(logBuffer.toString());
             }
         });
+    }
+
+    private int parseFirstStoreId(String storeIdsStr) {
+        try {
+            String first = storeIdsStr.split(",")[0].trim();
+            return Integer.parseInt(first);
+        } catch (Exception e) {
+            return 1;
+        }
     }
 
     // ===== UI HELPERS =====
