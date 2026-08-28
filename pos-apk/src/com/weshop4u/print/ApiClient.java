@@ -24,12 +24,19 @@ public class ApiClient {
 
     // ===== PRINT JOB ENDPOINTS =====
 
-    public JSONArray getPendingPrintJobs(int storeId) throws Exception {
-        String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
-        String url = baseUrl + "/api/trpc/print.getPendingJobs?input=" + inputJson;
-        String response = httpGet(url);
-        JSONObject json = new JSONObject(response);
-        return json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
+    public JSONArray getPendingPrintJobs(int[] storeIds) throws Exception {
+        JSONArray allJobs = new JSONArray();
+        for (int storeId : storeIds) {
+            String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
+            String url = baseUrl + "/api/trpc/print.getPendingJobs?input=" + inputJson;
+            String response = httpGet(url);
+            JSONObject json = new JSONObject(response);
+            JSONArray jobs = json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
+            for (int i = 0; i < jobs.length(); i++) {
+                allJobs.put(jobs.get(i));
+            }
+        }
+        return allJobs;
     }
 
     public String getReceiptContent(int orderId, int storeId) throws Exception {
@@ -63,12 +70,19 @@ public class ApiClient {
      * Returns array of orders with: id, orderNumber, total, itemCount, totalQuantity,
      * customerName, paymentMethod, createdAt, items[{name, quantity, subtotal}]
      */
-    public JSONArray getPendingOrders(int storeId) throws Exception {
-        String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
-        String url = baseUrl + "/api/trpc/store.getPendingOrdersForPOS?input=" + inputJson;
-        String response = httpGet(url);
-        JSONObject json = new JSONObject(response);
-        return json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
+    public JSONArray getPendingOrders(int[] storeIds) throws Exception {
+        JSONArray allOrders = new JSONArray();
+        for (int storeId : storeIds) {
+            String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
+            String url = baseUrl + "/api/trpc/store.getPendingOrdersForPOS?input=" + inputJson;
+            String response = httpGet(url);
+            JSONObject json = new JSONObject(response);
+            JSONArray orders = json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
+            for (int i = 0; i < orders.length(); i++) {
+                allOrders.put(orders.get(i));
+            }
+        }
+        return allOrders;
     }
 
     /**
