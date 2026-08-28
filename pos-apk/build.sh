@@ -12,8 +12,12 @@ SRC_DIR="$PROJECT_DIR/src"
 ANDROID_JAR="/usr/lib/android-sdk/platforms/android-23/android.jar"
 AAPT=$(find /usr/lib/android-sdk/build-tools -name "aapt" 2>/dev/null | head -1)
 if [ -z "$AAPT" ]; then AAPT=$(which aapt 2>/dev/null || true); fi
+
 DX=$(find /usr/lib/android-sdk/build-tools -name "dx" 2>/dev/null | head -1)
 if [ -z "$DX" ]; then DX=$(which dx 2>/dev/null || true); fi
+if [ -z "$DX" ]; then DX=$(find /usr/lib/android-sdk/build-tools -name "d8" 2>/dev/null | head -1); fi
+if [ -z "$DX" ]; then DX=$(which d8 2>/dev/null || true); fi
+
 ZIPALIGN=$(find /usr/lib/android-sdk/build-tools -name "zipalign" 2>/dev/null | head -1)
 if [ -z "$ZIPALIGN" ]; then ZIPALIGN=$(which zipalign 2>/dev/null || true); fi
 
@@ -25,18 +29,17 @@ echo "ANDROID_JAR: $ANDROID_JAR"
 
 # Verify SDK
 if [ ! -f "$ANDROID_JAR" ]; then
-    echo "ERROR: android.jar not found. Install Android SDK:"
-    echo "  sudo apt install android-sdk google-android-platform-23-installer"
+    echo "ERROR: android.jar not found"
     exit 1
 fi
-
 if [ -z "$AAPT" ] || [ ! -f "$AAPT" ]; then
     echo "ERROR: aapt not found"
     exit 1
 fi
-
 if [ -z "$DX" ] || [ ! -f "$DX" ]; then
-    echo "ERROR: dx not found"
+    echo "ERROR: dx/d8 not found"
+    echo "Available build tools:"
+    find /usr/lib/android-sdk/build-tools -type f 2>/dev/null | head -20
     exit 1
 fi
 
@@ -102,7 +105,11 @@ echo "   Compiled $(find "$BUILD_DIR/classes" -name "*.class" | wc -l) class fil
 
 # [5] DEX
 echo "[5/8] Converting to DEX..."
-$DX --dex --output="$BUILD_DIR/classes.dex" "$BUILD_DIR/classes"
+if [[ "$DX" == *"d8"* ]]; then
+    $DX --output="$BUILD_DIR/classes.dex" $(find "$BUILD_DIR/classes" -name "*.class")
+else
+    $DX --dex --output="$BUILD_DIR/classes.dex" "$BUILD_DIR/classes"
+fi
 
 # [6] Package
 echo "[6/8] Packaging APK..."
