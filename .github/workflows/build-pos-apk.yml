@@ -21,12 +21,9 @@ jobs:
       - name: Install Android SDK
         run: |
           sudo apt-get update -qq
-                    sudo apt-get install -y android-sdk google-android-platform-23-installer python3-pil
-          pip3 install d8 || true
-          wget -q https://dl.google.com/android/repository/build-tools_r30.0.3-linux.zip -O /tmp/build-tools.zip
-          sudo unzip -q /tmp/build-tools.zip -d /usr/lib/android-sdk/build-tools/
-          sudo mv /usr/lib/android-sdk/build-tools/android-11 /usr/lib/android-sdk/build-tools/30.0.3 || true
-          find /usr/lib/android-sdk/build-tools -name "dx" 2>/dev/null || true
+          sudo apt-get install -y android-sdk google-android-platform-23-installer python3-pil
+          sudo apt-get install -y dalvik-exchange || true
+          which dx || find / -name "dx" -type f 2>/dev/null | head -5 || true
       - name: Build APK
         run: |
           cd pos-apk
