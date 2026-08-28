@@ -13,6 +13,9 @@ import java.net.URLEncoder;
 /**
  * HTTP client for communicating with the WeShop4U server.
  * Handles both print job polling and order acceptance via tRPC endpoints.
+ *
+ * Multi-store: getPendingPrintJobs and getPendingOrders take an array of
+ * store IDs and make one request per store, merging the results.
  */
 public class ApiClient {
 
@@ -29,6 +32,7 @@ public class ApiClient {
         for (int storeId : storeIds) {
             String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
             String url = baseUrl + "/api/trpc/print.getPendingJobs?input=" + inputJson;
+            android.util.Log.i("OrderPolling", "GET " + url);
             String response = httpGet(url);
             JSONObject json = new JSONObject(response);
             JSONArray jobs = json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
@@ -63,18 +67,18 @@ public class ApiClient {
         return new JSONObject(response).has("result");
     }
 
-    // ===== ORDER ENDPOINTS (NEW) =====
+    // ===== ORDER ENDPOINTS =====
 
     /**
-     * Get pending orders for this store (lightweight summary for POS display).
-     * Returns array of orders with: id, orderNumber, total, itemCount, totalQuantity,
-     * customerName, paymentMethod, createdAt, items[{name, quantity, subtotal}]
+     * Get pending orders for the given stores (lightweight summary for POS display).
+     * One request per store ID, results merged.
      */
     public JSONArray getPendingOrders(int[] storeIds) throws Exception {
         JSONArray allOrders = new JSONArray();
         for (int storeId : storeIds) {
             String inputJson = URLEncoder.encode("{\"json\":{\"storeId\":" + storeId + "}}", "UTF-8");
             String url = baseUrl + "/api/trpc/store.getPendingOrdersForPOS?input=" + inputJson;
+            android.util.Log.i("OrderPolling", "GET " + url);
             String response = httpGet(url);
             JSONObject json = new JSONObject(response);
             JSONArray orders = json.getJSONObject("result").getJSONObject("data").getJSONArray("json");
