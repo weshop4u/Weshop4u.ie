@@ -1,0 +1,37 @@
+name: Build POS APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'APK version name (e.g. 2.1)'
+        required: false
+        default: '2.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout stable-base
+        uses: actions/checkout@v3
+        with:
+          ref: stable-base
+
+      - name: Install Android SDK
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y android-sdk google-android-platform-23-installer python3-pil
+
+      - name: Build APK
+        run: |
+          cd pos-apk
+          chmod +x build.sh
+          bash build.sh
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: weshop4u-print-v2
+          path: pos-apk/weshop4u-print-v2.apk
+          retention-days: 30
