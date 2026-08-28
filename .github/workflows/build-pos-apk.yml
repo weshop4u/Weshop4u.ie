@@ -19,11 +19,12 @@ jobs:
           ref: stable-base
 
       - name: Install Android SDK
-                run: |
+        run: |
           sudo apt-get update -qq
           sudo apt-get install -y android-sdk google-android-platform-23-installer python3-pil
           wget -q "https://dl.google.com/android/repository/build-tools_r28.0.3-linux.zip" -O /tmp/bt.zip && sudo unzip -q /tmp/bt.zip -d /tmp/bt && sudo cp /tmp/bt/android-9/dx /usr/local/bin/dx && sudo chmod +x /usr/local/bin/dx || true
           which dx || echo "dx still not found"
+
       - name: Build APK
         run: |
           cd pos-apk
