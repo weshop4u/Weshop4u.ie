@@ -18,6 +18,9 @@ import org.json.JSONObject;
  *
  * Print job polling and order polling run on separate intervals.
  * Supports multiple store IDs (comma separated) for restaurant POS.
+ *
+ * No silent fallback to store 1: if store IDs are missing or unparseable,
+ * polling refuses to start and says so in the on-screen activity log.
  */
 public class OrderPollingService extends Service {
 
@@ -30,7 +33,7 @@ public class OrderPollingService extends Service {
     private boolean isRunning = false;
     private ApiClient apiClient;
     private SerialPrinter printer;
-    private int[] storeIds = new int[]{1};
+    private int[] storeIds = new int[]{};
 
     // Print job polling runnable
     private Runnable printPollRunnable = new Runnable() {
@@ -60,8 +63,10 @@ public class OrderPollingService extends Service {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String serverUrl = prefs.getString("server_url", "");
-        String storeIdStr = prefs.getString("store_ids", "1");
+        String storeIdStr = prefs.getString("store_ids", "");
         storeIds = parseStoreIds(storeIdStr);
+        Log.i(TAG, "onCreate read prefs store_ids='" + storeIdStr
+            + "' parsed to " + java.util.Arrays.toString(storeIds));
 
         if (!serverUrl.isEmpty()) {
             apiClient = new ApiClient(serverUrl);
@@ -86,6 +91,11 @@ public class OrderPollingService extends Service {
             }
             if (newStoreIds != null && !newStoreIds.isEmpty()) {
                 storeIds = parseStoreIds(newStoreIds);
+                Log.i(TAG, "Received store_ids extra: '" + newStoreIds
+                    + "' parsed to " + java.util.Arrays.toString(storeIds));
+            } else {
+                Log.w(TAG, "No store_ids extra received - keeping "
+                    + java.util.Arrays.toString(storeIds));
             }
         }
 
@@ -94,14 +104,28 @@ public class OrderPollingService extends Service {
     }
 
     private void startPolling() {
-        if (isRunning) return;
+        if (isRunning) {
+            // Already polling: report what we are actually polling, so a
+            // settings change that did not take is visible on screen.
+            broadcastPrintStatus("SERVICE already polling "
+                + java.util.Arrays.toString(storeIds), 0);
+            return;
+        }
         if (apiClient == null) {
+            broadcastPrintStatus("NO SERVER URL - check settings", 0);
             Log.w(TAG, "Cannot start polling - no server URL configured");
+            return;
+        }
+        if (storeIds.length == 0) {
+            broadcastPrintStatus("NO STORE IDS - check settings", 0);
+            Log.w(TAG, "Cannot start polling - no store IDs configured");
             return;
         }
 
         isRunning = true;
         Log.i(TAG, "Starting polling for stores " + java.util.Arrays.toString(storeIds));
+        broadcastPrintStatus("SERVICE polling "
+            + java.util.Arrays.toString(storeIds), 0);
 
         if (!printer.isConnected()) {
             boolean opened = printer.open();
@@ -141,7 +165,13 @@ public class OrderPollingService extends Service {
 
                             if (receiptContent.isEmpty()) {
                                 int orderId = job.getInt("orderId");
-                                int jobStoreId = job.optInt("storeId", storeIds[0]);
+                                int jobStoreId = job.optInt("storeId", -1);
+                                if (jobStoreId <= 0) {
+                                    Log.e(TAG, "Job " + jobId + " has no storeId - cannot fetch receipt");
+                                    broadcastPrintStatus("Job " + jobId + " missing storeId", jobId);
+                                    apiClient.markFailed(jobId);
+                                    continue;
+                                }
                                 try {
                                     receiptContent = apiClient.getReceiptContent(orderId, jobStoreId);
                                 } catch (Exception e) {
@@ -168,6 +198,7 @@ public class OrderPollingService extends Service {
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Print poll error: " + e.getMessage());
+                    broadcastPrintStatus("PRINT POLL ERROR: " + e.getMessage(), 0);
                 }
             }
         });
@@ -186,6 +217,7 @@ public class OrderPollingService extends Service {
                     broadcastPendingOrders(orders.toString());
                 } catch (Exception e) {
                     Log.e(TAG, "Order poll error: " + e.getMessage());
+                    broadcastPrintStatus("ORDER POLL ERROR: " + e.getMessage(), 0);
                 }
             }
         });
@@ -210,7 +242,7 @@ public class OrderPollingService extends Service {
         }
     }
 
-    private void broadcastPrintStatus(String status, int jobId) {
+    void broadcastPrintStatus(String status, int jobId) {
         Intent broadcast = new Intent("com.weshop4u.PRINT_STATUS");
         broadcast.putExtra("status", status);
         broadcast.putExtra("jobId", jobId);
@@ -224,14 +256,30 @@ public class OrderPollingService extends Service {
     }
 
     private int[] parseStoreIds(String storeIdStr) {
-        String[] parts = storeIdStr.split(",");
-        int[] ids = new int[parts.length];
+        if (storeIdStr == null) return new int[]{};
+        String trimmed = storeIdStr.trim();
+        if (trimmed.isEmpty()) return new int[]{};
+
+        String[] parts = trimmed.split(",");
+        java.util.ArrayList<Integer> valid = new java.util.ArrayList<Integer>();
         for (int i = 0; i < parts.length; i++) {
+            String part = parts[i].trim();
+            if (part.isEmpty()) continue;
             try {
-                ids[i] = Integer.parseInt(parts[i].trim());
+                int id = Integer.parseInt(part);
+                if (id > 0) {
+                    valid.add(Integer.valueOf(id));
+                } else {
+                    Log.e(TAG, "Ignoring non-positive store ID: '" + part + "'");
+                }
             } catch (NumberFormatException e) {
-                ids[i] = 1;
+                Log.e(TAG, "Ignoring bad store ID: '" + part + "'");
             }
+        }
+
+        int[] ids = new int[valid.size()];
+        for (int i = 0; i < valid.size(); i++) {
+            ids[i] = valid.get(i).intValue();
         }
         return ids;
     }
