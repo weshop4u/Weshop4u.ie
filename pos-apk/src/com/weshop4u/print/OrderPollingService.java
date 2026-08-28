@@ -17,6 +17,7 @@ import org.json.JSONObject;
  * 2. Polls for pending ORDERS and broadcasts them to the UI (new behavior)
  *
  * Print job polling and order polling run on separate intervals.
+ * Supports multiple store IDs (comma separated) for restaurant POS.
  */
 public class OrderPollingService extends Service {
 
@@ -29,7 +30,7 @@ public class OrderPollingService extends Service {
     private boolean isRunning = false;
     private ApiClient apiClient;
     private SerialPrinter printer;
-    private int storeId = 1;
+    private int[] storeIds = new int[]{1};
 
     // Print job polling runnable
     private Runnable printPollRunnable = new Runnable() {
@@ -59,7 +60,8 @@ public class OrderPollingService extends Service {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String serverUrl = prefs.getString("server_url", "");
-        storeId = prefs.getInt("store_id", 1);
+        String storeIdStr = prefs.getString("store_ids", "1");
+        storeIds = parseStoreIds(storeIdStr);
 
         if (!serverUrl.isEmpty()) {
             apiClient = new ApiClient(serverUrl);
@@ -77,13 +79,13 @@ public class OrderPollingService extends Service {
             }
 
             String serverUrl = intent.getStringExtra("server_url");
-            int newStoreId = intent.getIntExtra("store_id", -1);
+            String newStoreIds = intent.getStringExtra("store_ids");
 
             if (serverUrl != null && !serverUrl.isEmpty()) {
                 apiClient = new ApiClient(serverUrl);
             }
-            if (newStoreId > 0) {
-                storeId = newStoreId;
+            if (newStoreIds != null && !newStoreIds.isEmpty()) {
+                storeIds = parseStoreIds(newStoreIds);
             }
         }
 
@@ -99,7 +101,7 @@ public class OrderPollingService extends Service {
         }
 
         isRunning = true;
-        Log.i(TAG, "Starting polling for store " + storeId);
+        Log.i(TAG, "Starting polling for stores " + java.util.Arrays.toString(storeIds));
 
         if (!printer.isConnected()) {
             boolean opened = printer.open();
@@ -127,7 +129,7 @@ public class OrderPollingService extends Service {
             @Override
             public void run() {
                 try {
-                    JSONArray jobs = apiClient.getPendingPrintJobs(storeId);
+                    JSONArray jobs = apiClient.getPendingPrintJobs(storeIds);
 
                     if (jobs.length() > 0) {
                         Log.i(TAG, "Found " + jobs.length() + " pending print job(s)");
@@ -139,8 +141,9 @@ public class OrderPollingService extends Service {
 
                             if (receiptContent.isEmpty()) {
                                 int orderId = job.getInt("orderId");
+                                int jobStoreId = job.optInt("storeId", storeIds[0]);
                                 try {
-                                    receiptContent = apiClient.getReceiptContent(orderId, storeId);
+                                    receiptContent = apiClient.getReceiptContent(orderId, jobStoreId);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Failed to get receipt for order " + orderId, e);
                                     apiClient.markFailed(jobId);
@@ -179,7 +182,7 @@ public class OrderPollingService extends Service {
             @Override
             public void run() {
                 try {
-                    JSONArray orders = apiClient.getPendingOrders(storeId);
+                    JSONArray orders = apiClient.getPendingOrders(storeIds);
                     broadcastPendingOrders(orders.toString());
                 } catch (Exception e) {
                     Log.e(TAG, "Order poll error: " + e.getMessage());
@@ -218,6 +221,19 @@ public class OrderPollingService extends Service {
         Intent broadcast = new Intent("com.weshop4u.PENDING_ORDERS");
         broadcast.putExtra("orders", ordersJson);
         sendBroadcast(broadcast);
+    }
+
+    private int[] parseStoreIds(String storeIdStr) {
+        String[] parts = storeIdStr.split(",");
+        int[] ids = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                ids[i] = Integer.parseInt(parts[i].trim());
+            } catch (NumberFormatException e) {
+                ids[i] = 1;
+            }
+        }
+        return ids;
     }
 
     @Override
