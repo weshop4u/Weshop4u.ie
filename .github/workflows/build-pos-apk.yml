@@ -30,7 +30,7 @@ jobs:
           bash build.sh
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: weshop4u-print-v2
           path: pos-apk/weshop4u-print-v2.apk
