@@ -166,16 +166,14 @@ export default function StoreDetailScreen() {
     // Sort categories
     switch (categorySortBy) {
       case "popular":
-        // Use custom priority order: priority categories first, then rest alphabetically
-        result.sort((a, b) => {
-          const aIdx = CATEGORY_PRIORITY_ORDER.indexOf(a.name);
-          const bIdx = CATEGORY_PRIORITY_ORDER.indexOf(b.name);
-          if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-          if (aIdx !== -1) return -1;
-          if (bIdx !== -1) return 1;
-          return a.name.localeCompare(b.name);
-        });
-        break;
+  // Use admin-defined sort order
+  result.sort((a, b) => {
+    const aOrder = (a as any).sortOrder ?? 999;
+    const bOrder = (b as any).sortOrder ?? 999;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.name.localeCompare(b.name);
+  });
+  break;
       case "az":
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
