@@ -717,7 +717,7 @@ export const storeRouter = router({
       const result = await db
         .select()
         .from(productCategories)
-        .orderBy(productCategories.name);
+        .orderBy(productCategories.sortOrder);
 
       return result;
     }),
