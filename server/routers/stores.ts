@@ -171,6 +171,7 @@ export const storesRouter = router({
             icon: productCategories.icon,
             ageRestricted: productCategories.ageRestricted,
             availabilitySchedule: productCategories.availabilitySchedule,
+            sortOrder: productCategories.sortOrder,
           },
         })
         .from(products)
