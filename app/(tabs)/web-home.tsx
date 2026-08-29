@@ -163,13 +163,7 @@ export default function WebHome() {
           Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
 
-        {/* Temporary hours notice */}
-        <View style={styles.hoursNotice}>
-          <Text style={styles.hoursNoticeTitle}>⏰ Opening Hours Adjusted</Text>
-          <Text style={styles.hoursNoticeText}>
-            Our 24-hour service is on hold for a few weeks. We're open 8:30am – 10pm, Monday to Sunday. Round-the-clock service will resume in the near future!
-          </Text>
-        </View>
+      
 
         {/* Smart Search Bar */}
         <View style={styles.searchWrapper}>
