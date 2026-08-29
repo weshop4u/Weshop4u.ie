@@ -137,15 +137,16 @@ export default function StoreDetailScreen() {
       if (!product.categoryId) return acc;
       
       if (!acc[product.categoryId]) {
-        acc[product.categoryId] = {
-          id: product.categoryId,
-          name: product.category?.name || "Uncategorized",
-          icon: product.category?.icon || null,
-          ageRestricted: product.category?.ageRestricted || false,
-          availabilitySchedule: product.category?.availabilitySchedule || null,
-          products: [],
-        };
-      }
+  acc[product.categoryId] = {
+    id: product.categoryId,
+    name: product.category?.name || "Uncategorized",
+    icon: product.category?.icon || null,
+    ageRestricted: product.category?.ageRestricted || false,
+    availabilitySchedule: product.category?.availabilitySchedule || null,
+    sortOrder: product.category?.sortOrder ?? 999,
+    products: [],
+  };
+}
       acc[product.categoryId].products.push(product);
       return acc;
     }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>);
