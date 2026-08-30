@@ -294,9 +294,9 @@ export const orders = mysqlTable(
     elavonTransactionId: varchar("elavon_transaction_id", { length: 100 }),
     total: decimal("total", { precision: 10, scale: 2 }).notNull(),
     deliveryAddress: text("delivery_address").notNull(),
-    deliveryLatitude: decimal("delivery_latitude", { precision: 10, scale: 7 }),
-    deliveryLongitude: decimal("delivery_longitude", { precision: 10, scale: 7 }),
-    deliveryDistance: decimal("delivery_distance", { precision: 10, scale: 2 }), // in km
+    deliveryLatitude: decimal("delivery_latitude", { ion: 10, scale: 7 }),
+    deliveryLongitude: decimal("delivery_longitude", { ion: 10, scale: 7 }),
+    deliveryDistance: decimal("delivery_distance", { ion: 10, scale: 2 }), // in km
     customerNotes: text("customer_notes"),
     allowSubstitution: boolean("allow_substitution").default(false), // "Get something similar if out of stock"
     batchId: varchar("batch_id", { length: 50 }), // Groups multiple orders for same driver batch delivery
@@ -349,10 +349,12 @@ export const orderItems = mysqlTable(
     orderId: int("order_id").notNull(),
     productId: int("product_id").notNull(),
     productName: varchar("product_name", { length: 255 }).notNull(), // Store name at time of order
-    productPrice: decimal("product_price", { precision: 10, scale: 2 }).notNull(), // Store price at time of order
-    quantity: int("quantity").notNull(),
+    productPrice: decimal("product_price", { ion: 10, scale: 2 }).notNull(), // Store price at time of order
+        quantity: int("quantity").notNull(),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     notes: text("notes"),
+    isPromoItem: boolean("is_promo_item").default(false).notNull(), // Free item earned via a store promotion
+    promotionId: int("promotion_id"), // Which promotion granted it
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -1088,3 +1090,41 @@ export const productViewsRelations = relations(productViews, ({ one }) => ({
 
 export type ProductView = typeof productViews.$inferSelect;
 export type InsertProductView = typeof productViews.$inferInsert;
+
+// ===== STORE PROMOTIONS =====
+// Spend-threshold free-item offers, e.g. "spend €15 at Majestic Wok, get a free bubble tea".
+// Free item is chosen from freeItemCategoryId, scoped to this store's products only.
+export const storePromotions = mysqlTable(
+  "store_promotions",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    storeId: int("store_id").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    minSubtotal: decimal("min_subtotal", { precision: 10, scale: 2 }).notNull(), // Items subtotal only — excludes delivery, service fee, tip
+    freeItemCategoryId: int("free_item_category_id").notNull(),
+    maxFreeItems: int("max_free_items").default(1).notNull(),
+    promptTitle: varchar("prompt_title", { length: 255 }).notNull(),
+    promptBody: text("prompt_body"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    storeIdIdx: index("sp_store_id_idx").on(table.storeId),
+    isActiveIdx: index("sp_is_active_idx").on(table.isActive),
+  })
+);
+
+export const storePromotionsRelations = relations(storePromotions, ({ one }) => ({
+  store: one(stores, {
+    fields: [storePromotions.storeId],
+    references: [stores.id],
+  }),
+  freeItemCategory: one(productCategories, {
+    fields: [storePromotions.freeItemCategoryId],
+    references: [productCategories.id],
+  }),
+}));
+
+export type StorePromotion = typeof storePromotions.$inferSelect;
+export type InsertStorePromotion = typeof storePromotions.$inferInsert;
