@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories, storePromotions } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOrderDeliveredSMS } from "../sms";
@@ -128,6 +128,19 @@ export const ordersRouter = router({
             ).optional(),
           })
         ),
+                // Free promotional item (e.g. Majestic Wok bubble tea on €15+ orders).
+        // Base price is always €0 — only paid modifiers are charged.
+        freeItem: z.object({
+          productId: z.number(),
+          modifiers: z.array(
+            z.object({
+              modifierId: z.number(),
+              modifierName: z.string(),
+              modifierPrice: z.string(),
+              groupName: z.string().optional(),
+            })
+          ).optional(),
+        }).optional(),
         deliveryAddress: z.string(),
         deliveryLatitude: z.number(),
         deliveryLongitude: z.number(),
@@ -364,6 +377,87 @@ export const ordersRouter = router({
           })),
         });
       }
+
+            // ========== SERVER-SIDE PROMOTION CHECK ==========
+      // The client tells us which free item was chosen, but never whether it was
+      // earned. Threshold is re-checked here against the paid items subtotal only
+      // — delivery, service fee and tip are excluded, as is the free item's own
+      // paid extras, which are added after this check.
+      if (input.freeItem) {
+        const [promo] = await db
+          .select()
+          .from(storePromotions)
+          .where(
+            and(
+              eq(storePromotions.storeId, input.storeId),
+              eq(storePromotions.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (!promo) {
+          throw new Error("This store has no active offer.");
+        }
+
+        const paidSubtotal = Math.round(subtotal * 100) / 100;
+        const minRequired = parseFloat(promo.minSubtotal);
+        if (paidSubtotal < minRequired) {
+          throw new Error(`Spend €${minRequired.toFixed(2)} or more to qualify for the free item. Your items total €${paidSubtotal.toFixed(2)}.`);
+        }
+
+        const [freeProduct] = await db
+          .select()
+          .from(products)
+          .where(eq(products.id, input.freeItem.productId))
+          .limit(1);
+
+        if (!freeProduct) {
+          throw new Error("Selected free item not found.");
+        }
+        if (freeProduct.storeId !== input.storeId) {
+          throw new Error("Selected free item is not from this store.");
+        }
+        if (freeProduct.categoryId !== promo.freeItemCategoryId) {
+          throw new Error("Selected item is not eligible for this offer.");
+        }
+        if (freeProduct.isActive === false) {
+          throw new Error("Selected free item is no longer available.");
+        }
+
+        // Base price €0; paid modifiers (e.g. 50c extra topping) still charged
+        const freeItemMods = input.freeItem.modifiers || [];
+        const freeItemExtras = freeItemMods.reduce(
+          (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
+        );
+
+        orderItemsData.push({
+          productId: freeProduct.id,
+          productName: freeProduct.name,
+          productPrice: "0.00",
+          quantity: 1,
+          subtotal: freeItemExtras.toFixed(2),
+          isPromoItem: true,
+          promotionId: promo.id,
+          modifiers: freeItemMods,
+        });
+
+        receiptItems.push({
+          id: freeProduct.id,
+          quantity: 1,
+          productName: `${freeProduct.name} (FREE — ${promo.name})`,
+          subtotal: freeItemExtras.toFixed(2),
+          isWss: freeProduct.isWss || false,
+          modifiers: freeItemMods.map(m => ({
+            groupName: m.groupName || "Options",
+            modifierName: m.modifierName,
+            modifierPrice: m.modifierPrice,
+          })),
+        });
+
+        subtotal += freeItemExtras;
+        console.log(`[Promo] Free item ${freeProduct.name} granted on promotion ${promo.id} (paid subtotal €${paidSubtotal.toFixed(2)}, extras €${freeItemExtras.toFixed(2)})`);
+      }
+      // ========== END PROMOTION CHECK ==========
 
       // Calculate service fee (10% of subtotal)
       const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
