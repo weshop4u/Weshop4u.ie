@@ -281,7 +281,7 @@ export default function WebHome() {
           <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
           <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
           <View style={popularStyles.cardsRow}>
-            {featuredStores.slice(0, 2).map((store) => {
+            {featuredStores.slice(0, 3).map((store) => {
               const open = isStoreOpen(store);
               let storeDistance: number | null = null;
               if (location && (store as any).latitude && (store as any).longitude) {
@@ -1149,11 +1149,12 @@ const popularStyles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-  cardsRow: {
+    cardsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
     width: "100%",
-    maxWidth: 700,
+    maxWidth: 1060,
     justifyContent: "center",
   },
   card: {
