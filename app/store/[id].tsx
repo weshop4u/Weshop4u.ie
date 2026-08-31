@@ -152,8 +152,13 @@ export default function StoreDetailScreen() {
     }, {} as Record<number, { id: number; name: string; icon: string | null; ageRestricted: boolean; availabilitySchedule: string | null; products: typeof products }>);
   }, [products]);
 
-  const categories = useMemo(() => Object.values(categoriesWithProducts), [categoriesWithProducts]);
-
+    // Categories that exist only to source promotional free items — never browsable
+  const HIDDEN_PROMO_CATEGORY_IDS = [360025];
+  const categories = useMemo(
+    () => Object.values(categoriesWithProducts).filter((c: any) => !HIDDEN_PROMO_CATEGORY_IDS.includes(c.id)),
+    [categoriesWithProducts]
+  );
+  
   // Filter and sort categories
   const filteredCategories = useMemo(() => {
     let result = [...categories];
