@@ -230,10 +230,58 @@ export default function CartScreen() {
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
   
-  const storeIdNum = parseInt(storeId);
+    const storeIdNum = parseInt(storeId);
   const { data: store } = trpc.stores.getById.useQuery({ id: storeIdNum });
   const { data: productsData } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum, limit: 5000 });
   const products = productsData?.items || [];
+
+  // ===== FREE PROMOTIONAL ITEM =====
+  // Held in local state, NOT in the cart — the cart subtotal must stay the
+  // qualifying figure, and the free item must never count toward its own threshold.
+  const [showPromoPicker, setShowPromoPicker] = useState(false);
+  const [promoAutoOpened, setPromoAutoOpened] = useState(false);
+  const [pickerProduct, setPickerProduct] = useState<any>(null);
+  const [pickerModifiers, setPickerModifiers] = useState<Record<string, number[]>>({});
+  const [offerSelection, setOfferSelection] = useState<{
+    productId: number;
+    productName: string;
+    modifiers: { modifierId: number; modifierName: string; modifierPrice: string; groupName: string }[];
+  } | null>(null);
+
+  const { data: promotion } = trpc.promotions.getForStore.useQuery({ storeId: storeIdNum });
+  const { data: promoFreeItems } = trpc.promotions.getFreeItems.useQuery(
+    { promotionId: promotion?.id || 0 },
+    { enabled: !!promotion?.id }
+  );
+  const { data: pickerModifierData } = trpc.modifiers.getForProduct.useQuery(
+    { productId: pickerProduct?.id || 0 },
+    { enabled: !!pickerProduct?.id }
+  );
+
+  const promoGroups: any[] = (pickerModifierData?.groups || []) as any[];
+  const promoMissingGroups = promoGroups.filter((g: any) => {
+    if (!g.required) return false;
+    const sel = pickerModifiers[String(g.id)] || [];
+    return sel.length < (g.minSelections || 1);
+  });
+
+  const buildFreeItemModifiers = () => {
+    const out: { modifierId: number; modifierName: string; modifierPrice: string; groupName: string }[] = [];
+    for (const g of promoGroups) {
+      for (const modId of (pickerModifiers[String(g.id)] || [])) {
+        const mod = (g.modifiers || []).find((m: any) => m.id === modId);
+        if (mod) {
+          out.push({
+            modifierId: mod.id,
+            modifierName: mod.name,
+            modifierPrice: mod.price,
+            groupName: g.name,
+          });
+        }
+      }
+    }
+    return out;
+  };
   
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
@@ -347,8 +395,33 @@ export default function CartScreen() {
   );
   const isAgeVerifiedForCheckout = isGuest ? guestDobConfirmed : (user?.ageVerified || localAgeVerified);
 
-  const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
-  const serviceFee = subtotal * 0.10;
+    const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
+
+  // Free item: base price €0, paid extras (e.g. 50c topping) still charged.
+  // Extras do NOT count toward the qualifying subtotal.
+  const freeItemExtras = (offerSelection?.modifiers || []).reduce(
+    (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
+  );
+  const promoEligible = !!promotion && subtotal >= promotion.minSubtotal;
+  const promoShortfall = promotion ? Math.max(0, promotion.minSubtotal - subtotal) : 0;
+
+  // Drop the free item if the order falls back below the threshold
+  useEffect(() => {
+    if (offerSelection && !promoEligible) {
+      setOfferSelection(null);
+      setErrorMessage("Your free item was removed — your order is below the offer minimum.");
+    }
+  }, [promoEligible, offerSelection]);
+
+  // Prompt once, the moment they qualify
+  useEffect(() => {
+    if (promoEligible && !offerSelection && !promoAutoOpened) {
+      setShowPromoPicker(true);
+      setPromoAutoOpened(true);
+    }
+  }, [promoEligible, offerSelection, promoAutoOpened]);
+
+  const serviceFee = (subtotal + freeItemExtras) * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
   const distance = calculateDeliveryFeeMutation.data?.distance || 0;
   const deliveryLatitude = calculateDeliveryFeeMutation.data?.deliveryLatitude || 0;
@@ -356,7 +429,7 @@ export default function CartScreen() {
   const tipValue = showCustomTip ? (parseFloat(customTip) || 0) : tipAmount;
   const discountAmt = appliedDiscount?.discountAmount || 0;
   const effectiveDeliveryFee = appliedDiscount?.isFreeDelivery ? 0 : deliveryFee;
-  const total = Math.max(0, subtotal + serviceFee + effectiveDeliveryFee + (paymentMethod === "card" ? tipValue : 0) - discountAmt);
+  const total = Math.max(0, subtotal + freeItemExtras + serviceFee + effectiveDeliveryFee + (paymentMethod === "card" ? tipValue : 0) - discountAmt);
   
   // Check if guest cash limit is exceeded
   const guestCashLimitExceeded = isGuest && paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT;
@@ -470,6 +543,9 @@ export default function CartScreen() {
         tipAmount: paymentMethod === "card" ? tipValue : 0,
         customerNotes: customerNotes.trim() || undefined,
         allowSubstitution,
+        freeItem: offerSelection
+          ? { productId: offerSelection.productId, modifiers: offerSelection.modifiers }
+          : undefined,
         guestName: isGuest ? guestName.trim() : undefined,
         guestPhone: isGuest ? guestPhone.trim() : undefined,
         guestEmail: isGuest ? guestEmail.trim() || undefined : undefined,
@@ -482,6 +558,8 @@ export default function CartScreen() {
       });
 
       clearCart();
+      setOfferSelection(null);
+      setPromoAutoOpened(false);
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
       setErrorMessage("");
