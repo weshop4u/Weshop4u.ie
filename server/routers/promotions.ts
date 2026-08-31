@@ -53,7 +53,7 @@ export const promotionsRouter = router({
 
       if (!promo) return [];
 
-      const items = await db
+            const items = await db
         .select({
           id: products.id,
           name: products.name,
@@ -61,6 +61,8 @@ export const promotionsRouter = router({
           images: products.images,
           price: products.price,
           stockStatus: products.stockStatus,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
         })
         .from(products)
         .where(
@@ -72,8 +74,21 @@ export const promotionsRouter = router({
         )
         .orderBy(asc(products.sortOrder), asc(products.name));
 
+      // Honour per-product serving hours — no offering bubble tea at 2am
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const isWithinHours = (from: string | null, until: string | null) => {
+        if (!until) return true;
+        const fromMins = from
+          ? parseInt(from.split(":")[0]) * 60 + parseInt(from.split(":")[1])
+          : 0;
+        const untilMins = parseInt(until.split(":")[0]) * 60 + parseInt(until.split(":")[1]);
+        return nowMinutes >= fromMins && nowMinutes < untilMins;
+      };
+
       return items
         .filter((p) => p.stockStatus !== "out_of_stock")
+        .filter((p) => isWithinHours(p.availableFrom, p.availableUntil))
         .map((p) => ({
           id: p.id,
           name: p.name,
