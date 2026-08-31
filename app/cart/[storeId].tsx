@@ -52,202 +52,16 @@ export default function CartScreen() {
   // Only use meData if auth hook also confirms a user (prevents stale React Query cache from masking logout)
   const user = authUser ? (meData || authUser) : null;
   const isGuest = !user;
-  
+
   // Guest checkout choice state
   const [showGuestChoice, setShowGuestChoice] = useState(false);
   const [guestChoiceMade, setGuestChoiceMade] = useState(false);
   const [showComingSoonMessage, setShowComingSoonMessage] = useState(false);
-  
-        {/* Free Item Picker Modal */}
-      <Modal
-        visible={showPromoPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '88%', paddingTop: 16 }}>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, marginBottom: 4 }}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.foreground }}>
-                  🧋 {promotion?.promptTitle || 'Free item'}
-                </Text>
-                {promotion?.promptBody && (
-                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 18 }}>
-                    {promotion.promptBody}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity
-                onPress={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
-                style={{ padding: 4 }}
-              >
-                <Text style={{ fontSize: 22, color: colors.muted }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 16 }}>
-              {!pickerProduct ? (
-                <View style={{ gap: 8, marginTop: 12 }}>
-                  {(promoFreeItems || []).map((item: any) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => { setPickerProduct(item); setPickerModifiers({}); }}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: 14,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.foreground }}>
-                        {item.name}
-                      </Text>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>FREE</Text>
-                    </TouchableOpacity>
-                  ))}
-                  {(!promoFreeItems || promoFreeItems.length === 0) && (
-                    <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 24 }}>
-                      No free items available right now.
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={{ marginTop: 12 }}>
-                  <TouchableOpacity
-                    onPress={() => { setPickerProduct(null); setPickerModifiers({}); }}
-                    style={{ marginBottom: 12 }}
-                  >
-                    <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>‹ Back to flavours</Text>
-                  </TouchableOpacity>
-
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: colors.foreground, marginBottom: 12 }}>
-                    {pickerProduct.name}
-                  </Text>
-
-                  {promoGroups.map((group: any) => {
-                    const gKey = String(group.id);
-                    const selected = pickerModifiers[gKey] || [];
-                    return (
-                      <View key={gKey} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginBottom: 14 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.foreground, marginBottom: 10 }}>
-                          {group.name}{group.required ? ' *' : ''}
-                        </Text>
-                        <View style={{ gap: 8 }}>
-                          {(group.modifiers || []).map((mod: any) => {
-                            const isSelected = selected.includes(mod.id);
-                            const isSingle = group.type === 'single' || (group.maxSelections === 1);
-                            const price = parseFloat(mod.price || '0');
-                            return (
-                              <TouchableOpacity
-                                key={mod.id}
-                                onPress={() => {
-                                  let updated: number[];
-                                  if (isSingle) {
-                                    updated = isSelected ? [] : [mod.id];
-                                  } else if (isSelected) {
-                                    updated = selected.filter((id: number) => id !== mod.id);
-                                  } else {
-                                    if (group.maxSelections > 0 && selected.length >= group.maxSelections) return;
-                                    updated = [...selected, mod.id];
-                                  }
-                                  setPickerModifiers({ ...pickerModifiers, [gKey]: updated });
-                                }}
-                                style={{
-                                  flexDirection: 'row',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  paddingHorizontal: 12,
-                                  paddingVertical: 11,
-                                  borderRadius: 10,
-                                  borderWidth: 1,
-                                  borderColor: isSelected ? colors.primary : colors.border,
-                                  backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
-                                }}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={{ fontSize: 14, fontWeight: isSelected ? '700' : '500', color: isSelected ? colors.primary : colors.foreground }}>
-                                  {mod.name}
-                                </Text>
-                                {price > 0 && (
-                                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#00B8D4' }}>
-                                    +€{price.toFixed(2)}
-                                  </Text>
-                                )}
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </ScrollView>
-
-            {pickerProduct && (
-              <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16), borderTopWidth: 1, borderTopColor: colors.border }}>
-                {(() => {
-                  const extras = promoGroups.reduce((sum: number, g: any) => {
-                    return sum + (pickerModifiers[String(g.id)] || []).reduce((gSum: number, modId: number) => {
-                      const mod = (g.modifiers || []).find((m: any) => m.id === modId);
-                      return gSum + parseFloat(mod?.price || '0');
-                    }, 0);
-                  }, 0);
-                  return extras > 0 ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <Text style={{ fontSize: 14, color: colors.muted }}>Paid extras</Text>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.foreground }}>€{extras.toFixed(2)}</Text>
-                    </View>
-                  ) : null;
-                })()}
-
-                {promoMissingGroups.length > 0 && (
-                  <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
-                    Please choose: {promoMissingGroups.map((g: any) => g.name).join(', ')}
-                  </Text>
-                )}
-
-                <TouchableOpacity
-                  disabled={promoMissingGroups.length > 0}
-                  onPress={() => {
-                    setOfferSelection({
-                      productId: pickerProduct.id,
-                      productName: pickerProduct.name,
-                      modifiers: buildFreeItemModifiers(),
-                    });
-                    setShowPromoPicker(false);
-                    setPickerProduct(null);
-                    setPickerModifiers({});
-                  }}
-                  style={{
-                    backgroundColor: promoMissingGroups.length > 0 ? colors.surface : colors.primary,
-                    borderRadius: 12,
-                    paddingVertical: 15,
-                    alignItems: 'center',
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: promoMissingGroups.length > 0 ? colors.muted : '#FFFFFF' }}>
-                    Add Free Item
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delivery Fee Warning Modal */}
+  // Delivery fee warning modal
   const [showDeliveryFeeWarning, setShowDeliveryFeeWarning] = useState(false);
   const [deliveryFeeWarningAcknowledged, setDeliveryFeeWarningAcknowledged] = useState(false);
-  
+
   // Error banner state
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -259,12 +73,12 @@ export default function CartScreen() {
   const [guestDobConfirmed, setGuestDobConfirmed] = useState(false);
   const [guestDobIso, setGuestDobIso] = useState<string | null>(null);
   const [guestDobDisplay, setGuestDobDisplay] = useState("");
-  
+
   // Guest user fields
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
-  
+
   // Phone OTP verification state
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -273,11 +87,11 @@ export default function CartScreen() {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpCooldown, setOtpCooldown] = useState(0);
-  
+
   const sendOtpMutation = trpc.otp.sendCode.useMutation();
   const verifyOtpMutation = trpc.otp.verifyCode.useMutation();
   const updateProfileMutation = trpc.users.updateProfile.useMutation();
-  
+
   // OTP cooldown timer
   useEffect(() => {
     if (otpCooldown > 0) {
@@ -285,7 +99,7 @@ export default function CartScreen() {
       return () => clearTimeout(timer);
     }
   }, [otpCooldown]);
-  
+
   // Reset OTP state when phone number changes
   useEffect(() => {
     if (otpSent || phoneVerified) {
@@ -295,7 +109,7 @@ export default function CartScreen() {
       setOtpError("");
     }
   }, [guestPhone]);
-  
+
   const handleSendOtp = async () => {
     if (!guestPhone.trim() || guestPhone.trim().length < 7) {
       setOtpError("Please enter a valid phone number");
@@ -315,7 +129,7 @@ export default function CartScreen() {
       setOtpSending(false);
     }
   };
-  
+
   const handleVerifyOtp = async () => {
     if (otpCode.length !== 6) {
       setOtpError("Please enter the 6-digit code");
@@ -333,27 +147,27 @@ export default function CartScreen() {
       setOtpVerifying(false);
     }
   };
-  
+
   const [streetAddress, setStreetAddress] = useState("");
   const [eircode, setEircode] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  
+
   // Fetch user's saved addresses
   const { data: savedAddresses } = trpc.addresses.getAddresses.useQuery(
     undefined,
     { enabled: !!user?.id }
   );
-  
+
   // Fetch user's most recent order to auto-fill address as fallback
   const { data: recentOrders } = trpc.orders.getByCustomer.useQuery(
     { customerId: user?.id || 0 },
     { enabled: !!user?.id }
   );
-  
+
   // Auto-fill from default saved address, then fall back to most recent order
   useEffect(() => {
     if (streetAddress) return;
-    
+
     if (savedAddresses && savedAddresses.length > 0) {
       const defaultAddr = savedAddresses.find((a: any) => a.isDefault) || savedAddresses[0];
       setStreetAddress(defaultAddr.streetAddress);
@@ -361,7 +175,7 @@ export default function CartScreen() {
       setSelectedAddressId(defaultAddr.id);
       return;
     }
-    
+
     if (recentOrders && recentOrders.length > 0) {
       const lastOrder = recentOrders[0];
       if (lastOrder.deliveryAddress) {
@@ -372,7 +186,7 @@ export default function CartScreen() {
       }
     }
   }, [savedAddresses, recentOrders, streetAddress]);
-  
+
   // Show guest choice modal when guest user arrives at checkout
   useEffect(() => {
     // Wait for auth to finish loading, then show modal if user is not logged in
@@ -380,7 +194,7 @@ export default function CartScreen() {
       setShowGuestChoice(true);
     }
   }, [authLoading, isGuest, guestChoiceMade]);
-  
+
   // Handle saved address selection
   const handleSelectSavedAddress = (addressId: number) => {
     const addr = savedAddresses?.find((a: any) => a.id === addressId);
@@ -401,7 +215,7 @@ export default function CartScreen() {
   const [tipAmount, setTipAmount] = useState(0);
   const [customTip, setCustomTip] = useState("");
   const [showCustomTip, setShowCustomTip] = useState(false);
-  
+
   // Discount code state
   const [discountInput, setDiscountInput] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<{
@@ -415,8 +229,8 @@ export default function CartScreen() {
   } | null>(null);
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
-  
-    const storeIdNum = parseInt(storeId);
+
+  const storeIdNum = parseInt(storeId);
   const { data: store } = trpc.stores.getById.useQuery({ id: storeIdNum });
   const { data: productsData } = trpc.stores.getProducts.useQuery({ storeId: storeIdNum, limit: 5000 });
   const products = productsData?.items || [];
@@ -468,11 +282,11 @@ export default function CartScreen() {
     }
     return out;
   };
-  
+
   const calculateDeliveryFeeMutation = trpc.delivery.calculateFee.useMutation();
   const createOrderMutation = trpc.orders.create.useMutation();
   const trpcUtils = trpc.useUtils();
-  
+
   const handleApplyDiscount = async () => {
     const code = discountInput.trim().toUpperCase();
     if (!code) {
@@ -508,7 +322,7 @@ export default function CartScreen() {
       setDiscountLoading(false);
     }
   };
-  
+
   const handleRemoveDiscount = () => {
     setAppliedDiscount(null);
     setDiscountInput("");
@@ -559,7 +373,7 @@ export default function CartScreen() {
       });
       setDeliveryFeeCalculated(true);
       setErrorMessage("");
-      
+
       // Show delivery fee warning if fee is €10 or more
       if (result.deliveryFee >= 10 && !deliveryFeeWarningAcknowledged) {
         setShowDeliveryFeeWarning(true);
@@ -576,12 +390,12 @@ export default function CartScreen() {
 
   // Whether the cart contains anything age-restricted, and whether the person is currently
   // cleared to order it (already-verified account, or DOB confirmed inline this session).
-  const hasAgeRestrictedItems = cartItems.some(item => 
+  const hasAgeRestrictedItems = cartItems.some(item =>
     (item as any)?.category?.ageRestricted === true
   );
   const isAgeVerifiedForCheckout = isGuest ? guestDobConfirmed : (user?.ageVerified || localAgeVerified);
 
-    const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
+  const subtotal = cartContext.items.reduce((sum, item) => sum + getItemLineTotal(item), 0);
 
   // Free item: base price €0, paid extras (e.g. 50c topping) still charged.
   // Extras do NOT count toward the qualifying subtotal.
@@ -593,19 +407,24 @@ export default function CartScreen() {
 
   // Drop the free item if the order falls back below the threshold
   useEffect(() => {
-    if (offerSelection && !promoEligible) {
-      setOfferSelection(null);
-      setErrorMessage("Your free item was removed — your order is below the offer minimum.");
+    if (!promoEligible) {
+      setOfferSelection((prev) => {
+        if (prev) {
+          setErrorMessage("Your free item was removed — your order is below the offer minimum.");
+          return null;
+        }
+        return prev;
+      });
     }
-  }, [promoEligible, offerSelection]);
+  }, [promoEligible]);
 
   // Prompt once, the moment they qualify
   useEffect(() => {
-    if (promoEligible && !offerSelection && !promoAutoOpened) {
+    if (promoEligible && !promoAutoOpened) {
       setShowPromoPicker(true);
       setPromoAutoOpened(true);
     }
-  }, [promoEligible, offerSelection, promoAutoOpened]);
+  }, [promoEligible, promoAutoOpened]);
 
   const serviceFee = (subtotal + freeItemExtras) * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
@@ -616,7 +435,7 @@ export default function CartScreen() {
   const discountAmt = appliedDiscount?.discountAmount || 0;
   const effectiveDeliveryFee = appliedDiscount?.isFreeDelivery ? 0 : deliveryFee;
   const total = Math.max(0, subtotal + freeItemExtras + serviceFee + effectiveDeliveryFee + (paymentMethod === "card" ? tipValue : 0) - discountAmt);
-  
+
   // Check if guest cash limit is exceeded
   const guestCashLimitExceeded = isGuest && paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT;
 
@@ -671,14 +490,14 @@ export default function CartScreen() {
         setErrorMessage("Please enter your phone number");
         return;
       }
-      
+
       // Check guest cash limit
       if (paymentMethod === "cash_on_delivery" && total > GUEST_CASH_LIMIT) {
         setErrorMessage(`Guest cash orders are limited to €${GUEST_CASH_LIMIT}. Please reduce your cart or switch to card payment.`);
         return;
       }
     }
-    
+
     if (!streetAddress.trim() || !eircode.trim()) {
       setErrorMessage("Please enter both your street address and Eircode");
       return;
@@ -688,7 +507,7 @@ export default function CartScreen() {
       setErrorMessage("Please calculate delivery fee first");
       return;
     }
-    
+
     // Check delivery fee warning
     if (deliveryFee >= 10 && !deliveryFeeWarningAcknowledged) {
       setShowDeliveryFeeWarning(true);
@@ -900,6 +719,192 @@ export default function CartScreen() {
         </View>
       </Modal>
 
+      {/* Free Item Picker Modal */}
+      <Modal
+        visible={showPromoPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '88%', paddingTop: 16 }}>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, marginBottom: 4 }}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.foreground }}>
+                  🧋 {promotion?.promptTitle || 'Free item'}
+                </Text>
+                {promotion?.promptBody && (
+                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 18 }}>
+                    {promotion.promptBody}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
+                style={{ padding: 4 }}
+              >
+                <Text style={{ fontSize: 22, color: colors.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 16 }}>
+              {!pickerProduct ? (
+                <View style={{ gap: 8, marginTop: 12 }}>
+                  {(promoFreeItems || []).map((item: any) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => { setPickerProduct(item); setPickerModifiers({}); }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: 14,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.foreground }}>
+                        {item.name}
+                      </Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>FREE</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {(!promoFreeItems || promoFreeItems.length === 0) && (
+                    <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 24 }}>
+                      No free items available right now.
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <View style={{ marginTop: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => { setPickerProduct(null); setPickerModifiers({}); }}
+                    style={{ marginBottom: 12 }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>‹ Back to flavours</Text>
+                  </TouchableOpacity>
+
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: colors.foreground, marginBottom: 12 }}>
+                    {pickerProduct.name}
+                  </Text>
+
+                  {promoGroups.map((group: any) => {
+                    const gKey = String(group.id);
+                    const selected = pickerModifiers[gKey] || [];
+                    return (
+                      <View key={gKey} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginBottom: 14 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.foreground, marginBottom: 10 }}>
+                          {group.name}{group.required ? ' *' : ''}
+                        </Text>
+                        <View style={{ gap: 8 }}>
+                          {(group.modifiers || []).map((mod: any) => {
+                            const isSelected = selected.includes(mod.id);
+                            const isSingle = group.type === 'single' || (group.maxSelections === 1);
+                            const price = parseFloat(mod.price || '0');
+                            return (
+                              <TouchableOpacity
+                                key={mod.id}
+                                onPress={() => {
+                                  let updated: number[];
+                                  if (isSingle) {
+                                    updated = isSelected ? [] : [mod.id];
+                                  } else if (isSelected) {
+                                    updated = selected.filter((id: number) => id !== mod.id);
+                                  } else {
+                                    if (group.maxSelections > 0 && selected.length >= group.maxSelections) return;
+                                    updated = [...selected, mod.id];
+                                  }
+                                  setPickerModifiers({ ...pickerModifiers, [gKey]: updated });
+                                }}
+                                style={{
+                                  flexDirection: 'row',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 11,
+                                  borderRadius: 10,
+                                  borderWidth: 1,
+                                  borderColor: isSelected ? colors.primary : colors.border,
+                                  backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={{ fontSize: 14, fontWeight: isSelected ? '700' : '500', color: isSelected ? colors.primary : colors.foreground }}>
+                                  {mod.name}
+                                </Text>
+                                {price > 0 && (
+                                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#00B8D4' }}>
+                                    +€{price.toFixed(2)}
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+            {pickerProduct && (
+              <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16), borderTopWidth: 1, borderTopColor: colors.border }}>
+                {(() => {
+                  const extras = promoGroups.reduce((sum: number, g: any) => {
+                    return sum + (pickerModifiers[String(g.id)] || []).reduce((gSum: number, modId: number) => {
+                      const mod = (g.modifiers || []).find((m: any) => m.id === modId);
+                      return gSum + parseFloat(mod?.price || '0');
+                    }, 0);
+                  }, 0);
+                  return extras > 0 ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <Text style={{ fontSize: 14, color: colors.muted }}>Paid extras</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.foreground }}>€{extras.toFixed(2)}</Text>
+                    </View>
+                  ) : null;
+                })()}
+
+                {promoMissingGroups.length > 0 && (
+                  <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                    Please choose: {promoMissingGroups.map((g: any) => g.name).join(', ')}
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  disabled={promoMissingGroups.length > 0}
+                  onPress={() => {
+                    setOfferSelection({
+                      productId: pickerProduct.id,
+                      productName: pickerProduct.name,
+                      modifiers: buildFreeItemModifiers(),
+                    });
+                    setShowPromoPicker(false);
+                    setPickerProduct(null);
+                    setPickerModifiers({});
+                  }}
+                  style={{
+                    backgroundColor: promoMissingGroups.length > 0 ? colors.surface : colors.primary,
+                    borderRadius: 12,
+                    paddingVertical: 15,
+                    alignItems: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: promoMissingGroups.length > 0 ? colors.muted : '#FFFFFF' }}>
+                    Add Free Item
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Delivery Fee Warning Modal */}
       <Modal
         visible={showDeliveryFeeWarning}
@@ -911,12 +916,12 @@ export default function CartScreen() {
           <View style={{ backgroundColor: colors.background, borderRadius: 20, padding: 28, width: '100%', maxWidth: 380, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 }}>
             {/* Warning Icon */}
             <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 16 }}>⚠️</Text>
-            
+
             {/* Title */}
             <Text style={{ fontSize: 20, fontWeight: '800', color: colors.foreground, textAlign: 'center', marginBottom: 12 }}>
               Delivery Fee Notice
             </Text>
-            
+
             {/* Message */}
             <Text style={{ fontSize: 15, color: colors.foreground, textAlign: 'center', marginBottom: 8, lineHeight: 22 }}>
               Delivery fee is over €10.
@@ -927,14 +932,14 @@ export default function CartScreen() {
             <Text style={{ fontSize: 14, color: colors.muted, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
               Delivery may take longer than usual due to the distance.
             </Text>
-            
+
             {/* Distance info */}
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 20, flexDirection: 'row', justifyContent: 'center' }}>
               <Text style={{ fontSize: 13, color: colors.muted }}>
                 Distance: {distance.toFixed(2)} km from store
               </Text>
             </View>
-            
+
             {/* OK Button */}
             <TouchableOpacity
               onPress={() => {
@@ -954,7 +959,7 @@ export default function CartScreen() {
                 I Understand, Continue
               </Text>
             </TouchableOpacity>
-            
+
             {/* Cancel */}
             <TouchableOpacity
               onPress={() => setShowDeliveryFeeWarning(false)}
@@ -988,8 +993,8 @@ export default function CartScreen() {
         <View style={{ backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, margin: 16, marginBottom: 0, padding: 12, borderRadius: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: colors.error, flex: 1, fontSize: 14 }}>{errorMessage}</Text>
-            <TouchableOpacity 
-              onPress={() => setErrorMessage("")} 
+            <TouchableOpacity
+              onPress={() => setErrorMessage("")}
               className="active:opacity-70"
             >
               <Text style={{ color: colors.error, fontWeight: '700', fontSize: 16, paddingLeft: 8 }}>✕</Text>
@@ -1124,7 +1129,7 @@ export default function CartScreen() {
           <View className="mb-6">
             <Text className="text-foreground font-semibold mb-3">Your Information</Text>
             <Text className="text-muted text-sm mb-3">We need your details to deliver your order</Text>
-            
+
             <TextInput
               style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginBottom: 12, fontSize: 16 }}
               placeholder="Full Name *"
@@ -1132,7 +1137,7 @@ export default function CartScreen() {
               value={guestName}
               onChangeText={setGuestName}
             />
-            
+
             <TextInput
               style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, fontSize: 16 }}
               placeholder="Email Address (optional — for order updates)"
@@ -1148,7 +1153,7 @@ export default function CartScreen() {
         {/* Delivery Address */}
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-2">Delivery Address</Text>
-          
+
           {/* Saved Address Picker */}
           {!isGuest && savedAddresses && savedAddresses.length > 0 && (
             <View className="mb-3">
@@ -1207,7 +1212,7 @@ export default function CartScreen() {
               </ScrollView>
             </View>
           )}
-          
+
           {/* Street Address */}
           <TextInput
             style={{ backgroundColor: colors.surface, color: colors.foreground, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginBottom: 12, fontSize: 16 }}
@@ -1239,7 +1244,7 @@ export default function CartScreen() {
             autoCapitalize="characters"
             maxLength={10}
           />
-          
+
           {/* Calculate Delivery Fee Button */}
           <TouchableOpacity
             onPress={handleCalculateDeliveryFee}
@@ -1308,7 +1313,7 @@ export default function CartScreen() {
         {/* Payment Method */}
         <View className="mb-6">
           <Text className="text-foreground font-semibold mb-3">Payment Method</Text>
-          
+
           {/* Cash on Delivery - available for all users */}
           <TouchableOpacity
             onPress={() => setPaymentMethod("cash_on_delivery")}
@@ -1325,7 +1330,7 @@ export default function CartScreen() {
               <Text className="text-foreground">Cash on Delivery</Text>
               {isGuest && (
                 <Text style={{ fontSize: 12, color: guestCashLimitExceeded ? colors.error : colors.muted }}>
-                  {guestCashLimitExceeded 
+                  {guestCashLimitExceeded
                     ? `Order exceeds €${GUEST_CASH_LIMIT} guest cash limit`
                     : `Guest limit: €${GUEST_CASH_LIMIT} per order`
                   }
@@ -1347,7 +1352,7 @@ export default function CartScreen() {
             </View>
             <Text className="text-foreground">Card Payment (Elavon)</Text>
           </TouchableOpacity>
-          
+
           {/* Guest cash limit warning */}
           {guestCashLimitExceeded && (
             <View style={{ marginTop: 12, padding: 14, backgroundColor: colors.error + '15', borderColor: colors.error, borderWidth: 1, borderRadius: 12 }}>
@@ -1430,13 +1435,13 @@ export default function CartScreen() {
         {/* Order Summary */}
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Summary</Text>
-          
+
           <View className="flex-row justify-between mb-2">
             <Text className="text-muted">Subtotal</Text>
             <Text className="text-foreground">€{subtotal.toFixed(2)}</Text>
           </View>
-          
-                    {/* Free item / offer progress */}
+
+          {/* Free item / offer progress */}
           {promotion && !offerSelection && promoShortfall > 0 && (
             <View style={{ backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12, marginBottom: 12 }}>
               <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600' }}>
@@ -1494,7 +1499,7 @@ export default function CartScreen() {
             <Text className="text-muted">Service Fee (10%)</Text>
             <Text className="text-foreground">€{serviceFee.toFixed(2)}</Text>
           </View>
-          
+
           <View className="flex-row justify-between mb-2">
             <Text className="text-muted">{appliedDiscount?.isFreeDelivery ? 'Delivery Fee' : 'Delivery Fee'}</Text>
             {appliedDiscount?.isFreeDelivery ? (
@@ -1510,14 +1515,14 @@ export default function CartScreen() {
               </Text>
             )}
           </View>
-          
+
           {paymentMethod === "card" && tipValue > 0 && (
             <View className="flex-row justify-between mb-2">
               <Text className="text-muted">Driver Tip</Text>
               <Text style={{ color: colors.primary, fontWeight: '600' }}>€{tipValue.toFixed(2)}</Text>
             </View>
           )}
-          
+
           {/* Discount line */}
           {appliedDiscount && discountAmt > 0 && (
             <View className="flex-row justify-between mb-2">
@@ -1525,9 +1530,9 @@ export default function CartScreen() {
               <Text style={{ color: '#22C55E', fontWeight: '700' }}>-€{discountAmt.toFixed(2)}</Text>
             </View>
           )}
-          
+
           <View className="mb-3 pb-3 border-b border-border" />
-          
+
           <View className="flex-row justify-between">
             <Text className="text-foreground font-bold text-lg">Total</Text>
             <Text className="text-primary font-bold text-lg">€{total.toFixed(2)}</Text>
@@ -1711,7 +1716,7 @@ export default function CartScreen() {
           </View>
         )}
 
-        
+
         {/* Checkout Button */}
         <TouchableOpacity
             onPress={handleCheckout}
