@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform, Image } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -402,7 +403,8 @@ export default function CartScreen() {
   const freeItemExtras = (offerSelection?.modifiers || []).reduce(
     (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
   );
-  const promoEligible = !!promotion && subtotal >= promotion.minSubtotal;
+  const promoItemsAvailable = (promoFreeItems || []).length > 0;
+  const promoEligible = !!promotion && promoItemsAvailable && subtotal >= promotion.minSubtotal;
   const promoShortfall = promotion ? Math.max(0, promotion.minSubtotal - subtotal) : 0;
 
   // Drop the free item if the order falls back below the threshold
@@ -765,8 +767,22 @@ export default function CartScreen() {
                         borderColor: colors.border,
                         backgroundColor: colors.surface,
                       }}
-                      activeOpacity={0.7}
+                        activeOpacity={0.7}
                     >
+                      {(() => {
+                        let img: string | null = null;
+                        try {
+                          const parsed = typeof item.images === 'string' ? JSON.parse(item.images) : item.images;
+                          if (Array.isArray(parsed) && parsed.length > 0) img = parsed[0];
+                        } catch { img = null; }
+                        return img ? (
+                          <ExpoImage
+                            source={{ uri: img }}
+                            style={{ width: 48, height: 48, borderRadius: 8, marginRight: 12, backgroundColor: colors.surface }}
+                            contentFit="cover"
+                          />
+                        ) : null;
+                      })()}
                       <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.foreground }}>
                         {item.name}
                       </Text>
