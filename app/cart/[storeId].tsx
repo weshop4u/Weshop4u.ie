@@ -58,7 +58,193 @@ export default function CartScreen() {
   const [guestChoiceMade, setGuestChoiceMade] = useState(false);
   const [showComingSoonMessage, setShowComingSoonMessage] = useState(false);
   
-  // Delivery fee warning modal
+        {/* Free Item Picker Modal */}
+      <Modal
+        visible={showPromoPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '88%', paddingTop: 16 }}>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, marginBottom: 4 }}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.foreground }}>
+                  🧋 {promotion?.promptTitle || 'Free item'}
+                </Text>
+                {promotion?.promptBody && (
+                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 18 }}>
+                    {promotion.promptBody}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => { setShowPromoPicker(false); setPickerProduct(null); setPickerModifiers({}); }}
+                style={{ padding: 4 }}
+              >
+                <Text style={{ fontSize: 22, color: colors.muted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 16 }}>
+              {!pickerProduct ? (
+                <View style={{ gap: 8, marginTop: 12 }}>
+                  {(promoFreeItems || []).map((item: any) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => { setPickerProduct(item); setPickerModifiers({}); }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: 14,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.foreground }}>
+                        {item.name}
+                      </Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#22C55E' }}>FREE</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {(!promoFreeItems || promoFreeItems.length === 0) && (
+                    <Text style={{ color: colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 24 }}>
+                      No free items available right now.
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <View style={{ marginTop: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => { setPickerProduct(null); setPickerModifiers({}); }}
+                    style={{ marginBottom: 12 }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>‹ Back to flavours</Text>
+                  </TouchableOpacity>
+
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: colors.foreground, marginBottom: 12 }}>
+                    {pickerProduct.name}
+                  </Text>
+
+                  {promoGroups.map((group: any) => {
+                    const gKey = String(group.id);
+                    const selected = pickerModifiers[gKey] || [];
+                    return (
+                      <View key={gKey} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginBottom: 14 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.foreground, marginBottom: 10 }}>
+                          {group.name}{group.required ? ' *' : ''}
+                        </Text>
+                        <View style={{ gap: 8 }}>
+                          {(group.modifiers || []).map((mod: any) => {
+                            const isSelected = selected.includes(mod.id);
+                            const isSingle = group.type === 'single' || (group.maxSelections === 1);
+                            const price = parseFloat(mod.price || '0');
+                            return (
+                              <TouchableOpacity
+                                key={mod.id}
+                                onPress={() => {
+                                  let updated: number[];
+                                  if (isSingle) {
+                                    updated = isSelected ? [] : [mod.id];
+                                  } else if (isSelected) {
+                                    updated = selected.filter((id: number) => id !== mod.id);
+                                  } else {
+                                    if (group.maxSelections > 0 && selected.length >= group.maxSelections) return;
+                                    updated = [...selected, mod.id];
+                                  }
+                                  setPickerModifiers({ ...pickerModifiers, [gKey]: updated });
+                                }}
+                                style={{
+                                  flexDirection: 'row',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 11,
+                                  borderRadius: 10,
+                                  borderWidth: 1,
+                                  borderColor: isSelected ? colors.primary : colors.border,
+                                  backgroundColor: isSelected ? colors.primary + '15' : colors.surface,
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={{ fontSize: 14, fontWeight: isSelected ? '700' : '500', color: isSelected ? colors.primary : colors.foreground }}>
+                                  {mod.name}
+                                </Text>
+                                {price > 0 && (
+                                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#00B8D4' }}>
+                                    +€{price.toFixed(2)}
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+            {pickerProduct && (
+              <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: Math.max(insets.bottom, 16), borderTopWidth: 1, borderTopColor: colors.border }}>
+                {(() => {
+                  const extras = promoGroups.reduce((sum: number, g: any) => {
+                    return sum + (pickerModifiers[String(g.id)] || []).reduce((gSum: number, modId: number) => {
+                      const mod = (g.modifiers || []).find((m: any) => m.id === modId);
+                      return gSum + parseFloat(mod?.price || '0');
+                    }, 0);
+                  }, 0);
+                  return extras > 0 ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <Text style={{ fontSize: 14, color: colors.muted }}>Paid extras</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.foreground }}>€{extras.toFixed(2)}</Text>
+                    </View>
+                  ) : null;
+                })()}
+
+                {promoMissingGroups.length > 0 && (
+                  <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                    Please choose: {promoMissingGroups.map((g: any) => g.name).join(', ')}
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  disabled={promoMissingGroups.length > 0}
+                  onPress={() => {
+                    setOfferSelection({
+                      productId: pickerProduct.id,
+                      productName: pickerProduct.name,
+                      modifiers: buildFreeItemModifiers(),
+                    });
+                    setShowPromoPicker(false);
+                    setPickerProduct(null);
+                    setPickerModifiers({});
+                  }}
+                  style={{
+                    backgroundColor: promoMissingGroups.length > 0 ? colors.surface : colors.primary,
+                    borderRadius: 12,
+                    paddingVertical: 15,
+                    alignItems: 'center',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: promoMissingGroups.length > 0 ? colors.muted : '#FFFFFF' }}>
+                    Add Free Item
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delivery Fee Warning Modal */}
   const [showDeliveryFeeWarning, setShowDeliveryFeeWarning] = useState(false);
   const [deliveryFeeWarningAcknowledged, setDeliveryFeeWarningAcknowledged] = useState(false);
   
@@ -1250,6 +1436,60 @@ export default function CartScreen() {
             <Text className="text-foreground">€{subtotal.toFixed(2)}</Text>
           </View>
           
+                    {/* Free item / offer progress */}
+          {promotion && !offerSelection && promoShortfall > 0 && (
+            <View style={{ backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+              <Text style={{ color: '#92400E', fontSize: 13, fontWeight: '600' }}>
+                🧋 Spend €{promoShortfall.toFixed(2)} more for a free bubble tea
+              </Text>
+            </View>
+          )}
+
+          {promotion && !offerSelection && promoEligible && (
+            <TouchableOpacity
+              onPress={() => setShowPromoPicker(true)}
+              style={{ backgroundColor: '#DCFCE7', borderRadius: 10, padding: 12, marginBottom: 12 }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: '#166534', fontSize: 13, fontWeight: '700' }}>
+                🧋 You've earned a free bubble tea — tap to choose
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {offerSelection && (
+            <View style={{ backgroundColor: '#F0FDF4', borderColor: '#22C55E', borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={{ color: '#166534', fontSize: 13, fontWeight: '700' }}>
+                    🧋 {offerSelection.productName}
+                  </Text>
+                  {offerSelection.modifiers.map((m, idx) => (
+                    <Text key={idx} style={{ color: '#15803D', fontSize: 11, marginTop: 2 }}>
+                      + {m.modifierName}{parseFloat(m.modifierPrice) > 0 ? ` (+€${parseFloat(m.modifierPrice).toFixed(2)})` : ''}
+                    </Text>
+                  ))}
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#22C55E', fontWeight: '800', fontSize: 13 }}>FREE</Text>
+                  <TouchableOpacity onPress={() => setShowPromoPicker(true)} style={{ marginTop: 4 }}>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setOfferSelection(null)} style={{ marginTop: 4 }}>
+                    <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '600' }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {freeItemExtras > 0 && (
+            <View className="flex-row justify-between mb-2">
+              <Text className="text-muted">Free item extras</Text>
+              <Text className="text-foreground">€{freeItemExtras.toFixed(2)}</Text>
+            </View>
+          )}
+
           <View className="flex-row justify-between mb-2">
             <Text className="text-muted">Service Fee (10%)</Text>
             <Text className="text-foreground">€{serviceFee.toFixed(2)}</Text>
