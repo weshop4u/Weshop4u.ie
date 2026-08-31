@@ -420,8 +420,18 @@ export const ordersRouter = router({
         if (freeProduct.categoryId !== promo.freeItemCategoryId) {
           throw new Error("Selected item is not eligible for this offer.");
         }
-        if (freeProduct.isActive === false) {
+                if (freeProduct.isActive === false) {
           throw new Error("Selected free item is no longer available.");
+        }
+        if (freeProduct.availableUntil) {
+          const freeFromMins = freeProduct.availableFrom
+            ? parseInt(freeProduct.availableFrom.split(":")[0]) * 60 + parseInt(freeProduct.availableFrom.split(":")[1])
+            : 0;
+          const freeUntilMins = parseInt(freeProduct.availableUntil.split(":")[0]) * 60 + parseInt(freeProduct.availableUntil.split(":")[1]);
+          const freeNowMins = new Date().getHours() * 60 + new Date().getMinutes();
+          if (freeNowMins < freeFromMins || freeNowMins >= freeUntilMins) {
+            throw new Error(`${freeProduct.name} is only available ${freeProduct.availableFrom || "00:00"}–${freeProduct.availableUntil}.`);
+          }
         }
 
         // Base price €0; paid modifiers (e.g. 50c extra topping) still charged
