@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform, Image } from "react-native";
 import { Image as ExpoImage } from "expo-image";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -240,7 +241,7 @@ export default function CartScreen() {
   // Held in local state, NOT in the cart — the cart subtotal must stay the
   // qualifying figure, and the free item must never count toward its own threshold.
   const [showPromoPicker, setShowPromoPicker] = useState(false);
-  const [promoAutoOpened, setPromoAutoOpened] = useState(false);
+  const [promoHydrated, setPromoHydrated] = useState(false);
   const [pickerProduct, setPickerProduct] = useState<any>(null);
   const [pickerModifiers, setPickerModifiers] = useState<Record<string, number[]>>({});
   const [offerSelection, setOfferSelection] = useState<{
@@ -407,8 +408,33 @@ export default function CartScreen() {
   const promoEligible = !!promotion && promoItemsAvailable && subtotal >= promotion.minSubtotal;
   const promoShortfall = promotion ? Math.max(0, promotion.minSubtotal - subtotal) : 0;
 
-  // Drop the free item if the order falls back below the threshold
+    // Restore any free item chosen earlier this session — the customer may have
+  // gone back to add more food, which remounts this screen.
   useEffect(() => {
+    AsyncStorage.getItem(`freeItem_${storeIdNum}`)
+      .then((raw) => {
+        if (raw) {
+          try { setOfferSelection(JSON.parse(raw)); } catch { /* ignore bad data */ }
+        }
+      })
+      .finally(() => setPromoHydrated(true));
+  }, [storeIdNum]);
+
+  // Persist the selection so it survives navigation
+  useEffect(() => {
+    if (!promoHydrated) return;
+    if (offerSelection) {
+      AsyncStorage.setItem(`freeItem_${storeIdNum}`, JSON.stringify(offerSelection));
+    } else {
+      AsyncStorage.removeItem(`freeItem_${storeIdNum}`);
+    }
+  }, [offerSelection, promoHydrated, storeIdNum]);
+
+  // Drop the free item if the order falls back below the threshold.
+  // Waits for the promotion query and the restore above, so it can't clear a
+  // valid selection while data is still loading.
+  useEffect(() => {
+    if (!promoHydrated || !promotion) return;
     if (!promoEligible) {
       setOfferSelection((prev) => {
         if (prev) {
@@ -418,15 +444,7 @@ export default function CartScreen() {
         return prev;
       });
     }
-  }, [promoEligible]);
-
-  // Prompt once, the moment they qualify
-  useEffect(() => {
-    if (promoEligible && !promoAutoOpened) {
-      setShowPromoPicker(true);
-      setPromoAutoOpened(true);
-    }
-  }, [promoEligible, promoAutoOpened]);
+  }, [promoEligible, promoHydrated, promotion]);
 
   const serviceFee = (subtotal + freeItemExtras) * 0.10;
   const deliveryFee = calculateDeliveryFeeMutation.data?.deliveryFee || 0;
@@ -566,7 +584,7 @@ export default function CartScreen() {
 
       clearCart();
       setOfferSelection(null);
-      setPromoAutoOpened(false);
+      AsyncStorage.removeItem(`freeItem_${storeIdNum}`);
       setDeliveryFeeCalculated(false);
       calculateDeliveryFeeMutation.reset();
       setErrorMessage("");
