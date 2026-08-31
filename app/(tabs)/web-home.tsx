@@ -163,7 +163,7 @@ export default function WebHome() {
           Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
 
-        
+      
 
         {/* Smart Search Bar */}
         <View style={styles.searchWrapper}>
