@@ -465,7 +465,7 @@ export default function StoreDetailScreen() {
                       Please select {missingRequired.map((g: any) => `${g.minSelections || 1} from: ${g.name}`).join(', ')}
                     </Text>
                   )}
-                  )}
+              
             <TouchableOpacity
               disabled={isDisabled}
               onPress={async () => {
@@ -945,10 +945,10 @@ export default function StoreDetailScreen() {
                               </View>
                               <View style={{ padding: 10, gap: 4 }}>
                                 <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{item.name}</Text>
-                                <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
-                            {result.product.stockStatus === "out_of_stock" && (
-                              <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "600" }}>Out of stock</Text>
-                            )}
+                                <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
+                                {(item as any).stockStatus === "out_of_stock" && (
+                                  <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "600" }}>Out of stock</Text>
+                                )}
                                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                                   <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(item.price).toFixed(2)}</Text>
                                   {qty > 0 && !fullProduct?.hasModifiers ? (
