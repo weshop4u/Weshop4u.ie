@@ -445,13 +445,20 @@ export default function StoreDetailScreen() {
   const minRequired = g.minSelections || 1;
   return totalSelected < minRequired;
 });
-              const isDisabled = missingRequired.length > 0;
+              const outOfStock = selectedProduct?.stockStatus === "out_of_stock";
+              const isDisabled = missingRequired.length > 0 || outOfStock;
               return (
                 <>
-                  {isDisabled && (
+                  {outOfStock && (
+                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      Out of stock
+                    </Text>
+                  )}
+                  {!outOfStock && isDisabled && (
                     <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
                       Please select {missingRequired.map((g: any) => `${g.minSelections || 1} from: ${g.name}`).join(', ')}
                     </Text>
+                  )}
                   )}
             <TouchableOpacity
               disabled={isDisabled}
@@ -512,12 +519,16 @@ export default function StoreDetailScreen() {
                   return;
                 }
 
-                if (!isProductTimeAvailable(selectedProduct)) {
+                  if (!isProductTimeAvailable(selectedProduct)) {
                   const label = getProductTimeLabel(selectedProduct);
                   Alert.alert("Not Available", label || "This product is not available right now.", [{ text: "OK" }]);
                   return;
                 }
 
+                if (selectedProduct?.stockStatus === "out_of_stock") {
+                  Alert.alert("Out of Stock", "This item is currently out of stock.", [{ text: "OK" }]);
+                  return;
+                }
                 if (Platform.OS !== "web") {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }
