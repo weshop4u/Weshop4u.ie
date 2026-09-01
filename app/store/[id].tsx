@@ -77,7 +77,13 @@ export default function StoreDetailScreen() {
   const nextOpen = store && !storeOpen ? getNextOpenTime(store) : null;
   const weeklyHours = store ? getWeeklyHoursSummary(store) : [];
 
-  const handleAddToCart = async (productId: number, productName: string, productPrice: string, categorySchedule?: string | null, qty: number = 1) => {
+    const handleAddToCart = async (productId: number, productName: string, productPrice: string, categorySchedule?: string | null, qty: number = 1) => {
+    const productRecord = products.find((p: any) => p.id === productId);
+    if (productRecord?.stockStatus === "out_of_stock") {
+      Alert.alert("Out of Stock", `${productName} is currently out of stock.`, [{ text: "OK" }]);
+      return;
+    }
+
     if (!storeOpen) {
       Alert.alert(
         "Store Closed",
@@ -863,7 +869,11 @@ export default function StoreDetailScreen() {
                             <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                               <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(result.product.price).toFixed(2)}</Text>
-                              {qty > 0 && !fullProduct?.hasModifiers ? (
+                                {result.product.stockStatus === "out_of_stock" ? (
+                                <View style={{ backgroundColor: "#9BA1A6", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                                  <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>N/A</Text>
+                                </View>
+                              ) : qty > 0 && !fullProduct?.hasModifiers ? (
                                 <View style={{ backgroundColor: "#00E5FF", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2 }}>
                                   <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{qty} in cart</Text>
                                 </View>
@@ -935,7 +945,10 @@ export default function StoreDetailScreen() {
                               </View>
                               <View style={{ padding: 10, gap: 4 }}>
                                 <Text style={{ fontSize: 13, fontWeight: "600", color: "#11181C" }} numberOfLines={2}>{item.name}</Text>
-                                <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{item.categoryName}</Text>
+                                <Text style={{ fontSize: 10, color: "#9BA1A6" }} numberOfLines={1}>{result.categoryName}</Text>
+                            {result.product.stockStatus === "out_of_stock" && (
+                              <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "600" }}>Out of stock</Text>
+                            )}
                                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
                                   <Text style={{ fontSize: 15, fontWeight: "700", color: "#00E5FF" }}>€{parseFloat(item.price).toFixed(2)}</Text>
                                   {qty > 0 && !fullProduct?.hasModifiers ? (
