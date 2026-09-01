@@ -8,6 +8,7 @@ import { sendOrderConfirmationSMS, sendOrderDeliveredSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 import { calculateDualReceipts } from "../services/receipt-calculator";
+import { isCategoryAvailable, getAvailabilityMessage } from "@/lib/category-availability";
 import type { ReceiptItem } from "../services/receipt-calculator";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
 
@@ -317,7 +318,56 @@ export const ordersRouter = router({
           throw new Error(`${p.name} is not available right now. Available ${p.availableFrom || "00:00"}–${p.availableUntil}.`);
         }
       }
-      // ========== END TIME AVAILABILITY CHECK ==========
+            // ========== END TIME AVAILABILITY CHECK ==========
+
+      // ========== SERVER-SIDE STOCK CHECK ==========
+      // Mirrors the storefront's out-of-stock button state, enforced here so it
+      // can't be bypassed by reorder, the product modal, or a direct API call.
+      const productsForStockCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          stockStatus: products.stockStatus,
+          isActive: products.isActive,
+        })
+        .from(products)
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      for (const item of input.items) {
+        const p = productsForStockCheck.find(pr => pr.id === item.productId);
+        if (!p) continue;
+        if (p.isActive === false) {
+          throw new Error(`${p.name} is no longer available.`);
+        }
+        if (p.stockStatus === "out_of_stock") {
+          throw new Error(`${p.name} is out of stock.`);
+        }
+      }
+      // ========== END STOCK CHECK ==========
+
+      // ========== SERVER-SIDE CATEGORY AVAILABILITY CHECK ==========
+      // Alcohol and other time-restricted categories are blocked on the
+      // storefront, but reorder rebuilds a cart without passing through that
+      // path — so the licensing window is enforced here too.
+      const productsForCategoryCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          availabilitySchedule: productCategories.availabilitySchedule,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      for (const item of input.items) {
+        const p = productsForCategoryCheck.find(pr => pr.id === item.productId);
+        if (!p || !p.availabilitySchedule) continue;
+        if (!isCategoryAvailable(p.availabilitySchedule)) {
+          const msg = getAvailabilityMessage(p.availabilitySchedule);
+          throw new Error(`${p.name} is not available right now.${msg ? ` ${msg}` : ""}`);
+        }
+      }
+      // ========== END CATEGORY AVAILABILITY CHECK ==========
 
       // Calculate distance and delivery fee
       const distance = calculateDistance(
