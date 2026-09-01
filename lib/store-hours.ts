@@ -1,26 +1,31 @@
 /**
  * Store Hours Utility
- * 
+ *
  * Handles parsing openingHours JSON, checking if a store is currently open,
  * and formatting hours for display.
- * 
+ *
  * Expected openingHours JSON format:
  * {
- *   "monday":    { "open": "08:00", "close": "22:00" },
- *   "tuesday":   { "open": "08:00", "close": "22:00" },
- *   "wednesday": { "open": "08:00", "close": "22:00" },
- *   "thursday":  { "open": "08:00", "close": "22:00" },
- *   "friday":    { "open": "08:00", "close": "23:00" },
- *   "saturday":  { "open": "09:00", "close": "23:00" },
- *   "sunday":    { "open": "10:00", "close": "21:00" }
+ *   "monday":    { "open": "08:00", "close": "22:00", "closed": false },
+ *   "tuesday":   { "open": "14:00", "close": "22:00", "closed": true  },
+ *   "wednesday": { "open": "08:00", "close": "22:00", "closed": false },
+ *   "thursday":  { "open": "08:00", "close": "22:00", "closed": false },
+ *   "friday":    { "open": "08:00", "close": "23:00", "closed": false },
+ *   "saturday":  { "open": "09:00", "close": "23:00", "closed": false },
+ *   "sunday":    { "open": "10:00", "close": "21:00", "closed": false }
  * }
- * 
- * A day can also be set to null or { "open": null, "close": null } to indicate closed that day.
+ *
+ * A day is closed when any of these are true:
+ *   - the day is missing or null
+ *   - "closed": true  (the admin panel writes this and LEAVES THE OLD TIMES
+ *                      in place, so the flag must be checked, not the times)
+ *   - open or close is null
  */
 
 export type DayHours = {
   open: string | null;
   close: string | null;
+  closed?: boolean | null;
 } | null;
 
 export type WeeklyHours = {
@@ -52,6 +57,18 @@ export function parseOpeningHours(openingHoursJson: string | null | undefined): 
   } catch {
     return null;
   }
+}
+
+/**
+ * A day counts as closed when it is missing, explicitly flagged closed by the
+ * admin panel, or has no open/close times. The admin writes `closed: true` and
+ * leaves the previous times in place, so the flag must be checked first —
+ * checking only the times would read a flagged-closed day as open.
+ */
+function isDayClosed(dayHours: DayHours | undefined): boolean {
+  if (!dayHours) return true;
+  if (dayHours.closed === true) return true;
+  return !dayHours.open || !dayHours.close;
 }
 
 /**
@@ -95,14 +112,14 @@ export function isStoreOpen(store: { isOpen247?: boolean | null; openingHours?: 
   const dayName = getCurrentDayName();
   const dayHours = hours[dayName as keyof WeeklyHours];
 
-  // Day not defined or explicitly null = closed
-  if (!dayHours || !dayHours.open || !dayHours.close) {
+  // Day missing, flagged closed, or without times = closed
+  if (isDayClosed(dayHours)) {
     return false;
   }
 
   const currentMinutes = getCurrentMinutes();
-  const openMinutes = timeToMinutes(dayHours.open);
-  const closeMinutes = timeToMinutes(dayHours.close);
+  const openMinutes = timeToMinutes(dayHours!.open!);
+  const closeMinutes = timeToMinutes(dayHours!.close!);
 
   // Handle overnight hours (e.g., open 22:00, close 02:00)
   if (closeMinutes < openMinutes) {
@@ -125,11 +142,11 @@ export function getTodayHours(store: { isOpen247?: boolean | null; openingHours?
   const dayName = getCurrentDayName();
   const dayHours = hours[dayName as keyof WeeklyHours];
 
-  if (!dayHours || !dayHours.open || !dayHours.close) {
+  if (isDayClosed(dayHours)) {
     return "Closed today";
   }
 
-  return `${formatTime12h(dayHours.open)} – ${formatTime12h(dayHours.close)}`;
+  return `${formatTime12h(dayHours!.open!)} – ${formatTime12h(dayHours!.close!)}`;
 }
 
 /**
@@ -145,26 +162,27 @@ export function getNextOpenTime(store: { isOpen247?: boolean | null; openingHour
   const currentDayIndex = now.getDay();
   const currentMinutes = getCurrentMinutes();
 
-  // Check today first (if there are hours and we're before opening)
+  // Check today first — only if today is actually an open day and we are
+  // before opening time
   const todayName = DAY_NAMES[currentDayIndex];
   const todayHours = hours[todayName as keyof WeeklyHours];
-  if (todayHours?.open && todayHours?.close) {
-    const openMinutes = timeToMinutes(todayHours.open);
+  if (!isDayClosed(todayHours)) {
+    const openMinutes = timeToMinutes(todayHours!.open!);
     if (currentMinutes < openMinutes) {
-      return `Opens at ${formatTime12h(todayHours.open)} today`;
+      return `Opens at ${formatTime12h(todayHours!.open!)} today`;
     }
   }
 
-  // Check next 7 days
+  // Check next 7 days, skipping any day flagged closed
   for (let i = 1; i <= 7; i++) {
     const nextDayIndex = (currentDayIndex + i) % 7;
     const nextDayName = DAY_NAMES[nextDayIndex];
     const nextDayHours = hours[nextDayName as keyof WeeklyHours];
-    if (nextDayHours?.open) {
+    if (!isDayClosed(nextDayHours)) {
       if (i === 1) {
-        return `Opens at ${formatTime12h(nextDayHours.open)} tomorrow`;
+        return `Opens at ${formatTime12h(nextDayHours!.open!)} tomorrow`;
       }
-      return `Opens ${DAY_LABELS_FULL[nextDayIndex]} at ${formatTime12h(nextDayHours.open)}`;
+      return `Opens ${DAY_LABELS_FULL[nextDayIndex]} at ${formatTime12h(nextDayHours!.open!)}`;
     }
   }
 
@@ -197,12 +215,12 @@ export function getWeeklyHoursSummary(store: { isOpen247?: boolean | null; openi
 
   return DAY_NAMES.map((dayName, index) => {
     const dayHours = weeklyHours[dayName as keyof WeeklyHours];
-    if (!dayHours || !dayHours.open || !dayHours.close) {
+    if (isDayClosed(dayHours)) {
       return { day: DAY_LABELS[index], hours: "Closed" };
     }
     return {
       day: DAY_LABELS[index],
-      hours: `${formatTime12h(dayHours.open)} – ${formatTime12h(dayHours.close)}`,
+      hours: `${formatTime12h(dayHours!.open!)} – ${formatTime12h(dayHours!.close!)}`,
     };
   });
 }
