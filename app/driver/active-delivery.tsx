@@ -394,7 +394,7 @@ export default function ActiveDeliveryScreen() {
   const storeLng = order.store?.longitude || null;
   const customerAddress = order.deliveryAddress || "Address unavailable";
   const customerName = (order as any).customer?.name || (order as any).guestName || "Customer";
-  const customerPhone = order.guestPhone || (order as any).customer?.phone || "";
+  const customerPhone = order.guestPhone || (order as any).customer?.phone || (order as any).customerPhone || "";
   const customerLat = order.deliveryLatitude || null;
   const customerLng = order.deliveryLongitude || null;
   const deliveryFee = parseFloat(order.deliveryFee || "0");
@@ -708,11 +708,11 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
           </View>
         )}
 
-        {/* Store Information */}
+                {/* Store Information */}
         {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">📍 Pick Up Location</Text>
-            
+
             <Text className="text-foreground font-semibold mb-1">{storeName}</Text>
             <Text className="text-muted text-sm mb-3">{storeAddress}</Text>
 
@@ -728,10 +728,24 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                   onPress={() => callPhone(storePhone)}
                   className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
                 >
-                  <Text className="text-foreground font-semibold">📞 Call</Text>
+                  <Text className="text-foreground font-semibold">📞 Call Store</Text>
+                  <Text className="text-muted text-xs mt-0.5">{storePhone}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
+
+            {customerPhone ? (
+              <TouchableOpacity
+                onPress={() => callPhone(customerPhone)}
+                className="bg-surface border border-primary p-3 rounded-lg items-center active:opacity-70"
+                style={{ marginTop: 8 }}
+              >
+                <Text className="text-primary font-semibold">📞 Call Customer</Text>
+                <Text className="text-primary text-xs mt-0.5">{customerPhone}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text className="text-muted text-xs" style={{ marginTop: 8 }}>⚠️ No customer phone on this order</Text>
+            )}
 
             {deliveryStatus === "going_to_store" && (
               <Pressable
@@ -795,7 +809,12 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Location</Text>
             <Text className="text-foreground font-semibold text-base mb-1">{customerName}</Text>
-            <Text className="text-muted text-sm mb-3">{customerAddress}</Text>
+            <Text className="text-muted text-sm mb-1">{customerAddress}</Text>
+            {customerPhone ? (
+              <Text className="text-foreground text-sm font-semibold mb-3">📞 {customerPhone}</Text>
+            ) : (
+              <Text className="text-muted text-xs mb-3">⚠️ No customer phone on this order</Text>
+            )}
 
             <View className="flex-row gap-2">
               <TouchableOpacity
