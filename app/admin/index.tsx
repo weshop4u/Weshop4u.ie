@@ -74,6 +74,37 @@ function ArrowBtn({ label, onPress, disabled }: { label: string; onPress: () => 
   );
 }
 
+// Per-store orders/revenue/AOV for the selected date range. Stores with zero
+// orders are still listed (faded) so dormant stores stay visible.
+function StoreBreakdown({ rows }: { rows: any[] | null | undefined }) {
+  if (!rows || rows.length === 0) return null;
+  const th = { fontSize: 11, fontWeight: "700" as const, color: "#64748B", textTransform: "uppercase" as const, letterSpacing: 0.5 };
+  return (
+    <View className="bg-surface rounded-xl border border-border" style={{ overflow: "hidden", marginTop: 16 }}>
+      <View style={{ flexDirection: "row", paddingVertical: 10, paddingHorizontal: 14, backgroundColor: "#F8FAFC", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+        <Text style={{ flex: 2, ...th }}>Store</Text>
+        <Text style={{ flex: 0.7, ...th, textAlign: "right" }}>Orders</Text>
+        <Text style={{ flex: 1, ...th, textAlign: "right" }}>Revenue</Text>
+        <Text style={{ flex: 0.8, ...th, textAlign: "right" }}>AOV</Text>
+      </View>
+      {rows.map((r, idx) => (
+        <View
+          key={r.storeId}
+          style={{ flexDirection: "row", paddingVertical: 10, paddingHorizontal: 14, alignItems: "center", backgroundColor: idx % 2 === 0 ? "#fff" : "#FAFBFC", borderBottomWidth: idx < rows.length - 1 ? 1 : 0, borderBottomColor: "#F1F5F9", opacity: r.count === 0 ? 0.55 : 1 }}
+        >
+          <View style={{ flex: 2 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }} numberOfLines={1}>{r.name}</Text>
+            <Text style={{ fontSize: 11, color: "#94A3B8" }}>{r.category}</Text>
+          </View>
+          <Text style={{ flex: 0.7, fontSize: 13, fontWeight: "700", color: "#0F172A", textAlign: "right" }}>{r.count}</Text>
+          <Text style={{ flex: 1, fontSize: 13, color: "#334155", textAlign: "right" }}>€{r.revenue.toFixed(2)}</Text>
+          <Text style={{ flex: 0.8, fontSize: 13, color: "#334155", textAlign: "right" }}>{r.avgOrderValue > 0 ? `€${r.avgOrderValue.toFixed(2)}` : "—"}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function StatusBadge({ status, count, onPress }: { status: string; count: number; onPress?: () => void }) {
   const colors: Record<string, { bg: string; text: string }> = {
     pending: { bg: "#FEF3C7", text: "#D97706" },
@@ -281,12 +312,15 @@ function DashboardContent() {
             )}
           </View>
           {stats?.orders.custom ? (
-            <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
-              <StatCard label="Orders" value={stats.orders.custom.count} color="#0EA5E9" />
-              <StatCard label="Revenue" value={`€${stats.orders.custom.revenue.toFixed(2)}`} subValue={`Fees: €${stats.orders.custom.serviceFees.toFixed(2)}`} color="#0EA5E9" />
-              <StatCard label="Delivery Fees" value={`€${stats.orders.custom.deliveryFees.toFixed(2)}`} color="#0EA5E9" />
-              <StatCard label="Tips" value={`€${stats.orders.custom.tips.toFixed(2)}`} color="#0EA5E9" />
-            </View>
+            <>
+              <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
+                <StatCard label="Orders" value={stats.orders.custom.count} color="#0EA5E9" />
+                <StatCard label="Revenue" value={`€${stats.orders.custom.revenue.toFixed(2)}`} subValue={`Fees: €${stats.orders.custom.serviceFees.toFixed(2)}`} color="#0EA5E9" />
+                <StatCard label="Delivery Fees" value={`€${stats.orders.custom.deliveryFees.toFixed(2)}`} color="#0EA5E9" />
+                <StatCard label="Tips" value={`€${stats.orders.custom.tips.toFixed(2)}`} color="#0EA5E9" />
+              </View>
+              <StoreBreakdown rows={(stats as any)?.byStore} />
+            </>
           ) : (
             <Text style={{ fontSize: 13, color: "#94A3B8" }}>Pick a date range and tap Search to see totals for that period.</Text>
           )}
@@ -663,6 +697,7 @@ function DashboardContent() {
                 <StatCard label="Delivery Fees" value={`€${stats.orders.custom.deliveryFees.toFixed(2)}`} color="#0EA5E9" />
                 <StatCard label="Tips" value={`€${stats.orders.custom.tips.toFixed(2)}`} color="#0EA5E9" />
               </View>
+              <StoreBreakdown rows={(stats as any)?.byStore} />
             </>
           ) : (
             <Text style={{ fontSize: 13, color: "#94A3B8" }}>Pick a date range and tap Search to see totals for that period.</Text>
