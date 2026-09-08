@@ -152,6 +152,29 @@ export const adminRouter = router({
     const allStores = await db.select().from(stores);
     const activeStores = allStores.filter(s => s.isActive);
 
+    // Per-store breakdown for the selected custom range. Every active store is
+    // listed — including ones with zero orders — so dormant stores are visible
+    // rather than silently missing from the table.
+    const byStore = (input?.customStart && input?.customEnd)
+      ? allStores
+          .filter(s => s.isActive)
+          .map(store => {
+            const storeOrders = customOrders.filter(o => o.storeId === store.id);
+            const revenue = Math.round(calcRevenue(storeOrders) * 100) / 100;
+            const paidDelivered = storeOrders.filter(o => o.status === "delivered" && isPayEligible(o)).length;
+            return {
+              storeId: store.id,
+              name: store.name,
+              category: store.category,
+              count: storeOrders.length,
+              revenue,
+              deliveryFees: Math.round(calcDeliveryFees(storeOrders) * 100) / 100,
+              avgOrderValue: paidDelivered > 0 ? Math.round((revenue / paidDelivered) * 100) / 100 : 0,
+            };
+          })
+          .sort((a, b) => b.revenue - a.revenue || b.count - a.count)
+      : null;
+
     // Get customer count
     const allCustomers = await db
       .select({ id: users.id })
@@ -217,6 +240,8 @@ export const adminRouter = router({
         total: allStores.length,
         active: activeStores.length,
       },
+      // Only populated when customStart/customEnd were provided
+      byStore,
     };
   }),
 
@@ -3151,6 +3176,7 @@ export const adminRouter = router({
             .from(stores)
             .where(eq(stores.id, view.storeId))
             .limit(1);
+          
           return {
             name: product?.name || `Product #${view.productId}`,
             storeName: store?.name || "Unknown Store",
