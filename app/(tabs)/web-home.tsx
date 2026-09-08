@@ -57,6 +57,28 @@ export default function WebHome() {
   const { location } = useLocation();
   const screenWidth = Dimensions.get("window").width;
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Which platform the visitor is on — decides what the Install button does
+  const devicePlatform = useMemo(() => {
+    if (typeof navigator === "undefined") return "desktop";
+    const ua = navigator.userAgent || "";
+    if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+    if (/Android/.test(ua)) return "android";
+    return "desktop";
+  }, []);
+
+  const copyCode = useCallback(async (code: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(code);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+      }
+    } catch (e) {
+      // Clipboard blocked — the code is still visible on screen
+    }
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -281,7 +303,7 @@ export default function WebHome() {
           <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
           <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
           <View style={popularStyles.cardsRow}>
-            {featuredStores.slice(0, 2).map((store) => {
+            {featuredStores.slice(0, 3).map((store) => {
               const open = isStoreOpen(store);
               let storeDistance: number | null = null;
               if (location && (store as any).latitude && (store as any).longitude) {
@@ -357,18 +379,24 @@ export default function WebHome() {
             const bg = banner.backgroundColor || "#0F172A";
             const accent = banner.accentColor || "#00E5FF";
             return (
-              <View key={banner.id} style={{
-                borderRadius: 16,
-                overflow: "hidden",
-                backgroundColor: bg,
-                padding: 24,
-                position: "relative",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 16,
-              }}>
+              <TouchableOpacity
+                key={banner.id}
+                activeOpacity={0.9}
+                onPress={() => router.push(user ? "/" : "/auth/register")}
+                style={{
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  backgroundColor: bg,
+                  padding: 24,
+                  position: "relative",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 16,
+                  cursor: "pointer" as any,
+                }}
+              >
                 <View style={{
                   position: "absolute",
                   top: 0,
@@ -387,24 +415,38 @@ export default function WebHome() {
                     </Text>
                   )}
                 </View>
-                {banner.discountCode && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View style={{
-                      backgroundColor: `${accent}20`,
-                      borderWidth: 1.5,
-                      borderColor: accent,
-                      borderStyle: "dashed",
-                      borderRadius: 10,
-                      paddingHorizontal: 20,
-                      paddingVertical: 10,
-                    }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {banner.discountCode && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={(e: any) => { e?.stopPropagation?.(); copyCode(banner.discountCode); }}
+                      style={{
+                        backgroundColor: `${accent}20`,
+                        borderWidth: 1.5,
+                        borderColor: accent,
+                        borderStyle: "dashed",
+                        borderRadius: 10,
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        alignItems: "center",
+                        cursor: "pointer" as any,
+                      }}
+                    >
                       <Text style={{ fontSize: 20, fontWeight: "900", color: accent, letterSpacing: 2 }}>
                         {banner.discountCode}
                       </Text>
+                      <Text style={{ fontSize: 10, color: accent, marginTop: 2, opacity: 0.8 }}>
+                        {copiedCode === banner.discountCode ? "Copied!" : "Tap to copy"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {!user && (
+                    <View style={{ backgroundColor: accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "800", color: "#0F172A" }}>Sign Up →</Text>
                     </View>
-                  </View>
-                )}
-              </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -546,17 +588,26 @@ export default function WebHome() {
               <TouchableOpacity
                 style={[styles.storeBadge, { backgroundColor: "#00E5FF" }]}
                 onPress={() => {
-                  // Try to trigger PWA install prompt
+                  // Real install prompt if the browser gave us one (Android Chrome)
                   if (typeof window !== "undefined" && (window as any).__pwaInstallPrompt) {
                     (window as any).__pwaInstallPrompt.prompt();
+                    return;
+                  }
+                  if (devicePlatform === "ios") {
+                    alert("To install WESHOP4U:\n\nTap the Share button (box with an arrow) at the bottom of Safari, then choose 'Add to Home Screen'.");
+                  } else if (devicePlatform === "android") {
+                    alert("To install WESHOP4U:\n\nTap the menu (three dots) in Chrome, then choose 'Install app' or 'Add to Home screen'.");
                   } else {
-                    // Fallback: show instructions
-                    alert("To install WESHOP4U:\n\niPhone: Tap the Share button (box with arrow) then 'Add to Home Screen'\n\nAndroid: Tap the menu (three dots) then 'Add to Home Screen' or 'Install App'");
+                    alert("WESHOP4U installs on your phone.\n\nOpen weshop4u.ie on your iPhone or Android and tap Install App from the home page.");
                   }
                 }}
               >
-                <Text style={[styles.storeBadgeSmall, { color: "#ffffff" }]}>Tap to</Text>
-                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>Install App</Text>
+                <Text style={[styles.storeBadgeSmall, { color: "#ffffff" }]}>
+                  {devicePlatform === "desktop" ? "Open on your" : "Tap to"}
+                </Text>
+                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>
+                  {devicePlatform === "desktop" ? "Phone" : "Install App"}
+                </Text>
               </TouchableOpacity>
               <View style={[styles.storeBadge, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#334155" }]}>
                 <Text style={[styles.storeBadgeSmall, { color: "#9BA1A6" }]}>Works on</Text>
@@ -1149,11 +1200,12 @@ const popularStyles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-  cardsRow: {
+    cardsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
     width: "100%",
-    maxWidth: 700,
+    maxWidth: 1060,
     justifyContent: "center",
   },
   card: {
