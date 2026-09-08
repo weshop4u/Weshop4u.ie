@@ -3,7 +3,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 
 function StatCard({ label, value, subValue, color }: { label: string; value: string | number; subValue?: string; color?: string }) {
   return (
@@ -16,6 +16,63 @@ function StatCard({ label, value, subValue, color }: { label: string; value: str
 }
 
 const webCursor = Platform.OS === "web" ? { cursor: "pointer" as any } : {};
+
+// --- Date range helpers -------------------------------------------------
+function toISO(d: Date) {
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+function todayISO() {
+  return toISO(new Date());
+}
+function addDays(iso: string, n: number) {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return toISO(d);
+}
+
+// Native <input type="date"> — web only, gives the browser calendar picker
+function WebDateInput({ value, onChange, width }: { value: string; onChange: (v: string) => void; width: number }) {
+  return React.createElement("input", {
+    type: "date",
+    value: value,
+    onChange: (e: any) => onChange(e.target.value),
+    style: {
+      backgroundColor: "#fff",
+      border: "1px solid #E2E8F0",
+      borderRadius: 6,
+      padding: "6px 10px",
+      fontSize: 13,
+      color: "#0F172A",
+      width: width,
+      outline: "none",
+      fontFamily: "inherit",
+    },
+  });
+}
+
+function QuickBtn({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{ backgroundColor: "#F1F5F9", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, ...webCursor }}
+    >
+      <Text style={{ fontSize: 12, fontWeight: "600", color: "#334155" }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ArrowBtn({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={{ backgroundColor: disabled ? "#F8FAFC" : "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, ...webCursor }}
+    >
+      <Text style={{ fontSize: 14, fontWeight: "700", color: disabled ? "#CBD5E1" : "#0F172A" }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 function StatusBadge({ status, count, onPress }: { status: string; count: number; onPress?: () => void }) {
   const colors: Record<string, { bg: string; text: string }> = {
@@ -82,6 +139,35 @@ function DashboardContent() {
     setCustomStart("");
     setCustomEnd("");
   }, []);
+
+  // Set inputs and apply in one go (used by presets and the day-step arrows)
+  const setRange = useCallback((start: string, end: string) => {
+    setCustomStartInput(start);
+    setCustomEndInput(end);
+    setCustomStart(start);
+    setCustomEnd(end);
+  }, []);
+
+  const presetToday = useCallback(() => { const t = todayISO(); setRange(t, t); }, [setRange]);
+  const presetYesterday = useCallback(() => { const y = addDays(todayISO(), -1); setRange(y, y); }, [setRange]);
+  const presetLast7 = useCallback(() => { const t = todayISO(); setRange(addDays(t, -6), t); }, [setRange]);
+  const presetThisMonth = useCallback(() => { const t = todayISO(); setRange(t.slice(0, 8) + "01", t); }, [setRange]);
+  const presetLastMonth = useCallback(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    setRange(toISO(first), toISO(last));
+  }, [setRange]);
+
+  // Step the whole range back/forward, keeping its length
+  const shiftRange = useCallback((days: number) => {
+    const s = customStart || customStartInput;
+    const e = customEnd || customEndInput;
+    if (!s || !e) return;
+    setRange(addDays(s, days), addDays(e, days));
+  }, [customStart, customEnd, customStartInput, customEndInput, setRange]);
+
+  const canShift = Boolean((customStart || customStartInput) && (customEnd || customEndInput));
 
   // Unread messages count for badge
   const { data: unreadData } = trpc.messages.unreadCount.useQuery(undefined, {
@@ -167,23 +253,20 @@ function DashboardContent() {
         {/* Custom Date Range Search */}
         <View>
           <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Custom Date Range</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+            <QuickBtn label="Today" onPress={presetToday} />
+            <QuickBtn label="Yesterday" onPress={presetYesterday} />
+            <QuickBtn label="Last 7 days" onPress={presetLast7} />
+            <QuickBtn label="This month" onPress={presetThisMonth} />
+            <QuickBtn label="Last month" onPress={presetLastMonth} />
+          </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <ArrowBtn label="←" onPress={() => shiftRange(-1)} disabled={!canShift} />
             <Text style={{ fontSize: 13, color: "#64748B" }}>From:</Text>
-            <TextInput
-              value={customStartInput}
-              onChangeText={setCustomStartInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#CBD5E1"
-              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: "#0F172A", width: 130, outlineStyle: "none" } as any}
-            />
+            <WebDateInput value={customStartInput} onChange={setCustomStartInput} width={140} />
             <Text style={{ fontSize: 13, color: "#64748B" }}>To:</Text>
-            <TextInput
-              value={customEndInput}
-              onChangeText={setCustomEndInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#CBD5E1"
-              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, color: "#0F172A", width: 130, outlineStyle: "none" } as any}
-            />
+            <WebDateInput value={customEndInput} onChange={setCustomEndInput} width={140} />
+            <ArrowBtn label="→" onPress={() => shiftRange(1)} disabled={!canShift} />
             <TouchableOpacity
               onPress={applyCustomRange}
               disabled={!customStartInput || !customEndInput}
@@ -531,7 +614,15 @@ function DashboardContent() {
 
         <View className="px-4 pt-6">
           <Text className="text-lg font-bold text-foreground mb-3">Custom Date Range</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+            <QuickBtn label="Today" onPress={presetToday} />
+            <QuickBtn label="Yesterday" onPress={presetYesterday} />
+            <QuickBtn label="Last 7 days" onPress={presetLast7} />
+            <QuickBtn label="This month" onPress={presetThisMonth} />
+            <QuickBtn label="Last month" onPress={presetLastMonth} />
+          </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <ArrowBtn label="←" onPress={() => shiftRange(-1)} disabled={!canShift} />
             <TextInput
               value={customStartInput}
               onChangeText={setCustomStartInput}
@@ -546,6 +637,7 @@ function DashboardContent() {
               placeholderTextColor="#CBD5E1"
               style={{ flex: 1, minWidth: 130, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: "#0F172A" } as any}
             />
+            <ArrowBtn label="→" onPress={() => shiftRange(1)} disabled={!canShift} />
           </View>
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
             <TouchableOpacity
