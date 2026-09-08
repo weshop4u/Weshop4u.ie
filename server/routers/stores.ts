@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates } from "../../drizzle/schema";
-import { eq, and, like, sql, inArray, count } from "drizzle-orm";
+import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates, orders, orderItems } from "../../drizzle/schema";
+import { eq, and, like, sql, inArray, count, gte } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 // Railway PostgreSQL Migration - v1.0.5 - Force rebuild with explicit PostgreSQL support
@@ -272,6 +272,53 @@ export const storesRouter = router({
         )
       );
       return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
+    }),
+
+    // Best-selling products across all active stores, for the homepage row.
+  // Returns store hours so the client can hide products from closed stores.
+  getHomepageTrending: publicProcedure
+    .input(z.object({ limit: z.number().optional().default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const rows = await db
+        .select({
+          id: orderItems.productId,
+          name: sql<string>`MAX(${products.name})`,
+          price: sql<string>`MAX(${products.price})`,
+          salePrice: sql<string>`MAX(${products.salePrice})`,
+          images: sql<string>`MAX(${products.images})`,
+          categoryId: sql<number>`MAX(${products.categoryId})`,
+          storeId: sql<number>`MAX(${products.storeId})`,
+          storeName: sql<string>`MAX(${stores.name})`,
+          storeLogo: sql<string>`MAX(${stores.logo})`,
+          storeOpeningHours: sql<string>`MAX(${stores.openingHours})`,
+          storeIsOpen247: sql<boolean>`MAX(${stores.isOpen247})`,
+          soldCount: sql<number>`SUM(${orderItems.quantity})`,
+        })
+        .from(orderItems)
+        .innerJoin(orders, eq(orderItems.orderId, orders.id))
+        .innerJoin(products, and(eq(orderItems.productId, products.id), eq(products.isActive, true)))
+        .innerJoin(stores, and(eq(products.storeId, stores.id), eq(stores.isActive, true)))
+        .where(
+          and(
+            gte(orders.createdAt, thirtyDaysAgo),
+            sql`${products.stockStatus} <> 'out_of_stock'`
+          )
+        )
+        .groupBy(orderItems.productId)
+        .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+        .limit(input?.limit ?? 30);
+
+      return rows.map((r: any) => ({
+        ...r,
+        soldCount: Number(r.soldCount),
+        images: r.images ? (() => { try { return JSON.parse(r.images as string); } catch { return [r.images]; } })() : [],
+      }));
     }),
 
   // Search products across all active stores
