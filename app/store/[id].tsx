@@ -38,7 +38,7 @@ const CATEGORY_PRIORITY_ORDER = [
 ];
 
 export default function StoreDetailScreen() {
-  const { id, categoryId: categoryIdParam, productSearch: productSearchParam } = useLocalSearchParams<{ id: string; categoryId?: string; productSearch?: string }>();
+  const { id, categoryId: categoryIdParam, productSearch: productSearchParam, productId: productIdParam } = useLocalSearchParams<{ id: string; categoryId?: string; productSearch?: string; productId?: string }>();
   const router = useRouter();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
     categoryIdParam ? parseInt(categoryIdParam) : null
@@ -604,12 +604,26 @@ export default function StoreDetailScreen() {
   }, [selectedCategoryId]);
 
 
-  // Load recent searches on mount
+    // Load recent searches on mount
   useEffect(() => {
     AsyncStorage.getItem(`recentSearches_${storeId}`).then((data) => {
       if (data) setRecentSearches(JSON.parse(data));
     });
   }, [storeId]);
+
+  // Deep link from the homepage trending row: open this product's modal once
+  // the product list has loaded. Guarded by a ref so closing the modal
+  // doesn't immediately reopen it.
+  const deepLinkedProductRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!productIdParam || products.length === 0) return;
+    if (deepLinkedProductRef.current === productIdParam) return;
+    const target = products.find((p: any) => p.id === parseInt(productIdParam));
+    if (target) {
+      deepLinkedProductRef.current = productIdParam;
+      openProductDetail(target);
+    }
+  }, [productIdParam, products]);
 
   if (storeLoading || productsLoading) {
     return (
