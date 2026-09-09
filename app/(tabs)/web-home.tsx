@@ -49,6 +49,7 @@ export default function WebHome() {
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { data: featuredStores } = trpc.stores.getFeatured.useQuery();
   const { data: activeBanners } = trpc.banners.getActive.useQuery();
+  const { data: trendingProducts } = trpc.stores.getHomepageTrending.useQuery();
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -155,6 +156,20 @@ export default function WebHome() {
       return aOpen - bOpen;
     });
   }, [storesWithDistance]);
+
+    // Trending products, filtered to stores open right now so nobody taps
+  // through to something they can't order
+  const openTrending = useMemo(() => {
+    if (!trendingProducts) return [];
+    return trendingProducts
+      .filter((p: any) =>
+        isStoreOpen({
+          openingHours: p.storeOpeningHours,
+          isOpen247: p.storeIsOpen247,
+        } as any)
+      )
+      .slice(0, 6);
+  }, [trendingProducts]);
 
   // Responsive columns
   const numColumns = screenWidth > 900 ? 3 : screenWidth > 600 ? 2 : 1;
@@ -296,6 +311,48 @@ export default function WebHome() {
       </View>
 
       
+
+            {/* Trending strip — social proof that the platform is live */}
+      {openTrending.length > 0 && !searchQuery && (
+        <View style={trendingStyles.section}>
+          <Text style={trendingStyles.title}>🔥 Ordering Right Now</Text>
+          <Text style={trendingStyles.subtitle}>What Balbriggan is buying today</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={trendingStyles.row}
+          >
+            {openTrending.map((p: any) => (
+              <TouchableOpacity
+                key={`trend-${p.id}`}
+                activeOpacity={0.85}
+                style={trendingStyles.card}
+                onPress={() => router.push(`/store/${p.storeId}?productId=${p.id}`)}
+              >
+                <View style={trendingStyles.imageWrap}>
+                  {p.images && p.images.length > 0 ? (
+                    <Image source={{ uri: p.images[0] }} style={trendingStyles.image} contentFit="cover" transition={200} />
+                  ) : (
+                    <Text style={{ fontSize: 32 }}>🛒</Text>
+                  )}
+                </View>
+                <View style={trendingStyles.info}>
+                  <Text style={trendingStyles.name} numberOfLines={2}>{p.name}</Text>
+                  <Text style={trendingStyles.store} numberOfLines={1}>{p.storeName}</Text>
+                  <View style={trendingStyles.priceRow}>
+                    <Text style={trendingStyles.price}>
+                      €{p.salePrice ? p.salePrice : p.price}
+                    </Text>
+                    <View style={trendingStyles.addButton}>
+                      <Text style={trendingStyles.addButtonText}>View</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Popular Stores Section */}
       {featuredStores && featuredStores.length > 0 && !searchQuery && (
@@ -1285,7 +1342,91 @@ const popularStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  cardButtonTextClosed: {
+    cardButtonTextClosed: {
     color: "#687076",
+  },
+});
+
+const trendingStyles = StyleSheet.create({
+  section: {
+    paddingTop: 28,
+    paddingBottom: 20,
+    backgroundColor: "#ffffff",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#11181C",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#687076",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  row: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  card: {
+    width: 150,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+  },
+  imageWrap: {
+    height: 100,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  image: {
+    width: "100%",
+    height: 100,
+  },
+  info: {
+    padding: 10,
+    gap: 3,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#11181C",
+    lineHeight: 17,
+    minHeight: 34,
+  },
+  store: {
+    fontSize: 11,
+    color: "#9BA1A6",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  price: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#11181C",
+  },
+  addButton: {
+    backgroundColor: "#00E5FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
