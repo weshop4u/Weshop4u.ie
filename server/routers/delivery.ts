@@ -79,4 +79,44 @@ export const deliveryRouter = router({
         deliveryLongitude: customerLocation.longitude,
       };
     }),
+  // Get settlement history (admin view)
+  getSettlementHistory: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const settled = await db
+        .select({
+          shiftId: driverShifts.id,
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          netOwed: driverShifts.netOwed,
+          cashCollected: driverShifts.cashCollected,
+          deliveryFeesEarned: driverShifts.deliveryFeesEarned,
+          cardTipsEarned: driverShifts.cardTipsEarned,
+          totalJobs: driverShifts.totalJobs,
+          startedAt: driverShifts.startedAt,
+          endedAt: driverShifts.endedAt,
+          settledAt: driverShifts.settledAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(sql`${driverShifts.settledAt} IS NOT NULL`)
+        .orderBy(desc(driverShifts.settledAt))
+        .limit(100);
+
+      return settled.map(s => ({
+        shiftId: s.shiftId,
+        driverId: s.driverId,
+        driverName: s.driverName || "Unknown",
+        netOwed: parseFloat(s.netOwed || "0"),
+        cashCollected: parseFloat(s.cashCollected || "0"),
+        deliveryFeesEarned: parseFloat(s.deliveryFeesEarned || "0"),
+        cardTipsEarned: parseFloat(s.cardTipsEarned || "0"),
+        totalJobs: s.totalJobs || 0,
+        startedAt: s.startedAt.toISOString(),
+        endedAt: s.endedAt?.toISOString() || "",
+        settledAt: s.settledAt?.toISOString() || "",
+      }));
+    }),
 });

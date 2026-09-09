@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories, storePromotions } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
-import { sendOrderConfirmationSMS } from "../sms";
+import { sendOrderConfirmationSMS, sendOrderDeliveredSMS } from "../sms";
 import { offerOrderToQueue } from "./drivers";
 import { orderOffers } from "../../drizzle/schema";
 import { calculateDualReceipts } from "../services/receipt-calculator";
+import { isCategoryAvailable, getAvailabilityMessage } from "@/lib/category-availability";
 import type { ReceiptItem } from "../services/receipt-calculator";
 // autoCreatePrintJob removed - printing is now manual only via Print Pick List button
 
@@ -54,17 +55,10 @@ function calculateDistance(
 
 // Helper function to calculate delivery fee based on distance
 function calculateDeliveryFee(distanceKm: number): number {
-  const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 2.8;
-  const COST_PER_KM = 1.00;
-
-  if (distanceKm <= BASE_DISTANCE) {
-    return BASE_FEE;
-  }
-
-  const additionalDistance = distanceKm - BASE_DISTANCE;
-  const additionalCost = additionalDistance * COST_PER_KM;
-  return Math.round((BASE_FEE + additionalCost) * 100) / 100; // Round to 2 decimal places
+  if (distanceKm <= 2.8) return 3.50;
+  if (distanceKm <= 3.99) return 4.00;
+  if (distanceKm <= 4.99) return 4.90;
+  return Math.round(distanceKm * 100) / 100;
 }
 
 export const ordersRouter = router({
@@ -135,6 +129,19 @@ export const ordersRouter = router({
             ).optional(),
           })
         ),
+                // Free promotional item (e.g. Majestic Wok bubble tea on €15+ orders).
+        // Base price is always €0 — only paid modifiers are charged.
+        freeItem: z.object({
+          productId: z.number(),
+          modifiers: z.array(
+            z.object({
+              modifierId: z.number(),
+              modifierName: z.string(),
+              modifierPrice: z.string(),
+              groupName: z.string().optional(),
+            })
+          ).optional(),
+        }).optional(),
         deliveryAddress: z.string(),
         deliveryLatitude: z.number(),
         deliveryLongitude: z.number(),
@@ -146,6 +153,8 @@ export const ordersRouter = router({
         guestName: z.string().optional(),
         guestPhone: z.string().optional(),
         guestEmail: z.string().optional(),
+        // Guest age verification — required when the cart contains age-restricted items
+        guestDateOfBirth: z.string().optional(), // ISO date string, e.g. "1990-05-12"
         // Discount code
         discountCodeId: z.number().optional(),
         discountCodeName: z.string().optional(),
@@ -174,6 +183,191 @@ export const ordersRouter = router({
       if (!storeData.latitude || !storeData.longitude) {
         throw new Error("Store location not available");
       }
+
+      // ========== DUPLICATE SUBMISSION GUARD ==========
+      // Protects against double-tap on "Place Order" and network-retry double
+      // submits, which were creating two full order rows — and dispatching two
+      // separate driver jobs — from a single checkout action. If an order from
+      // the same customer (or guest, matched by phone) was created for this
+      // store and delivery address in the last 15 seconds, treat this request
+      // as a duplicate and hand back that existing order instead of creating
+      // a new one. The customer's checkout still succeeds instantly either way.
+      const duplicateWindowStart = new Date(Date.now() - 15 * 1000);
+      const duplicateConditions = [
+        eq(orders.storeId, input.storeId),
+        eq(orders.deliveryAddress, input.deliveryAddress),
+        gte(orders.createdAt, duplicateWindowStart),
+        sql`${orders.status} != 'cancelled'`,
+      ];
+      if (input.customerId) {
+        duplicateConditions.push(eq(orders.customerId, input.customerId));
+      } else if (input.guestPhone) {
+        duplicateConditions.push(eq(orders.guestPhone, input.guestPhone));
+      } else {
+        // No reliable identity to de-duplicate a guest order on — skip the check
+        duplicateConditions.push(sql`1 = 0`);
+      }
+
+      const recentDuplicate = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          subtotal: orders.subtotal,
+          serviceFee: orders.serviceFee,
+          deliveryFee: orders.deliveryFee,
+          discountAmount: orders.discountAmount,
+          total: orders.total,
+          deliveryDistance: orders.deliveryDistance,
+        })
+        .from(orders)
+        .where(and(...duplicateConditions))
+        .orderBy(desc(orders.createdAt))
+        .limit(1);
+
+      if (recentDuplicate.length > 0) {
+        const existing = recentDuplicate[0];
+        console.log(`[Duplicate Guard] Blocked duplicate order submission for store ${input.storeId} — returning existing order ${existing.id} (${existing.orderNumber}) instead of creating a new one`);
+        return {
+          orderId: existing.id,
+          orderNumber: existing.orderNumber,
+          subtotal: parseFloat(existing.subtotal),
+          serviceFee: parseFloat(existing.serviceFee),
+          deliveryFee: parseFloat(existing.deliveryFee),
+          discountAmount: parseFloat(existing.discountAmount || "0"),
+          total: parseFloat(existing.total),
+          distance: parseFloat(existing.deliveryDistance || "0"),
+        };
+      }
+      // ========== END DUPLICATE SUBMISSION GUARD ==========
+
+      // ========== SERVER-SIDE AGE VERIFICATION CHECK ==========
+      // Mirrors the check on the checkout screen, but enforced here too so it
+      // can't be bypassed by calling the API directly.
+      const productIdsForAgeCheck = input.items.map(item => item.productId);
+      const productsWithCategory = await db
+        .select({
+          id: products.id,
+          ageRestricted: productCategories.ageRestricted,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      const hasAgeRestrictedItems = productsWithCategory.some(p => p.ageRestricted === true);
+
+      if (hasAgeRestrictedItems) {
+        if (input.customerId) {
+          const [customerRecord] = await db
+            .select({ ageVerified: users.ageVerified })
+            .from(users)
+            .where(eq(users.id, input.customerId))
+            .limit(1);
+
+          if (!customerRecord?.ageVerified) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+        } else {
+          // Guest order — validate the declared date of birth proves 18+
+          if (!input.guestDateOfBirth) {
+            throw new Error("Your cart contains age restricted items. Please confirm your date of birth before continuing.");
+          }
+
+          const dob = new Date(input.guestDateOfBirth);
+          if (isNaN(dob.getTime())) {
+            throw new Error("Invalid date of birth provided.");
+          }
+
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          const hasHadBirthdayThisYear =
+            today.getMonth() > dob.getMonth() ||
+            (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
+          if (!hasHadBirthdayThisYear) age--;
+
+          if (age < 18) {
+            throw new Error("You must be at least 18 years old to order age restricted items.");
+          }
+        }
+      }
+      // ========== END AGE VERIFICATION CHECK ==========
+
+      // ========== SERVER-SIDE TIME AVAILABILITY CHECK ==========
+      const productsForTimeCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
+        })
+        .from(products)
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+      for (const item of input.items) {
+        const p = productsForTimeCheck.find(pr => pr.id === item.productId);
+        if (!p || !p.availableUntil) continue;
+
+        const fromMinutes = p.availableFrom
+          ? parseInt(p.availableFrom.split(":")[0]) * 60 + parseInt(p.availableFrom.split(":")[1])
+          : 0;
+        const untilMinutes = parseInt(p.availableUntil.split(":")[0]) * 60 + parseInt(p.availableUntil.split(":")[1]);
+
+        const isAvailable = nowMinutes >= fromMinutes && nowMinutes < untilMinutes;
+        if (!isAvailable) {
+          throw new Error(`${p.name} is not available right now. Available ${p.availableFrom || "00:00"}–${p.availableUntil}.`);
+        }
+      }
+            // ========== END TIME AVAILABILITY CHECK ==========
+
+      // ========== SERVER-SIDE STOCK CHECK ==========
+      // Mirrors the storefront's out-of-stock button state, enforced here so it
+      // can't be bypassed by reorder, the product modal, or a direct API call.
+      const productsForStockCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          stockStatus: products.stockStatus,
+          isActive: products.isActive,
+        })
+        .from(products)
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      for (const item of input.items) {
+        const p = productsForStockCheck.find(pr => pr.id === item.productId);
+        if (!p) continue;
+        if (p.isActive === false) {
+          throw new Error(`${p.name} is no longer available.`);
+        }
+        if (p.stockStatus === "out_of_stock") {
+          throw new Error(`${p.name} is out of stock.`);
+        }
+      }
+      // ========== END STOCK CHECK ==========
+
+      // ========== SERVER-SIDE CATEGORY AVAILABILITY CHECK ==========
+      // Alcohol and other time-restricted categories are blocked on the
+      // storefront, but reorder rebuilds a cart without passing through that
+      // path — so the licensing window is enforced here too.
+      const productsForCategoryCheck = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          availabilitySchedule: productCategories.availabilitySchedule,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(inArray(products.id, productIdsForAgeCheck));
+
+      for (const item of input.items) {
+        const p = productsForCategoryCheck.find(pr => pr.id === item.productId);
+        if (!p || !p.availabilitySchedule) continue;
+        if (!isCategoryAvailable(p.availabilitySchedule)) {
+          const msg = getAvailabilityMessage(p.availabilitySchedule);
+          throw new Error(`${p.name} is not available right now.${msg ? ` ${msg}` : ""}`);
+        }
+      }
+      // ========== END CATEGORY AVAILABILITY CHECK ==========
 
       // Calculate distance and delivery fee
       const distance = calculateDistance(
@@ -234,6 +428,97 @@ export const ordersRouter = router({
         });
       }
 
+            // ========== SERVER-SIDE PROMOTION CHECK ==========
+      // The client tells us which free item was chosen, but never whether it was
+      // earned. Threshold is re-checked here against the paid items subtotal only
+      // — delivery, service fee and tip are excluded, as is the free item's own
+      // paid extras, which are added after this check.
+      if (input.freeItem) {
+        const [promo] = await db
+          .select()
+          .from(storePromotions)
+          .where(
+            and(
+              eq(storePromotions.storeId, input.storeId),
+              eq(storePromotions.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (!promo) {
+          throw new Error("This store has no active offer.");
+        }
+
+        const paidSubtotal = Math.round(subtotal * 100) / 100;
+        const minRequired = parseFloat(promo.minSubtotal);
+        if (paidSubtotal < minRequired) {
+          throw new Error(`Spend €${minRequired.toFixed(2)} or more to qualify for the free item. Your items total €${paidSubtotal.toFixed(2)}.`);
+        }
+
+        const [freeProduct] = await db
+          .select()
+          .from(products)
+          .where(eq(products.id, input.freeItem.productId))
+          .limit(1);
+
+        if (!freeProduct) {
+          throw new Error("Selected free item not found.");
+        }
+        if (freeProduct.storeId !== input.storeId) {
+          throw new Error("Selected free item is not from this store.");
+        }
+        if (freeProduct.categoryId !== promo.freeItemCategoryId) {
+          throw new Error("Selected item is not eligible for this offer.");
+        }
+                if (freeProduct.isActive === false) {
+          throw new Error("Selected free item is no longer available.");
+        }
+        if (freeProduct.availableUntil) {
+          const freeFromMins = freeProduct.availableFrom
+            ? parseInt(freeProduct.availableFrom.split(":")[0]) * 60 + parseInt(freeProduct.availableFrom.split(":")[1])
+            : 0;
+          const freeUntilMins = parseInt(freeProduct.availableUntil.split(":")[0]) * 60 + parseInt(freeProduct.availableUntil.split(":")[1]);
+          const freeNowMins = new Date().getHours() * 60 + new Date().getMinutes();
+          if (freeNowMins < freeFromMins || freeNowMins >= freeUntilMins) {
+            throw new Error(`${freeProduct.name} is only available ${freeProduct.availableFrom || "00:00"}–${freeProduct.availableUntil}.`);
+          }
+        }
+
+        // Base price €0; paid modifiers (e.g. 50c extra topping) still charged
+        const freeItemMods = input.freeItem.modifiers || [];
+        const freeItemExtras = freeItemMods.reduce(
+          (sum, m) => sum + parseFloat(m.modifierPrice || "0"), 0
+        );
+
+        orderItemsData.push({
+          productId: freeProduct.id,
+          productName: freeProduct.name,
+          productPrice: "0.00",
+          quantity: 1,
+          subtotal: freeItemExtras.toFixed(2),
+          isPromoItem: true,
+          promotionId: promo.id,
+          modifiers: freeItemMods,
+        });
+
+        receiptItems.push({
+          id: freeProduct.id,
+          quantity: 1,
+          productName: `${freeProduct.name} (FREE — ${promo.name})`,
+          subtotal: freeItemExtras.toFixed(2),
+          isWss: freeProduct.isWss || false,
+          modifiers: freeItemMods.map(m => ({
+            groupName: m.groupName || "Options",
+            modifierName: m.modifierName,
+            modifierPrice: m.modifierPrice,
+          })),
+        });
+
+        subtotal += freeItemExtras;
+        console.log(`[Promo] Free item ${freeProduct.name} granted on promotion ${promo.id} (paid subtotal €${paidSubtotal.toFixed(2)}, extras €${freeItemExtras.toFixed(2)})`);
+      }
+      // ========== END PROMOTION CHECK ==========
+
       // Calculate service fee (10% of subtotal)
       const serviceFee = Math.round(subtotal * 0.10 * 100) / 100;
       const tipAmount = input.paymentMethod === "card" ? (input.tipAmount || 0) : 0;
@@ -282,6 +567,7 @@ export const ordersRouter = router({
         guestName: input.guestName || null,
         guestPhone: input.guestPhone || null,
         guestEmail: input.guestEmail || null,
+        guestDateOfBirth: input.guestDateOfBirth || null,
         // Store receipt data as JSON
         receiptData: JSON.stringify(receiptData),
       });
@@ -360,50 +646,53 @@ export const ordersRouter = router({
         }
       }
 
-      // SMS #1 — Order Confirmed
-      // Strategy: Send SMS to customers who DON'T have a push token (guests + web-only users).
-      // App users with push tokens get free push notifications instead.
-      try {
-        let smsPhone: string | null = null;
-        let hasPushToken = false;
-
-        if (input.customerId) {
-          // Logged-in user — check if they have a push token
-          const [customerRecord] = await db
-            .select({ phone: users.phone, pushToken: users.pushToken })
-            .from(users)
-            .where(eq(users.id, input.customerId))
-            .limit(1);
-          if (customerRecord?.pushToken) {
-            hasPushToken = true;
-            // Push notification is sent separately below (store staff notifications section)
-            // Also send a direct push to the customer
-            await sendPushNotification(customerRecord.pushToken, {
-              title: "Order Placed! \uD83C\uDF89",
-              body: `Your ${storeData.name} order #${Number(orderId)} is confirmed! We'll notify you when the driver arrives.`,
-              data: { type: "order_update", orderId: Number(orderId), status: "pending" },
-              channelId: "orders",
-            });
-            console.log(`[Push] Order confirmation push sent to customer ${input.customerId}`);
-          } else {
-            // No push token — use their phone number for SMS
-            smsPhone = customerRecord?.phone || null;
-          }
-        } else {
-          // Guest order — use guest phone
-          smsPhone = input.guestPhone || null;
-        }
-
-        if (!hasPushToken && smsPhone) {
-          await sendOrderConfirmationSMS(smsPhone, storeData.name, Number(orderId));
-          console.log(`[SMS] Order confirmation sent to ${smsPhone}`);
-        }
-      } catch (error) {
-        console.error(`[SMS/Push] Failed to send order confirmation:`, error);
-        // Don't fail the order if notification fails
-      }
-
       if (input.paymentMethod === "cash_on_delivery") {
+        // SMS #1 / Push — Order Confirmed (cash orders only).
+        // Card orders do NOT get this here — it would tell the customer
+        // "thank you for your order" before they've even reached the Elavon
+        // payment page, let alone paid. For card, this same notification is
+        // sent later from payments.checkPaymentStatus, only once the payment
+        // is actually confirmed.
+        try {
+          let smsPhone: string | null = null;
+          let hasPushToken = false;
+
+          if (input.customerId) {
+            // Logged-in user — check if they have a push token
+            const [customerRecord] = await db
+              .select({ phone: users.phone, pushToken: users.pushToken })
+              .from(users)
+              .where(eq(users.id, input.customerId))
+              .limit(1);
+            if (customerRecord?.pushToken) {
+              hasPushToken = true;
+              // Push notification is sent separately below (store staff notifications section)
+              // Also send a direct push to the customer
+              await sendPushNotification(customerRecord.pushToken, {
+                title: "Order Placed! \uD83C\uDF89",
+                body: `Your ${storeData.name} order #${Number(orderId)} is confirmed! We'll notify you when the driver arrives.`,
+                data: { type: "order_update", orderId: Number(orderId), status: "pending" },
+                channelId: "orders",
+              });
+              console.log(`[Push] Order confirmation push sent to customer ${input.customerId}`);
+            } else {
+              // No push token — use their phone number for SMS
+              smsPhone = customerRecord?.phone || null;
+            }
+          } else {
+            // Guest order — use guest phone
+            smsPhone = input.guestPhone || null;
+          }
+
+          if (!hasPushToken && smsPhone) {
+            await sendOrderConfirmationSMS(smsPhone, storeData.name, Number(orderId));
+            console.log(`[SMS] Order confirmation sent to ${smsPhone}`);
+          }
+        } catch (error) {
+          console.error(`[SMS/Push] Failed to send order confirmation:`, error);
+          // Don't fail the order if notification fails
+        }
+
         // Send push notification to ALL store staff for this store
         try {
           const storeStaffMembers = await db
@@ -445,14 +734,9 @@ export const ordersRouter = router({
           console.error(`[Push] Failed to send store notifications for order ${orderId}:`, pushError);
         }
 
-        // Trigger driver queue - offer to first available driver
-        try {
-          await offerOrderToQueue(Number(orderId));
-          console.log(`[Queue] Order ${orderId} offered to driver queue`);
-        } catch (error) {
-          console.error(`[Queue] Failed to offer order to queue:`, error);
-          // Don't fail the order if queue offering fails
-        }
+        // Dispatch now happens only once the order is accepted (store/POS/
+        // admin), not immediately at creation — see acceptOrder /
+        // acceptOrderFromPOS / updateOrderStatus.
       }
 
       return {
@@ -497,7 +781,8 @@ export const ordersRouter = router({
           subtotal: orderItems.subtotal,
           notes: orderItems.notes,
           productName: products.name,
-          categoryId: products.categoryId,
+            productImages: products.images,
+            categoryId: products.categoryId,
           ageRestricted: productCategories.ageRestricted,
         })
         .from(orderItems)
@@ -953,21 +1238,9 @@ export const ordersRouter = router({
       // Send notification if we have a push token
       if (pushToken) {
         const notificationMessages: Record<string, { title: string; body: string }> = {
-          accepted: {
-            title: "Order Confirmed! 🎉",
-            body: `Order #${orderData.orderNumber} has been confirmed and is being prepared.`,
-          },
           preparing: {
             title: "Preparing Your Order 👨‍🍳",
             body: `Order #${orderData.orderNumber} is being prepared.`,
-          },
-          ready_for_pickup: {
-            title: "Order Ready for Pickup 📦",
-            body: `Order #${orderData.orderNumber} is ready! A driver will pick it up soon.`,
-          },
-          picked_up: {
-            title: "Driver Picked Up Order 📦",
-            body: `Order #${orderData.orderNumber} has been picked up by the driver.`,
           },
           on_the_way: {
             title: "Driver on the Way 🚗",
@@ -996,6 +1269,27 @@ export const ordersRouter = router({
             channelId: "orders",
           });
           console.log(`[Push] Sent status update notification to customer for order ${input.orderId}: ${input.status}`);
+        }
+      }
+
+      // SMS #3 — Order Delivered + app plug (customers without the app only)
+      if (input.status === "delivered" && !pushToken) {
+        let smsPhone: string | null = orderData.guestPhone || null;
+        if (!smsPhone && orderData.customerId) {
+          const [cust] = await db
+            .select({ phone: users.phone })
+            .from(users)
+            .where(eq(users.id, orderData.customerId))
+            .limit(1);
+          smsPhone = cust?.phone || null;
+        }
+        if (smsPhone) {
+          try {
+            await sendOrderDeliveredSMS(smsPhone);
+            console.log(`[SMS] Delivered SMS sent to ${smsPhone} for order ${orderData.orderNumber}`);
+          } catch (smsError) {
+            console.error(`[SMS] Failed to send delivered SMS:`, smsError);
+          }
         }
       }
 

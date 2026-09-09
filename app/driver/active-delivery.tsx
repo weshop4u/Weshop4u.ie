@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { ChatPanel } from "@/components/chat-panel";
 import { BatchOfferBanner } from "@/components/batch-offer-banner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 /** Animated VIEWING badge with a subtle pulse */
 function ViewingBadge() {
@@ -93,6 +94,7 @@ export default function ActiveDeliveryScreen() {
   const [statusError, setStatusError] = useState("");
   const [showReorderPanel, setShowReorderPanel] = useState(false);
   const [idConfirmed, setIdConfirmed] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<{ uri: string; name: string } | null>(null);
   const colors = useColors();
   const reorderBatchMutation = trpc.drivers.reorderBatch.useMutation();
 
@@ -172,7 +174,7 @@ export default function ActiveDeliveryScreen() {
             {
               accuracy: Location.Accuracy.High,
               timeInterval: 5000, // Update every 5 seconds
-              distanceInterval: 10,
+              distanceInterval: 0,
             },
             (loc) => {
               updateLocationMutation.mutate({
@@ -194,17 +196,26 @@ export default function ActiveDeliveryScreen() {
     }
   }, [user?.id, orderId, deliveryStatus]);
 
-  // Delivery timer - counts up from when  // Timer for elapsed time
+  // Delivery timer - counts up while active; shows the real fixed duration once delivered
   useEffect(() => {
-    // Don't start timer if delivery is already complete
     if (deliveryStatus === "delivered") {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      // If we have real timestamps (e.g. viewing a completed delivery from history),
+      // show the actual time the delivery took rather than time-since-assignment-until-now.
+      if (order?.deliveredAt && order?.driverAssignedAt) {
+        const assignedTime = new Date(order.driverAssignedAt).getTime();
+        const deliveredTime = new Date(order.deliveredAt).getTime();
+        setElapsedSeconds(Math.max(0, Math.floor((deliveredTime - assignedTime) / 1000)));
+      }
+      // If deliveredAt isn't available yet (delivery was just completed in this session,
+      // before the order has refetched), leave elapsedSeconds as the live value already
+      // ticked up to — that's still accurate, and will snap to the precise value once it refetches.
       return;
     }
-    
+
     if (order?.driverAssignedAt) {
       const assignedTime = new Date(order.driverAssignedAt).getTime();
       const updateTimer = () => {
@@ -222,7 +233,7 @@ export default function ActiveDeliveryScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [order?.driverAssignedAt, deliveryStatus]);
+  }, [order?.driverAssignedAt, deliveryStatus, order?.deliveredAt]);
   const formatElapsed = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
@@ -383,7 +394,7 @@ export default function ActiveDeliveryScreen() {
   const storeLng = order.store?.longitude || null;
   const customerAddress = order.deliveryAddress || "Address unavailable";
   const customerName = (order as any).customer?.name || (order as any).guestName || "Customer";
-  const customerPhone = order.guestPhone || (order as any).customer?.phone || "";
+  const customerPhone = order.guestPhone || (order as any).customer?.phone || (order as any).customerPhone || "";
   const customerLat = order.deliveryLatitude || null;
   const customerLng = order.deliveryLongitude || null;
   const deliveryFee = parseFloat(order.deliveryFee || "0");
@@ -697,11 +708,11 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
           </View>
         )}
 
-        {/* Store Information */}
+                {/* Store Information */}
         {(deliveryStatus === "going_to_store" || deliveryStatus === "at_store") && (
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">📍 Pick Up Location</Text>
-            
+
             <Text className="text-foreground font-semibold mb-1">{storeName}</Text>
             <Text className="text-muted text-sm mb-3">{storeAddress}</Text>
 
@@ -717,10 +728,24 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                   onPress={() => callPhone(storePhone)}
                   className="flex-1 bg-surface border border-border p-3 rounded-lg items-center active:opacity-70"
                 >
-                  <Text className="text-foreground font-semibold">📞 Call</Text>
+                  <Text className="text-foreground font-semibold">📞 Call Store</Text>
+                  <Text className="text-muted text-xs mt-0.5">{storePhone}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
+
+            {customerPhone ? (
+              <TouchableOpacity
+                onPress={() => callPhone(customerPhone)}
+                className="bg-surface border border-primary p-3 rounded-lg items-center active:opacity-70"
+                style={{ marginTop: 8 }}
+              >
+                <Text className="text-primary font-semibold">📞 Call Customer</Text>
+                <Text className="text-primary text-xs mt-0.5">{customerPhone}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text className="text-muted text-xs" style={{ marginTop: 8 }}>⚠️ No customer phone on this order</Text>
+            )}
 
             {deliveryStatus === "going_to_store" && (
               <Pressable
@@ -784,7 +809,12 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
           <View className="bg-surface p-4 rounded-lg mb-6">
             <Text className="text-foreground font-bold text-lg mb-3">🏠 Delivery Location</Text>
             <Text className="text-foreground font-semibold text-base mb-1">{customerName}</Text>
-            <Text className="text-muted text-sm mb-3">{customerAddress}</Text>
+            <Text className="text-muted text-sm mb-1">{customerAddress}</Text>
+            {customerPhone ? (
+              <Text className="text-foreground text-sm font-semibold mb-3">📞 {customerPhone}</Text>
+            ) : (
+              <Text className="text-muted text-xs mb-3">⚠️ No customer phone on this order</Text>
+            )}
 
             <View className="flex-row gap-2">
               <TouchableOpacity
@@ -871,6 +901,14 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{storeName}</Text>
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>Customer</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{customerName}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.muted, fontSize: 14, flexShrink: 0 }}>Address</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', flexShrink: 1, marginLeft: 12 }}>{customerAddress}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                 <Text style={{ color: colors.muted, fontSize: 14 }}>Time Taken</Text>
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{formatElapsed(elapsedSeconds)}</Text>
               </View>
@@ -945,38 +983,54 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
         <View className="bg-surface p-4 rounded-lg mb-6">
           <Text className="text-foreground font-bold text-lg mb-3">Order Items</Text>
           {(() => {
-            // Use store receipt items for driver (excludes WSS items)
             const receiptData = order.receiptData ? (typeof order.receiptData === 'string' ? JSON.parse(order.receiptData) : order.receiptData) : null;
             const displayItems = receiptData?.storeReceipt?.items || order.items || [];
-            return displayItems && displayItems.length > 0 ? (
-              displayItems.map((item: any, index: number) => (
-              <View key={index} className="py-2 border-b border-border">
-                <View className="flex-row justify-between">
-                  <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
-                  <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
-                </View>
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <View className="ml-4 mt-1">
-                    {(() => {
-                      const grouped: { name: string; price: string; count: number }[] = [];
-                      for (const mod of item.modifiers) {
-                        const cleanName = (mod.modifierName || '').replace(/ ×\d+$/, '');
-                        const existing = grouped.find(g => g.name === cleanName && g.price === mod.modifierPrice);
-                        if (existing) { existing.count++; } else { grouped.push({ name: cleanName, price: mod.modifierPrice || '0', count: 1 }); }
-                      }
-                      return grouped.map((g, mi) => (
-                        <Text key={mi} className="text-muted text-xs">
-                          • {g.name}{g.count > 1 ? ` ×${g.count}` : ''}{parseFloat(g.price) > 0 ? ` (+€${(parseFloat(g.price) * g.count).toFixed(2)})` : ''}
-                        </Text>
-                      ));
-                    })()}
+            if (!displayItems || displayItems.length === 0) {
+              return <Text className="text-muted">No items available</Text>;
+            }
+            return displayItems.map((item: any, index: number) => {
+              const fullItem = order.items?.find((i: any) => i.productId === item.productId || i.productId === item.id);
+              const itemImage = fullItem?.productImages ? (() => { try { const p = JSON.parse(fullItem.productImages); return Array.isArray(p) ? p[0] : p; } catch { return fullItem.productImages; } })() : null;
+              const grouped: { name: string; price: string; count: number }[] = [];
+              for (const mod of (item.modifiers || [])) {
+                const cleanName = (mod.modifierName || '').replace(/ ×\d+$/, '');
+                const existing = grouped.find(g => g.name === cleanName && g.price === mod.modifierPrice);
+                if (existing) { existing.count++; } else { grouped.push({ name: cleanName, price: mod.modifierPrice || '0', count: 1 }); }
+              }
+              return (
+                <View key={index} className="py-2 border-b border-border">
+                  <View className="flex-row items-center">
+                    {itemImage ? (
+                      <TouchableOpacity
+                        onPress={() => setEnlargedImage({ uri: itemImage, name: item.productName || `Item #${item.productId}` })}
+                        activeOpacity={0.7}
+                      >
+                        <Image source={{ uri: itemImage }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }} contentFit="cover" />
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 20 }}>📦</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <View className="flex-row justify-between">
+                        <Text className="text-foreground flex-1">{item.quantity}x {item.productName || `Item #${item.productId}`}</Text>
+                        <Text className="text-muted">€{parseFloat(item.subtotal || "0").toFixed(2)}</Text>
+                      </View>
+                      {grouped.length > 0 && (
+                        <View className="ml-4 mt-1">
+                          {grouped.map((g, mi) => (
+                            <Text key={mi} className="text-muted text-xs">
+                              • {g.name}{g.count > 1 ? ` ×${g.count}` : ''}{parseFloat(g.price) > 0 ? ` (+€${(parseFloat(g.price) * g.count).toFixed(2)})` : ''}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                )}
-              </View>
-            ))
-            ) : (
-              <Text className="text-muted">No items available</Text>
-            );
+                </View>
+              );
+            });
           })()}
         </View>
 
@@ -1024,6 +1078,32 @@ const displayTotal = storeReceiptTotal - discountAmount; // Driver sees store re
         {/* Bottom safe area spacer */}
         <View style={{ height: Math.max(insets.bottom, 16) }} />
       </ScrollView>
+
+      {/* Enlarged product image viewer */}
+      {enlargedImage && (
+        <Pressable
+          onPress={() => setEnlargedImage(null)}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.88)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+            padding: 20,
+          }}
+        >
+          <Image
+            source={{ uri: enlargedImage.uri }}
+            style={{ width: '100%', height: '70%' }}
+            contentFit="contain"
+          />
+          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', marginTop: 16, textAlign: 'center' }}>
+            {enlargedImage.name}
+          </Text>
+          <Text style={{ color: '#94A3B8', fontSize: 13, marginTop: 6 }}>Tap anywhere to close</Text>
+        </Pressable>
+      )}
 
       {/* Chat Panel */}
       {orderId && user?.id && deliveryStatus !== "delivered" && (

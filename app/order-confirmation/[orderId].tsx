@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useColors } from "@/hooks/use-colors";
+import { ScreenWrapper } from "@/components/native-wrapper";
 
 export default function OrderConfirmationScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -19,16 +20,19 @@ export default function OrderConfirmationScreen() {
 
   if (isLoading) {
     return (
+      <ScreenWrapper>
       <ScreenContainer className="items-center justify-center">
         <ActivityIndicator size="large" color="#00E5FF" />
         <Text className="text-muted mt-4">Loading order details...</Text>
       </ScreenContainer>
+        </ScreenWrapper>
     );
   }
 
   if (!order) {
     return (
-      <ScreenContainer className="items-center justify-center p-4">
+      <ScreenWrapper>
+        <ScreenContainer className="items-center justify-center p-4">
         <Text className="text-2xl mb-4">❌</Text>
         <Text className="text-foreground text-lg mb-2">Order not found</Text>
         <TouchableOpacity
@@ -36,8 +40,9 @@ export default function OrderConfirmationScreen() {
           className="bg-primary px-6 py-3 rounded-lg mt-4 active:opacity-70"
         >
           <Text className="text-background font-semibold">Back to Home</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> 
       </ScreenContainer>
+        </ScreenWrapper>
     );
   }
 
@@ -58,6 +63,7 @@ export default function OrderConfirmationScreen() {
   const statusDisplay = getStatusDisplay(order.status);
 
   return (
+    <ScreenWrapper>
     <ScreenContainer>
       <ScrollView className="flex-1 p-4">
         {/* Success Header */}
@@ -198,7 +204,7 @@ export default function OrderConfirmationScreen() {
             }
             return (
               <View key={item.id} style={{ marginBottom: 10 }}>
-                <View className="flex-row justify-between">
+                <View className="flex-row -between">
                   <Text className="text-foreground flex-1 font-semibold">
                     {item.quantity}x {item.productName}
                   </Text>
@@ -246,6 +252,12 @@ export default function OrderConfirmationScreen() {
             <Text className="text-muted">Delivery Fee</Text>
             <Text className="text-foreground">€{parseFloat(order.deliveryFee).toFixed(2)}</Text>
           </View>
+          {parseFloat((order as any).discountAmount || "0") > 0 && (
+            <View className="flex-row justify-between mb-3">
+              <Text style={{ color: colors.success }}>Discount</Text>
+              <Text style={{ color: colors.success }}>-€{parseFloat((order as any).discountAmount).toFixed(2)}</Text>
+            </View>
+          )}
           
           <View className="flex-row justify-between mb-3">
             <Text className="text-foreground font-bold text-lg">Total</Text>
@@ -263,7 +275,13 @@ export default function OrderConfirmationScreen() {
         {/* Action Buttons */}
         <View style={{ marginBottom: Math.max(insets.bottom, 16) + 16, gap: 12 }}>
           <TouchableOpacity
-            onPress={() => router.push(`/order-tracking/${orderId}`)}
+            onPress={() => {
+  if (typeof window !== "undefined") {
+    window.location.href = `/api/web/order-tracking/${orderId}`;
+  } else {
+    router.push(`/order-tracking/${orderId}`);
+  }
+}}
             className="bg-primary p-4 rounded-lg items-center active:opacity-70"
           >
             <Text className="text-background font-bold text-lg">Track Order</Text>
@@ -278,5 +296,6 @@ export default function OrderConfirmationScreen() {
         </View>
       </ScrollView>
     </ScreenContainer>
+      </ScreenWrapper>
   );
 }

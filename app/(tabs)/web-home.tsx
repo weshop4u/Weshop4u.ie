@@ -49,6 +49,7 @@ export default function WebHome() {
   const { data: stores, isLoading } = trpc.stores.list.useQuery();
   const { data: featuredStores } = trpc.stores.getFeatured.useQuery();
   const { data: activeBanners } = trpc.banners.getActive.useQuery();
+  const { data: trendingProducts } = trpc.stores.getHomepageTrending.useQuery();
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +58,28 @@ export default function WebHome() {
   const { location } = useLocation();
   const screenWidth = Dimensions.get("window").width;
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Which platform the visitor is on — decides what the Install button does
+  const devicePlatform = useMemo(() => {
+    if (typeof navigator === "undefined") return "desktop";
+    const ua = navigator.userAgent || "";
+    if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+    if (/Android/.test(ua)) return "android";
+    return "desktop";
+  }, []);
+
+  const copyCode = useCallback(async (code: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(code);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+      }
+    } catch (e) {
+      // Clipboard blocked — the code is still visible on screen
+    }
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -134,6 +157,20 @@ export default function WebHome() {
     });
   }, [storesWithDistance]);
 
+    // Trending products, filtered to stores open right now so nobody taps
+  // through to something they can't order
+  const openTrending = useMemo(() => {
+    if (!trendingProducts) return [];
+    return trendingProducts
+      .filter((p: any) =>
+        isStoreOpen({
+          openingHours: p.storeOpeningHours,
+          isOpen247: p.storeIsOpen247,
+        } as any)
+      )
+      .slice(0, 6);
+  }, [trendingProducts]);
+
   // Responsive columns
   const numColumns = screenWidth > 900 ? 3 : screenWidth > 600 ? 2 : 1;
 
@@ -162,6 +199,8 @@ export default function WebHome() {
         <Text style={styles.heroDescription}>
           Order groceries, food, and essentials from local stores in your area and get them delivered straight to your door, office or wherever you are within minutes!
         </Text>
+
+      
 
         {/* Smart Search Bar */}
         <View style={styles.searchWrapper}>
@@ -273,13 +312,55 @@ export default function WebHome() {
 
       
 
+            {/* Trending strip — social proof that the platform is live */}
+      {openTrending.length > 0 && !searchQuery && (
+        <View style={trendingStyles.section}>
+          <Text style={trendingStyles.title}>🔥 Ordering Right Now</Text>
+          <Text style={trendingStyles.subtitle}>What Balbriggan is buying today</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={trendingStyles.row}
+          >
+            {openTrending.map((p: any) => (
+              <TouchableOpacity
+                key={`trend-${p.id}`}
+                activeOpacity={0.85}
+                style={trendingStyles.card}
+                onPress={() => router.push(`/store/${p.storeId}?productId=${p.id}`)}
+              >
+                <View style={trendingStyles.imageWrap}>
+                  {p.images && p.images.length > 0 ? (
+                    <Image source={{ uri: p.images[0] }} style={trendingStyles.image} contentFit="cover" transition={200} />
+                  ) : (
+                    <Text style={{ fontSize: 32 }}>🛒</Text>
+                  )}
+                </View>
+                <View style={trendingStyles.info}>
+                  <Text style={trendingStyles.name} numberOfLines={2}>{p.name}</Text>
+                  <Text style={trendingStyles.store} numberOfLines={1}>{p.storeName}</Text>
+                  <View style={trendingStyles.priceRow}>
+                    <Text style={trendingStyles.price}>
+                      €{p.salePrice ? p.salePrice : p.price}
+                    </Text>
+                    <View style={trendingStyles.addButton}>
+                      <Text style={trendingStyles.addButtonText}>View</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Popular Stores Section */}
       {featuredStores && featuredStores.length > 0 && !searchQuery && (
         <View style={popularStyles.section}>
           <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
           <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
           <View style={popularStyles.cardsRow}>
-            {featuredStores.slice(0, 2).map((store) => {
+            {featuredStores.slice(0, 3).map((store) => {
               const open = isStoreOpen(store);
               let storeDistance: number | null = null;
               if (location && (store as any).latitude && (store as any).longitude) {
@@ -355,18 +436,24 @@ export default function WebHome() {
             const bg = banner.backgroundColor || "#0F172A";
             const accent = banner.accentColor || "#00E5FF";
             return (
-              <View key={banner.id} style={{
-                borderRadius: 16,
-                overflow: "hidden",
-                backgroundColor: bg,
-                padding: 24,
-                position: "relative",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 16,
-              }}>
+              <TouchableOpacity
+                key={banner.id}
+                activeOpacity={0.9}
+                onPress={() => router.push(user ? "/" : "/auth/register")}
+                style={{
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  backgroundColor: bg,
+                  padding: 24,
+                  position: "relative",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 16,
+                  cursor: "pointer" as any,
+                }}
+              >
                 <View style={{
                   position: "absolute",
                   top: 0,
@@ -385,24 +472,38 @@ export default function WebHome() {
                     </Text>
                   )}
                 </View>
-                {banner.discountCode && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View style={{
-                      backgroundColor: `${accent}20`,
-                      borderWidth: 1.5,
-                      borderColor: accent,
-                      borderStyle: "dashed",
-                      borderRadius: 10,
-                      paddingHorizontal: 20,
-                      paddingVertical: 10,
-                    }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {banner.discountCode && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={(e: any) => { e?.stopPropagation?.(); copyCode(banner.discountCode); }}
+                      style={{
+                        backgroundColor: `${accent}20`,
+                        borderWidth: 1.5,
+                        borderColor: accent,
+                        borderStyle: "dashed",
+                        borderRadius: 10,
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        alignItems: "center",
+                        cursor: "pointer" as any,
+                      }}
+                    >
                       <Text style={{ fontSize: 20, fontWeight: "900", color: accent, letterSpacing: 2 }}>
                         {banner.discountCode}
                       </Text>
+                      <Text style={{ fontSize: 10, color: accent, marginTop: 2, opacity: 0.8 }}>
+                        {copiedCode === banner.discountCode ? "Copied!" : "Tap to copy"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {!user && (
+                    <View style={{ backgroundColor: accent, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "800", color: "#0F172A" }}>Sign Up →</Text>
                     </View>
-                  </View>
-                )}
-              </View>
+                  )}
+                </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -544,17 +645,26 @@ export default function WebHome() {
               <TouchableOpacity
                 style={[styles.storeBadge, { backgroundColor: "#00E5FF" }]}
                 onPress={() => {
-                  // Try to trigger PWA install prompt
+                  // Real install prompt if the browser gave us one (Android Chrome)
                   if (typeof window !== "undefined" && (window as any).__pwaInstallPrompt) {
                     (window as any).__pwaInstallPrompt.prompt();
+                    return;
+                  }
+                  if (devicePlatform === "ios") {
+                    alert("To install WESHOP4U:\n\nTap the Share button (box with an arrow) at the bottom of Safari, then choose 'Add to Home Screen'.");
+                  } else if (devicePlatform === "android") {
+                    alert("To install WESHOP4U:\n\nTap the menu (three dots) in Chrome, then choose 'Install app' or 'Add to Home screen'.");
                   } else {
-                    // Fallback: show instructions
-                    alert("To install WESHOP4U:\n\niPhone: Tap the Share button (box with arrow) then 'Add to Home Screen'\n\nAndroid: Tap the menu (three dots) then 'Add to Home Screen' or 'Install App'");
+                    alert("WESHOP4U installs on your phone.\n\nOpen weshop4u.ie on your iPhone or Android and tap Install App from the home page.");
                   }
                 }}
               >
-                <Text style={[styles.storeBadgeSmall, { color: "#ffffff" }]}>Tap to</Text>
-                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>Install App</Text>
+                <Text style={[styles.storeBadgeSmall, { color: "#ffffff" }]}>
+                  {devicePlatform === "desktop" ? "Open on your" : "Tap to"}
+                </Text>
+                <Text style={[styles.storeBadgeLarge, { color: "#ffffff" }]}>
+                  {devicePlatform === "desktop" ? "Phone" : "Install App"}
+                </Text>
               </TouchableOpacity>
               <View style={[styles.storeBadge, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#334155" }]}>
                 <Text style={[styles.storeBadgeSmall, { color: "#9BA1A6" }]}>Works on</Text>
@@ -650,6 +760,30 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     lineHeight: 24,
     marginBottom: 28,
+  },
+  hoursNotice: {
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1.5,
+    borderColor: "#F59E0B",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    maxWidth: 500,
+    width: "100%",
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  hoursNoticeTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#B45309",
+    marginBottom: 4,
+  },
+  hoursNoticeText: {
+    fontSize: 13.5,
+    color: "#92400E",
+    textAlign: "center",
+    lineHeight: 20,
   },
   searchWrapper: {
     width: "100%",
@@ -1123,11 +1257,12 @@ const popularStyles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-  cardsRow: {
+    cardsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
     width: "100%",
-    maxWidth: 700,
+    maxWidth: 1060,
     justifyContent: "center",
   },
   card: {
@@ -1207,7 +1342,91 @@ const popularStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  cardButtonTextClosed: {
+    cardButtonTextClosed: {
     color: "#687076",
+  },
+});
+
+const trendingStyles = StyleSheet.create({
+  section: {
+    paddingTop: 28,
+    paddingBottom: 20,
+    backgroundColor: "#ffffff",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#11181C",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#687076",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  row: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  card: {
+    width: 150,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+  },
+  imageWrap: {
+    height: 100,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  image: {
+    width: "100%",
+    height: 100,
+  },
+  info: {
+    padding: 10,
+    gap: 3,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#11181C",
+    lineHeight: 17,
+    minHeight: 34,
+  },
+  store: {
+    fontSize: 11,
+    color: "#9BA1A6",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  price: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#11181C",
+  },
+  addButton: {
+    backgroundColor: "#00E5FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "800",
   },
 });

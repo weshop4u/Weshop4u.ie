@@ -1,13 +1,13 @@
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { ScreenWrapper } from "@/components/native-wrapper";
 import { useColors } from "@/hooks/use-colors";
 import { calculatePasswordStrength, getPasswordStrengthColor, getPasswordStrengthLabel } from "@/lib/password-strength";
 
-type Step = "details" | "otp" | "success";
+type Step = "details" | "success";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -30,11 +30,6 @@ export default function RegisterScreen() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [ageError, setAgeError] = useState("");
 
-  // OTP fields
-  const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
-  const otpRefs = useRef<(TextInput | null)[]>([]);
-  const [resendTimer, setResendTimer] = useState(0);
-
   // Flow state
   const [step, setStep] = useState<Step>("details");
   const [loading, setLoading] = useState(false);
@@ -42,20 +37,8 @@ export default function RegisterScreen() {
 
   // Mutations
   const registerMutation = trpc.auth.registerCustomer.useMutation();
-  const sendOtpMutation = trpc.otp.sendCode.useMutation();
-  const verifyOtpMutation = trpc.otp.verifyCode.useMutation();
 
-  // Resend countdown timer
-  useEffect(() => {
-    if (resendTimer <= 0) return;
-    const interval = setInterval(() => {
-      setResendTimer((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [resendTimer]);
-
-  // Step 1: Validate details and send OTP
-  const handleSendOTP = async () => {
+  const handleRegister = async () => {
     setError("");
     setAgeError("");
 
@@ -63,102 +46,26 @@ export default function RegisterScreen() {
     if (!email.trim()) { setError("Please enter your email"); return; }
     if (!phone.trim()) { setError("Please enter your phone number"); return; }
     if (phone.trim().replace(/[\s\-]/g, "").length < 7) { setError("Please enter a valid phone number"); return; }
-    // Validate password strength
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (!/[A-Z]/.test(password)) { setError("Password must contain at least 1 uppercase letter"); return; }
     if (!/[0-9]/.test(password)) { setError("Password must contain at least 1 number"); return; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
 
-    // Validate age if DOB is provided (DD-MM-YYYY format)
     if (dateOfBirth.trim()) {
       const parts = dateOfBirth.trim().split("-");
-      if (parts.length !== 3) {
-        setAgeError("Please enter date in DD-MM-YYYY format");
-        return;
-      }
+      if (parts.length !== 3) { setAgeError("Please enter date in DD-MM-YYYY format"); return; }
       const [day, month, year] = parts.map(p => parseInt(p, 10));
-      if (isNaN(day) || isNaN(month) || isNaN(year)) {
-        setAgeError("Please enter a valid date");
-        return;
-      }
+      if (isNaN(day) || isNaN(month) || isNaN(year)) { setAgeError("Please enter a valid date"); return; }
       const dob = new Date(year, month - 1, day);
       const today = new Date();
       let age = today.getFullYear() - dob.getFullYear();
       const monthDiff = today.getMonth() - dob.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-        age--;
-      }
-      if (age < 18) {
-        setAgeError("You must be 18 or over to verify your age");
-        return;
-      }
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) { age--; }
+      if (age < 18) { setAgeError("You must be 18 or over to verify your age"); return; }
     }
 
     setLoading(true);
     try {
-      await sendOtpMutation.mutateAsync({ phoneNumber: phone.trim() });
-      setStep("otp");
-      setResendTimer(60);
-      setOtpCode(["", "", "", "", "", ""]);
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle OTP digit input
-  const handleOtpChange = (text: string, index: number) => {
-    // Only allow digits
-    const digit = text.replace(/[^0-9]/g, "");
-    if (digit.length > 1) {
-      // Handle paste — fill all boxes
-      const digits = digit.slice(0, 6).split("");
-      const newCode = [...otpCode];
-      digits.forEach((d, i) => {
-        if (i + index < 6) newCode[i + index] = d;
-      });
-      setOtpCode(newCode);
-      const nextIndex = Math.min(index + digits.length, 5);
-      otpRefs.current[nextIndex]?.focus();
-      return;
-    }
-
-    const newCode = [...otpCode];
-    newCode[index] = digit;
-    setOtpCode(newCode);
-
-    // Auto-advance to next box
-    if (digit && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
-  };
-
-  // Handle backspace on empty OTP box
-  const handleOtpKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace" && !otpCode[index] && index > 0) {
-      const newCode = [...otpCode];
-      newCode[index - 1] = "";
-      setOtpCode(newCode);
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
-
-  // Step 2: Verify OTP and create account
-  const handleVerifyAndRegister = async () => {
-    setError("");
-    const code = otpCode.join("");
-    if (code.length !== 6) { setError("Please enter the full 6-digit code"); return; }
-
-    setLoading(true);
-    try {
-      // Verify the OTP first
-      await verifyOtpMutation.mutateAsync({
-        phoneNumber: phone.trim(),
-        code,
-      });
-
-      // OTP verified — now create the account
       await registerMutation.mutateAsync({
         name: name.trim(),
         email: email.toLowerCase().trim(),
@@ -167,38 +74,16 @@ export default function RegisterScreen() {
         dateOfBirth: dateOfBirth.trim() || null,
         ageVerified: dateOfBirth.trim() ? true : false,
       });
-
       setStep("success");
-      // Navigate to login after 2 seconds
       setTimeout(() => {
         router.replace("/auth/login" as any);
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Verification failed");
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
-
-  // Resend OTP
-  const handleResend = async () => {
-    if (resendTimer > 0) return;
-    setError("");
-    setLoading(true);
-    try {
-      await sendOtpMutation.mutateAsync({ phoneNumber: phone.trim() });
-      setResendTimer(60);
-      setOtpCode(["", "", "", "", "", ""]);
-      otpRefs.current[0]?.focus();
-    } catch (err: any) {
-      setError(err.message || "Failed to resend code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isWeb = Platform.OS === "web";
-
 
   return (
     <ScreenWrapper>
@@ -217,7 +102,7 @@ export default function RegisterScreen() {
             />
             <Text className="text-primary text-5xl font-bold mb-2">WESHOP4U</Text>
             <Text className="text-muted text-lg">
-              {step === "details" ? "Create Your Account" : step === "otp" ? "Verify Your Phone" : "Account Created!"}
+              {step === "details" ? "Create Your Account" : "Account Created!"}
             </Text>
           </View>
 
@@ -294,7 +179,7 @@ export default function RegisterScreen() {
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
                 />
-                <Text className="text-muted text-xs mt-1">We'll send a verification code to this number</Text>
+                <Text className="text-muted text-xs mt-1">Used for delivery updates</Text>
               </View>
 
               <View>
@@ -312,7 +197,7 @@ export default function RegisterScreen() {
                       color: colors.foreground,
                       fontSize: 16,
                     }}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                     placeholderTextColor="#9BA1A6"
                     value={password}
                     onChangeText={setPassword}
@@ -345,21 +230,10 @@ export default function RegisterScreen() {
                       ))}
                     </View>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: "600",
-                          color: getPasswordStrengthColor(passwordStrength.strength),
-                        }}
-                      >
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: getPasswordStrengthColor(passwordStrength.strength) }}>
                         {getPasswordStrengthLabel(passwordStrength.strength)}
                       </Text>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: colors.muted,
-                        }}
-                      >
+                      <Text style={{ fontSize: 12, color: colors.muted }}>
                         {passwordStrength.feedback}
                       </Text>
                     </View>
@@ -392,7 +266,7 @@ export default function RegisterScreen() {
                     secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
                     returnKeyType="done"
-                    onSubmitEditing={handleSendOTP}
+                    onSubmitEditing={handleRegister}
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -438,11 +312,8 @@ export default function RegisterScreen() {
                         placeholderTextColor="#9BA1A6"
                         value={dateOfBirth}
                         onChangeText={(text) => {
-                          // Remove any non-digit characters
                           const digitsOnly = text.replace(/\D/g, "");
-                          // Limit to 8 digits (DDMMYYYY)
                           const limited = digitsOnly.slice(0, 8);
-                          // Format as DD-MM-YYYY
                           let formatted = limited;
                           if (limited.length >= 2) {
                             formatted = limited.slice(0, 2) + "-" + limited.slice(2);
@@ -475,14 +346,14 @@ export default function RegisterScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={handleSendOTP}
+                onPress={handleRegister}
                 disabled={loading}
                 className={`bg-primary p-4 rounded-lg items-center mt-4 ${loading ? "opacity-50" : "active:opacity-70"}`}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text className="text-background font-bold text-lg">Verify Phone & Create Account</Text>
+                  <Text className="text-background font-bold text-lg">Create Account</Text>
                 )}
               </TouchableOpacity>
 
@@ -495,68 +366,12 @@ export default function RegisterScreen() {
             </View>
           )}
 
-          {/* Step 2: OTP Verification */}
-          {step === "otp" && (
-            <View className="gap-6">
-              <View className="items-center">
-                <Text className="text-foreground text-base text-center">
-                  We've sent a 6-digit code to
-                </Text>
-                <Text className="text-primary font-bold text-lg mt-1">{phone}</Text>
-              </View>
-
-              {/* OTP Input Boxes */}
-              <View className="flex-row justify-center gap-3">
-                {otpCode.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => { otpRefs.current[index] = ref; }}
-                    style={{ width: 48, height: 56, fontSize: 24, lineHeight: 28, backgroundColor: '#f5f5f5', borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 12, color: '#11181C', textAlign: 'center', fontWeight: 'bold' }}
-                    value={digit}
-                    onChangeText={(text) => handleOtpChange(text, index)}
-                    onKeyPress={(e) => handleOtpKeyPress(e, index)}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    selectTextOnFocus
-                    autoFocus={index === 0}
-                  />
-                ))}
-              </View>
-
-              {/* Verify Button */}
-              <TouchableOpacity
-                onPress={handleVerifyAndRegister}
-                disabled={loading || otpCode.join("").length !== 6}
-                className={`bg-primary p-4 rounded-lg items-center ${loading || otpCode.join("").length !== 6 ? "opacity-50" : "active:opacity-70"}`}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text className="text-background font-bold text-lg">Verify & Create Account</Text>
-                )}
-              </TouchableOpacity>
-
-              {/* Resend / Change Number */}
-              <View className="items-center gap-3">
-                <TouchableOpacity onPress={handleResend} disabled={resendTimer > 0}>
-                  <Text className={resendTimer > 0 ? "text-muted" : "text-primary font-semibold"}>
-                    {resendTimer > 0 ? `Resend code in ${resendTimer}s` : "Resend Code"}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => { setStep("details"); setError(""); }}>
-                  <Text className="text-muted">Change phone number</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Step 3: Success */}
+          {/* Success */}
           {step === "success" && (
             <View className="items-center gap-4 mt-8">
               <View className="bg-success/10 border border-success rounded-2xl p-6 items-center">
                 <Text style={{ fontSize: 48 }}>✓</Text>
-                <Text className="text-success font-bold text-xl mt-2">Phone Verified!</Text>
+                <Text className="text-success font-bold text-xl mt-2">Account Created!</Text>
                 <Text className="text-success text-center mt-1">
                   Your account has been created successfully.
                 </Text>

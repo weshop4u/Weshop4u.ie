@@ -1,13 +1,13 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
-
+import { Image } from "expo-image";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -23,6 +23,30 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 const ALL_STATUSES = ["pending", "accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way", "delivered", "cancelled"] as const;
 const STATUS_FILTERS = ["all", ...ALL_STATUSES];
+
+// A card order isn't shown as FAILED until it's been sitting unpaid for this
+// long. Below this age it's shown as "Awaiting Payment" instead — a customer
+// who just placed the order is very likely still mid-checkout (entering card
+// details on Elavon's page), not a declined payment.
+const PAYMENT_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
+
+// Fixed column widths for the desktop table — used for both header and body
+// cells so they can never drift apart. Every cell also clips overflow, so a
+// long name, status, or badge can never push the columns after it out of
+// alignment (which is what was happening before: "Unassigned"/"Cancelled"
+// rows looked shifted compared to rows with shorter content).
+const COL_WIDTHS = {
+  checkbox: 44,
+  date: 116,
+  orderNum: 126,
+  store: 108,
+  customer: 146,
+  status: 138,
+  driver: 108,
+  payment: 104,
+  total: 160,
+  actions: 152,
+};
 
 function formatDate(date: Date | string | null): string {
   return formatIrishSmartDateTime(date);
@@ -41,6 +65,7 @@ function AdminOrdersScreenContent() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 900;
 
+  const router = useRouter();
   const params = useLocalSearchParams<{ status?: string }>();
   const [statusFilter, setStatusFilter] = useState(params.status || "all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -58,11 +83,22 @@ function AdminOrdersScreenContent() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<number>>(new Set());
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
   const [bulkAssignModal, setBulkAssignModal] = useState(false);
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [deletePin, setDeletePin] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+
+  // Returns YYYY-MM-DD for a given moment, always in Ireland's timezone —
+  // regardless of what timezone the browser/device is actually running in.
+  // (toISOString() converts to UTC first, which silently rolls the date back
+  // a day whenever Ireland is ahead of UTC, e.g. during BST.)
+  const toIrishDateStr = (date: Date): string => {
+    return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Dublin' });
+  };
 
   const applyDatePreset = useCallback((preset: string) => {
     setDatePreset(preset);
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+    const todayStart = toIrishDateStr(now);
     const todayEnd = todayStart;
     switch (preset) {
       case "today":
@@ -70,24 +106,21 @@ function AdminOrdersScreenContent() {
         setDateTo(todayEnd);
         break;
       case "yesterday": {
-        const y = new Date(now);
-        y.setDate(y.getDate() - 1);
-        const yd = y.toISOString().slice(0, 10);
+        const y = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const yd = toIrishDateStr(y);
         setDateFrom(yd);
         setDateTo(yd);
         break;
       }
       case "7days": {
-        const d7 = new Date(now);
-        d7.setDate(d7.getDate() - 7);
-        setDateFrom(d7.toISOString().slice(0, 10));
+        const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        setDateFrom(toIrishDateStr(d7));
         setDateTo(todayEnd);
         break;
       }
       case "30days": {
-        const d30 = new Date(now);
-        d30.setDate(d30.getDate() - 30);
-        setDateFrom(d30.toISOString().slice(0, 10));
+        const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        setDateFrom(toIrishDateStr(d30));
         setDateTo(todayEnd);
         break;
       }
@@ -98,14 +131,31 @@ function AdminOrdersScreenContent() {
     }
   }, []);
 
-  const { data: orders, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
-    { status: statusFilter, limit: 100 },
-    { refetchInterval: 10000 }
+  const [fetchLimit, setFetchLimit] = useState(100);
+  // Debounce the search box so we don't query the server per keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const { data: ordersRaw, isLoading, refetch } = trpc.admin.getAllOrders.useQuery(
+    {
+      status: statusFilter,
+      limit: fetchLimit,
+      search: debouncedSearch || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    } as any,
+    { refetchInterval: 10000, placeholderData: (prev: any) => prev }
   );
+  // Works with both server shapes: old = array, new = { total, orders }
+  const orders: any[] | undefined = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw as any)?.orders;
+  const serverTotal: number | undefined = Array.isArray(ordersRaw) ? undefined : (ordersRaw as any)?.total;
 
   const { data: availableDrivers } = trpc.admin.getAvailableDriversForAssignment.useQuery(undefined, {
-    enabled: assignModalOrderId !== null,
-  });
+  enabled: assignModalOrderId !== null || bulkAssignModal,
+});
 
   const updateStatusMutation = trpc.admin.updateOrderStatus.useMutation({
     onSuccess: () => { refetch(); setErrorMessage(""); },
@@ -120,6 +170,63 @@ function AdminOrdersScreenContent() {
   const markPaidMutation = trpc.admin.markOrderPaid.useMutation({
     onSuccess: () => { refetch(); setErrorMessage(""); },
     onError: (err) => { setErrorMessage(err.message); },
+  });
+  const [paymentCheckResult, setPaymentCheckResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+
+  // Re-verifies directly with Elavon — this is the safe way to fix an order
+  // that's stuck "Awaiting"/"FAILED" even though the customer says they were
+  // charged. It can never falsely mark something paid: it only flips to paid
+  // if Elavon itself confirms the charge, and it runs the exact same
+  // dispatch-to-driver + customer/staff notification logic as a normal
+  // successful checkout.
+  const recheckPaymentMutation = trpc.payments.checkPaymentStatus.useMutation({
+    onSuccess: (data, variables) => {
+      refetch();
+      let message = "";
+      if (data.status === "completed") message = "✅ Confirmed by Elavon — order is now paid and dispatched to a driver.";
+      else if (data.status === "expired") message = "⌛ Payment session expired — the card was never charged.";
+      else if (data.status === "pending") message = "Still no charge found at Elavon. The customer has not completed payment.";
+      else if (data.status === "no_session") message = "No payment session found for this order.";
+      else message = "Could not reach Elavon right now — try again in a moment.";
+      setPaymentCheckResult({ orderId: variables.orderId, message, success: data.status === "completed" });
+    },
+    onError: (err) => {
+      setPaymentCheckResult({ orderId: -1, message: err.message, success: false });
+    },
+  });
+
+  const [duplicateConfirmOrderId, setDuplicateConfirmOrderId] = useState<number | null>(null);
+  const [duplicateResult, setDuplicateResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+  const duplicateOrderMutation = trpc.admin.duplicateOrder.useMutation({
+    onSuccess: (data, variables) => {
+      refetch();
+      setDuplicateConfirmOrderId(null);
+      setDuplicateResult({ orderId: variables.orderId, message: `✅ Duplicated as new cash order #${data.orderNumber}`, success: true });
+    },
+    onError: (err, variables) => {
+      setDuplicateConfirmOrderId(null);
+      setDuplicateResult({ orderId: variables.orderId, message: err.message, success: false });
+    },
+  });
+
+  const [reprintResult, setReprintResult] = useState<{ orderId: number; message: string; success: boolean } | null>(null);
+  const reprintMutation = trpc.print.createPrintJob.useMutation({
+    onSuccess: (data, variables) => {
+      setReprintResult({ orderId: variables.orderId, message: "✅ Reprint job sent to POS", success: true });
+    },
+    onError: (err, variables) => {
+      setReprintResult({ orderId: variables.orderId, message: err.message, success: false });
+    },
+  });
+  const deleteOrdersMutation = trpc.admin.deleteOrders.useMutation({
+    onSuccess: () => {
+      refetch();
+      setBulkDeleteModal(false);
+      setDeletePin("");
+      setDeleteError("");
+      setSelectedOrderIds(new Set());
+    },
+    onError: (err) => { setDeleteError(err.message); },
   });
 
   const onRefresh = useCallback(async () => {
@@ -147,6 +254,14 @@ function AdminOrdersScreenContent() {
 
   const handleAssignDriver = (orderId: number, driverUserId: number) => {
     assignDriverMutation.mutate({ orderId, driverUserId });
+  };
+
+  // Auto-format date typing: "20260626" → "2026-06-26"
+  const formatDateInput = (v: string) => {
+    const d = v.replace(/[^0-9]/g, "").slice(0, 8);
+    if (d.length <= 4) return d;
+    if (d.length <= 6) return `${d.slice(0, 4)}-${d.slice(4)}`;
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
   };
 
   const toggleSort = (field: SortField) => {
@@ -234,12 +349,12 @@ function AdminOrdersScreenContent() {
     );
   }
 
-  const SortHeader = ({ field, label, minW }: { field: SortField; label: string; minW?: number }) => (
+  const SortHeader = ({ field, label, width }: { field: SortField; label: string; width?: number }) => (
     <TouchableOpacity
       onPress={() => toggleSort(field)}
-      style={[dtStyles.th, minW ? { minWidth: minW } : { flex: 1 }]}
+      style={[dtStyles.th, width ? { width } : { flex: 1 }]}
     >
-      <Text style={dtStyles.thText}>
+      <Text style={dtStyles.thText} numberOfLines={1}>
         {label} {sortField === field ? (sortDir === "asc" ? "▲" : "▼") : ""}
       </Text>
     </TouchableOpacity>
@@ -373,6 +488,12 @@ function AdminOrdersScreenContent() {
               <Text style={{ fontSize: 12, fontWeight: "600", color: "#0F172A" }}>📋 Status</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              onPress={() => { setDeletePin(""); setDeleteError(""); setBulkDeleteModal(true); }}
+              style={{ backgroundColor: "#DC2626", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#fff" }}>🗑️ Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => setSelectedOrderIds(new Set())}
               style={{ backgroundColor: "#FEE2E2", borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 }}
             >
@@ -412,7 +533,7 @@ function AdminOrdersScreenContent() {
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>From:</Text>
             <TextInput
               value={dateFrom}
-              onChangeText={(v) => { setDateFrom(v); setDatePreset("custom"); }}
+              onChangeText={(v) => { setDateFrom(formatDateInput(v)); setDatePreset("custom"); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#CBD5E1"
               style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
@@ -420,7 +541,7 @@ function AdminOrdersScreenContent() {
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>To:</Text>
             <TextInput
               value={dateTo}
-              onChangeText={(v) => { setDateTo(v); setDatePreset("custom"); }}
+              onChangeText={(v) => { setDateTo(formatDateInput(v)); setDatePreset("custom"); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#CBD5E1"
               style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
@@ -435,7 +556,7 @@ function AdminOrdersScreenContent() {
 
         {/* Showing count */}
         <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8 }}>
-          Showing {sortedOrders.length} of {orders?.length || 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
+          Showing {sortedOrders.length} of {serverTotal ?? orders?.length ?? 0} orders{datePreset !== "all" ? ` (filtered)` : ""}
         </Text>
 
         {/* Desktop Table */}
@@ -443,7 +564,7 @@ function AdminOrdersScreenContent() {
           <View style={dtStyles.tableContainer}>
             {/* Table Header */}
             <View style={dtStyles.thead}>
-            <View style={[dtStyles.th, { minWidth: 40 }]}>
+            <View style={[dtStyles.th, { width: COL_WIDTHS.checkbox }]}>
               <TouchableOpacity onPress={() => {
                 if (selectedOrderIds.size === sortedOrders.length) {
                   setSelectedOrderIds(new Set());
@@ -454,15 +575,15 @@ function AdminOrdersScreenContent() {
                 <Text style={{ fontSize: 16, color: "#0F172A" }}>☐</Text>
               </TouchableOpacity>
             </View>
-            <SortHeader field="date" label="Date" minW={110} />
-            <View style={[dtStyles.th, { minWidth: 120 }]}><Text style={dtStyles.thText}>Order #</Text></View>
-            <SortHeader field="store" label="Store" minW={100} />
-            <SortHeader field="customer" label="Customer" minW={140} />
-            <SortHeader field="status" label="Status" minW={130} />
-            <View style={[dtStyles.th, { minWidth: 95 }]}><Text style={dtStyles.thText}>Driver</Text></View>
-            <View style={[dtStyles.th, { minWidth: 90 }]}><Text style={dtStyles.thText}>Payment</Text></View>
-            <SortHeader field="total" label="Total" minW={70} />
-            <View style={[dtStyles.th, { minWidth: 100 }]}><Text style={dtStyles.thText}>Actions</Text></View>
+            <SortHeader field="date" label="Date" width={COL_WIDTHS.date} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.orderNum }]}><Text style={dtStyles.thText} numberOfLines={1}>Order #</Text></View>
+            <SortHeader field="store" label="Store" width={COL_WIDTHS.store} />
+            <SortHeader field="customer" label="Customer" width={COL_WIDTHS.customer} />
+            <SortHeader field="status" label="Status" width={COL_WIDTHS.status} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.driver }]}><Text style={dtStyles.thText} numberOfLines={1}>Driver</Text></View>
+            <View style={[dtStyles.th, { width: COL_WIDTHS.payment }]}><Text style={dtStyles.thText} numberOfLines={1}>Payment</Text></View>
+            <SortHeader field="total" label="Total" width={COL_WIDTHS.total} />
+            <View style={[dtStyles.th, { width: COL_WIDTHS.actions }]}><Text style={dtStyles.thText} numberOfLines={1}>Actions</Text></View>
             </View>
 
             {/* Table Body */}
@@ -471,6 +592,10 @@ function AdminOrdersScreenContent() {
               const sc = STATUS_COLORS[order.status] || { bg: "#F3F4F6", text: "#6B7280" };
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
+              const isUnpaidCard = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+              const isAwaitingPayment = isUnpaidCard && orderAgeMs <= PAYMENT_GRACE_PERIOD_MS;
+              const isFailedPayment = isUnpaidCard && orderAgeMs > PAYMENT_GRACE_PERIOD_MS;
               const expanded = expandedId === order.id;
               const isEven = idx % 2 === 0;
               const isSelected = selectedOrderIds.has(order.id);
@@ -479,10 +604,10 @@ function AdminOrdersScreenContent() {
                 <View key={order.id}>
                   <TouchableOpacity
                     onPress={() => setExpandedId(expanded ? null : order.id)}
-                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isSelected && { backgroundColor: "#E0F2FE" }]}
+                    style={[dtStyles.tr, isWaiting && { backgroundColor: "#FFFBEB" }, !isWaiting && isEven && { backgroundColor: "#FAFBFC" }, isAwaitingPayment && { backgroundColor: "#EFF6FF", borderLeftWidth: 3, borderLeftColor: "#3B82F6" }, isFailedPayment && { backgroundColor: "#FEF2F2", borderLeftWidth: 3, borderLeftColor: "#DC2626" }, isSelected && { backgroundColor: "#E0F2FE" }]}
                   >
                     {/* Checkbox */}
-                    <View style={[dtStyles.td, { minWidth: 40 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.checkbox }]}>
                       <TouchableOpacity onPress={(e) => {
                         e.stopPropagation?.();
                         const newSelected = new Set(selectedOrderIds);
@@ -497,20 +622,20 @@ function AdminOrdersScreenContent() {
                       </TouchableOpacity>
                     </View>
                     {/* Date */}
-                    <View style={[dtStyles.td, { minWidth: 110 }]}>
-                      <Text style={[dtStyles.tdText, { fontSize: 12 }]}>{formatDate(order.createdAt)}</Text>
-                      <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{getTimeSince(order.createdAt)}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.date }]}>
+                      <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{formatDate(order.createdAt)}</Text>
+                      <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }} numberOfLines={1}>{getTimeSince(order.createdAt)}</Text>
                     </View>
                     {/* Order # */}
-                    <View style={[dtStyles.td, { minWidth: 120 }]}>
-                      <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]}>{order.orderNumber}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.orderNum }]}>
+                      <Text style={[dtStyles.tdText, { fontWeight: "700", fontSize: 13 }]} numberOfLines={1}>{order.orderNumber}</Text>
                     </View>
                     {/* Store */}
-                    <View style={[dtStyles.td, { minWidth: 100 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.store }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12 }]} numberOfLines={1}>{order.storeName}</Text>
                     </View>
                     {/* Customer */}
-                    <View style={[dtStyles.td, { minWidth: 140 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.customer }]}>
                       <Text style={[dtStyles.tdText, { fontSize: 12, fontWeight: "500" }]} numberOfLines={1}>
                         {(() => {
                           // Extract first and last name from customerName
@@ -523,18 +648,18 @@ function AdminOrdersScreenContent() {
                       </Text>
                     </View>
                     {/* Status */}
-                    <View style={[dtStyles.td, { minWidth: 130 }]}>
-                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", gap: 5 }}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.status }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: sc.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", gap: 5, maxWidth: "100%" }}>
                         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sc.text }} />
-                        <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text, letterSpacing: 0.3 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "600", color: sc.text, letterSpacing: 0.3 }} numberOfLines={1}>
                           {order.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
                         </Text>
                       </View>
                     </View>
                     {/* Driver */}
-                    <View style={[dtStyles.td, { minWidth: 95 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.driver }]}>
                       {order.driverName === "Unassigned" ? (
-                        <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }}>Unassigned</Text>
+                        <Text style={{ fontSize: 12, color: "#CBD5E1", fontStyle: "italic" }} numberOfLines={1}>Unassigned</Text>
                       ) : (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" }} />
@@ -552,36 +677,46 @@ function AdminOrdersScreenContent() {
                       )}
                     </View>
                     {/* Payment */}
-                    <View style={[dtStyles.td, { minWidth: 90 }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.payment }]}>
                       <View style={{ flexDirection: "column", gap: 2 }}>
-                        <Text style={{ fontSize: 11, color: "#64748B" }}>
+                        <Text style={{ fontSize: 11, color: "#64748B" }} numberOfLines={1}>
                           {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"}
                         </Text>
                         {order.paymentStatus === "completed" ? (
                           <View style={{ backgroundColor: "#DCFCE7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }}>Paid</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#16A34A" }} numberOfLines={1}>Paid</Text>
                           </View>
                         ) : order.paymentMethod === "cash_on_delivery" ? (
                           <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>COD</Text>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }} numberOfLines={1}>COD</Text>
                           </View>
-                        ) : order.paymentStatus === "failed" ? (
-                          <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }}>Failed</Text>
+                        ) : isAwaitingPayment ? (
+                          <View style={{ backgroundColor: "#DBEAFE", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#2563EB" }} numberOfLines={1}>Awaiting</Text>
                           </View>
                         ) : (
-                          <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start" }}>
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706" }}>Pending</Text>
+                          <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: "flex-start", borderWidth: 1, borderColor: "#DC2626" }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#DC2626" }} numberOfLines={1}>⚠ FAILED</Text>
                           </View>
                         )}
                       </View>
                     </View>
                     {/* Total */}
-                    <View style={[dtStyles.td, { minWidth: 70 }]}>
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>€{parseFloat(order.total).toFixed(2)}</Text>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.total }]}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }} numberOfLines={1}>€{parseFloat(order.total).toFixed(2)}</Text>
+                      {parseFloat(order.tipAmount || "0") > 0 && (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#8B5CF6", marginTop: 1 }} numberOfLines={1}>
+                          💜 €{parseFloat(order.tipAmount).toFixed(2)}
+                        </Text>
+                      )}
+                      {order.discountCodeName && parseFloat(order.discountAmount || "0") > 0 && (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#D97706", marginTop: 1 }} numberOfLines={1}>
+                          🎟️ {order.discountCodeName} -€{parseFloat(order.discountAmount).toFixed(2)}
+                        </Text>
+                      )}
                     </View>
                     {/* Actions */}
-                    <View style={[dtStyles.td, { minWidth: 100, flexDirection: "row", gap: 4, alignItems: "center" }]}>
+                    <View style={[dtStyles.td, { width: COL_WIDTHS.actions, flexDirection: "row", gap: 6, alignItems: "center" }]}>
                       <TouchableOpacity
                         onPress={(e) => { e.stopPropagation?.(); setExpandedId(expanded ? null : order.id); }}
                         style={[dtStyles.actionBtn, { backgroundColor: expanded ? "#E0F2FE" : "#F1F5F9" }]}
@@ -610,10 +745,25 @@ function AdminOrdersScreenContent() {
                             style={[dtStyles.actionBtn, { backgroundColor: "#FEE2E2" }]}
                             {...({ title: "Cancel Order" } as any)}
                           >
-                            <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "700" }}>✕</Text>
+                           <Text style={{ fontSize: 10, color: "#DC2626", fontWeight: "700" }}>✕</Text>
                           </TouchableOpacity>
                         </>
                       )}
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation?.(); setDuplicateConfirmOrderId(order.id); }}
+                        style={[dtStyles.actionBtn, { backgroundColor: "#FEF3C7" }]}
+                        {...({ title: "Duplicate Order" } as any)}
+                      >
+                        <Text style={{ fontSize: 12 }}>⧉</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation?.(); setReprintResult(null); reprintMutation.mutate({ orderId: order.id, storeId: order.storeId! }); }}
+                        disabled={reprintMutation.isPending}
+                        style={[dtStyles.actionBtn, { backgroundColor: "#E0E7FF" }]}
+                        {...({ title: "Reprint" } as any)}
+                      >
+                        <Text style={{ fontSize: 12 }}>🖨️</Text>
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
 
@@ -634,9 +784,12 @@ function AdminOrdersScreenContent() {
                               displayItems.map((item: any, idx2: number) => (
                                 <View key={idx2}>
                                   <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                                    <Text style={[dtStyles.detailValue, { flex: 1 }]}>
-                                      {item.quantity}x {item.productName}
-                                    </Text>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                                        {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
+                                        <TouchableOpacity onPress={() => { router.push({ pathname: "/admin/products", params: { store: String(order.storeId), search: item.productName } }); }}>
+                                          <Text style={[dtStyles.detailValue, { flex: 1, color: "#2563EB", textDecorationLine: "underline" }]}>{item.quantity}x {item.productName}</Text>
+                                        </TouchableOpacity>
+                                      </View>
                                     <Text style={[dtStyles.detailValue, { color: "#0F172A", fontWeight: "600", marginLeft: 12 }]}>
                                       €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
                                     </Text>
@@ -669,12 +822,14 @@ function AdminOrdersScreenContent() {
                           {(() => {
                             const receiptData = (order as any).receiptData;
                             const storeReceipt = receiptData?.storeReceipt;
+                            const tip = parseFloat(order.tipAmount || "0");
                             if (storeReceipt) {
                               return (
                                 <>
                                   <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(storeReceipt.subtotal).toFixed(2)}</Text>
                                   <Text style={dtStyles.detailValue}>Service: €{parseFloat(storeReceipt.serviceFee).toFixed(2)}</Text>
                                   <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(storeReceipt.deliveryFee).toFixed(2)}</Text>
+                                  {tip > 0 && <Text style={[dtStyles.detailValue, { color: "#8B5CF6", fontWeight: "600" }]}>Tip: €{tip.toFixed(2)}</Text>}
                                   <Text style={[dtStyles.detailValue, { fontWeight: "600", color: "#059669" }]}>Total: €{parseFloat(storeReceipt.total).toFixed(2)}</Text>
                                 </>
                               );
@@ -684,13 +839,23 @@ function AdminOrdersScreenContent() {
                                 <Text style={dtStyles.detailValue}>Subtotal: €{parseFloat(order.subtotal).toFixed(2)}</Text>
                                 <Text style={dtStyles.detailValue}>Service: €{parseFloat(order.serviceFee).toFixed(2)}</Text>
                                 <Text style={dtStyles.detailValue}>Delivery: €{parseFloat(order.deliveryFee).toFixed(2)}</Text>
+                                {tip > 0 && <Text style={[dtStyles.detailValue, { color: "#8B5CF6", fontWeight: "600" }]}>Tip: €{tip.toFixed(2)}</Text>}
                               </>
                             );
                           })()}
                         </View>
                         <View style={{ minWidth: 150 }}>
                           <Text style={dtStyles.detailLabel}>Details</Text>
-                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})</Text>
+                          {(order as any).customerPhone ? (
+                            <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order as any).customerPhone}`)}>
+                              <Text style={[dtStyles.detailValue, { color: "#2563EB", fontWeight: "600", textDecorationLine: "underline" }]}>
+                                📞 {(order as any).customerPhone}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={[dtStyles.detailValue, { color: "#94A3B8" }]}>No phone on file</Text>
+                          )}
+                          <Text style={dtStyles.detailValue}>Payment: {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : isAwaitingPayment ? "Awaiting Payment" : "FAILED"})</Text>
                           {order.deliveryDistance && <Text style={dtStyles.detailValue}>Distance: {parseFloat(order.deliveryDistance as string).toFixed(1)} km</Text>}
                           {order.deliveredAt && <Text style={dtStyles.detailValue}>Delivered: {formatDate(order.deliveredAt)}</Text>}
                           {order.cancelledAt && <Text style={[dtStyles.detailValue, { color: "#DC2626" }]}>Cancelled: {formatDate(order.cancelledAt)}</Text>}
@@ -727,6 +892,49 @@ function AdminOrdersScreenContent() {
                           <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>Confirm that cash has been collected for this order</Text>
                         </View>
                       )}
+                      {/* Re-check payment for card orders that look unpaid — safe, since it
+                          only flips to paid if Elavon itself confirms the charge. */}
+                      {order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+                          <TouchableOpacity
+                            onPress={() => { setPaymentCheckResult(null); recheckPaymentMutation.mutate({ orderId: order.id }); }}
+                            disabled={recheckPaymentMutation.isPending}
+                            style={{
+                              backgroundColor: recheckPaymentMutation.isPending ? "#D1D5DB" : "#2563EB",
+                              paddingVertical: 8,
+                              paddingHorizontal: 16,
+                              borderRadius: 8,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              alignSelf: "flex-start",
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ fontSize: 14 }}>🔄</Text>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
+                              {recheckPaymentMutation.isPending ? "Checking with Elavon..." : "Re-check Payment with Elavon"}
+                            </Text>
+                          </TouchableOpacity>
+                          <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>
+                            If the customer says they were charged but this still shows unpaid, use this.
+                          </Text>
+                          {paymentCheckResult && paymentCheckResult.orderId === order.id && (
+                            <Text style={{ fontSize: 12, fontWeight: "600", color: paymentCheckResult.success ? "#16A34A" : "#D97706", marginTop: 6 }}>
+                              {paymentCheckResult.message}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                      {duplicateResult && duplicateResult.orderId === order.id && (
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: duplicateResult.success ? "#16A34A" : "#D97706", marginTop: 12 }}>
+                          {duplicateResult.message}
+                        </Text>
+                      )}
+                      {reprintResult && reprintResult.orderId === order.id && (
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: reprintResult.success ? "#16A34A" : "#D97706", marginTop: 6 }}>
+                          {reprintResult.message}
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -741,6 +949,16 @@ function AdminOrdersScreenContent() {
             </ScrollView>
           </View>
         </ScrollView>
+
+        {/* Load more — sits under the table where it belongs */}
+        {(serverTotal ?? 0) > (orders?.length ?? 0) || (orders?.length ?? 0) >= fetchLimit ? (
+          <TouchableOpacity
+            onPress={() => setFetchLimit(l => l + 200)}
+            style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 10 }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>⬇ Load more orders</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Modals (same for desktop) */}
         {renderModals()}
@@ -770,7 +988,7 @@ function AdminOrdersScreenContent() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border" contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="border-b border-border" style={{ maxHeight: 52 }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" }}>
         {STATUS_FILTERS.map(status => {
           const active = statusFilter === status;
           const label = status === "all" ? "All" : status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
@@ -820,13 +1038,17 @@ function AdminOrdersScreenContent() {
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const waitTime = getTimeSince(order.createdAt);
               const isWaiting = order.status === "pending" && (Date.now() - new Date(order.createdAt).getTime()) > 300000;
+              const isUnpaidCardMobile = order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed";
+              const orderAgeMsMobile = Date.now() - new Date(order.createdAt).getTime();
+              const isAwaitingPayment = isUnpaidCardMobile && orderAgeMsMobile <= PAYMENT_GRACE_PERIOD_MS;
+              const isFailedPayment = isUnpaidCardMobile && orderAgeMsMobile > PAYMENT_GRACE_PERIOD_MS;
 
               return (
                 <TouchableOpacity
                   key={order.id}
                   onPress={() => setExpandedId(expanded ? null : order.id)}
-                  style={isWaiting ? { borderColor: "#F59E0B", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : undefined}
-                  className={isWaiting ? "bg-surface" : "bg-surface rounded-xl border border-border overflow-hidden"}
+                  style={isFailedPayment ? { borderColor: "#DC2626", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : isAwaitingPayment ? { borderColor: "#3B82F6", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : isWaiting ? { borderColor: "#F59E0B", borderWidth: 2, borderRadius: 12, overflow: "hidden" } : undefined}
+                  className={(isFailedPayment || isAwaitingPayment || isWaiting) ? "bg-surface" : "bg-surface rounded-xl border border-border overflow-hidden"}
                 >
                   <View className="p-4">
                     <View className="flex-row items-center justify-between mb-2">
@@ -857,9 +1079,13 @@ function AdminOrdersScreenContent() {
                       <Text style={{ fontSize: 12, color: order.driverName === "Unassigned" ? "#D97706" : "#059669", fontWeight: "600" }}>
                         {order.driverName}
                       </Text>
-                      {order.paymentMethod === "cash_on_delivery" && (
+                      {order.paymentMethod === "cash_on_delivery" ? (
                         <View style={{ backgroundColor: order.paymentStatus === "completed" ? "#DCFCE7" : "#FEF3C7", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
                           <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : "#D97706" }}>{order.paymentStatus === "completed" ? "PAID" : "CASH"}</Text>
+                        </View>
+                      ) : (
+                        <View style={{ backgroundColor: order.paymentStatus === "completed" ? "#DCFCE7" : isAwaitingPayment ? "#DBEAFE" : "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: order.paymentStatus === "completed" ? "#16A34A" : isAwaitingPayment ? "#2563EB" : "#DC2626" }}>{order.paymentStatus === "completed" ? "PAID" : isAwaitingPayment ? "AWAITING" : "⚠ FAILED"}</Text>
                         </View>
                       )}
                     </View>
@@ -872,9 +1098,55 @@ function AdminOrdersScreenContent() {
                           <Text className="text-sm text-muted">Customer</Text>
                           <Text className="text-sm text-foreground font-medium">{order.customerName}</Text>
                         </View>
+                        {(order as any).customerPhone ? (
+                          <View className="flex-row justify-between">
+                            <Text className="text-sm text-muted">Phone</Text>
+                            <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order as any).customerPhone}`)}>
+                              <Text style={{ fontSize: 14, color: "#2563EB", fontWeight: "600", textDecorationLine: "underline" }}>
+                                📞 {(order as any).customerPhone}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : null}
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Store</Text>
                           <Text className="text-sm text-foreground font-medium">{order.storeName}</Text>
+                        </View>
+                        <View className="mt-2 pt-2 border-t border-border">
+                          <Text className="text-sm text-muted mb-1">Items</Text>
+                          {(() => {
+                            const receiptData = (order as any).receiptData;
+                            const displayItems = (order as any).items || receiptData?.storeReceipt?.items || [];
+                            return displayItems && displayItems.length > 0 ? (
+                              displayItems.map((item: any, idx2: number) => (
+                                <View key={idx2} style={{ marginBottom: 4 }}>
+                                  <View className="flex-row justify-between">
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                                        {item.productImages ? (() => { try { const p = JSON.parse(item.productImages); const url = Array.isArray(p) ? p[0] : p; return url ? <Image source={{ uri: url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" /> : null; } catch { return null; } })() : null}
+                                        <Text style={{ flex: 1, fontSize: 14, color: "#0F172A" }}>{item.quantity}x {item.productName}</Text>
+                                      </View>
+                                    <Text style={{ fontSize: 14, fontWeight: "600", marginLeft: 8, color: "#0F172A" }}>
+                                      €{(parseFloat(item.subtotal) || (parseFloat(item.productPrice || "0") * item.quantity)).toFixed(2)}
+                                    </Text>
+                                  </View>
+                                  {item.modifiers && item.modifiers.length > 0 && (() => {
+                                    const grouped: Record<string, { price: string; count: number }> = {};
+                                    for (const mod of item.modifiers) {
+                                      if (!grouped[mod.modifierName]) grouped[mod.modifierName] = { price: mod.modifierPrice, count: 0 };
+                                      grouped[mod.modifierName].count++;
+                                    }
+                                    return Object.entries(grouped).map(([name, { price, count }], modIdx) => (
+                                      <Text key={modIdx} style={{ fontSize: 12, color: "#64748B", paddingLeft: 12 }}>
+                                        + {name}{count > 1 ? ` ×${count}` : ""}{parseFloat(price) > 0 ? ` +€${(parseFloat(price) * count).toFixed(2)}` : ""}
+                                      </Text>
+                                    ));
+                                  })()}
+                                </View>
+                              ))
+                            ) : (
+                              <Text className="text-sm" style={{ color: "#94A3B8" }}>No items data</Text>
+                            );
+                          })()}
                         </View>
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Driver</Text>
@@ -883,7 +1155,7 @@ function AdminOrdersScreenContent() {
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Payment</Text>
                           <Text className="text-sm text-foreground font-medium">
-                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" && order.status === "delivered" ? "Collected" : order.paymentStatus})
+                            {order.paymentMethod === "cash_on_delivery" ? "Cash" : "Card"} ({order.paymentStatus === "completed" ? "Paid" : order.paymentMethod === "cash_on_delivery" ? (order.status === "delivered" ? "Collected" : order.paymentStatus) : isAwaitingPayment ? "Awaiting Payment" : "FAILED"})
                           </Text>
                         </View>
 
@@ -990,6 +1262,35 @@ function AdminOrdersScreenContent() {
                             <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, textAlign: "center" }}>Confirm cash has been collected</Text>
                           </View>
                         )}
+                        {order.paymentMethod !== "cash_on_delivery" && order.paymentStatus !== "completed" && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => { setPaymentCheckResult(null); recheckPaymentMutation.mutate({ orderId: order.id }); }}
+                              disabled={recheckPaymentMutation.isPending}
+                              style={{
+                                backgroundColor: recheckPaymentMutation.isPending ? "#D1D5DB" : "#2563EB",
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 8,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Text style={{ fontSize: 15 }}>🔄</Text>
+                              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                                {recheckPaymentMutation.isPending ? "Checking with Elavon..." : "Re-check Payment with Elavon"}
+                              </Text>
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 4, textAlign: "center" }}>If the customer says they were charged, use this</Text>
+                            {paymentCheckResult && paymentCheckResult.orderId === order.id && (
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: paymentCheckResult.success ? "#16A34A" : "#D97706", marginTop: 6, textAlign: "center" }}>
+                                {paymentCheckResult.message}
+                              </Text>
+                            )}
+                          </View>
+                        )}
                       </View>
                     </View>
                   )}
@@ -1014,6 +1315,36 @@ function AdminOrdersScreenContent() {
   function renderModals() {
     return (
       <>
+        {/* Duplicate Order Confirmation */}
+        {duplicateConfirmOrderId !== null && (
+          <View style={styles.overlay}>
+            <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>Duplicate Order?</Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 20 }}>
+                This creates a brand new cash order with the same items and address, and sends it to the store and a driver. Use this as a fail-safe if the original order needs to be re-sent.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setDuplicateConfirmOrderId(null)}
+                  style={[styles.confirmButton, { backgroundColor: colors.border }]}
+                  disabled={duplicateOrderMutation.isPending}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setDuplicateResult(null); duplicateOrderMutation.mutate({ orderId: duplicateConfirmOrderId }); }}
+                  disabled={duplicateOrderMutation.isPending}
+                  style={[styles.confirmButton, { backgroundColor: duplicateOrderMutation.isPending ? "#D1D5DB" : "#D97706" }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+                    {duplicateOrderMutation.isPending ? "Duplicating..." : "Yes, Duplicate"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Cancel Confirmation */}
         {cancelConfirmOrderId !== null && (
           <View style={styles.overlay}>
@@ -1259,6 +1590,72 @@ function AdminOrdersScreenContent() {
             </View>
           </View>
         </Modal>
+
+        {/* Bulk Delete Orders Modal — PIN protected */}
+        <Modal visible={bulkDeleteModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+            <View style={{
+              backgroundColor: colors.surface,
+              borderRadius: 16,
+              width: isDesktop ? 380 : "85%",
+              maxWidth: 380,
+              padding: 24,
+            }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#DC2626", marginBottom: 8 }}>
+                ⚠️ Delete {selectedOrderIds.size} Order{selectedOrderIds.size !== 1 ? "s" : ""}?
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 16, lineHeight: 20 }}>
+                This permanently deletes the selected order{selectedOrderIds.size !== 1 ? "s" : ""} and all their items. This cannot be undone.
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>Enter PIN to confirm</Text>
+              <TextInput
+                value={deletePin}
+                onChangeText={(v) => { setDeletePin(v.replace(/[^0-9]/g, "").slice(0, 4)); setDeleteError(""); }}
+                placeholder="••••"
+                placeholderTextColor="#CBD5E1"
+                secureTextEntry
+                keyboardType="number-pad"
+                maxLength={4}
+                autoFocus
+                style={{
+                  borderWidth: 1,
+                  borderColor: deleteError ? "#DC2626" : colors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 18,
+                  letterSpacing: 8,
+                  color: colors.foreground,
+                  marginBottom: 8,
+                  textAlign: "center",
+                } as any}
+              />
+              {deleteError ? (
+                <Text style={{ fontSize: 12, color: "#DC2626", marginBottom: 8 }}>{deleteError}</Text>
+              ) : null}
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+                <TouchableOpacity
+                  onPress={() => { setBulkDeleteModal(false); setDeletePin(""); setDeleteError(""); }}
+                  style={[styles.confirmButton, { backgroundColor: colors.border }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (deletePin.length !== 4) { setDeleteError("Enter the 4-digit PIN"); return; }
+                    deleteOrdersMutation.mutate({ orderIds: Array.from(selectedOrderIds), pin: deletePin });
+                  }}
+                  disabled={deleteOrdersMutation.isPending}
+                  style={[styles.confirmButton, { backgroundColor: deleteOrdersMutation.isPending ? "#D1D5DB" : "#DC2626" }]}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", textAlign: "center" }}>
+                    {deleteOrdersMutation.isPending ? "Deleting..." : "Delete"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </>
     );
   }
@@ -1272,7 +1669,7 @@ const dtStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
-    minWidth: 1200,
+    minWidth: 1180,
     flexDirection: "column",
   },
   thead: {
@@ -1280,12 +1677,13 @@ const dtStyles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderBottomWidth: 2,
     borderBottomColor: "#E2E8F0",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   th: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     justifyContent: "center",
+    overflow: "hidden",
   },
   thText: {
     fontSize: 11,
@@ -1298,13 +1696,14 @@ const dtStyles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     alignItems: "center",
   },
   td: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     justifyContent: "center",
+    overflow: "hidden",
   },
   tdText: {
     fontSize: 13,

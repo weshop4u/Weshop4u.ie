@@ -53,13 +53,21 @@ async function offerOldestOrderToDriver(driverId: number) {
   const excludedOrderIds = previouslyOffered.map(o => o.orderId);
 
   // Get all unassigned orders, oldest first
+  // Payment gate: only cash orders, or card orders that have actually been
+  // confirmed as paid, are eligible for dispatch. This stops declined/pending
+  // card payments from sitting at status "pending" forever and being silently
+  // picked up by this FIFO backfill on every idle driver poll.
+  // Acceptance gate: an order must have been accepted by the store/POS/admin
+  // before it can reach a driver — "pending" orders are excluded so this
+  // self-healing FIFO backfill can never bypass the accept step.
   const unassignedOrders = await db
     .select({ id: orders.id })
     .from(orders)
     .where(
       and(
-        inArray(orders.status, ["pending", "accepted", "preparing", "ready_for_pickup"]),
-        isNull(orders.driverId)
+        inArray(orders.status, ["accepted", "preparing", "ready_for_pickup"]),
+        isNull(orders.driverId),
+        or(eq(orders.paymentMethod, "cash_on_delivery"), eq(orders.paymentStatus, "completed"))
       )
     )
     .orderBy(asc(orders.createdAt))
@@ -274,6 +282,26 @@ async function offerToNextDriver(orderId: number) {
   const db = await getDb();
   if (!db) return;
 
+  // Payment gate: never dispatch an order to a driver unless it's cash on
+  // delivery, or a card payment that has actually been confirmed as paid.
+  // Every targeted-order dispatch path (new cash order, decline cascade,
+  // expiry cascade, returned job) goes through this function, so this single
+  // check protects all of them.
+  const [orderForGate] = await db
+    .select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!orderForGate) {
+    console.log(`[Dispatch Gate] Order ${orderId} not found, skipping dispatch`);
+    return;
+  }
+  const isPaymentEligible = orderForGate.paymentMethod === "cash_on_delivery" || orderForGate.paymentStatus === "completed";
+  if (!isPaymentEligible) {
+    console.log(`[Dispatch Gate] Order ${orderId} blocked from dispatch — card payment not completed (status: ${orderForGate.paymentStatus})`);
+    return;
+  }
+
   // Get all drivers who have already been offered this order
   const previousOffers = await db
     .select({ driverId: orderOffers.driverId })
@@ -288,17 +316,25 @@ async function offerToNextDriver(orderId: number) {
     .orderBy(asc(driverQueue.position));
 
   // Find next AVAILABLE driver who hasn't been offered yet
-  // Available means: in queue AND isAvailable=true (not currently on a delivery)
+  // Available means: online (genuinely, not a stale queue row) AND
+  // isAvailable=true (not currently on a delivery)
   let nextDriver = null;
   for (const q of queue) {
     if (offeredDriverIds.includes(q.driverId)) continue;
-    // Check if driver is actually available
+    // Check if driver is actually online and available
     const driverCheck = await db
-      .select({ isAvailable: drivers.isAvailable })
+      .select({ isOnline: drivers.isOnline, isAvailable: drivers.isAvailable })
       .from(drivers)
       .where(eq(drivers.userId, q.driverId))
       .limit(1);
-    if (driverCheck.length > 0 && driverCheck[0].isAvailable) {
+    if (driverCheck.length === 0 || !driverCheck[0].isOnline) {
+      // Stale queue entry — driver isn't actually online. Clean it up so it
+      // doesn't keep intercepting offers ahead of real drivers.
+      await db.delete(driverQueue).where(eq(driverQueue.driverId, q.driverId));
+      console.log(`[Queue] Removed stale queue entry for driver ${q.driverId} (not online)`);
+      continue;
+    }
+    if (driverCheck[0].isAvailable) {
       nextDriver = q;
       break;
     }
@@ -816,8 +852,8 @@ export const driversRouter = router({
       // SMS #2 / Push — Driver at Store notification
       // Strategy: Send push to customers WITH a push token (app users).
       // Send SMS to customers WITHOUT a push token (guests + web-only users).
-      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.app';
-      const trackingUrl = `${baseUrl}/track/${input.orderId}`;
+      const baseUrl = process.env.PUBLIC_URL || 'https://weshop4u.ie';
+const trackingUrl = `${baseUrl}/api/web/order-tracking/${input.orderId}`;
 
       if (customer && customer.pushToken && store) {
         // App user — send push notification (free)
@@ -1001,6 +1037,15 @@ export const driversRouter = router({
         return isNaN(parsed) ? 0 : parsed;
       };
 
+      // Payment gate: a delivered order only counts toward money owed to the
+      // driver if it's cash on delivery (always collected at the door), or a
+      // card payment that was actually confirmed paid. A delivered order with
+      // a declined/never-completed card payment still counts as a completed
+      // delivery (driver did the job), but earns nothing, since the business
+      // never collected the money in the first place.
+      const isPayEligible = (order: any): boolean =>
+        order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
+
       // Helper to get the effective delivery date (use deliveredAt, fall back to createdAt)
       const getDeliveryDate = (order: any): Date => {
         if (order.deliveredAt) return new Date(order.deliveredAt);
@@ -1018,11 +1063,12 @@ export const driversRouter = router({
         const deliveredAt = getDeliveryDate(order);
         return toIrishDateStr(deliveredAt) === todayStr;
       });
-      const todayEarnings = todayOrders.reduce(
+      const todayPayEligible = todayOrders.filter(isPayEligible);
+      const todayEarnings = todayPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const todayTips = todayOrders.reduce(
+      const todayTips = todayPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
@@ -1047,21 +1093,23 @@ export const driversRouter = router({
         const deliveredAt = getDeliveryDate(order);
         return weekDateStrs.includes(toIrishDateStr(deliveredAt));
       });
-      const weekEarnings = weekOrders.reduce(
+      const weekPayEligible = weekOrders.filter(isPayEligible);
+      const weekEarnings = weekPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const weekTips = weekOrders.reduce(
+      const weekTips = weekPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
 
       // Total stats
-      const totalEarnings = completedOrders.reduce(
+      const allPayEligible = completedOrders.filter(isPayEligible);
+      const totalEarnings = allPayEligible.reduce(
         (sum, order) => sum + parseFee(order.deliveryFee) + parseFee(order.tipAmount),
         0
       );
-      const totalTips = completedOrders.reduce(
+      const totalTips = allPayEligible.reduce(
         (sum, order) => sum + parseFee(order.tipAmount),
         0
       );
@@ -1074,7 +1122,7 @@ export const driversRouter = router({
         .limit(1);
 
       // Card/cash breakdown — today
-      const todayCardEarnings = todayOrders
+      const todayCardEarnings = todayPayEligible
         .filter(o => o.paymentMethod !== 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
       const todayCashCollected = todayOrders
@@ -1083,10 +1131,9 @@ export const driversRouter = router({
       const todayCashFees = todayOrders
         .filter(o => o.paymentMethod === 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
-      const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCashFees);
-
+      const todayCashOwedToOffice = Math.max(0, todayCashCollected - todayCardEarnings - todayCashFees);
       // Card/cash breakdown — this week
-      const weekCardEarnings = weekOrders
+      const weekCardEarnings = weekPayEligible
         .filter(o => o.paymentMethod !== 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee) + parseFee(o.tipAmount), 0);
       const weekCashCollected = weekOrders
@@ -1095,8 +1142,7 @@ export const driversRouter = router({
       const weekCashFees = weekOrders
         .filter(o => o.paymentMethod === 'cash_on_delivery')
         .reduce((s, o) => s + parseFee(o.deliveryFee), 0);
-      const weekCashOwedToOffice = Math.max(0, weekCashCollected - weekCashFees);
-
+      const weekCashOwedToOffice = Math.max(0, weekCashCollected - weekCardEarnings - weekCashFees);
       return {
         todayEarnings,
         todayTips,
@@ -1125,10 +1171,35 @@ export const driversRouter = router({
       if (!db) throw new Error("Database not available");
 
       // Get all queue entries ordered by position
-      const queue = await db
+      const rawQueue = await db
         .select()
         .from(driverQueue)
         .orderBy(asc(driverQueue.position));
+
+      // Ghost-entry guard: a driverQueue row can outlive a driver actually
+      // going offline (app crash, force-close, lost connection before the
+      // toggle-off mutation completes). Cross-check against the drivers
+      // table's isOnline flag — the source of truth shown in admin — and
+      // silently drop + clean up any stale entries so position/count always
+      // reflects drivers who are genuinely online.
+      const queueDriverIds = rawQueue.map(q => q.driverId);
+      let onlineDriverIds = new Set<number>();
+      if (queueDriverIds.length > 0) {
+        const onlineRows = await db
+          .select({ userId: drivers.userId })
+          .from(drivers)
+          .where(and(inArray(drivers.userId, queueDriverIds), eq(drivers.isOnline, true)));
+        onlineDriverIds = new Set(onlineRows.map(r => r.userId));
+      }
+
+      const staleEntries = rawQueue.filter(q => !onlineDriverIds.has(q.driverId));
+      if (staleEntries.length > 0) {
+        const staleIds = staleEntries.map(q => q.driverId);
+        await db.delete(driverQueue).where(inArray(driverQueue.driverId, staleIds));
+        console.log(`[Queue] Cleaned up ${staleIds.length} stale queue entr${staleIds.length === 1 ? "y" : "ies"}: ${staleIds.join(", ")}`);
+      }
+
+      const queue = rawQueue.filter(q => onlineDriverIds.has(q.driverId));
 
       const myEntry = queue.find(q => q.driverId === input.driverId);
       if (!myEntry) {
@@ -1325,6 +1396,24 @@ export const driversRouter = router({
       if (offer.status !== "pending") throw new Error("Offer is no longer available");
       if (offer.driverId !== input.driverId) throw new Error("This offer is not for you");
       if (new Date() > offer.expiresAt) throw new Error("Offer has expired");
+
+      // Final safety check: confirm the order is still payment-eligible before
+      // letting the driver lock it in. This is the last line of defence —
+      // protects against any order that slipped through an earlier dispatch
+      // step with a declined or still-pending card payment.
+      const [orderForAcceptGate] = await db
+        .select({ paymentMethod: orders.paymentMethod, paymentStatus: orders.paymentStatus })
+        .from(orders)
+        .where(eq(orders.id, offer.orderId))
+        .limit(1);
+      if (!orderForAcceptGate || (orderForAcceptGate.paymentMethod !== "cash_on_delivery" && orderForAcceptGate.paymentStatus !== "completed")) {
+        // Invalidate the bad offer so it isn't kept being offered to anyone else
+        await db
+          .update(orderOffers)
+          .set({ status: "expired", respondedAt: new Date() })
+          .where(eq(orderOffers.id, input.offerId));
+        throw new Error("This order is no longer available (payment not confirmed)");
+      }
 
       const isBatch = offer.isBatchOffer === true;
 
@@ -1526,6 +1615,7 @@ export const driversRouter = router({
           deliveryAddress: orders.deliveryAddress,
           storeName: stores.name,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
         })
         .from(orders)
@@ -1538,12 +1628,20 @@ export const driversRouter = router({
         )
         .orderBy(desc(orders.deliveredAt));
 
+      // Payment gate: only count euro figures for cash orders (always collected
+      // at the door) or card orders that were actually confirmed paid. A
+      // delivered order with a declined/never-completed card payment still
+      // shows up as a completed delivery, but earns nothing.
+      const isPayEligible = (order: any): boolean =>
+        order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
+      const payEligibleOrders = completedOrders.filter(isPayEligible);
+
       // Calculate total earnings
-      const totalEarnings = completedOrders.reduce(
+      const totalEarnings = payEligibleOrders.reduce(
         (sum, order) => sum + parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
         0
       );
-      const totalTips = completedOrders.reduce(
+      const totalTips = payEligibleOrders.reduce(
         (sum, order) => sum + parseFloat(order.tipAmount || "0"),
         0
       );
@@ -1566,6 +1664,7 @@ export const driversRouter = router({
       };
 
       // Build daily breakdown for the past 7 days using Irish timezone
+      // (deliveries count includes every delivered order; earnings only count pay-eligible ones)
       const dailyBreakdown: { date: string; dayLabel: string; earnings: number; deliveries: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000);
@@ -1574,11 +1673,12 @@ export const driversRouter = router({
           const oDate = toIrishDateStr(getDeliveryDate(o));
           return oDate === dateStr;
         });
+        const dayPayEligible = dayOrders.filter(isPayEligible);
         const dayOfMonth = toIrishDayOfMonth(d);
         dailyBreakdown.push({
           date: dateStr,
           dayLabel: i === 0 ? "Today" : i === 1 ? "Yesterday" : toIrishDayLabel(d),
-          earnings: dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
+          earnings: dayPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0),
           deliveries: dayOrders.length,
         });
       }
@@ -1589,8 +1689,9 @@ export const driversRouter = router({
         const oDate = toIrishDateStr(getDeliveryDate(o));
         return oDate === todayStr;
       });
-      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const todayTips = todayOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const todayPayEligible = todayOrders.filter(isPayEligible);
+      const todayEarnings = todayPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayTips = todayPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       // This week's earnings using Irish timezone
       const nowForWeek = new Date();
@@ -1605,8 +1706,9 @@ export const driversRouter = router({
         const oDate = toIrishDateStr(getDeliveryDate(o));
         return weekDateStrs.includes(oDate);
       });
-      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const weekTips = weekOrders.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const weekPayEligible = weekOrders.filter(isPayEligible);
+      const weekEarnings = weekPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekTips = weekPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
 
       return {
         totalEarnings,
@@ -1621,46 +1723,56 @@ export const driversRouter = router({
         weekEarnings,
         weekTips,
         weekDeliveries: weekOrders.length,
-        todayCardEarnings: todayOrders
+        todayCardEarnings: todayPayEligible
           .filter(o => o.paymentMethod !== 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
         todayCashCollected: todayOrders
           .filter(o => o.paymentMethod === 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
         todayCashOwedToOffice: Math.max(0,
-          todayOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
-          - todayOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
-        ),
-        weekCardEarnings: weekOrders
+    todayOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+    - todayPayEligible
+      .filter(o => o.paymentMethod !== 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0)
+    - todayOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+  ),
+        weekCardEarnings: weekPayEligible
           .filter(o => o.paymentMethod !== 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0),
         weekCashCollected: weekOrders
           .filter(o => o.paymentMethod === 'cash_on_delivery')
           .reduce((s, o) => s + parseFloat(o.total || '0'), 0),
         weekCashOwedToOffice: Math.max(0,
-          weekOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
-          - weekOrders
-            .filter(o => o.paymentMethod === 'cash_on_delivery')
-            .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
-        ),
+    weekOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.total || '0'), 0)
+    - weekPayEligible
+      .filter(o => o.paymentMethod !== 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || '0'), 0)
+    - weekOrders
+      .filter(o => o.paymentMethod === 'cash_on_delivery')
+      .reduce((s, o) => s + parseFloat(o.deliveryFee), 0)
+  ),
         dailyBreakdown,
-        recentDeliveries: completedOrders.slice(0, 50).map(order => ({
-          id: order.id,
-          orderNumber: order.orderNumber,
-          amount: parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0"),
-          baseFee: parseFloat(order.deliveryFee),
-          tip: parseFloat(order.tipAmount || "0"),
-          completedAt: order.deliveredAt,
-          storeName: order.storeName || "Store",
-          deliveryAddress: order.deliveryAddress,
-          paymentMethod: order.paymentMethod,
-        })),
+        recentDeliveries: completedOrders.slice(0, 50).map(order => {
+          const isPaid = isPayEligible(order);
+          return {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            amount: isPaid ? parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0") : 0,
+            baseFee: parseFloat(order.deliveryFee),
+            tip: isPaid ? parseFloat(order.tipAmount || "0") : 0,
+            completedAt: order.deliveredAt,
+            storeName: order.storeName || "Store",
+            deliveryAddress: order.deliveryAddress,
+            paymentMethod: order.paymentMethod,
+            isPaid,
+          };
+        }),
       };
     }),
 
@@ -2071,6 +2183,7 @@ export const driversRouter = router({
           deliveryFee: orders.deliveryFee,
           tipAmount: orders.tipAmount,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
           deliveredAt: orders.deliveredAt,
           storeName: stores.name,
@@ -2088,7 +2201,7 @@ export const driversRouter = router({
 
       // Calculate settlement
       let cashCollected = 0; // Total cash collected from cash_on_delivery orders
-      let deliveryFeesEarned = 0; // Sum of all delivery fees (driver's base pay)
+      let deliveryFeesEarned = 0; // Sum of delivery fees the driver is actually owed
       let cardTipsEarned = 0; // Tips from card orders (tracked, paid to driver)
 
       for (const order of shiftOrders) {
@@ -2096,16 +2209,21 @@ export const driversRouter = router({
         const tip = parseFloat(order.tipAmount || "0");
         const total = parseFloat(order.total || "0");
 
-        deliveryFeesEarned += fee;
-
         if (order.paymentMethod === "cash_on_delivery") {
-          // Driver collected the full order total in cash
+          // Driver collected the full order total in cash at the door — always
+          // counts, regardless of paymentStatus.
           cashCollected += total;
+          deliveryFeesEarned += fee;
           // Cash tips are invisible - driver keeps them, not tracked
-        } else {
-          // Card payment - tip is tracked and owed to driver
+        } else if (order.paymentStatus === "completed") {
+          // Card payment, confirmed paid — driver is owed the delivery fee and tip.
+          deliveryFeesEarned += fee;
           cardTipsEarned += tip;
         }
+        // else: card payment never completed (declined/abandoned). The driver
+        // still delivered it (counted in totalJobs below), but since the
+        // business never collected payment, no delivery fee or tip is owed
+        // for this order.
       }
 
       // Net owed: positive = driver owes admin, negative = admin owes driver
@@ -2182,6 +2300,7 @@ export const driversRouter = router({
             paymentMethod: o.paymentMethod,
             total: parseFloat(o.total || "0"),
             deliveredAt: o.deliveredAt?.toISOString() || "",
+            isPaid: o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed",
           })),
         },
       };
@@ -2319,5 +2438,146 @@ export const driversRouter = router({
 
       console.log(`[Driver] Reordered batch ${input.batchId}: ${input.orderSequence.map(o => `#${o.orderId}→${o.sequence}`).join(", ")}`);
       return { success: true };
+    }),
+  // Mark a single shift as settled (admin action)
+  markSettled: publicProcedure
+    .input(z.object({ shiftId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [shift] = await db
+        .select()
+        .from(driverShifts)
+        .where(eq(driverShifts.id, input.shiftId))
+        .limit(1);
+
+      if (!shift) throw new Error("Shift not found");
+      if (shift.settledAt) throw new Error("Shift already settled");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(eq(driverShifts.id, input.shiftId));
+
+      return { success: true };
+    }),
+
+  // Mark all unsettled shifts for a driver as settled (admin action)
+  markAllSettled: publicProcedure
+    .input(z.object({ driverId: z.number(), adminId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      await db
+        .update(driverShifts)
+        .set({ settledAt: new Date() })
+        .where(
+          and(
+            eq(driverShifts.driverId, input.driverId),
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        );
+
+      return { success: true };
+    }),
+
+  // Get all drivers with unsettled balances (admin view)
+  getUnsettledBalances: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const unsettledShifts = await db
+        .select({
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          shiftId: driverShifts.id,
+          cashCollected: driverShifts.cashCollected,
+          deliveryFeesEarned: driverShifts.deliveryFeesEarned,
+          cardTipsEarned: driverShifts.cardTipsEarned,
+          netOwed: driverShifts.netOwed,
+          totalJobs: driverShifts.totalJobs,
+          endedAt: driverShifts.endedAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(
+          and(
+            eq(driverShifts.status, "ended"),
+            sql`${driverShifts.settledAt} IS NULL`
+          )
+        )
+        .orderBy(desc(driverShifts.endedAt));
+
+      const byDriver = new Map<number, {
+        driverId: number;
+        driverName: string;
+        totalOwed: number;
+        shiftCount: number;
+        shifts: { shiftId: number; cashCollected: number; deliveryFeesEarned: number; cardTipsEarned: number; netOwed: number; totalJobs: number; endedAt: Date | null }[];
+      }>();
+
+      for (const row of unsettledShifts) {
+        const existing = byDriver.get(row.driverId);
+        const netOwed = parseFloat(row.netOwed || "0");
+        const cashCollected = parseFloat(row.cashCollected || "0");
+        const deliveryFeesEarned = parseFloat(row.deliveryFeesEarned || "0");
+        const cardTipsEarned = parseFloat(row.cardTipsEarned || "0");
+        if (existing) {
+          existing.totalOwed = Math.round((existing.totalOwed + netOwed) * 100) / 100;
+          existing.shiftCount++;
+          existing.shifts.push({ shiftId: row.shiftId, cashCollected, deliveryFeesEarned, cardTipsEarned, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt });
+        } else {
+          byDriver.set(row.driverId, {
+            driverId: row.driverId,
+            driverName: row.driverName || "Unknown",
+            totalOwed: Math.round(netOwed * 100) / 100,
+            shiftCount: 1,
+            shifts: [{ shiftId: row.shiftId, cashCollected, deliveryFeesEarned, cardTipsEarned, netOwed, totalJobs: row.totalJobs || 0, endedAt: row.endedAt }],
+          });
+        }
+      }
+
+      return Array.from(byDriver.values())
+        .sort((a, b) => Math.abs(b.totalOwed) - Math.abs(a.totalOwed));
+    }),
+
+  // Get settlement history (admin view) - all shifts that have been settled
+  getSettlementHistory: publicProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const settledShifts = await db
+        .select({
+          shiftId: driverShifts.id,
+          driverId: driverShifts.driverId,
+          driverName: users.name,
+          cashCollected: driverShifts.cashCollected,
+          deliveryFeesEarned: driverShifts.deliveryFeesEarned,
+          cardTipsEarned: driverShifts.cardTipsEarned,
+          netOwed: driverShifts.netOwed,
+          totalJobs: driverShifts.totalJobs,
+          settledAt: driverShifts.settledAt,
+        })
+        .from(driverShifts)
+        .leftJoin(users, eq(driverShifts.driverId, users.id))
+        .where(sql`${driverShifts.settledAt} IS NOT NULL`)
+        .orderBy(desc(driverShifts.settledAt));
+
+      return settledShifts.map(s => ({
+        shiftId: s.shiftId,
+        driverId: s.driverId,
+        driverName: s.driverName || "Unknown",
+        cashCollected: parseFloat(s.cashCollected || "0"),
+        deliveryFeesEarned: parseFloat(s.deliveryFeesEarned || "0"),
+        cardTipsEarned: parseFloat(s.cardTipsEarned || "0"),
+        netOwed: parseFloat(s.netOwed || "0"),
+        totalJobs: s.totalJobs || 0,
+        settledAt: s.settledAt?.toISOString() || "",
+      }));
     }),
 });

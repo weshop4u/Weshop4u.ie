@@ -2,7 +2,7 @@ import { Text, View, TouchableOpacity, FlatList, TextInput, ScrollView, Modal, S
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
@@ -27,9 +27,10 @@ function ProductsManagementScreenContent() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const utils = trpc.useUtils();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedStore, setSelectedStore] = useState<number | null>(null);
+  const params = useLocalSearchParams<{ store?: string; search?: string }>();
+  const [searchQuery, setSearchQuery] = useState(params.search || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(params.search || "");
+  const [selectedStore, setSelectedStore] = useState<number | null>(params.store ? parseInt(params.store) : null);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -253,6 +254,8 @@ function ProductsManagementScreenContent() {
         isDrs: editingProduct.isDrs ?? false,
         pinnedToTrending: editingProduct.pinnedToTrending ?? false,
         trackStock: editingProduct.trackStock,
+        availableFrom: editingProduct.availableFrom || null,
+        availableUntil: editingProduct.availableUntil || null,
       };
 
       if (pendingImageBase64) {
@@ -1410,6 +1413,47 @@ function ProductsManagementScreenContent() {
                   <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>This quantity will decrement as orders are placed</Text>
                 </View>
               )}
+              {/* Time Availability */}
+              <View>
+                <Text style={[editStyles.label, { color: colors.foreground }]}>Time Availability (optional)</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>Leave blank for always available. Use HH:MM format e.g. 08:00</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>Available from</Text>
+                    <TextInput
+                      style={[editStyles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                      value={editingProduct?.availableFrom || ""}
+                      onChangeText={(text) => setEditingProduct({ ...editingProduct, availableFrom: text || null })}
+                      placeholder="00:00"
+                      placeholderTextColor={colors.muted}
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={5}
+                      returnKeyType="done"
+                    />
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 16, marginTop: 16 }}>to</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>Available until</Text>
+                    <TextInput
+                      style={[editStyles.input, { backgroundColor: editingProduct?.availableUntil ? "#EF444410" : colors.surface, borderColor: editingProduct?.availableUntil ? "#EF4444" : colors.border, color: colors.foreground }]}
+                      value={editingProduct?.availableUntil || ""}
+                      onChangeText={(text) => setEditingProduct({ ...editingProduct, availableUntil: text || null })}
+                      placeholder="20:00"
+                      placeholderTextColor={colors.muted}
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={5}
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+                {editingProduct?.availableUntil && (
+                  <View style={{ marginTop: 8, backgroundColor: "#EF444410", borderRadius: 8, padding: 8 }}>
+                    <Text style={{ color: "#EF4444", fontSize: 12, fontWeight: "600" }}>
+                      ⏰ Only available {editingProduct.availableFrom || "00:00"} – {editingProduct.availableUntil}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               {/* Category - searchable */}
               <View>

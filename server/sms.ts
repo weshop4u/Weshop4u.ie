@@ -10,9 +10,7 @@
  * Uses Twilio with Alpha Sender ID "WeShop4U" for consistent branding.
  */
 
-import twilio from 'twilio';
-
-const ALPHA_SENDER_ID = 'WeShop4U';
+const RETRY_DELAYS_MS = [60_000, 300_000]; // retry failed sends after 1 min, then 5 min
 
 interface SendSMSParams {
   to: string;
@@ -39,31 +37,56 @@ function normalizeIrishPhone(phone: string): string {
  * Send an SMS message using Alpha Sender ID "WeShop4U"
  */
 export async function sendSMS({ to, message }: SendSMSParams): Promise<boolean> {
-  try {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const normalizedTo = normalizeIrishPhone(to);
 
-    if (!accountSid || !authToken) {
-      console.log('[SMS] Twilio not configured. Logging SMS to console:');
-      console.log(`[SMS] To: ${to}`);
-      console.log(`[SMS] Message: ${message}`);
-      return true;
-    }
+  const ok = await tryGatewaySend(normalizedTo, message);
+  if (ok) return true;
 
-    const normalizedTo = normalizeIrishPhone(to);
-    const client = twilio(accountSid, authToken);
-    const result = await client.messages.create({
-      body: message,
-      from: ALPHA_SENDER_ID,
-      to: normalizedTo,
-    });
+  // Gateway failed — retry in the background (1 min, then 5 min) so a
+  // short sms-gate.app outage doesn't silently eat messages.
+  scheduleRetries(normalizedTo, message);
+  return false;
+}
 
-    console.log(`[SMS] Sent to ${normalizedTo}. SID: ${result.sid}, Status: ${result.status}`);
-    return true;
-  } catch (error: any) {
-    console.error('[SMS] Error sending SMS:', error.message);
+async function tryGatewaySend(normalizedTo: string, message: string): Promise<boolean> {
+  const gateUser = process.env.SMSGATE_USER;
+  const gatePass = process.env.SMSGATE_PASS;
+  if (!gateUser || !gatePass) {
+    console.error('[SMS] Gateway credentials not configured — SMS not sent');
     return false;
   }
+  try {
+    const res = await fetch('https://api.sms-gate.app/3rdparty/v1/message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Basic ' + Buffer.from(`${gateUser}:${gatePass}`).toString('base64'),
+      },
+      body: JSON.stringify({ message, phoneNumbers: [normalizedTo] }),
+    });
+    if (res.ok) {
+      console.log(`[SMS] Sent via phone gateway to ${normalizedTo}`);
+      return true;
+    }
+    console.error(`[SMS] Gateway responded ${res.status} for ${normalizedTo}`);
+    return false;
+  } catch (error: any) {
+    console.error('[SMS] Gateway error:', error.message);
+    return false;
+  }
+}
+
+function scheduleRetries(normalizedTo: string, message: string) {
+  RETRY_DELAYS_MS.forEach((delay, i) => {
+    setTimeout(async () => {
+      const ok = await tryGatewaySend(normalizedTo, message);
+      if (ok) {
+        console.log(`[SMS] Retry ${i + 1} succeeded for ${normalizedTo}`);
+      } else if (i === RETRY_DELAYS_MS.length - 1) {
+        console.error(`[SMS] All retries exhausted — SMS to ${normalizedTo} LOST`);
+      }
+    }, delay);
+  });
 }
 
 /**
@@ -89,6 +112,18 @@ export async function sendOrderConfirmationSMS(
  * "Your driver has arrived at Spar Balbriggan to collect your order WS4U/SPR/070!
  *  Track your driver here: https://..."
  */
+/**
+ * SMS #3 — Order Delivered + App Plug
+ * Triggered: when the order is marked delivered
+ * Only sent to customers without the app (no push token)
+ */
+export async function sendOrderDeliveredSMS(
+  phoneNumber: string
+): Promise<boolean> {
+  const message = `Order delivered - thank you for using WeShop4U! Get our app on the Play Store for faster ordering next time.\n- WeShop4U`;
+  return sendSMS({ to: phoneNumber, message });
+}
+
 export async function sendDriverAtStoreSMS(
   phoneNumber: string,
   storeName: string,

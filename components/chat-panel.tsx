@@ -128,8 +128,8 @@ export function ChatPanel({ orderId, userId, userRole, isExpanded, onToggle }: C
   // Expanded chat panel
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
+      behavior={Platform.OS === "web" ? undefined : "padding"}
+      keyboardVerticalOffset={Platform.OS === "android" ? 25 : 0}
       style={{
         borderTopWidth: 1,
         borderTopColor: "#E5E7EB",

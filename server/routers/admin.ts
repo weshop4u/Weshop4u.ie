@@ -37,21 +37,34 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function calculateDeliveryFee(distanceKm: number): number {
-  const BASE_FEE = 3.50;
-  const BASE_DISTANCE = 2.8;
-  const COST_PER_KM = 1.00;
-  if (distanceKm <= BASE_DISTANCE) return BASE_FEE;
-  return Math.round((BASE_FEE + (distanceKm - BASE_DISTANCE) * COST_PER_KM) * 100) / 100;
+  if (distanceKm <= 2.8) return 3.50;
+  if (distanceKm <= 3.99) return 4.00;
+  if (distanceKm <= 4.99) return 4.90;
+  return Math.round(distanceKm * 100) / 100;
 }
+
+// PIN required to permanently delete orders. Checked server-side only — this
+// file never ships to the client, so the PIN is never exposed in any bundle.
+// Change this value (and redeploy) any time you want to rotate the PIN.
+const ORDER_DELETE_PIN = "1204";
 
 export const adminRouter = router({
   // Get dashboard overview stats
-  getDashboardStats: publicProcedure.query(async () => {
+  getDashboardStats: publicProcedure
+    .input(
+      z.object({
+        customStart: z.string().optional(),
+        customEnd: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
 
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -59,30 +72,49 @@ export const adminRouter = router({
     // Get all orders
     const allOrders = await db.select().from(orders);
 
-    // Today's orders
+    // Today's / yesterday's / this week's / this month's orders
     const todayOrders = allOrders.filter(o => o.createdAt >= todayStart);
+    const yesterdayOrders = allOrders.filter(o => o.createdAt >= yesterdayStart && o.createdAt < todayStart);
     const weekOrders = allOrders.filter(o => o.createdAt >= weekStart);
     const monthOrders = allOrders.filter(o => o.createdAt >= monthStart);
 
-    // Revenue calculations (only delivered orders)
+    // Optional custom date range (used by the dashboard's date search)
+    let customOrders: typeof allOrders = [];
+    if (input?.customStart && input?.customEnd) {
+      const customStartDate = new Date(input.customStart);
+      customStartDate.setHours(0, 0, 0, 0);
+      const customEndDate = new Date(input.customEnd);
+      customEndDate.setHours(23, 59, 59, 999);
+      customOrders = allOrders.filter(o => o.createdAt >= customStartDate && o.createdAt <= customEndDate);
+    }
+
+    // Payment gate: revenue/fees/tips only count a delivered order if it's cash
+    // (always collected at the door) or a card payment that was actually
+    // confirmed paid. A delivered order with a declined/never-completed card
+    // payment is real operational work, but isn't real revenue — the business
+    // never collected the money.
+    const isPayEligible = (o: (typeof allOrders)[number]): boolean =>
+      o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed";
+
+    // Revenue calculations (only delivered AND payment-eligible orders)
     const calcRevenue = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.total), 0);
 
     const calcServiceFees = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.serviceFee), 0);
 
     const calcDeliveryFees = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.deliveryFee), 0);
 
     const calcTips = (orderList: typeof allOrders) =>
       orderList
-        .filter(o => o.status === "delivered")
+        .filter(o => o.status === "delivered" && isPayEligible(o))
         .reduce((sum, o) => sum + parseFloat(o.tipAmount || "0"), 0);
 
     // Active orders (not delivered or cancelled)
@@ -120,6 +152,29 @@ export const adminRouter = router({
     const allStores = await db.select().from(stores);
     const activeStores = allStores.filter(s => s.isActive);
 
+    // Per-store breakdown for the selected custom range. Every active store is
+    // listed — including ones with zero orders — so dormant stores are visible
+    // rather than silently missing from the table.
+    const byStore = (input?.customStart && input?.customEnd)
+      ? allStores
+          .filter(s => s.isActive)
+          .map(store => {
+            const storeOrders = customOrders.filter(o => o.storeId === store.id);
+            const revenue = Math.round(calcRevenue(storeOrders) * 100) / 100;
+            const paidDelivered = storeOrders.filter(o => o.status === "delivered" && isPayEligible(o)).length;
+            return {
+              storeId: store.id,
+              name: store.name,
+              category: store.category,
+              count: storeOrders.length,
+              revenue,
+              deliveryFees: Math.round(calcDeliveryFees(storeOrders) * 100) / 100,
+              avgOrderValue: paidDelivered > 0 ? Math.round((revenue / paidDelivered) * 100) / 100 : 0,
+            };
+          })
+          .sort((a, b) => b.revenue - a.revenue || b.count - a.count)
+      : null;
+
     // Get customer count
     const allCustomers = await db
       .select({ id: users.id })
@@ -143,6 +198,13 @@ export const adminRouter = router({
           deliveryFees: Math.round(calcDeliveryFees(todayOrders) * 100) / 100,
           tips: Math.round(calcTips(todayOrders) * 100) / 100,
         },
+        yesterday: {
+          count: yesterdayOrders.length,
+          revenue: Math.round(calcRevenue(yesterdayOrders) * 100) / 100,
+          serviceFees: Math.round(calcServiceFees(yesterdayOrders) * 100) / 100,
+          deliveryFees: Math.round(calcDeliveryFees(yesterdayOrders) * 100) / 100,
+          tips: Math.round(calcTips(yesterdayOrders) * 100) / 100,
+        },
         thisWeek: {
           count: weekOrders.length,
           revenue: Math.round(calcRevenue(weekOrders) * 100) / 100,
@@ -158,6 +220,14 @@ export const adminRouter = router({
           revenue: Math.round(calcRevenue(allOrders) * 100) / 100,
           serviceFees: Math.round(calcServiceFees(allOrders) * 100) / 100,
         },
+        // Only populated when customStart/customEnd were provided in the input
+        custom: (input?.customStart && input?.customEnd) ? {
+          count: customOrders.length,
+          revenue: Math.round(calcRevenue(customOrders) * 100) / 100,
+          serviceFees: Math.round(calcServiceFees(customOrders) * 100) / 100,
+          deliveryFees: Math.round(calcDeliveryFees(customOrders) * 100) / 100,
+          tips: Math.round(calcTips(customOrders) * 100) / 100,
+        } : null,
         active: activeOrders.length,
         statusBreakdown,
       },
@@ -170,6 +240,8 @@ export const adminRouter = router({
         total: allStores.length,
         active: activeStores.length,
       },
+      // Only populated when customStart/customEnd were provided
+      byStore,
     };
   }),
 
@@ -247,6 +319,9 @@ export const adminRouter = router({
     .input(
       z.object({
         status: z.string().optional(),
+        search: z.string().optional(),
+        dateFrom: z.string().optional(), // YYYY-MM-DD
+        dateTo: z.string().optional(),   // YYYY-MM-DD
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       }).optional()
@@ -263,6 +338,32 @@ export const adminRouter = router({
       if (input?.status && input.status !== "all") {
         conditions.push(eq(orders.status, input.status as any));
       }
+      // Server-side search: order number, guest name/phone, or registered
+      // customer name/phone — searches the WHOLE table, not just loaded rows
+      if (input?.search && input.search.trim()) {
+        const term = `%${input.search.trim().toLowerCase()}%`;
+        conditions.push(
+          sql`(LOWER(${orders.orderNumber}) LIKE ${term} OR LOWER(${orders.guestName}) LIKE ${term} OR LOWER(${orders.guestPhone}) LIKE ${term} OR ${orders.customerId} IN (SELECT id FROM users WHERE LOWER(name) LIKE ${term} OR LOWER(phone) LIKE ${term}))`
+        );
+      }
+      // Server-side date range (inclusive, full days)
+      if (input?.dateFrom) {
+        const from = new Date(input.dateFrom);
+        from.setHours(0, 0, 0, 0);
+        conditions.push(gte(orders.createdAt, from));
+      }
+      if (input?.dateTo) {
+        const to = new Date(input.dateTo);
+        to.setHours(23, 59, 59, 999);
+        conditions.push(sql`${orders.createdAt} <= ${to}`);
+      }
+
+      // Total matching count (for "Showing X of Y" and Load more)
+      const [countRow] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(orders)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      const totalCount = Number(countRow?.total ?? 0);
 
       const ordersList = await db
         .select({
@@ -279,6 +380,8 @@ export const adminRouter = router({
           deliveryAddress: orders.deliveryAddress,
           deliveryDistance: orders.deliveryDistance,
           customerNotes: orders.customerNotes,
+          discountCodeName: orders.discountCodeName,
+          discountAmount: orders.discountAmount,
           createdAt: orders.createdAt,
           deliveredAt: orders.deliveredAt,
           cancelledAt: orders.cancelledAt,
@@ -296,20 +399,20 @@ export const adminRouter = router({
         .limit(limit)
         .offset(offset);
 
-      // Get customer names for orders with customerId
+      // Get customer names + phone numbers for orders with customerId
       const customerIds = ordersList
         .filter(o => o.customerId)
         .map(o => o.customerId!);
 
-      let customerMap: Record<number, string> = {};
+      let customerMap: Record<number, { name: string; phone: string }> = {};
       if (customerIds.length > 0) {
         const uniqueIds = [...new Set(customerIds)];
         const customerRows = await db
-          .select({ id: users.id, name: users.name, email: users.email })
+          .select({ id: users.id, name: users.name, email: users.email, phone: users.phone })
           .from(users)
           .where(sql`${users.id} IN (${sql.join(uniqueIds.map(id => sql`${id}`), sql`, `)})`);
         customerMap = Object.fromEntries(
-          customerRows.map(c => [c.id, c.name || c.email || "Unknown"])
+          customerRows.map(c => [c.id, { name: c.name || c.email || "Unknown", phone: c.phone || "" }])
         );
       }
 
@@ -352,13 +455,16 @@ export const adminRouter = router({
           .select({
             id: orderItems.id,
             orderId: orderItems.orderId,
+            productId: orderItems.productId,
             productName: orderItems.productName,
             quantity: orderItems.quantity,
             productPrice: orderItems.productPrice,
             subtotal: orderItems.subtotal,
+            productImages: products.images,
           })
           .from(orderItems)
-          .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`);
+          .leftJoin(products, eq(orderItems.productId, products.id))
+          .where(sql`${orderItems.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`)
 
         // Fetch modifiers for all items
         const itemIds = allItems.map(i => i.id);
@@ -387,19 +493,26 @@ export const adminRouter = router({
             quantity: item.quantity,
             productPrice: item.productPrice,
             subtotal: item.subtotal,
+            productImages: item.productImages || null,
             modifiers: itemModsMap[item.id] || [],
           });
         }
       }
 
-      return ordersList.map(order => ({
-        ...order,
-        customerName: order.customerId
-          ? customerMap[order.customerId] || "Unknown"
-          : order.guestName || "Guest",
-        driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
-        items: itemsMap[order.id] || [],
-      }));
+      return {
+        total: totalCount,
+        orders: ordersList.map(order => ({
+          ...order,
+          customerName: order.customerId
+            ? customerMap[order.customerId]?.name || "Unknown"
+            : order.guestName || "Guest",
+          customerPhone: order.customerId
+            ? customerMap[order.customerId]?.phone || ""
+            : order.guestPhone || "",
+          driverName: order.driverId ? driverMap[order.driverId] || "Unassigned" : "Unassigned",
+          items: itemsMap[order.id] || [],
+        })),
+      };
     }),
 
   // Get all drivers with details
@@ -420,6 +533,7 @@ export const adminRouter = router({
         totalReturns: drivers.totalReturns,
         rating: drivers.rating,
         createdAt: drivers.createdAt,
+        lastLocationUpdate: drivers.lastLocationUpdate,
       })
       .from(drivers);
 
@@ -451,20 +565,73 @@ export const adminRouter = router({
         )
       );
 
+    // Payment gate: a delivered order only counts toward a driver's earnings
+    // if it's cash (always collected at the door) or a card payment that was
+    // actually confirmed paid. A declined/never-completed card payment still
+    // counts as a completed delivery, just not as money owed.
     const driverEarningsToday: Record<number, number> = {};
     todayOrders.forEach(order => {
-      if (order.driverId) {
+      if (order.driverId && (order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed")) {
         const earnings = parseFloat(order.deliveryFee) + parseFloat(order.tipAmount || "0");
         driverEarningsToday[order.driverId] = (driverEarningsToday[order.driverId] || 0) + earnings;
       }
     });
+
+    // Get unsettled balances per driver
+    const unsettledShifts = await db
+      .select({ driverId: driverShifts.driverId, netOwed: driverShifts.netOwed })
+      .from(driverShifts)
+      .where(and(eq(driverShifts.status, "ended"), sql`${driverShifts.settledAt} IS NULL`));
+
+    const driverUnsettledMap: Record<number, number> = {};
+    unsettledShifts.forEach(s => {
+      driverUnsettledMap[s.driverId] = (driverUnsettledMap[s.driverId] || 0) + parseFloat(s.netOwed || "0");
+    });
+
+    // Get total delivered orders per driver from actual orders table
+    // (deliveries COUNT includes every delivered order regardless of payment —
+    // the driver still did the job — only the money figures above are gated)
+    const allDeliveredOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
+
+    const driverTotalDeliveries: Record<number, number> = {};
+    allDeliveredOrders.forEach(order => {
+      if (order.driverId) {
+        driverTotalDeliveries[order.driverId] = (driverTotalDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
+    const driverTodayDeliveries: Record<number, number> = {};
+    todayOrders.forEach(order => {
+      if (order.driverId) {
+        driverTodayDeliveries[order.driverId] = (driverTodayDeliveries[order.driverId] || 0) + 1;
+      }
+    });
+
+    // Drivers currently on an active job (used to show "On Job" instead of relying solely on isOnline)
+    const activeJobOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.driverId} IS NOT NULL`,
+          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+        )
+      );
+    const activeJobDriverIds = new Set(activeJobOrders.map(o => o.driverId));
 
     return driversList.map(driver => ({
       ...driver,
       name: userMap[driver.userId]?.name || "Unknown",
       email: userMap[driver.userId]?.email || "",
       phone: userMap[driver.userId]?.phone || "",
-      earningsToday: Math.round((driverEarningsToday[driver.id] || 0) * 100) / 100,
+      earningsToday: Math.round((driverEarningsToday[driver.userId] || 0) * 100) / 100,
+      todayDeliveries: driverTodayDeliveries[driver.userId] || 0,
+      totalDeliveries: driverTotalDeliveries[driver.userId] || 0,
+      unsettledBalance: Math.round((driverUnsettledMap[driver.userId] || 0) * 100) / 100,
+      hasActiveJob: activeJobDriverIds.has(driver.userId),
     }));
   }),
 
@@ -574,6 +741,15 @@ export const adminRouter = router({
           .where(and(eq(orderOffers.orderId, input.orderId), eq(orderOffers.status, "pending")));
       }
 
+      // Once accepted (admin), the order is now eligible for driver dispatch.
+      if (input.status === "accepted") {
+        try {
+          await offerOrderToQueue(input.orderId);
+        } catch (e) {
+          console.error(`[Admin] Failed to offer order ${input.orderId} to queue after acceptance:`, e);
+        }
+      }
+
       // If delivered, mark driver as available again
       if (input.status === "delivered") {
         const [orderData] = await db.select({ driverId: orders.driverId }).from(orders).where(eq(orders.id, input.orderId)).limit(1);
@@ -588,9 +764,7 @@ export const adminRouter = router({
         const [customer] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, orderData.customerId)).limit(1);
         if (customer?.pushToken) {
           const msgs: Record<string, { title: string; body: string }> = {
-            accepted: { title: "Order Confirmed!", body: `Order #${orderData.orderNumber} has been confirmed.` },
             preparing: { title: "Preparing Your Order", body: `Order #${orderData.orderNumber} is being prepared.` },
-            ready_for_pickup: { title: "Order Ready", body: `Order #${orderData.orderNumber} is ready for pickup.` },
             on_the_way: { title: "On the Way!", body: `Order #${orderData.orderNumber} is on its way to you!` },
             delivered: { title: "Order Delivered!", body: `Order #${orderData.orderNumber} has been delivered. Enjoy!` },
             cancelled: { title: "Order Cancelled", body: `Order #${orderData.orderNumber} has been cancelled.` },
@@ -636,6 +810,56 @@ export const adminRouter = router({
       await db.update(orders).set({ paymentStatus: "completed" }).where(eq(orders.id, input.orderId));
       console.log(`[Admin] Order ${input.orderId} marked as paid`);
       return { success: true };
+    }),
+
+  // Permanently delete one or more orders. PIN-gated since this is
+  // destructive and irreversible — removes the order plus its items,
+  // modifiers, offers, and driver ratings.
+  deleteOrders: publicProcedure
+    .input(z.object({
+      orderIds: z.array(z.number()).min(1),
+      pin: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (input.pin !== ORDER_DELETE_PIN) {
+        throw new Error("Incorrect PIN");
+      }
+
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const existingOrders = await db
+        .select({ id: orders.id, orderNumber: orders.orderNumber })
+        .from(orders)
+        .where(inArray(orders.id, input.orderIds));
+
+      if (existingOrders.length === 0) {
+        throw new Error("No matching orders found");
+      }
+
+      const idsToDelete = existingOrders.map(o => o.id);
+
+      // Delete dependent rows first to avoid foreign-key errors: item
+      // modifiers -> items, then offers and ratings, then the orders themselves.
+      const items = await db
+        .select({ id: orderItems.id })
+        .from(orderItems)
+        .where(inArray(orderItems.orderId, idsToDelete));
+      const itemIds = items.map(i => i.id);
+      if (itemIds.length > 0) {
+        await db.delete(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, itemIds));
+      }
+      await db.delete(orderItems).where(inArray(orderItems.orderId, idsToDelete));
+      await db.delete(orderOffers).where(inArray(orderOffers.orderId, idsToDelete));
+      await db.delete(driverRatings).where(inArray(driverRatings.orderId, idsToDelete));
+      await db.delete(orders).where(inArray(orders.id, idsToDelete));
+
+      console.log(`[Admin] Permanently deleted ${idsToDelete.length} order(s): ${existingOrders.map(o => o.orderNumber).join(", ")}`);
+      return {
+        success: true,
+        deletedCount: idsToDelete.length,
+        orderNumbers: existingOrders.map(o => o.orderNumber),
+      };
     }),
 
   // Admin assign driver to order
@@ -873,15 +1097,9 @@ export const adminRouter = router({
         console.log(`[Admin] Card payment order ${orderId} created - store notification will be sent after payment confirmation`);
       }
 
-      // For cash orders, offer to driver queue immediately
-      // For card orders, wait until payment is confirmed before dispatching
-      if (input.paymentMethod !== "card") {
-        try {
-          await offerOrderToQueue(Number(orderId));
-        } catch (e) {
-          console.error(`[Queue] Failed to offer phone order ${orderId} to queue:`, e);
-        }
-      }
+      // Dispatch now happens only once the order is accepted (store/POS/
+      // admin), not immediately at creation — see acceptOrder /
+      // acceptOrderFromPOS / updateOrderStatus.
 
       console.log(`[Admin] Phone order ${orderId} (#${orderNumber}) created for ${input.customerName}`);
       return { orderId: Number(orderId), orderNumber, subtotal, serviceFee, deliveryFee, total, distance };
@@ -1178,10 +1396,14 @@ export const adminRouter = router({
     }),
 
   // Delete a driver account and recycle their display number
-  deleteDriver: publicProcedure
-    .input(z.object({ driverId: z.number() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
+    // Requires the server-side delete PIN (same PIN as order deletion)
+    deleteDriver: publicProcedure
+      .input(z.object({ driverId: z.number(), pin: z.string() }))
+      .mutation(async ({ input }) => {
+        if (input.pin !== ORDER_DELETE_PIN) {
+          throw new Error("Incorrect PIN");
+        }
+        const db = await getDb();
       if (!db) throw new Error("Database not available");
       
       // Check if driver has any active deliveries (assigned/picked_up/in_transit)
@@ -1245,6 +1467,36 @@ export const adminRouter = router({
         .where(eq(driverQueue.driverId, input.driverUserId));
 
       console.log(`[Admin] Driver ${input.driverUserId} forced offline`);
+      return { success: true };
+    }),
+
+  // Send a wake-up push to a driver who appears stale/idle — asks them to
+  // reopen the app to reconnect, or log out if they're done for the day.
+  sendDriverWakeUp: publicProcedure
+    .input(z.object({ driverUserId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [driverUser] = await db
+        .select({ pushToken: users.pushToken, name: users.name })
+        .from(users)
+        .where(eq(users.id, input.driverUserId))
+        .limit(1);
+
+      if (!driverUser) throw new Error("Driver not found");
+      if (!driverUser.pushToken) {
+        throw new Error("This driver has no push token registered — can't reach their phone. They'll need to log in again on the app.");
+      }
+
+      await sendPushNotification(driverUser.pushToken, {
+        title: "⚠️ Are you still online?",
+        body: "You appear inactive in the WeShop4U driver app. Open the app to reconnect, or go offline if you're finished for the day.",
+        data: { type: "driver_wake_up" },
+        channelId: "driver",
+      });
+
+      console.log(`[Admin] Wake-up push sent to driver ${input.driverUserId}`);
       return { success: true };
     }),
 
@@ -1363,7 +1615,14 @@ export const adminRouter = router({
         // Geocoding is optional, continue without coordinates
       }
 
+            // Get next sequential ID
+      const allStoreIds = await db.select({ id: stores.id }).from(stores).orderBy(stores.id);
+      const existingIds = allStoreIds.map(s => s.id);
+      let nextId = 1;
+      while (existingIds.includes(nextId)) nextId++;
+
       const result = await db.insert(stores).values({
+        id: nextId,
         name: input.name,
         slug,
         description: input.description || null,
@@ -1382,7 +1641,7 @@ export const adminRouter = router({
         isActive: true,
       });
 
-      return { success: true, storeId: Number(result[0].insertId) };
+      return { success: true, storeId: nextId };
     }),
 
   // Duplicate a store with all its products, modifier groups, modifiers, and multi-buy deals
@@ -1427,7 +1686,14 @@ export const adminRouter = router({
       }
 
       // Create new store (copy settings from source)
+            // Get next sequential ID
+      const allStoreIds2 = await db.select({ id: stores.id }).from(stores).orderBy(stores.id);
+      const existingIds2 = allStoreIds2.map(s => s.id);
+      let nextId2 = 1;
+      while (existingIds2.includes(nextId2)) nextId2++;
+
       const [newStoreResult] = await db.insert(stores).values({
+        id: nextId2,
         name: input.newName,
         slug: finalSlug,
         description: sourceStore.description,
@@ -1441,14 +1707,14 @@ export const adminRouter = router({
         email: input.newEmail || sourceStore.email,
         isOpen247: sourceStore.isOpen247,
         openingHours: sourceStore.openingHours,
-        isActive: false, // Start inactive so admin can review before going live
+        isActive: false,
         shortCode: input.newShortCode || null,
         orderCounter: 0,
         sortPosition: 999,
         isFeatured: false,
       });
 
-      const newStoreId = Number(newStoreResult.insertId);
+      const newStoreId = nextId2;
       let productsCopied = 0;
       let modifiersCopied = 0;
       let dealsCopied = 0;
@@ -1602,9 +1868,14 @@ export const adminRouter = router({
     });
 
     return driversList.map(driver => {
-      const label = driver.displayNumber ? `Driver ${driver.displayNumber}` : "Driver";
-      const realName = userMap[driver.userId]?.name || "Unknown";
+      const realName = userMap[driver.userId]?.name || "";
       const phone = userMap[driver.userId]?.phone || "";
+      const label = driver.displayNumber ? `Driver ${driver.displayNumber}` : "Driver";
+      const lastPing = driver.lastLocationUpdate ? new Date(driver.lastLocationUpdate) : null;
+      const staleMs = lastPing ? Date.now() - lastPing.getTime() : Infinity;
+      const STALE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+      const isStale = driver.isOnline && staleMs > STALE_THRESHOLD_MS;
+      const staleMinutes = isStale ? Math.floor(staleMs / 60000) : null;
       return {
         id: driver.id,
         userId: driver.userId,
@@ -1614,6 +1885,8 @@ export const adminRouter = router({
         displayNumber: driver.displayNumber,
         isOnline: driver.isOnline,
         isAvailable: driver.isAvailable,
+        isStale,
+        staleMinutes,
         latitude: driver.currentLatitude ? parseFloat(driver.currentLatitude) : null,
         longitude: driver.currentLongitude ? parseFloat(driver.currentLongitude) : null,
         lastLocationUpdate: driver.lastLocationUpdate?.toISOString() || null,
@@ -1651,7 +1924,14 @@ export const adminRouter = router({
     }),
 
   // Get driver performance stats for dashboard
-  getDriverPerformance: publicProcedure.query(async () => {
+  getDriverPerformance: publicProcedure
+    .input(
+      z.object({
+        customStart: z.string().optional(),
+        customEnd: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
 
@@ -1697,6 +1977,8 @@ export const adminRouter = router({
         deliveredAt: orders.deliveredAt,
         createdAt: orders.createdAt,
         status: orders.status,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
       })
       .from(orders)
       .where(
@@ -1705,6 +1987,66 @@ export const adminRouter = router({
           gte(orders.deliveredAt, thirtyDaysAgo)
         )
       );
+    // All-time delivered orders (for all-time stats and tips)
+    const allTimeOrders = await db
+      .select({
+        driverId: orders.driverId,
+        deliveryFee: orders.deliveryFee,
+        tipAmount: orders.tipAmount,
+        paymentMethod: orders.paymentMethod,
+        paymentStatus: orders.paymentStatus,
+      })
+      .from(orders)
+      .where(eq(orders.status, "delivered"));
+
+    // Drivers currently on an active job (used to show "On Job" instead of relying on isOnline)
+    const activeJobOrders = await db
+      .select({ driverId: orders.driverId })
+      .from(orders)
+      .where(
+        and(
+          sql`${orders.driverId} IS NOT NULL`,
+          inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+        )
+      );
+    const activeJobDriverIds = new Set(activeJobOrders.map(o => o.driverId));
+
+    // Custom date range support (used by the "Custom" period option on the Performance tab)
+    let customRangeOrders: typeof deliveredOrders = [];
+    if (input?.customStart && input?.customEnd) {
+      const customStartDate = new Date(input.customStart);
+      customStartDate.setHours(0, 0, 0, 0);
+      const customEndDate = new Date(input.customEnd);
+      customEndDate.setHours(23, 59, 59, 999);
+
+      customRangeOrders = await db
+        .select({
+          id: orders.id,
+          driverId: orders.driverId,
+          deliveryFee: orders.deliveryFee,
+          tipAmount: orders.tipAmount,
+          deliveredAt: orders.deliveredAt,
+          createdAt: orders.createdAt,
+          status: orders.status,
+          paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
+        })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.status, "delivered"),
+            gte(orders.deliveredAt, customStartDate),
+            sql`${orders.deliveredAt} <= ${customEndDate}`
+          )
+        );
+    }
+
+    // Payment gate: euro figures only count cash orders (always collected at
+    // the door) or card orders that were actually confirmed paid. A delivered
+    // order with a declined/never-completed card payment still counts toward
+    // delivery COUNTS (the driver did the job), but contributes €0 to earnings/tips.
+    const isPayEligible = (order: any): boolean =>
+      order.paymentMethod === "cash_on_delivery" || order.paymentStatus === "completed";
 
     // Build per-driver stats
     const driverStats = driversList.map(driver => {
@@ -1712,11 +2054,23 @@ export const adminRouter = router({
       const todayOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
       const weekOrders = driverOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
 
-      const totalEarnings30d = driverOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const todayEarnings = todayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
-      const weekEarnings = weekOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const driverOrdersPayEligible = driverOrders.filter(isPayEligible);
+      const todayOrdersPayEligible = todayOrders.filter(isPayEligible);
+      const weekOrdersPayEligible = weekOrders.filter(isPayEligible);
 
-      // Average delivery time (from order created to delivered)
+      const totalEarnings30d = driverOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const todayEarnings = todayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const weekEarnings = weekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const driverAllTimeOrders = allTimeOrders.filter(o => o.driverId === driver.userId);
+      const driverAllTimeOrdersPayEligible = driverAllTimeOrders.filter(isPayEligible);
+      const totalEarningsAllTime = driverAllTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const cardTips30d = driverOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsToday = todayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsThisWeek = weekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const cardTipsAllTime = driverAllTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+
+      // Average delivery time (from order created to delivered) — every delivered
+      // order counts here, since this is about operational speed, not money.
       const deliveryTimes = driverOrders
         .filter(o => o.deliveredAt && o.createdAt)
         .map(o => {
@@ -1730,7 +2084,22 @@ export const adminRouter = router({
         ? Math.round(deliveryTimes.reduce((s, t) => s + t, 0) / deliveryTimes.length)
         : null;
 
-      // Daily breakdown for last 7 days
+      // Custom date range stats (only populated when customStart/customEnd were provided)
+      const driverCustomOrders = customRangeOrders.filter(o => o.driverId === driver.userId);
+      const driverCustomOrdersPayEligible = driverCustomOrders.filter(isPayEligible);
+      const customDeliveries = driverCustomOrders.length;
+      const customEarnings = driverCustomOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0);
+      const customTips = driverCustomOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0);
+      const customDeliveryTimes = driverCustomOrders
+        .filter(o => o.deliveredAt && o.createdAt)
+        .map(o => (new Date(o.deliveredAt!).getTime() - new Date(o.createdAt!).getTime()) / 60000)
+        .filter(t => t > 0 && t < 300);
+      const customAvgDeliveryTime = customDeliveryTimes.length > 0
+        ? Math.round(customDeliveryTimes.reduce((s, t) => s + t, 0) / customDeliveryTimes.length)
+        : null;
+
+      // Daily breakdown for last 7 days (deliveries count includes every delivered
+      // order; earnings only count pay-eligible ones)
       const dailyBreakdown: { date: string; deliveries: number; earnings: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -1740,10 +2109,11 @@ export const adminRouter = router({
           const oDate = o.deliveredAt ? new Date(o.deliveredAt).toISOString().split("T")[0] : null;
           return oDate === dateStr;
         });
+        const dayOrdersPayEligible = dayOrders.filter(isPayEligible);
         dailyBreakdown.push({
           date: dateStr,
           deliveries: dayOrders.length,
-          earnings: Math.round(dayOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+          earnings: Math.round(dayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
         });
       }
 
@@ -1755,16 +2125,27 @@ export const adminRouter = router({
         phone: userMap[driver.userId]?.phone || "",
         vehicleType: driver.vehicleType,
         isOnline: driver.isOnline,
+        hasActiveJob: activeJobDriverIds.has(driver.userId),
         totalDeliveries: driver.totalDeliveries || 0,
         totalReturns: driver.totalReturns || 0,
         rating: driver.rating ? parseFloat(driver.rating) : null,
         deliveries30d: driverOrders.length,
         deliveriesToday: todayOrders.length,
         deliveriesThisWeek: weekOrders.length,
+        deliveriesAllTime: driverAllTimeOrders.length,
         earnings30d: Math.round(totalEarnings30d * 100) / 100,
         earningsToday: Math.round(todayEarnings * 100) / 100,
         earningsThisWeek: Math.round(weekEarnings * 100) / 100,
+        earningsAllTime: Math.round(totalEarningsAllTime * 100) / 100,
+        cardTips30d: Math.round(cardTips30d * 100) / 100,
+        cardTipsToday: Math.round(cardTipsToday * 100) / 100,
+        cardTipsThisWeek: Math.round(cardTipsThisWeek * 100) / 100,
+        cardTipsAllTime: Math.round(cardTipsAllTime * 100) / 100,
         avgDeliveryTime,
+        deliveriesCustom: customDeliveries,
+        earningsCustom: Math.round(customEarnings * 100) / 100,
+        cardTipsCustom: Math.round(customTips * 100) / 100,
+        avgDeliveryTimeCustom: customAvgDeliveryTime,
         dailyBreakdown,
         joinedAt: driver.createdAt,
       };
@@ -1773,12 +2154,30 @@ export const adminRouter = router({
     // Sort by total deliveries descending
     driverStats.sort((a, b) => b.deliveries30d - a.deliveries30d);
 
-    // Aggregate totals
+    // Aggregate totals for each period (used by the top summary cards)
+    const totalsTodayOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= todayStart);
+    const totalsWeekOrders = deliveredOrders.filter(o => o.deliveredAt && new Date(o.deliveredAt) >= weekStart);
+    const deliveredOrdersPayEligible = deliveredOrders.filter(isPayEligible);
+    const totalsTodayOrdersPayEligible = totalsTodayOrders.filter(isPayEligible);
+    const totalsWeekOrdersPayEligible = totalsWeekOrders.filter(isPayEligible);
+    const allTimeOrdersPayEligible = allTimeOrders.filter(isPayEligible);
+    const customRangeOrdersPayEligible = customRangeOrders.filter(isPayEligible);
+
     const totals = {
       totalDrivers: driversList.length,
       onlineNow: driversList.filter(d => d.isOnline).length,
       totalDeliveries30d: deliveredOrders.length,
-      totalEarnings30d: Math.round(deliveredOrders.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalEarnings30d: Math.round(deliveredOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTips30d: Math.round(deliveredOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalCardTipsAllTime: Math.round(allTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesToday: totalsTodayOrders.length,
+      totalEarningsToday: Math.round(totalsTodayOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesThisWeek: totalsWeekOrders.length,
+      totalEarningsThisWeek: Math.round(totalsWeekOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesAllTime: allTimeOrders.length,
+      totalEarningsAllTime: Math.round(allTimeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
+      totalDeliveriesCustom: customRangeOrders.length,
+      totalEarningsCustom: Math.round(customRangeOrdersPayEligible.reduce((s, o) => s + parseFloat(o.deliveryFee) + parseFloat(o.tipAmount || "0"), 0) * 100) / 100,
     };
 
     return { drivers: driverStats, totals };
@@ -2111,6 +2510,7 @@ export const adminRouter = router({
           deliveryFee: orders.deliveryFee,
           tipAmount: orders.tipAmount,
           paymentMethod: orders.paymentMethod,
+          paymentStatus: orders.paymentStatus,
           total: orders.total,
           deliveredAt: orders.deliveredAt,
           storeName: stores.name,
@@ -2159,6 +2559,7 @@ export const adminRouter = router({
           paymentMethod: o.paymentMethod,
           total: parseFloat(o.total || "0"),
           deliveredAt: o.deliveredAt?.toISOString() || "",
+          isPaid: o.paymentMethod === "cash_on_delivery" || o.paymentStatus === "completed",
         })),
       };
     }),
@@ -2476,40 +2877,35 @@ export const adminRouter = router({
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
 
-      let allOrders = await db.select().from(orders).where(
-        gte(orders.createdAt, startDate)
-      );
-
-      // Filter by store if storeId is provided
+      // Single JOIN query replaces the old per-order + per-item loop
+      // (thousands of sequential DB round trips — the 30-60s load time)
+      const conditions = [gte(orders.createdAt, startDate)];
       if (input.storeId) {
-        allOrders = allOrders.filter(order => order.storeId === input.storeId);
+        conditions.push(eq(orders.storeId, input.storeId));
       }
 
-      const topProducts: Record<number, { name: string; quantity: number; revenue: number }> = {};
+      const rows = await db
+        .select({
+          productId: orderItems.productId,
+          name: sql<string>`MAX(${products.name})`,
+          quantity: sql<number>`SUM(${orderItems.quantity})`,
+          revenue: sql<number>`COALESCE(SUM(CAST(${orderItems.productPrice} AS DECIMAL(10,2)) * ${orderItems.quantity}), 0)`,
+        })
+        .from(orderItems)
+        .innerJoin(orders, eq(orderItems.orderId, orders.id))
+        .innerJoin(products, eq(orderItems.productId, products.id))
+        .where(and(...conditions))
+        .groupBy(orderItems.productId)
+        .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+        .limit(input.limit);
 
-      for (const order of allOrders) {
-        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-        for (const item of items) {
-          const product = await db.select().from(products).where(eq(products.id, item.productId));
-          if (product.length > 0) {
-            const p = product[0];
-            if (!topProducts[p.id]) {
-              topProducts[p.id] = { name: p.name, quantity: 0, revenue: 0 };
-            }
-            topProducts[p.id].quantity += item.quantity;
-            // Safely parse price, default to 0 if invalid
-            const price = item.productPrice ? parseFloat(String(item.productPrice)) : 0;
-            const itemRevenue = isNaN(price) ? 0 : price * item.quantity;
-            topProducts[p.id].revenue += itemRevenue;
-          }
-        }
-      }
-
-      const sorted = Object.values(topProducts)
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, input.limit);
-
-      return { topProducts: sorted };
+      return {
+        topProducts: rows.map(r => ({
+          name: r.name,
+          quantity: Number(r.quantity),
+          revenue: Number(r.revenue) || 0,
+        })),
+      };
     }),
 
   // Get peak hours analytics
@@ -2746,20 +3142,23 @@ export const adminRouter = router({
       }
 
       // Step 1: Get the most viewed product IDs (without joins to avoid GROUP BY issues)
-      let viewQuery = db
+      // Conditions combined with and() — previously chaining .where() twice
+      // replaced the date filter whenever a store was selected.
+      const viewConditions = [gte(productViews.viewedAt, startDate)];
+      if (input.storeId) {
+        viewConditions.push(eq(productViews.storeId, input.storeId));
+      }
+
+      const viewResults = await db
         .select({
           productId: productViews.productId,
           storeId: productViews.storeId,
           viewCount: count(productViews.id),
+          // Epoch seconds — timezone-proof for the "Xm ago" display
+          lastViewedAt: sql<number>`UNIX_TIMESTAMP(MAX(${productViews.viewedAt}))`,
         })
         .from(productViews)
-        .where(gte(productViews.viewedAt, startDate));
-
-      if (input.storeId) {
-        viewQuery = viewQuery.where(eq(productViews.storeId, input.storeId));
-      }
-
-      const viewResults = await viewQuery
+        .where(and(...viewConditions))
         .groupBy(productViews.productId, productViews.storeId)
         .orderBy(({ viewCount }) => desc(viewCount))
         .limit(input.limit);
@@ -2777,10 +3176,12 @@ export const adminRouter = router({
             .from(stores)
             .where(eq(stores.id, view.storeId))
             .limit(1);
+          
           return {
             name: product?.name || `Product #${view.productId}`,
             storeName: store?.name || "Unknown Store",
             viewCount: view.viewCount,
+            lastViewedAtMs: view.lastViewedAt ? Number(view.lastViewedAt) * 1000 : null,
           };
         })
       );
@@ -2789,4 +3190,124 @@ export const adminRouter = router({
         mostViewedProducts,
       };
     }),
+  // Duplicate an order as a brand new cash order — universal fail-safe for
+// POS issues, driver mistakes, or any case where the order needs to be
+// re-sent. Always created as cash, goes through the exact same pipeline
+// as a normal new order (notifications, print, driver queue).
+duplicateOrder: publicProcedure
+  .input(z.object({ orderId: z.number() }))
+  .mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    const [original] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+    if (!original) throw new Error("Order not found");
+
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
+    const itemIds = items.map(i => i.id);
+    let modsByItem: Record<number, any[]> = {};
+    if (itemIds.length > 0) {
+      const mods = await db.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, itemIds));
+      for (const m of mods) {
+        if (!modsByItem[m.orderItemId]) modsByItem[m.orderItemId] = [];
+        modsByItem[m.orderItemId].push(m);
+      }
+    }
+
+    const orderNumber = await generateOrderNumber(original.storeId);
+
+    const [newOrderResult] = await db.insert(orders).values({
+      orderNumber,
+      customerId: original.customerId,
+      storeId: original.storeId,
+      status: "pending",
+      paymentMethod: "cash_on_delivery",
+      paymentStatus: "pending",
+      subtotal: original.subtotal,
+      serviceFee: original.serviceFee,
+      deliveryFee: original.deliveryFee,
+      tipAmount: original.tipAmount,
+      total: original.total,
+      deliveryAddress: original.deliveryAddress,
+      deliveryLatitude: original.deliveryLatitude,
+      deliveryLongitude: original.deliveryLongitude,
+      deliveryDistance: original.deliveryDistance,
+      customerNotes: original.customerNotes,
+      allowSubstitution: original.allowSubstitution,
+      guestName: original.guestName,
+      guestPhone: original.guestPhone,
+      guestEmail: original.guestEmail,
+      receiptData: original.receiptData,
+    });
+
+    const newOrderId = Number(newOrderResult.insertId);
+
+    for (const item of items) {
+      const [newItemResult] = await db.insert(orderItems).values({
+        orderId: newOrderId,
+        productId: item.productId,
+        productName: item.productName,
+        productPrice: item.productPrice,
+        quantity: item.quantity,
+        subtotal: item.subtotal,
+        notes: item.notes,
+      });
+      const newItemId = Number(newItemResult.insertId);
+      const mods = modsByItem[item.id] || [];
+      for (const m of mods) {
+        await db.insert(orderItemModifiers).values({
+          orderItemId: newItemId,
+          groupName: m.groupName,
+          modifierName: m.modifierName,
+          modifierPrice: m.modifierPrice,
+        });
+      }
+    }
+
+    // Notify store staff (same as a normal new cash order)
+    try {
+      const storeStaffMembers = await db
+        .select({ userId: storeStaffTable.userId, pushToken: users.pushToken })
+        .from(storeStaffTable)
+        .innerJoin(users, eq(storeStaffTable.userId, users.id))
+        .where(eq(storeStaffTable.storeId, original.storeId));
+
+      const customerName = original.guestName || "Customer";
+      for (const staff of storeStaffMembers) {
+        if (staff.pushToken) {
+          await sendNewOrderNotification(staff.pushToken, newOrderId, customerName, items.length, parseFloat(original.total));
+        }
+      }
+    } catch (e) {
+      console.error(`[Admin] Failed to notify store staff for duplicated order ${newOrderId}:`, e);
+    }
+
+    // Notify customer if registered
+    if (original.customerId) {
+      const [customer] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, original.customerId)).limit(1);
+      if (customer?.pushToken) {
+        await sendPushNotification(customer.pushToken, {
+          title: "Order Confirmed!",
+          body: `Order #${orderNumber} has been confirmed.`,
+          data: { type: "order_update", orderId: newOrderId, status: "pending" },
+          channelId: "orders",
+        });
+      }
+    }
+
+    // Dispatch now happens only once the order is accepted (store/POS/
+    // admin), not immediately at creation — see acceptOrder /
+    // acceptOrderFromPOS / updateOrderStatus.
+
+    // Create print job
+    try {
+      const { autoCreatePrintJob } = await import("./print");
+      await autoCreatePrintJob(newOrderId, original.storeId, original.receiptData || undefined);
+    } catch (e) {
+      console.error(`[Admin] Failed to create print job for duplicated order ${newOrderId}:`, e);
+    }
+
+    console.log(`[Admin] Order ${input.orderId} duplicated as new order ${newOrderId} (#${orderNumber})`);
+    return { success: true, newOrderId, orderNumber };
+  }),
 });

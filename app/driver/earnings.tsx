@@ -188,7 +188,7 @@ export default function DriverEarningsScreen() {
                     <Text style={{ fontSize: 18 }}>🏦</Text>
                     <View>
                       <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14 }}>Cash owed to office</Text>
-                      <Text style={{ color: colors.muted, fontSize: 11 }}>Cash collected minus your delivery fees</Text>
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>Cash collected minus all delivery earnings</Text>
                     </View>
                   </View>
                   <Text style={{ color: colors.warning, fontWeight: '800', fontSize: 17 }}>
@@ -284,8 +284,10 @@ export default function DriverEarningsScreen() {
             </View>
           ) : (
             filteredDeliveries.map((delivery, idx) => (
-              <View
+              <TouchableOpacity
                 key={delivery.id}
+                onPress={() => router.push(`/driver/active-delivery?orderId=${delivery.id}`)}
+                activeOpacity={0.7}
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -319,6 +321,11 @@ export default function DriverEarningsScreen() {
                   <Text className="text-muted text-xs">
                     {delivery.orderNumber}
                   </Text>
+                  {(delivery as any).deliveryAddress && (
+                    <Text className="text-muted text-xs" numberOfLines={1}>
+                      {(delivery as any).deliveryAddress}
+                    </Text>
+                  )}
                   {delivery.completedAt && (
                     <Text className="text-muted text-xs">
                       {formatIrishSmartDateTime(delivery.completedAt)}
@@ -336,7 +343,7 @@ export default function DriverEarningsScreen() {
                     )}
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>

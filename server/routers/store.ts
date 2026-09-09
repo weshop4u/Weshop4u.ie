@@ -414,6 +414,13 @@ export const storeRouter = router({
         const isCashOrPaid = !acceptOrderPayment[0] || acceptOrderPayment[0].paymentMethod !== "card" || acceptOrderPayment[0].paymentStatus === "completed";
         if (isCashOrPaid) {
           await autoCreatePrintJob(input.orderId, input.storeId, orderResult[0].receiptData || undefined);
+          // Now that the order is accepted, offer it to the driver queue
+          try {
+            const { offerOrderToQueue } = await import("./drivers");
+            await offerOrderToQueue(input.orderId);
+          } catch (e) {
+            console.error(`[Store] Failed to offer order ${input.orderId} to driver queue after accept:`, e);
+          }
         }
 
       return { success: true };
@@ -710,7 +717,7 @@ export const storeRouter = router({
       const result = await db
         .select()
         .from(productCategories)
-        .orderBy(productCategories.name);
+        .orderBy(productCategories.sortOrder);
 
       return result;
     }),
@@ -846,6 +853,8 @@ export const storeRouter = router({
           categoryId: products.categoryId,
           pinnedToTrending: products.pinnedToTrending,
           pinPosition: products.pinPosition,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
         })
         .from(products)
         .where(
@@ -871,6 +880,8 @@ export const storeRouter = router({
           categoryId: products.categoryId,
           pinnedToTrending: products.pinnedToTrending,
           pinPosition: products.pinPosition,
+          availableFrom: products.availableFrom,
+          availableUntil: products.availableUntil,
         })
         .from(products)
         .where(
@@ -963,6 +974,8 @@ export const storeRouter = router({
                 description: products.description,
                 stockStatus: products.stockStatus,
                 categoryId: products.categoryId,
+                availableFrom: products.availableFrom,
+                availableUntil: products.availableUntil,
               })
               .from(products)
               .where(inArray(products.id, trendingProductIds));
@@ -1019,13 +1032,13 @@ if (allProductIds.length > 0) {
 }
       // Get category names for all products
       const catIds = [...new Set(allProducts.map((p) => p.categoryId).filter(Boolean))] as number[];
-      let categoryMap: Record<number, string> = {};
+      let categoryMap: Record<number, { name: string; availabilitySchedule: string | null }> = {};
       if (catIds.length > 0) {
         const cats = await db
-          .select({ id: productCategories.id, name: productCategories.name })
+          .select({ id: productCategories.id, name: productCategories.name, availabilitySchedule: productCategories.availabilitySchedule })
           .from(productCategories)
           .where(inArray(productCategories.id, catIds));
-        categoryMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+        categoryMap = Object.fromEntries(cats.map((c) => [c.id, { name: c.name, availabilitySchedule: c.availabilitySchedule }]));
       }
 
       return allProducts.map((p) => {
@@ -1046,7 +1059,10 @@ if (allProductIds.length > 0) {
           images: parsedImages,
           description: p.description,
           stockStatus: p.stockStatus,
-          categoryName: p.categoryId ? categoryMap[p.categoryId] || "" : "",
+          categoryName: p.categoryId ? categoryMap[p.categoryId]?.name || "" : "",
+          categoryAvailabilitySchedule: p.categoryId ? categoryMap[p.categoryId]?.availabilitySchedule || null : null,
+          availableFrom: (p as any).availableFrom || null,
+          availableUntil: (p as any).availableUntil || null,
           orderCount: p.orderCount,
           isPinned: "isPinned" in p ? p.isPinned : false,
           hasModifiers: productsWithModifiers.has(p.id),
@@ -1101,6 +1117,14 @@ if (allProductIds.length > 0) {
           )
         .orderBy(desc(orders.createdAt));
 
+            // Store name for multi-store POS terminals
+      const posStore = await db
+        .select({ name: stores.name })
+        .from(stores)
+        .where(eq(stores.id, input.storeId))
+        .limit(1);
+      const posStoreName = posStore.length > 0 ? posStore[0].name : "";
+
       // For each order, get item count and total quantity
       const result = [];
       for (const order of pendingOrders) {
@@ -1153,9 +1177,11 @@ if (allProductIds.length > 0) {
           if (customer.length > 0) customerName = customer[0].name;
         }
 
-        result.push({
+                result.push({
           id: order.id,
           orderNumber: order.orderNumber,
+          storeId: input.storeId,
+          storeName: posStoreName,
           total: adjustedTotal.toString(),
           paymentMethod: order.paymentMethod,
           status: order.status,
@@ -1266,6 +1292,13 @@ if (allProductIds.length > 0) {
         const posIsCashOrPaid = !posOrderPayment[0] || posOrderPayment[0].paymentMethod !== "card" || posOrderPayment[0].paymentStatus === "completed";
         if (posIsCashOrPaid) {
           await autoCreatePrintJob(input.orderId, input.storeId);
+          // Now that the order is accepted, offer it to the driver queue
+          try {
+            const { offerOrderToQueue } = await import("./drivers");
+            await offerOrderToQueue(input.orderId);
+          } catch (e) {
+            console.error(`[Store] Failed to offer order ${input.orderId} to driver queue after accept:`, e);
+          }
         }
 
       return { success: true, alreadyAccepted: false };

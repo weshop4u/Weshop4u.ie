@@ -9,13 +9,32 @@ import { scheduleLocalNotification } from "@/lib/safe-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { startWebAlarm, stopWebAlarm } from "@/lib/notification-sound";
+import { startDriverForegroundService, stopDriverForegroundService } from "@/lib/driver-foreground-service";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { DRIVER_LOCATION_TASK, setBackgroundLocationDriverId } from "@/lib/driver-location-task";
 
+// Module-level (not per-instance) locks. If the driver screen is ever
+// mounted more than once simultaneously (e.g. a duplicate navigation push
+// that never unmounted), per-instance refs can't prevent both instances
+// from independently restarting location tracking and triggering each
+// other in a feedback loop — confirmed via device logs showing paired
+// '[Driver] App resumed' lines firing in the same millisecond, repeating
+// every ~900ms, which only makes sense as two live component instances.
+// These locks are shared across every instance so only one can ever be
+// "starting tracking" or "just resynced" at a time.
+let globalTrackingActive = false;
+let globalLastResyncAt = 0;
 
 export default function DriverHomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { data: user, isLoading } = trpc.auth.me.useQuery();
+
+  // Register push token for job-offer notifications — drivers land here
+  // directly and may never visit the customer (tabs) layout, so this can't
+  // rely on the registration that happens there.
+  usePushNotifications(user?.id);
 
 
   // Audio player for alarm sound (native)
@@ -48,6 +67,23 @@ export default function DriverHomeScreen() {
   const [countdown, setCountdown] = useState(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
+  const locationDisclosureResolveRef = useRef<(() => void) | null>(null);
+
+  // Shows the background-location disclosure once per device, before the
+  // OS permission prompt ever appears (Google Play "Prominent Disclosure"
+  // requirement). Resolves immediately if already acknowledged.
+  const ensureLocationDisclosure = useCallback(async (): Promise<void> => {
+    const seen = await AsyncStorage.getItem("bgLocationDisclosureShown");
+    if (seen === "true") return;
+    return new Promise((resolve) => {
+      locationDisclosureResolveRef.current = () => {
+        AsyncStorage.setItem("bgLocationDisclosureShown", "true");
+        resolve();
+      };
+      setShowLocationDisclosure(true);
+    });
+  }, []);
   const lastNotifiedOfferId = useRef<number | null>(null);
   const isAutoTogglingOffRef = useRef(false);
   const lastExpiredOfferId = useRef<number | null>(null);
@@ -70,6 +106,8 @@ export default function DriverHomeScreen() {
   const [reorderToast, setReorderToast] = useState(false);
   const [viewedJobsScreen, setViewedJobsScreen] = useState(false);
   const [appState, setAppState] = useState<string>(AppState.currentState);
+  const [resyncNonce, setResyncNonce] = useState(0);
+  const refetchProfileRef = useRef<(() => Promise<any>) | null>(null);
   const reorderToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showReorderToast = () => {
     setReorderToast(true);
@@ -105,13 +143,50 @@ export default function DriverHomeScreen() {
   }, [refetchActiveDelivery, refetchBatch, refetchStats, refetchJobsCount]);
 
   // Track app state (foreground/background)
+  const prevAppStateRef = useRef(AppState.currentState);
+
   useEffect(() => {
     if (Platform.OS === "web") return; // AppState only works on native
-    
+
     const handleAppStateChange = (state: string) => {
+      const prevState = prevAppStateRef.current;
+      prevAppStateRef.current = state;
       setAppState(state);
       // Reset viewed flag when app comes to foreground
-      if (state === "active") {
+      // Only treat this as a genuine resume if we're transitioning FROM a
+      // non-active state INTO active — AppState can fire "active" repeatedly
+      // in quick succession for reasons that aren't a real backgrounding
+      // (window focus churn, notification shade being pulled down, permission
+      // dialogs), and re-running the resync + location-restart on every one
+      // of those causes the foreground service notification to flicker on/off.
+      // A short cooldown guards against any remaining rapid-fire duplicates,
+      // and it's stored at module level so it holds even if the screen is
+      // ever mounted more than once simultaneously.
+      const now = Date.now();
+      const isGenuineResume = state === "active" && prevState !== "active" && (now - globalLastResyncAt) > 2000;
+      if (isGenuineResume) {
+        globalLastResyncAt = now;
+        setViewedJobsScreen(false);
+        // Re-sync with the server on resume — server is the source of truth
+        // for isOnline. If we're online, bump resyncNonce so the location
+        // effect restarts tracking in case Android killed the background task.
+        (async () => {
+          try {
+            if (!refetchProfileRef.current) return;
+            const res = await refetchProfileRef.current();
+            const serverOnline = res.data?.isOnline ?? false;
+            console.log('[Driver] App resumed — server isOnline:', serverOnline);
+            setIsOnline(serverOnline);
+            // Only restart tracking if it isn't already running — otherwise
+            // a resume triggered by the location task's own foreground
+            // service starting (which can itself cause a brief app-state
+            // blip) creates a self-sustaining restart loop.
+            if (serverOnline && !globalTrackingActive) setResyncNonce(n => n + 1);
+          } catch (e) {
+            console.log('[Driver] Resume re-sync failed:', e);
+          }
+        })();
+      } else if (state === "active") {
         setViewedJobsScreen(false);
       }
     };
@@ -129,34 +204,31 @@ export default function DriverHomeScreen() {
 
   // Load driver profile to get actual online status from DB
   // Only fetch once on mount - don't refetch automatically to avoid overriding local state
-  const hasSyncedProfile = useRef(false);
-  const { data: driverProfile } = trpc.drivers.getProfile.useQuery(
+  const { data: driverProfile, refetch: refetchProfile } = trpc.drivers.getProfile.useQuery(
     { driverId: user?.id! },
     { enabled: !!user?.id, refetchOnWindowFocus: false, refetchOnMount: true, staleTime: Infinity }
   );
+  refetchProfileRef.current = refetchProfile;
+  const hasSyncedProfile = useRef(false);
 
-  // Force driver offline on login - they must manually toggle online when ready
-  // BUT skip this if driver has active deliveries (returning from active-delivery screen)
+  // Sync online status from the server on load — the server is the single
+  // source of truth. Previously this forced the driver offline on every
+  // mount (including in-app navigation and tab reloads, not just true
+  // logins), which was silently taking drivers offline mid-shift while they
+  // still believed they were online. Now it just reflects reality.
   useEffect(() => {
-    if (hasSyncedProfile.current) return; // Only run once
-    // Wait until both profile AND activeDelivery queries have loaded
+    if (hasSyncedProfile.current) return; // Only run once per mount
     if (!driverProfile || !user?.id || activeDeliveryLoading) return;
     hasSyncedProfile.current = true;
-    // If driver has active deliveries, sync online state from DB instead of forcing offline
-    if (activeDelivery && activeDelivery.id) {
-      console.log('[Driver] Has active deliveries, syncing online state from DB');
-      setIsOnline(driverProfile.isOnline ?? true); // Default to online if DB says so
-      return;
-    }
-    // No active deliveries — start offline regardless of DB state
-    setIsOnline(false);
-    // Ensure server also knows we're offline
-    if (driverProfile.isOnline) {
-      toggleOnlineMutation.mutate(
-        { driverId: user.id, isOnline: false },
-        { onSuccess: () => console.log('[Driver] Forced offline on login') }
-      );
-    }
+    console.log('[Driver] Syncing online state from DB:', driverProfile.isOnline);
+    const serverOnline = driverProfile.isOnline ?? false;
+    setIsOnline(serverOnline);
+    // A killed-and-relaunched app is a fresh mount, not an AppState "resume" —
+    // the resume-re-sync effect never fires for it. If the server says we're
+    // online, bump resyncNonce here too so the location effect (re)starts
+    // tracking instead of silently doing nothing while the server thinks
+    // we're pinging. Guarded the same way — only if not already tracking.
+    if (serverOnline && !globalTrackingActive) setResyncNonce(n => n + 1);
   }, [driverProfile, user?.id, activeDelivery, activeDeliveryLoading]);
 
   // Trigger offer check when isOnline becomes true (separate effect to ensure state is updated)
@@ -444,6 +516,7 @@ export default function DriverHomeScreen() {
 
     if (!isOnline || !user?.id) return;
 
+    globalTrackingActive = true;
     console.log('[Driver] Starting GPS location reporting (online)');
 
     if (Platform.OS === "web") {
@@ -462,7 +535,7 @@ export default function DriverHomeScreen() {
         );
       };
       sendLocation(); // Send immediately
-      locationIntervalRef.current = setInterval(sendLocation, 10000);
+      locationIntervalRef.current = setInterval(sendLocation, 5000);
     } else {
       // Native: use expo-location
       (async () => {
@@ -476,8 +549,11 @@ export default function DriverHomeScreen() {
           locationSubRef.current = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.Balanced,
-              timeInterval: 10000,
-              distanceInterval: 10,
+              timeInterval: 5000,
+              distanceInterval: 10, // meters — 0 means "report on any movement,"
+              // including GPS jitter while stationary, which was re-touching
+              // the location foreground-service notification. 10m gates out
+              // jitter while still updating promptly once actually moving.
             },
             (loc) => {
               updateLocationMutation.mutate({
@@ -487,6 +563,45 @@ export default function DriverHomeScreen() {
               });
             }
           );
+
+          // Android: also start a background location task so pings keep
+          // going while the app is backgrounded/locked, protected by the
+          // foreground service notification started in the effect below.
+          if (Platform.OS === "android") {
+            try {
+              await ensureLocationDisclosure();
+              const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+              if (bgStatus === "granted") {
+                setBackgroundLocationDriverId(user!.id);
+                let alreadyStarted = false;
+                try {
+                  alreadyStarted = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+                } catch (e) {
+                  console.log("[Driver] Background location task unavailable on this build:", e);
+                }
+                if (!alreadyStarted) {
+                  try {
+                    await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
+                      accuracy: Location.Accuracy.Balanced,
+                      timeInterval: 15000,
+                      distanceInterval: 10,
+                      foregroundService: {
+                        notificationTitle: "🟢 WeShop4U — You're Online",
+                        notificationBody: "Sharing your location while online",
+                      },
+                    });
+                    console.log("[Driver] Background location task started");
+                  } catch (e) {
+                    console.log("[Driver] Could not start background location task (module unavailable on this build):", e);
+                  }
+                }
+              } else {
+                console.log("[Driver] Background location permission not granted");
+              }
+            } catch (e) {
+              console.log("[Driver] Failed to start background location task:", e);
+            }
+          }
         } catch (e) {
           console.log("[Driver] Location tracking not available:", e);
         }
@@ -502,7 +617,35 @@ export default function DriverHomeScreen() {
         locationSubRef.current.remove();
         locationSubRef.current = null;
       }
+      if (Platform.OS === "android") {
+        (async () => {
+          try {
+            const Location = await import("expo-location");
+            const started = await Location.hasStartedLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+            if (started) {
+              await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+              console.log("[Driver] Background location task stopped");
+            }
+          } catch (e) {
+            console.log("[Driver] Failed to stop background location task:", e);
+          }
+        })();
+        setBackgroundLocationDriverId(null);
+      }
+      globalTrackingActive = false;
     };
+  }, [isOnline, user?.id, resyncNonce]);
+  
+  // Foreground service (Android only) — persistent "You're Online" notification
+  // keeps the app process alive so location/offers can continue while
+  // backgrounded or the phone is locked.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (isOnline && user?.id) {
+      startDriverForegroundService();
+    } else {
+      stopDriverForegroundService();
+    }
   }, [isOnline, user?.id]);
 
   // Cleanup on unmount
@@ -515,6 +658,7 @@ export default function DriverHomeScreen() {
       if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
       if (locationSubRef.current) locationSubRef.current.remove();
       stopWebAlarm();
+      stopDriverForegroundService();
     };
   }, []);
 
@@ -1142,10 +1286,10 @@ export default function DriverHomeScreen() {
           }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: shiftData.unsettledBalance > 0 ? '#991B1B' : '#166534', marginBottom: 2 }}>
-                {shiftData.unsettledBalance > 0 ? 'You owe the store' : 'The store owes you'}
+                {shiftData.unsettledBalance > 0 ? 'You owe the office' : 'The office owes you'}
               </Text>
               <Text style={{ fontSize: 22, fontWeight: '800', color: shiftData.unsettledBalance > 0 ? '#DC2626' : '#16A34A' }}>
-                €{Math.abs(shiftData.unsettledBalance).toFixed(2)}
+                {"€" + Math.abs(shiftData.unsettledBalance).toFixed(2)}
               </Text>
               <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
                 {shiftData.unsettledShifts.length} unsettled shift{shiftData.unsettledShifts.length !== 1 ? 's' : ''}
@@ -1384,7 +1528,7 @@ export default function DriverHomeScreen() {
                     <View style={{ borderTopWidth: 1, borderTopColor: '#CBD5E1', paddingTop: 10, marginTop: 4 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
-                          {shiftSummaryData.netOwed > 0 ? 'You Owe Store' : shiftSummaryData.netOwed < 0 ? 'Store Owes You' : 'Settled'}
+                          {shiftSummaryData.netOwed > 0 ? 'You Owe Office' : shiftSummaryData.netOwed < 0 ? 'Office Owes You' : 'Settled'}
                         </Text>
                         <Text style={{ fontSize: 20, fontWeight: '800', color: shiftSummaryData.netOwed > 0 ? '#DC2626' : shiftSummaryData.netOwed < 0 ? '#16A34A' : '#64748B' }}>
                           €{Math.abs(shiftSummaryData.netOwed).toFixed(2)}
@@ -1442,6 +1586,37 @@ export default function DriverHomeScreen() {
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Done</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Background Location Disclosure — shown once, before the OS permission
+          prompt, per Google Play's Prominent Disclosure & Consent requirement */}
+      <Modal
+        visible={showLocationDisclosure}
+        transparent
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, maxWidth: 400, width: '100%' }}>
+            <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>📍</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 12 }}>
+              Background Location Access
+            </Text>
+            <Text style={{ fontSize: 14, color: '#475569', lineHeight: 21, marginBottom: 20 }}>
+              While you're online for a delivery, WeShop4U shares your location in the background — even when the app isn't open — so we can dispatch nearby orders to you and let customers track their delivery in real time.{"\n\n"}
+              Location sharing stops as soon as you go offline or end your shift. You'll be asked to allow this on the next screen.
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLocationDisclosure(false);
+                locationDisclosureResolveRef.current?.();
+                locationDisclosureResolveRef.current = null;
+              }}
+              style={{ backgroundColor: '#0a7ea4', borderRadius: 10, padding: 14, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

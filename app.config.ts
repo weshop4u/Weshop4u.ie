@@ -39,7 +39,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.0",
+  version: "1.0.20",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -54,7 +54,8 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 5,
+    versionCode: 11,
+    googleServicesFile: "./google-services.json",
     adaptiveIcon: {
       backgroundColor: "#0F172A",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -63,8 +64,14 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -92,6 +99,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-updates",
     [
       "expo-audio",
       {
@@ -125,12 +133,19 @@ const config: ExpoConfig = {
       projectId: "c0c1895b-8b0b-446b-9473-9e72fd25754a"
     }
   },
-updates: {
-    enabled: false,
-    url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a"
+  updates: {
+    enabled: true,
+    url: "https://u.expo.dev/c0c1895b-8b0b-446b-9473-9e72fd25754a",
+    checkAutomatically: "ON_LOAD",
+    fallbackToCacheTimeout: 20000, // was 3000ms — too short for these devices'
+    // networks to complete an update check, causing every launch to silently
+    // time out and fall back to the cached bundle with no visible error.
   },
   runtimeVersion: {
     policy: "appVersion"
+  },
+  locales: {
+    en: "./appConfigLocale.json"
   },
   experiments: {
     typedRoutes: true,

@@ -12,6 +12,22 @@ export default function AdminLayout() {
   // Check user role — redirect store_staff away from admin
   const { data: user, isLoading } = trpc.auth.me.useQuery();
 
+  // Preload Google Maps script so driver map loads instantly.
+  // Checks for an existing script tag first to avoid double-loading the
+  // Maps API when driver-map.tsx's own loader has already added one
+  // (its effect can fire before this layout effect on a fresh page load).
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if ((window as any).google?.maps) return;
+    if (document.querySelector('script[src*="maps.googleapis.com"]')) return;
+    const key = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+    if (!key) return;
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=maps,marker&loading=async`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
   useEffect(() => {
     if (!isLoading && user) {
       if (user.role === "store_staff") {
@@ -175,6 +191,12 @@ export default function AdminLayout() {
         name="driver-performance"
         options={{
           title: "Driver Performance",
+        }}
+      />
+      <Stack.Screen
+        name="product-views"
+        options={{
+          title: "Product Views",
         }}
       />
       <Stack.Screen

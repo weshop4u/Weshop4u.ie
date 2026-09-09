@@ -17,6 +17,7 @@ function AdminDriverManagementContent() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [deletePin, setDeletePin] = useState("");
 
   const { data: drivers, isLoading, refetch } = trpc.admin.getAllDrivers.useQuery(undefined, {
     refetchInterval: 15000,
@@ -26,6 +27,7 @@ function AdminDriverManagementContent() {
     onSuccess: (result) => {
       refetch();
       setDeleteConfirm(null);
+      setDeletePin("");
       setExpandedId(null);
       setSuccessMsg(result.message);
       setErrorMsg("");
@@ -33,6 +35,7 @@ function AdminDriverManagementContent() {
     },
     onError: (err) => {
       setDeleteConfirm(null);
+      setDeletePin("");
       setErrorMsg(err.message);
       setSuccessMsg("");
       setTimeout(() => setErrorMsg(""), 5000);
@@ -65,7 +68,29 @@ function AdminDriverManagementContent() {
       setTimeout(() => setErrorMsg(""), 5000);
     },
   });
-
+const sendWakeUpMutation = trpc.admin.sendDriverWakeUp.useMutation({
+    onSuccess: () => {
+      setSuccessMsg("Wake-up push sent to driver's phone");
+      setErrorMsg("");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setSuccessMsg("");
+      setTimeout(() => setErrorMsg(""), 8000);
+    },
+  });
+  const markAllSettledMutation = trpc.admin.markAllSettled.useMutation({
+    onSuccess: () => {
+      refetch();
+      setSuccessMsg("Cash settled successfully");
+      setTimeout(() => setSuccessMsg(""), 5000);
+    },
+    onError: (err) => {
+      setErrorMsg(err.message);
+      setTimeout(() => setErrorMsg(""), 5000);
+    },
+  });
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
@@ -88,15 +113,29 @@ function AdminDriverManagementContent() {
     );
   }
 
-  // Sort: online first, then by deliveries
+  // Sort: online (or on job) first, then by deliveries
   const sortedDrivers = [...(drivers || [])].sort((a, b) => {
-    if (a.isOnline && !b.isOnline) return -1;
-    if (!a.isOnline && b.isOnline) return 1;
+    const aOnline = a.isOnline || (a as any).hasActiveJob;
+    const bOnline = b.isOnline || (b as any).hasActiveJob;
+    if (aOnline && !bOnline) return -1;
+    if (!aOnline && bOnline) return 1;
     return (b.totalDeliveries || 0) - (a.totalDeliveries || 0);
   });
 
-  const onlineCount = sortedDrivers.filter(d => d.isOnline).length;
+  const onlineCount = sortedDrivers.filter(d => d.isOnline || (d as any).hasActiveJob).length;
   const availableCount = sortedDrivers.filter(d => d.isOnline && d.isAvailable).length;
+
+  const formatLastOnline = (dateValue: string | Date | null | undefined): string => {
+    if (!dateValue) return "Never";
+    const date = new Date(dateValue);
+    const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hr${diffHours !== 1 ? "s" : ""} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  };
 
   return (
     <ScreenContainer className="bg-background">
@@ -139,12 +178,17 @@ function AdminDriverManagementContent() {
           <View className="gap-3">
             {sortedDrivers.map(driver => {
               const expanded = expandedId === driver.id;
-              const statusColor = driver.isOnline
-                ? (driver.isAvailable ? "#22C55E" : "#F59E0B")
-                : "#9BA1A6";
-              const statusText = driver.isOnline
-                ? (driver.isAvailable ? "Online - Available" : "Online - Busy")
-                : "Offline";
+              const onJob = (driver as any).hasActiveJob;
+              const statusColor = onJob
+                ? "#F59E0B"
+                : driver.isOnline
+                  ? (driver.isAvailable ? "#22C55E" : "#F59E0B")
+                  : "#9BA1A6";
+              const statusText = onJob
+                ? "On Job"
+                : driver.isOnline
+                  ? (driver.isAvailable ? "Online - Available" : "Online - Busy")
+                  : "Offline";
 
               return (
                 <View
@@ -174,10 +218,15 @@ function AdminDriverManagementContent() {
                               )}
                             </View>
                             <Text style={{ fontSize: 12, color: statusColor, fontWeight: "600" }}>{statusText}</Text>
+                            {!onJob && !driver.isOnline && (
+                              <Text style={{ fontSize: 11, color: colors.muted }}>
+                                Last online: {formatLastOnline((driver as any).lastLocationUpdate)}
+                              </Text>
+                            )}
                           </View>
                         </View>
                         <View className="items-end">
-                          <Text className="text-sm text-muted">{driver.totalDeliveries || 0} deliveries</Text>
+                          <Text className="text-sm text-muted">{driver.totalDeliveries || 0} total · {driver.todayDeliveries || 0} today</Text>
                           {driver.earningsToday > 0 && (
                             <Text style={{ fontSize: 14, fontWeight: "700", color: "#22C55E" }}>
                               €{driver.earningsToday.toFixed(2)} today
@@ -219,9 +268,13 @@ function AdminDriverManagementContent() {
                           </Text>
                         </View>
                         <View className="flex-row justify-between">
-                          <Text className="text-sm text-muted">Total Deliveries</Text>
-                          <Text className="text-sm text-foreground font-medium">{driver.totalDeliveries || 0}</Text>
-                        </View>
+  <Text className="text-sm text-muted">Today's Deliveries</Text>
+  <Text className="text-sm text-foreground font-medium">{(driver as any).todayDeliveries || 0}</Text>
+</View>
+<View className="flex-row justify-between">
+  <Text className="text-sm text-muted">Total Deliveries</Text>
+  <Text className="text-sm text-foreground font-medium">{driver.totalDeliveries || 0}</Text>
+</View>
                         <View className="flex-row justify-between">
                           <Text className="text-sm text-muted">Returns</Text>
                           <Text className="text-sm text-foreground">{driver.totalReturns || 0}</Text>
@@ -232,6 +285,64 @@ function AdminDriverManagementContent() {
                             {driver.createdAt ? formatIrishDate(driver.createdAt) : "—"}
                           </Text>
                         </View>
+                        <View className="flex-row justify-between">
+                          <Text className="text-sm text-muted">Last Online</Text>
+                          <Text className="text-sm text-foreground">
+                            {formatLastOnline((driver as any).lastLocationUpdate)}
+                          </Text>
+                        </View>
+                        {/* Cash Settlement */}
+                        {(driver as any).unsettledBalance > 0 && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <View className="flex-row justify-between items-center mb-2">
+                              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted }}>UNSETTLED CASH</Text>
+                              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.warning }}>
+                                €{(driver as any).unsettledBalance.toFixed(2)}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => markAllSettledMutation.mutate({ driverId: driver.userId, adminUserId: 1 })}
+                              disabled={markAllSettledMutation.isPending}
+                              style={{
+                                backgroundColor: '#22C55E15',
+                                borderWidth: 1,
+                                borderColor: '#22C55E',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                opacity: markAllSettledMutation.isPending ? 0.5 : 1,
+                              }}
+                            >
+                              <Text style={{ color: '#15803D', fontWeight: '700', fontSize: 14 }}>
+                                {markAllSettledMutation.isPending ? 'Settling...' : '✓ Mark All Settled'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                        {/* Send Wake-Up Push — only show when driver is online */}
+                        {driver.isOnline && (
+                          <View className="mt-3 pt-3 border-t border-border">
+                            <TouchableOpacity
+                              onPress={() => sendWakeUpMutation.mutate({ driverUserId: driver.userId })}
+                              disabled={sendWakeUpMutation.isPending}
+                              style={{
+                                backgroundColor: '#0EA5E915',
+                                borderWidth: 1,
+                                borderColor: '#0EA5E9',
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Text style={{ color: '#0EA5E9', fontWeight: '700', fontSize: 14 }}>
+                                {sendWakeUpMutation.isPending ? 'Sending...' : '📣 Send Wake-Up Push'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
                         {/* Force Offline — only show when driver is online */}
                         {driver.isOnline && (
                           <View className="mt-3 pt-3 border-t border-border">
@@ -339,12 +450,24 @@ function AdminDriverManagementContent() {
             <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 4 }}>
               Are you sure you want to delete <Text style={{ fontWeight: '700', color: colors.foreground }}>{deleteConfirm.name}</Text>?
             </Text>
-            <Text style={{ fontSize: 13, color: colors.error, marginBottom: 20 }}>
+            <Text style={{ fontSize: 13, color: colors.error, marginBottom: 16 }}>
               This will permanently remove their account and free their display number. This cannot be undone.
             </Text>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 20 }}>
+              <TextInput
+                value={deletePin}
+                onChangeText={setDeletePin}
+                placeholder="Enter PIN to confirm"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                style={{ fontSize: 16, color: colors.foreground, textAlign: "center", letterSpacing: 4 }}
+              />
+            </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
-                onPress={() => setDeleteConfirm(null)}
+                onPress={() => { setDeleteConfirm(null); setDeletePin(""); }}
                 style={{
                   flex: 1, backgroundColor: colors.surface, paddingVertical: 12,
                   borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border,
@@ -353,12 +476,12 @@ function AdminDriverManagementContent() {
                 <Text style={{ color: colors.foreground, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => deleteDriverMutation.mutate({ driverId: deleteConfirm.id })}
-                disabled={deleteDriverMutation.isPending}
+                onPress={() => deleteDriverMutation.mutate({ driverId: deleteConfirm.id, pin: deletePin })}
+                disabled={deleteDriverMutation.isPending || deletePin.length === 0}
                 style={{
                   flex: 1, backgroundColor: colors.error, paddingVertical: 12,
                   borderRadius: 10, alignItems: 'center',
-                  opacity: deleteDriverMutation.isPending ? 0.5 : 1,
+                  opacity: (deleteDriverMutation.isPending || deletePin.length === 0) ? 0.5 : 1,
                 }}
               >
                 <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>

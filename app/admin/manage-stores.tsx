@@ -25,7 +25,7 @@ function parseOpeningHours(json: string | null): WeekHours {
     const parsed = JSON.parse(json);
     const result: WeekHours = {};
     for (const day of DAYS) {
-      result[day] = parsed[day] || { open: "08:00", close: "22:00", closed: false };
+      result[day] = parsed[day] || parsed[day.toLowerCase()] || { open: "08:00", close: "22:00", closed: false };
     }
     return result;
   } catch {
@@ -235,7 +235,9 @@ function ManageStoresScreenContent() {
       await updateHoursMutation.mutateAsync({
         storeId: selectedStoreId,
         isOpen247,
-        openingHours: isOpen247 ? undefined : JSON.stringify(weekHours),
+        openingHours: isOpen247 ? undefined : JSON.stringify(
+          Object.fromEntries(Object.entries(weekHours).map(([k, v]) => [k.toLowerCase(), v]))
+        ),
       });
       setMessage("Opening hours updated successfully!");
       setMessageType("success");
@@ -891,7 +893,7 @@ function ManageStoresScreenContent() {
                       thumbColor={(selectedStore as any).isFeatured ? "#00E5FF" : "#9CA3AF"}
                     />
                   </View>
-                  <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#BAE6FD" }}>
+                                    <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#BAE6FD" }}>
                     <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#FECACA" }}>
@@ -1061,10 +1063,10 @@ function ManageStoresScreenContent() {
               {selectedStore?.isActive ? " · Active" : " · Inactive"}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 6 }}>
+                    <TouchableOpacity onPress={() => setShowDuplicateForm(true)} style={{ backgroundColor: "#E0F2FE", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 6 }}>
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#0284C7" }}>Duplicate</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+          <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, marginRight: 6 }}>
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#EF4444" }}>Delete</Text>
           </TouchableOpacity>
         </View>

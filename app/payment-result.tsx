@@ -40,8 +40,8 @@ export default function PaymentResultScreen() {
       } else if (result.status === "pending") {
         // Payment might still be processing - poll a few times
         pollCount.current += 1;
-        if (pollCount.current < 5) {
-          setTimeout(() => checkPayment(), 3000);
+        if (pollCount.current < 12) {
+  setTimeout(() => checkPayment(), 5000);
         } else {
           setState("pending");
         }

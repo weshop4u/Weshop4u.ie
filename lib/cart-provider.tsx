@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
+import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface CartItemModifier {
@@ -99,6 +100,28 @@ export function getItemLineTotal(item: CartItem): number {
   return unitPrice * item.quantity;
 }
 
+/**
+ * Ask the customer whether to abandon their current store's cart.
+ * Web gets window.confirm, native gets a two-button Alert.
+ * Resolves true if they want to start fresh with the new store.
+ */
+function confirmSwitchStore(currentStoreName: string, newStoreName: string): Promise<boolean> {
+  const title = `Your cart has items from ${currentStoreName}`;
+  const body = `Orders can only include items from one store at a time.\n\nStart a new cart with ${newStoreName}? Your ${currentStoreName} items will be removed.`;
+
+  if (Platform.OS === "web") {
+    if (typeof window === "undefined") return Promise.resolve(false);
+    return Promise.resolve(window.confirm(`${title}\n\n${body}`));
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert(title, body, [
+      { text: `Keep ${currentStoreName} cart`, style: "cancel", onPress: () => resolve(false) },
+      { text: `Start new cart`, style: "destructive", onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartState>(EMPTY_CART);
 
@@ -138,9 +161,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     const current = cartRef.current;
 
-    // Check if adding from different store
+        // Adding from a different store — one store per order, so ask before
+    // wiping what they already have. Returning false silently here was
+    // leaving the customer tapping Add with nothing happening.
     if (current.storeId !== null && current.storeId !== storeId) {
-      return false;
+      const switchStore = await confirmSwitchStore(current.storeName || "another store", storeName);
+      if (!switchStore) return false;
+
+      // They chose to start fresh: cart becomes just this item
+      const freshKey = item.cartItemKey || generateCartItemKey(item.productId, item.modifiers);
+      const freshCart: CartState = {
+        storeId,
+        storeName,
+        items: [{ ...item, cartItemKey: freshKey }],
+      };
+      cartRef.current = freshCart;
+      setCart(freshCart);
+      saveCart(freshCart);
+      return true;
     }
 
     // Generate key based on product + modifiers
