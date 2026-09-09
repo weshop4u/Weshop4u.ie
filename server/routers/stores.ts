@@ -304,10 +304,13 @@ export const storesRouter = router({
         .innerJoin(orders, eq(orderItems.orderId, orders.id))
         .innerJoin(products, and(eq(orderItems.productId, products.id), eq(products.isActive, true)))
         .innerJoin(stores, and(eq(products.storeId, stores.id), eq(stores.isActive, true)))
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
         .where(
           and(
             gte(orders.createdAt, thirtyDaysAgo),
-            sql`${products.stockStatus} <> 'out_of_stock'`
+            sql`${products.stockStatus} <> 'out_of_stock'`,
+            // Never surface 18+ items on the public homepage — no age gate here
+            sql`(${productCategories.ageRestricted} IS NULL OR ${productCategories.ageRestricted} = false)`
           )
         )
         .groupBy(orderItems.productId)
