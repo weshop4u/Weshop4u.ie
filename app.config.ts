@@ -54,7 +54,7 @@ const config: ExpoConfig = {
       }
   },
   android: {
-    versionCode: 11,
+    versionCode: 12,
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
       backgroundColor: "#0F172A",
