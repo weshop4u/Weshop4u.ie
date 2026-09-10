@@ -717,7 +717,7 @@ export default function StoreDetailScreen() {
         <ScrollView
           ref={mainScrollViewRef}
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: cartItemCount > 0 ? 120 : 40 }}
         >
           {selectedCategoryId === null ? (
             // ── CATEGORY LIST VIEW ──
@@ -1338,16 +1338,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0F7FA",
     borderColor: "#00E5FF",
   },
-  modifierText: {
+    modifierText: {
     fontSize: 14,
     color: "#11181C",
     fontWeight: "500",
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
   },
   modifierTextSelected: {
     color: "#00BCD4",
     fontWeight: "600",
   },
-  quantityControl: {
+    quantityControl: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -1355,6 +1358,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexShrink: 0,
   },
   quantityButtonText: {
     fontSize: 20,
