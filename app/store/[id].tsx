@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform, BackHandler } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -593,6 +593,33 @@ export default function StoreDetailScreen() {
     // Clear all selections when modal opens - customer must select everything themselves
     setSelectedModifiers({});
   }, [selectedProduct?.id, modalVisible, modifierData?.groups]);
+
+    // Android hardware back: step back through the in-screen views rather than
+  // popping the whole route. Product modal → category products → category list
+  // → let the OS handle it and leave the store.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const onBack = () => {
+      if (modalVisible) {
+        setModalVisible(false);
+        return true;
+      }
+      if (selectedCategoryId !== null) {
+        setSelectedCategoryId(null);
+        setProductSearch("");
+        setSortBy("az");
+        return true;
+      }
+      if (globalSearch.trim().length > 0) {
+        setGlobalSearch("");
+        setShowRecentSearches(false);
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+    return () => sub.remove();
+  }, [modalVisible, selectedCategoryId, globalSearch]);
 
   // Scroll to top when category selection changes
   useEffect(() => {
