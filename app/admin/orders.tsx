@@ -8,7 +8,6 @@ import { useColors } from "@/hooks/use-colors";
 import { StyleSheet } from "react-native";
 import { formatIrishSmartDateTime, formatIrishTimeAgo } from "@/lib/timezone";
 import { Image } from "expo-image";
-
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -39,14 +38,14 @@ const PAYMENT_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
 const COL_WIDTHS = {
   checkbox: 44,
   date: 116,
-  orderNum: 126,
+  orderNum: 152,
   store: 108,
   customer: 146,
   status: 138,
   driver: 108,
   payment: 104,
   total: 160,
-  actions: 152,
+  actions: 250,
 };
 
 function formatDate(date: Date | string | null): string {
@@ -1670,7 +1669,7 @@ const dtStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
-    minWidth: 1180,
+    minWidth: 1376,
     flexDirection: "column",
   },
   thead: {
