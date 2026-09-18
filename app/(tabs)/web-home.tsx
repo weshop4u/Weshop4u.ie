@@ -360,7 +360,17 @@ export default function WebHome() {
           <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
           <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
           <View style={popularStyles.cardsRow}>
-            {featuredStores.slice(0, 3).map((store) => {
+            {[...featuredStores]
+              .sort((a, b) => {
+                // Open stores first — a closed card on the homepage is a dead
+                // end. Within open and within closed, keep the admin's ranking.
+                const aOpen = isStoreOpen(a) ? 0 : 1;
+                const bOpen = isStoreOpen(b) ? 0 : 1;
+                if (aOpen !== bOpen) return aOpen - bOpen;
+                return ((a as any).sortPosition ?? 999) - ((b as any).sortPosition ?? 999);
+              })
+              .slice(0, 3)
+              .map((store) => {
               const open = isStoreOpen(store);
               let storeDistance: number | null = null;
               if (location && (store as any).latitude && (store as any).longitude) {
