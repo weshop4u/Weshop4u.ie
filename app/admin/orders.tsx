@@ -196,7 +196,12 @@ function AdminOrdersScreenContent() {
     onError: (err) => { setErrorMessage(err.message); },
   });
 
-  const assignDriverMutation = trpc.admin.assignDriver.useMutation({
+    const assignDriverMutation = trpc.admin.assignDriver.useMutation({
+    onSuccess: () => { refetch(); setAssignModalOrderId(null); setErrorMessage(""); },
+    onError: (err) => { setErrorMessage(err.message); },
+  });
+
+  const unassignOrderMutation = trpc.admin.adminUnassignOrder.useMutation({
     onSuccess: () => { refetch(); setAssignModalOrderId(null); setErrorMessage(""); },
     onError: (err) => { setErrorMessage(err.message); },
   });
@@ -1439,6 +1444,36 @@ function AdminOrdersScreenContent() {
                   <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
                 </TouchableOpacity>
               </View>
+                            {(() => {
+                const currentOrder = orders?.find(o => o.id === assignModalOrderId);
+                const hasDriver = !!currentOrder?.driverId;
+                if (!hasDriver) return null;
+                return (
+                  <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => { if (assignModalOrderId) unassignOrderMutation.mutate({ orderId: assignModalOrderId }); }}
+                      disabled={unassignOrderMutation.isPending}
+                      style={{
+                        backgroundColor: "#FEF3C7",
+                        borderWidth: 1,
+                        borderColor: "#F59E0B",
+                        padding: 14,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        opacity: unassignOrderMutation.isPending ? 0.5 : 1,
+                      }}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#B45309" }}>
+                        {unassignOrderMutation.isPending ? "Returning..." : "↩ Unassign — return to queue"}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: "#92400E", marginTop: 2 }}>
+                        Offers the job to any available driver
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={{ height: 1, backgroundColor: colors.border, marginTop: 12 }} />
+                  </View>
+                );
+              })()}
               <FlatList
                 data={availableDrivers || []}
                 keyExtractor={(item) => String(item.userId)}
