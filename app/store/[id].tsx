@@ -346,6 +346,17 @@ export default function StoreDetailScreen() {
       selectedModifiers: selectedModifiers[group.id] || [],
     }));
 
+    const modalCatSchedule = selectedCategory?.availabilitySchedule
+      || (selectedProduct?.categoryId ? categoriesWithProducts[selectedProduct.categoryId]?.availabilitySchedule : null)
+      || (selectedProduct as any)?.categoryAvailabilitySchedule;
+    const modalCatBlocked = !!modalCatSchedule && !isCategoryAvailable(modalCatSchedule);
+    const modalTimeBlocked = !isProductTimeAvailable(selectedProduct);
+    const modalAvailabilityMsg = modalCatBlocked
+      ? (getAvailabilityMessage(modalCatSchedule) || "Not available right now")
+      : modalTimeBlocked
+      ? (getProductTimeLabel(selectedProduct) || "Not available right now")
+      : null;
+
     return (
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -365,6 +376,13 @@ export default function StoreDetailScreen() {
                   <Text style={styles.productDescription}>{selectedProduct.description}</Text>
                 )}
                 <Text style={styles.productPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
+
+                                {modalAvailabilityMsg && (
+                  <View style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', borderWidth: 1, borderRadius: 10, padding: 12, marginTop: 8, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#92400E' }}>🕐 {modalAvailabilityMsg}</Text>
+                    <Text style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>You can browse the options, but this can't be added to your cart right now.</Text>
+                  </View>
+                )}
 
                 {modifierDataWithSelection.length > 0 && (
                   <View style={styles.modifiersContainer}>
@@ -465,7 +483,7 @@ export default function StoreDetailScreen() {
   return totalSelected < minRequired;
 });
               const outOfStock = selectedProduct?.stockStatus === "out_of_stock";
-              const isDisabled = missingRequired.length > 0 || outOfStock;
+              const isDisabled = missingRequired.length > 0 || outOfStock || !!modalAvailabilityMsg;
               return (
                 <>
                   {outOfStock && (
@@ -473,7 +491,12 @@ export default function StoreDetailScreen() {
                       Out of stock
                     </Text>
                   )}
-                  {!outOfStock && isDisabled && (
+                  {!outOfStock && modalAvailabilityMsg && (
+                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      {modalAvailabilityMsg}
+                    </Text>
+                  )}
+                  {!outOfStock && !modalAvailabilityMsg && isDisabled && (
                     <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
                       Please select {missingRequired.map((g: any) => `${g.minSelections || 1} from: ${g.name}`).join(', ')}
                     </Text>
