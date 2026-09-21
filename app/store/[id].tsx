@@ -277,9 +277,22 @@ export default function StoreDetailScreen() {
     return currentMinutes >= fromMinutes && currentMinutes < untilMinutes;
   };
 
-  const getProductTimeLabel = (product: any): string | null => {
+    const getProductTimeLabel = (product: any): string | null => {
     if (!product.availableUntil) return null;
-    return `Available until ${product.availableUntil}`;
+    const until = product.availableUntil;
+    if (isProductTimeAvailable(product)) {
+      return `Available until ${until}`;
+    }
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const fromMinutes = product.availableFrom
+      ? parseInt(product.availableFrom.split(":")[0]) * 60 + parseInt(product.availableFrom.split(":")[1])
+      : 0;
+    const range = product.availableFrom ? `${product.availableFrom} – ${until}` : `until ${until}`;
+    if (currentMinutes < fromMinutes) {
+      return `Available today ${range}`;
+    }
+    return `Available tomorrow ${range}`;
   };
   const getProductImage = (product: any): string | null => {
     // Try images array first
