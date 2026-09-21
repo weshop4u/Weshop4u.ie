@@ -298,6 +298,9 @@ export const storesRouter = router({
           storeLogo: sql<string>`MAX(${stores.logo})`,
           storeOpeningHours: sql<string>`MAX(${stores.openingHours})`,
           storeIsOpen247: sql<boolean>`MAX(${stores.isOpen247})`,
+          availableFrom: sql<string>`MAX(${products.availableFrom})`,
+          availableUntil: sql<string>`MAX(${products.availableUntil})`,
+          categoryAvailabilitySchedule: sql<string>`MAX(${productCategories.availabilitySchedule})`,
           soldCount: sql<number>`SUM(${orderItems.quantity})`,
         })
         .from(orderItems)
