@@ -46,7 +46,7 @@ function getAvailabilityMessage(scheduleRaw: any): string | null {
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const openMinutes = parseTime(daySchedule.open);
     if (currentMinutes < openMinutes) {
-      return `Available from ${daySchedule.open} today`;
+      return `Available today ${daySchedule.open} – ${daySchedule.close}`;
     } else {
       return "Currently unavailable";
     }
@@ -179,7 +179,7 @@ describe("getAvailabilityMessage", () => {
   it("returns message before opening on a weekday (Monday local 08:00)", () => {
     vi.setSystemTime(new Date("2026-02-16T13:00:00Z")); // local Mon 08:00 EST
     const msg = getAvailabilityMessage(ALCOHOL_SCHEDULE);
-    expect(msg).toBe("Available from 10:30 today");
+    expect(msg).toBe("Available today 10:30 – 22:00");
   });
 
   it("returns message after closing (Monday local 23:00)", () => {
