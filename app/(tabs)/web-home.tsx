@@ -12,6 +12,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
 import { useColors } from "@/hooks/use-colors";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
+import { isCategoryAvailable } from "@/lib/category-availability";
 
 function formatDistance(km: number): string {
   if (km < 1) {
@@ -168,6 +169,15 @@ export default function WebHome() {
           isOpen247: p.storeIsOpen247,
         } as any)
       )
+      .filter((p: any) => {
+        if (p.categoryAvailabilitySchedule && !isCategoryAvailable(p.categoryAvailabilitySchedule)) return false;
+        if (!p.availableUntil) return true;
+        const now = new Date();
+        const mins = now.getHours() * 60 + now.getMinutes();
+        const toMins = (t: string) => parseInt(t.split(":")[0]) * 60 + parseInt(t.split(":")[1]);
+        const from = p.availableFrom ? toMins(p.availableFrom) : 0;
+        return mins >= from && mins < toMins(p.availableUntil);
+      })
       .slice(0, 6);
   }, [trendingProducts]);
 
