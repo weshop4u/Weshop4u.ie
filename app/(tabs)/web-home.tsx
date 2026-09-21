@@ -178,7 +178,7 @@ export default function WebHome() {
         const from = p.availableFrom ? toMins(p.availableFrom) : 0;
         return mins >= from && mins < toMins(p.availableUntil);
       })
-      .slice(0, 6);
+      .slice(0, 10);
   }, [trendingProducts]);
 
   // Responsive columns
