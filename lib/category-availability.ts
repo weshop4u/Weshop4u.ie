@@ -73,7 +73,7 @@ export function getAvailabilityMessage(scheduleRaw: string | AvailabilitySchedul
     const openMinutes = parseTime(daySchedule.open);
 
     if (currentMinutes < openMinutes) {
-      return `Available from ${daySchedule.open} today`;
+    return `Available today ${daySchedule.open} – ${daySchedule.close}`;
     } else {
       // After closing time, find next available day
       return getNextAvailableMessage(schedule, now);
@@ -108,9 +108,9 @@ function getNextAvailableMessage(schedule: AvailabilitySchedule, now: Date): str
 
     if (nextDaySchedule) {
       if (i === 1) {
-        return `Available tomorrow from ${nextDaySchedule.open}`;
+          return `Available tomorrow ${nextDaySchedule.open} – ${nextDaySchedule.close}`;
       }
-      return `Available ${DAY_LABELS[nextDate.getDay()]} from ${nextDaySchedule.open}`;
+      return `Available ${DAY_LABELS[nextDate.getDay()]} ${nextDaySchedule.open} – ${nextDaySchedule.close}`;
     }
   }
   return "Currently unavailable";

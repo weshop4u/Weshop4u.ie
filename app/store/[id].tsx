@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Dimensions, Platform, BackHandler } from "react-native";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -277,9 +277,22 @@ export default function StoreDetailScreen() {
     return currentMinutes >= fromMinutes && currentMinutes < untilMinutes;
   };
 
-  const getProductTimeLabel = (product: any): string | null => {
+    const getProductTimeLabel = (product: any): string | null => {
     if (!product.availableUntil) return null;
-    return `Available until ${product.availableUntil}`;
+    const until = product.availableUntil;
+    if (isProductTimeAvailable(product)) {
+      return `Available until ${until}`;
+    }
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const fromMinutes = product.availableFrom
+      ? parseInt(product.availableFrom.split(":")[0]) * 60 + parseInt(product.availableFrom.split(":")[1])
+      : 0;
+    const range = product.availableFrom ? `${product.availableFrom} – ${until}` : `until ${until}`;
+    if (currentMinutes < fromMinutes) {
+      return `Available today ${range}`;
+    }
+    return `Available tomorrow ${range}`;
   };
   const getProductImage = (product: any): string | null => {
     // Try images array first
@@ -333,6 +346,17 @@ export default function StoreDetailScreen() {
       selectedModifiers: selectedModifiers[group.id] || [],
     }));
 
+    const modalCatSchedule = selectedCategory?.availabilitySchedule
+      || (selectedProduct?.categoryId ? categoriesWithProducts[selectedProduct.categoryId]?.availabilitySchedule : null)
+      || (selectedProduct as any)?.categoryAvailabilitySchedule;
+    const modalCatBlocked = !!modalCatSchedule && !isCategoryAvailable(modalCatSchedule);
+    const modalTimeBlocked = !isProductTimeAvailable(selectedProduct);
+    const modalAvailabilityMsg = modalCatBlocked
+      ? (getAvailabilityMessage(modalCatSchedule) || "Not available right now")
+      : modalTimeBlocked
+      ? (getProductTimeLabel(selectedProduct) || "Not available right now")
+      : null;
+
     return (
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
@@ -352,6 +376,13 @@ export default function StoreDetailScreen() {
                   <Text style={styles.productDescription}>{selectedProduct.description}</Text>
                 )}
                 <Text style={styles.productPrice}>€{parseFloat(selectedProduct.price).toFixed(2)}</Text>
+
+                                {modalAvailabilityMsg && (
+                  <View style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', borderWidth: 1, borderRadius: 10, padding: 12, marginTop: 8, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#92400E' }}>🕐 {modalAvailabilityMsg}</Text>
+                    <Text style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>You can browse the options, but this can't be added to your cart right now.</Text>
+                  </View>
+                )}
 
                 {modifierDataWithSelection.length > 0 && (
                   <View style={styles.modifiersContainer}>
@@ -452,7 +483,7 @@ export default function StoreDetailScreen() {
   return totalSelected < minRequired;
 });
               const outOfStock = selectedProduct?.stockStatus === "out_of_stock";
-              const isDisabled = missingRequired.length > 0 || outOfStock;
+              const isDisabled = missingRequired.length > 0 || outOfStock || !!modalAvailabilityMsg;
               return (
                 <>
                   {outOfStock && (
@@ -460,7 +491,12 @@ export default function StoreDetailScreen() {
                       Out of stock
                     </Text>
                   )}
-                  {!outOfStock && isDisabled && (
+                  {!outOfStock && modalAvailabilityMsg && (
+                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
+                      {modalAvailabilityMsg}
+                    </Text>
+                  )}
+                  {!outOfStock && !modalAvailabilityMsg && isDisabled && (
                     <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>
                       Please select {missingRequired.map((g: any) => `${g.minSelections || 1} from: ${g.name}`).join(', ')}
                     </Text>
@@ -594,6 +630,33 @@ export default function StoreDetailScreen() {
     setSelectedModifiers({});
   }, [selectedProduct?.id, modalVisible, modifierData?.groups]);
 
+    // Android hardware back: step back through the in-screen views rather than
+  // popping the whole route. Product modal → category products → category list
+  // → let the OS handle it and leave the store.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const onBack = () => {
+      if (modalVisible) {
+        setModalVisible(false);
+        return true;
+      }
+      if (selectedCategoryId !== null) {
+        setSelectedCategoryId(null);
+        setProductSearch("");
+        setSortBy("az");
+        return true;
+      }
+      if (globalSearch.trim().length > 0) {
+        setGlobalSearch("");
+        setShowRecentSearches(false);
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+    return () => sub.remove();
+  }, [modalVisible, selectedCategoryId, globalSearch]);
+
   // Scroll to top when category selection changes
   useEffect(() => {
     if (selectedCategoryId !== null) {
@@ -717,7 +780,7 @@ export default function StoreDetailScreen() {
         <ScrollView
           ref={mainScrollViewRef}
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: cartItemCount > 0 ? 120 : 40 }}
         >
           {selectedCategoryId === null ? (
             // ── CATEGORY LIST VIEW ──
@@ -1338,16 +1401,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0F7FA",
     borderColor: "#00E5FF",
   },
-  modifierText: {
+    modifierText: {
     fontSize: 14,
     color: "#11181C",
     fontWeight: "500",
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
   },
   modifierTextSelected: {
     color: "#00BCD4",
     fontWeight: "600",
   },
-  quantityControl: {
+    quantityControl: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -1355,6 +1421,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexShrink: 0,
   },
   quantityButtonText: {
     fontSize: 20,

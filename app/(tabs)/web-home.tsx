@@ -12,6 +12,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { isStoreOpen, getTodayHours, getNextOpenTime } from "@/lib/store-hours";
 import { useColors } from "@/hooks/use-colors";
 import { useLocation, calculateDistance } from "@/hooks/use-location";
+import { isCategoryAvailable } from "@/lib/category-availability";
 
 function formatDistance(km: number): string {
   if (km < 1) {
@@ -168,7 +169,16 @@ export default function WebHome() {
           isOpen247: p.storeIsOpen247,
         } as any)
       )
-      .slice(0, 6);
+      .filter((p: any) => {
+        if (p.categoryAvailabilitySchedule && !isCategoryAvailable(p.categoryAvailabilitySchedule)) return false;
+        if (!p.availableUntil) return true;
+        const now = new Date();
+        const mins = now.getHours() * 60 + now.getMinutes();
+        const toMins = (t: string) => parseInt(t.split(":")[0]) * 60 + parseInt(t.split(":")[1]);
+        const from = p.availableFrom ? toMins(p.availableFrom) : 0;
+        return mins >= from && mins < toMins(p.availableUntil);
+      })
+      .slice(0, 10);
   }, [trendingProducts]);
 
   // Responsive columns
@@ -360,7 +370,17 @@ export default function WebHome() {
           <Text style={popularStyles.sectionTitle}>Popular Stores</Text>
           <Text style={popularStyles.sectionSubtitle}>Our most loved stores — order now for express delivery</Text>
           <View style={popularStyles.cardsRow}>
-            {featuredStores.slice(0, 3).map((store) => {
+            {[...featuredStores]
+              .sort((a, b) => {
+                // Open stores first — a closed card on the homepage is a dead
+                // end. Within open and within closed, keep the admin's ranking.
+                const aOpen = isStoreOpen(a) ? 0 : 1;
+                const bOpen = isStoreOpen(b) ? 0 : 1;
+                if (aOpen !== bOpen) return aOpen - bOpen;
+                return ((a as any).sortPosition ?? 999) - ((b as any).sortPosition ?? 999);
+              })
+              .slice(0, 3)
+              .map((store) => {
               const open = isStoreOpen(store);
               let storeDistance: number | null = null;
               if (location && (store as any).latitude && (store as any).longitude) {

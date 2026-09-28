@@ -913,6 +913,77 @@ export const adminRouter = router({
       return { success: true };
     }),
 
+    // Admin unassign driver — puts the order back in the general queue so any
+  // driver can take it. Deliberately NOT the same as the driver's own
+  // "Return Job to Queue": that logs a return against the driver's record,
+  // which shouldn't happen when it's an office decision to move a job.
+  adminUnassignOrder: publicProcedure
+    .input(z.object({ orderId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+      if (!order) throw new Error("Order not found");
+      if (!order.driverId) throw new Error("This order has no driver assigned");
+      if (["delivered", "cancelled"].includes(order.status)) {
+        throw new Error("Cannot unassign a delivered or cancelled order");
+      }
+
+      const previousDriverId = order.driverId;
+
+      // Clear the assignment and any batch membership — the job is a fresh
+      // single order again as far as the next driver is concerned.
+      await db.update(orders).set({
+        driverId: null,
+        driverAssignedAt: null,
+        driverArrivedAt: null,
+        batchId: null,
+        batchSequence: null,
+      }).where(eq(orders.id, input.orderId));
+
+      // Free the driver up, but only if this was their last active job —
+      // they may still be mid-batch on other orders.
+      const stillActive = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, previousDriverId),
+            inArray(orders.status, ["accepted", "preparing", "ready_for_pickup", "picked_up", "on_the_way"])
+          )
+        )
+        .limit(1);
+      if (stillActive.length === 0) {
+        await db.update(drivers).set({ isAvailable: true }).where(eq(drivers.userId, previousDriverId));
+      }
+
+      // Clear any stale offers so the re-offer starts clean
+      await db.update(orderOffers).set({ status: "expired" })
+        .where(and(eq(orderOffers.orderId, input.orderId), eq(orderOffers.status, "pending")));
+
+      // Tell the driver it's gone, so they don't drive to a store for nothing
+      const [driverUser] = await db.select({ pushToken: users.pushToken }).from(users).where(eq(users.id, previousDriverId)).limit(1);
+      if (driverUser?.pushToken) {
+        await sendPushNotification(driverUser.pushToken, {
+          title: "Job Removed",
+          body: `Order ${order.orderNumber} has been taken off you by the office.`,
+          data: { type: "job_unassigned", orderId: input.orderId },
+          channelId: "driver",
+        });
+      }
+
+      // Back into the queue for whoever's available
+      try {
+        await offerOrderToQueue(input.orderId);
+      } catch (e) {
+        console.error(`[Admin] Failed to re-offer order ${input.orderId} after unassign:`, e);
+      }
+
+      console.log(`[Admin] Order ${input.orderId} unassigned from driver ${previousDriverId} and returned to queue`);
+      return { success: true, previousDriverId };
+    }),
+
   // Get available drivers for assignment
   getAvailableDriversForAssignment: publicProcedure.query(async () => {
     const db = await getDb();

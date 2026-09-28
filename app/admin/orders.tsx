@@ -1,3 +1,4 @@
+import React from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal, FlatList, Platform, useWindowDimensions, TextInput, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
@@ -38,14 +39,29 @@ const PAYMENT_GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
 const COL_WIDTHS = {
   checkbox: 44,
   date: 116,
-  orderNum: 126,
+  orderNum: 152,
   store: 108,
   customer: 146,
   status: 138,
   driver: 108,
   payment: 104,
   total: 160,
-  actions: 152,
+  actions: 250,
+};
+
+// Styling for the native <input type="date"> pickers in the desktop filter bar.
+// These are real DOM inputs (the desktop branch is web-only), so this is a CSS
+// style object, not a React Native one.
+const DATE_INPUT_STYLE: any = {
+  backgroundColor: "#fff",
+  border: "1px solid #E2E8F0",
+  borderRadius: 6,
+  padding: "3px 8px",
+  fontSize: 12,
+  color: "#0F172A",
+  fontFamily: "inherit",
+  outline: "none",
+  cursor: "pointer",
 };
 
 function formatDate(date: Date | string | null): string {
@@ -131,6 +147,24 @@ function AdminOrdersScreenContent() {
     }
   }, []);
 
+  // Steps the whole selected range forward or back by one day. Date arithmetic
+  // is done in UTC on the plain YYYY-MM-DD string so it can never roll over an
+  // extra day depending on the browser's timezone.
+  const shiftDays = useCallback((delta: number) => {
+    const today = toIrishDateStr(new Date());
+    const from = dateFrom || today;
+    const to = dateTo || from;
+    const shift = (s: string) => {
+      const [y, m, d] = s.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + delta);
+      return dt.toISOString().slice(0, 10);
+    };
+    setDateFrom(shift(from));
+    setDateTo(shift(to));
+    setDatePreset("custom");
+  }, [dateFrom, dateTo]);
+
   const [fetchLimit, setFetchLimit] = useState(100);
   // Debounce the search box so we don't query the server per keystroke
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -162,7 +196,12 @@ function AdminOrdersScreenContent() {
     onError: (err) => { setErrorMessage(err.message); },
   });
 
-  const assignDriverMutation = trpc.admin.assignDriver.useMutation({
+    const assignDriverMutation = trpc.admin.assignDriver.useMutation({
+    onSuccess: () => { refetch(); setAssignModalOrderId(null); setErrorMessage(""); },
+    onError: (err) => { setErrorMessage(err.message); },
+  });
+
+  const unassignOrderMutation = trpc.admin.adminUnassignOrder.useMutation({
     onSuccess: () => { refetch(); setAssignModalOrderId(null); setErrorMessage(""); },
     onError: (err) => { setErrorMessage(err.message); },
   });
@@ -276,16 +315,17 @@ function AdminOrdersScreenContent() {
   const sortedOrders = useMemo(() => {
     if (!orders) return [];
     let filtered = [...orders];
-    // Apply date range filter
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(o => new Date(o.createdAt) >= fromDate);
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(o => new Date(o.createdAt) <= toDate);
+    // Apply date range filter. Compare Irish calendar dates as plain strings:
+    // new Date("2026-08-31") parses as UTC midnight and setHours() works in the
+    // browser's timezone, so the old version could silently drop or add a day's
+    // orders depending on where the browser thinks it is.
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter(o => {
+        const d = toIrishDateStr(new Date(o.createdAt));
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo && d > dateTo) return false;
+        return true;
+      });
     }
     // Apply search filter
     if (searchQuery.trim()) {
@@ -528,24 +568,42 @@ function AdminOrdersScreenContent() {
             );
           })}
 
-          {/* Custom Date Inputs */}
+          {/* Custom Date Inputs — native calendar pickers with ← → day stepping */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 8 }}>
+            <TouchableOpacity
+              onPress={() => shiftDays(-1)}
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}
+              {...({ title: "Previous day" } as any)}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>←</Text>
+            </TouchableOpacity>
+
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>From:</Text>
-            <TextInput
-              value={dateFrom}
-              onChangeText={(v) => { setDateFrom(formatDateInput(v)); setDatePreset("custom"); }}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#CBD5E1"
-              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
-            />
+            {React.createElement("input", {
+              type: "date",
+              value: dateFrom,
+              max: dateTo || undefined,
+              onChange: (e: any) => { setDateFrom(e.target.value); setDatePreset("custom"); },
+              style: DATE_INPUT_STYLE,
+            })}
+
             <Text style={{ fontSize: 12, color: "#94A3B8" }}>To:</Text>
-            <TextInput
-              value={dateTo}
-              onChangeText={(v) => { setDateTo(formatDateInput(v)); setDatePreset("custom"); }}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#CBD5E1"
-              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, fontSize: 12, color: "#0F172A", width: 120, outlineStyle: "none" } as any}
-            />
+            {React.createElement("input", {
+              type: "date",
+              value: dateTo,
+              min: dateFrom || undefined,
+              onChange: (e: any) => { setDateTo(e.target.value); setDatePreset("custom"); },
+              style: DATE_INPUT_STYLE,
+            })}
+
+            <TouchableOpacity
+              onPress={() => shiftDays(1)}
+              style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}
+              {...({ title: "Next day" } as any)}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#0F172A" }}>→</Text>
+            </TouchableOpacity>
+
             {(dateFrom || dateTo) && (
               <TouchableOpacity onPress={() => applyDatePreset("all")}>
                 <Text style={{ fontSize: 12, color: "#EF4444", fontWeight: "600" }}>Clear</Text>
@@ -1386,6 +1444,36 @@ function AdminOrdersScreenContent() {
                   <Text style={{ fontSize: 16, color: colors.primary, fontWeight: "600" }}>Close</Text>
                 </TouchableOpacity>
               </View>
+                            {(() => {
+                const currentOrder = orders?.find(o => o.id === assignModalOrderId);
+                const hasDriver = !!currentOrder?.driverId;
+                if (!hasDriver) return null;
+                return (
+                  <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => { if (assignModalOrderId) unassignOrderMutation.mutate({ orderId: assignModalOrderId }); }}
+                      disabled={unassignOrderMutation.isPending}
+                      style={{
+                        backgroundColor: "#FEF3C7",
+                        borderWidth: 1,
+                        borderColor: "#F59E0B",
+                        padding: 14,
+                        borderRadius: 12,
+                        alignItems: "center",
+                        opacity: unassignOrderMutation.isPending ? 0.5 : 1,
+                      }}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#B45309" }}>
+                        {unassignOrderMutation.isPending ? "Returning..." : "↩ Unassign — return to queue"}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: "#92400E", marginTop: 2 }}>
+                        Offers the job to any available driver
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={{ height: 1, backgroundColor: colors.border, marginTop: 12 }} />
+                  </View>
+                );
+              })()}
               <FlatList
                 data={availableDrivers || []}
                 keyExtractor={(item) => String(item.userId)}
@@ -1669,7 +1757,7 @@ const dtStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     overflow: "hidden",
-    minWidth: 1180,
+    minWidth: 1376,
     flexDirection: "column",
   },
   thead: {

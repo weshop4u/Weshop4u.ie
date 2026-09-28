@@ -287,19 +287,13 @@ if (reactivate) {
           }
         }
 
-        // Session not yet expired — still processing (3DS/Apple Pay in progress)
-        if (!session.expiresAt || new Date(session.expiresAt) >= new Date()) {
-          return { status: "pending" as const, paymentStatus: "pending" };
-        }
-
-        // ─── Step 2: Session expired but no transaction on it ─────────────
-        // This is the critical gap: Apple Pay / 3DS verification completed
-        // AFTER the session object's window closed. The session no longer
-        // carries the transaction reference, but Elavon DID capture the money.
-        // Search directly by order reference — this is the reliable source of
-        // truth regardless of session age, and is how the Elavon portal itself
-        // looks up transactions.
-        console.log(`[Payment] Session expired for order ${order.orderNumber} — searching by order reference`);
+                // ─── Step 2: Search by order reference ────────────────────────────
+        // Runs regardless of session age. Apple Pay / 3DS can capture the
+        // money without the session object ever carrying the transaction.
+        // Order reference is the reliable source of truth — it's how the
+        // Elavon portal itself looks up transactions.
+        const sessionStillLive = !session.expiresAt || new Date(session.expiresAt) >= new Date();
+        console.log(`[Payment] Searching by order reference for ${order.orderNumber} (session ${sessionStillLive ? "live" : "expired"})`);
         try {
           // NOTE: Elavon IGNORES the order-reference query param (confirmed
           // 16 Aug 2026 — response href echoes only "limit"). It returns the
@@ -365,7 +359,7 @@ if (reactivate) {
           const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
           const GIVE_UP_AFTER_MS = 30 * 60 * 1000; // 30 minutes
 
-          if (orderAgeMs < GIVE_UP_AFTER_MS) {
+            if (sessionStillLive || orderAgeMs < GIVE_UP_AFTER_MS) {
             console.log(`[Payment] No transaction yet for order ${order.orderNumber} (age: ${Math.round(orderAgeMs / 60000)}m) — keeping pending`);
             return { status: "pending" as const, paymentStatus: "pending" };
           }

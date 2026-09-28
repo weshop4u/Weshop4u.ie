@@ -647,6 +647,12 @@ export default function OrderHistoryScreen() {
           productName: item.product?.name || "Product",
           productPrice: item.productPrice,
           quantity: item.quantity,
+          modifiers: (item.modifiers || []).map((m: any) => ({
+            groupName: m.groupName || "",
+            modifierId: m.modifierId,
+            modifierName: m.modifierName,
+            modifierPrice: m.modifierPrice,
+          })),
         }
       );
     }
