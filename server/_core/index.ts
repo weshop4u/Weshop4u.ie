@@ -453,9 +453,8 @@ async function startPaymentRecoveryJob() {
       console.log(`[PaymentRecovery] Checking ${stuckOrders.length} stuck card order(s)...`);
 
       const { appRouter } = await import("../routers");
-      const { createCallerFactory } = await import("@trpc/server");
-      const callerFactory = createCallerFactory(appRouter);
-      const caller = callerFactory({ req: undefined, res: undefined } as any);
+            // appRouter.createCaller works on tRPC v10 and v11 — no factory import needed
+      const caller = appRouter.createCaller({ req: undefined, res: undefined, user: null } as any);
 
       for (const order of stuckOrders) {
         try {
