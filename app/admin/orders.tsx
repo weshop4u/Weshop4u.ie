@@ -224,7 +224,7 @@ function AdminOrdersScreenContent() {
       let message = "";
       if (data.status === "completed") message = "✅ Confirmed by Elavon — order is now paid and dispatched to a driver.";
       else if (data.status === "expired") message = "⌛ Payment session expired — the card was never charged.";
-      else if (data.status === "pending") message = "Still no charge found at Elavon. The customer has not completed payment.";
+      else if (data.status === "pending") message = "No charge found at Elavon yet — payment may still be processing. Check the Elavon portal before cancelling.";
       else if (data.status === "no_session") message = "No payment session found for this order.";
       else message = "Could not reach Elavon right now — try again in a moment.";
       setPaymentCheckResult({ orderId: variables.orderId, message, success: data.status === "completed" });
