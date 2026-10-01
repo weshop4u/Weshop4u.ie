@@ -2,7 +2,9 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList, P
 import { ScreenContainer } from "@/components/screen-container";
 import { AdminDesktopLayout } from "@/components/admin-desktop-layout";
 import { trpc } from "@/lib/trpc";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+
+const PAGE_SIZE = 100;
 
 function CustomerRow({ customer, isDesktop }: { customer: any; isDesktop: boolean }) {
   const date = new Date(customer.createdAt);
@@ -75,23 +77,33 @@ function CustomerRow({ customer, isDesktop }: { customer: any; isDesktop: boolea
 function CustomersContent() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 900;
 
-  // Debounce search
-  const handleSearch = (text: string) => {
-    setSearch(text);
-    // Simple debounce using setTimeout
-    setTimeout(() => setDebouncedSearch(text), 300);
-  };
+  // Debounce the search box. The previous version started a new timer on every
+  // keystroke without clearing the last one, so typing a six-letter name fired
+  // six separate queries 300ms apart.
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setLimit(PAGE_SIZE); // a new search starts from the first page again
+    }, 300);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [search]);
 
-  const { data, isLoading } = trpc.admin.getCustomers.useQuery(
-    { search: debouncedSearch || undefined, limit: 500 },
-    { refetchInterval: 60000 }
+  // No refetchInterval — a customer list doesn't change minute to minute, and
+  // polling it re-downloaded the whole page every 60 seconds. Manual reload instead.
+  const { data, isLoading, isFetching, refetch } = trpc.admin.getCustomers.useQuery(
+    { search: debouncedSearch || undefined, limit },
+    { placeholderData: (prev: any) => prev }
   );
 
   const customers = data?.customers ?? [];
   const total = data?.total ?? 0;
+  const hasMore = customers.length < total;
 
   // Sort options
   const [sortBy, setSortBy] = useState<"newest" | "orders" | "spent">("newest");
@@ -112,6 +124,11 @@ function CustomersContent() {
     return sorted;
   }, [customers, sortBy]);
 
+  // Sorting happens over the rows currently loaded, not the whole table — so
+  // "Top Spenders" only ranks what's been fetched. Say so rather than implying
+  // it's the definitive list.
+  const sortIsPartial = sortBy !== "newest" && hasMore;
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
@@ -121,18 +138,48 @@ function CustomersContent() {
     );
   }
 
+  const LoadMoreButton = ({ style }: { style?: any }) => {
+    if (!hasMore) return null;
+    return (
+      <TouchableOpacity
+        onPress={() => setLimit(l => l + PAGE_SIZE)}
+        disabled={isFetching}
+        style={[{
+          backgroundColor: "#fff",
+          borderWidth: 1,
+          borderColor: "#E2E8F0",
+          borderRadius: 8,
+          paddingVertical: 10,
+          alignItems: "center",
+          opacity: isFetching ? 0.5 : 1,
+        }, style]}
+      >
+        <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A" }}>
+          {isFetching ? "Loading..." : `⬇ Load more (${customers.length} of ${total})`}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderDesktop = () => (
     <View style={{ gap: 16 }}>
       {/* Header */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <View>
-          <Text style={{ fontSize: 14, color: "#687076" }}>{total} total customers</Text>
+          <Text style={{ fontSize: 14, color: "#687076" }}>
+            Showing {customers.length} of {total} customers
+          </Text>
+          {sortIsPartial && (
+            <Text style={{ fontSize: 12, color: "#D97706", marginTop: 2 }}>
+              Sorted across loaded rows only — load more for the full ranking
+            </Text>
+          )}
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
           {/* Search */}
           <TextInput
             value={search}
-            onChangeText={handleSearch}
+            onChangeText={setSearch}
             placeholder="Search by name, email or phone..."
             placeholderTextColor="#9CA3AF"
             style={{
@@ -166,6 +213,19 @@ function CustomersContent() {
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: "#F8FAFC",
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#687076" }}>↻ Reload</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -196,6 +256,8 @@ function CustomersContent() {
           />
         )}
       </View>
+
+      <LoadMoreButton />
     </View>
   );
 
@@ -205,7 +267,7 @@ function CustomersContent() {
       <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
         <TextInput
           value={search}
-          onChangeText={handleSearch}
+          onChangeText={setSearch}
           placeholder="Search customers..."
           placeholderTextColor="#9CA3AF"
           style={{
@@ -240,8 +302,16 @@ function CustomersContent() {
           </TouchableOpacity>
         ))}
         <View style={{ flex: 1 }} />
-        <Text style={{ fontSize: 13, color: "#9CA3AF", alignSelf: "center" }}>{total} total</Text>
+        <Text style={{ fontSize: 13, color: "#9CA3AF", alignSelf: "center" }}>
+          {customers.length}/{total}
+        </Text>
       </View>
+
+      {sortIsPartial && (
+        <Text style={{ fontSize: 12, color: "#D97706", paddingHorizontal: 16, marginBottom: 8 }}>
+          Sorted across loaded rows only — load more for the full ranking
+        </Text>
+      )}
 
       {/* Customer list */}
       <FlatList
@@ -254,6 +324,7 @@ function CustomersContent() {
             <Text style={{ fontSize: 16, color: "#9CA3AF" }}>No customers found</Text>
           </View>
         }
+        ListFooterComponent={<LoadMoreButton style={{ marginTop: 12 }} />}
       />
     </View>
   );
