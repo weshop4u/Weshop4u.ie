@@ -628,26 +628,6 @@ function DashboardContent() {
           <Text className="text-sm text-muted">WESHOP4U Operations</Text>
         </View>
 
-        {/* Suspend / resume — needs to be reachable fast from the phone */}
-        <View className="px-4 pt-3">
-          <TouchableOpacity
-            onPress={() => router.push("/admin/settings" as any)}
-            style={{
-              backgroundColor: isSuspended ? "#DC2626" : "#FEF2F2",
-              borderWidth: isSuspended ? 0 : 1,
-              borderColor: "#FECACA",
-              padding: 16,
-              borderRadius: 12,
-            }}
-          >
-            <Text style={{ color: isSuspended ? "#fff" : "#991B1B", fontWeight: "800", textAlign: "center", fontSize: 16 }}>
-              {isSuspended ? "⚠️ SERVICE SUSPENDED — Tap to Resume" : "🛑 Suspend Service"}
-            </Text>
-            <Text style={{ color: isSuspended ? "#FECACA" : "#B91C1C", textAlign: "center", fontSize: 12, marginTop: 2 }}>
-              {isSuspended ? "All stores closed to customers" : "Use when there's no driver available"}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         <View className="px-4 pt-4">
           <Text className="text-lg font-bold text-foreground mb-3">Today</Text>
@@ -867,7 +847,25 @@ function DashboardContent() {
         </View>
 
         <View className="px-4 pt-6">
-          <Text className="text-lg font-bold text-foreground mb-3">Analytics & Management</Text>
+                    <Text className="text-lg font-bold text-foreground mb-3">Analytics & Management</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/admin/settings" as any)}
+            style={{
+              backgroundColor: isSuspended ? "#DC2626" : "#FEF2F2",
+              borderWidth: isSuspended ? 0 : 1,
+              borderColor: "#FECACA",
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: isSuspended ? "#fff" : "#991B1B", fontWeight: "800", textAlign: "center", fontSize: 16 }}>
+              {isSuspended ? "⚠️ SERVICE SUSPENDED — Tap to Resume" : "🛑 Suspend Service"}
+            </Text>
+            <Text style={{ color: isSuspended ? "#FECACA" : "#B91C1C", textAlign: "center", fontSize: 12, marginTop: 2 }}>
+              {isSuspended ? "All stores closed to customers" : "Use when there's no driver available"}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/admin/analytics" as any)} style={{ backgroundColor: "#8B5CF6", padding: 16, borderRadius: 12, marginBottom: 12 }}>
             <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center", fontSize: 16 }}>📊 Platform Analytics</Text>
           </TouchableOpacity>
