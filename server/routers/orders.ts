@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories, storePromotions } from "../../drizzle/schema";
+import { orders, orderItems, stores, products, users, driverQueue, drivers, jobReturns, driverRatings, storeStaff as storeStaffTable, orderItemModifiers, discountCodes, discountUsage, productCategories, storePromotions, appSettings } from "../../drizzle/schema";
 import { eq, and, desc, inArray, isNull, sql, asc, gte } from "drizzle-orm";
 import { sendNewOrderNotification, sendOrderStatusNotification, sendPushNotification } from "../services/notifications";
 import { sendOrderConfirmationSMS, sendOrderDeliveredSMS } from "../sms";
@@ -183,6 +183,28 @@ export const ordersRouter = router({
       if (!storeData.latitude || !storeData.longitude) {
         throw new Error("Store location not available");
       }
+
+      // ========== SERVICE SUSPENSION CHECK ==========
+      // The storefront greys everything out when service is suspended, but a
+      // page left open before the switch was flipped would still submit. This
+      // is the only thing that actually stops an order being created — and for
+      // card orders, stops a payment we'd then have to refund.
+      {
+        const [suspendRow] = await db.select().from(appSettings).where(eq(appSettings.key, "serviceSuspended"));
+        if (suspendRow) {
+          try {
+            const parsed = JSON.parse(suspendRow.value);
+            if (parsed?.enabled === true) {
+              throw new Error(parsed?.message || "We're not taking orders right now. Please check back shortly.");
+            }
+          } catch (e: any) {
+            // Re-throw our own refusal; swallow JSON parse errors so a bad
+            // settings row can never block ordering.
+            if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
+          }
+        }
+      }
+      // ========== END SERVICE SUSPENSION CHECK ==========
 
       // ========== DUPLICATE SUBMISSION GUARD ==========
       // Protects against double-tap on "Place Order" and network-retry double
