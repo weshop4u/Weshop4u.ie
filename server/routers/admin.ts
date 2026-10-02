@@ -2904,6 +2904,76 @@ export const adminRouter = router({
       };
     }),
 
+    // Platform-wide suspend switch — used when there's no driver available.
+  // PIN-gated like order deletion so it can't be flipped by accident.
+  getServiceSuspended: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+    const [setting] = await db.select().from(appSettings).where(eq(appSettings.key, "serviceSuspended"));
+    const DEFAULT_MESSAGE = "Due to unforeseen circumstances we're not taking orders right now. Please check back shortly.";
+    if (!setting) return { enabled: false, message: DEFAULT_MESSAGE };
+    try {
+      const parsed = JSON.parse(setting.value);
+      return { enabled: parsed?.enabled === true, message: parsed?.message || DEFAULT_MESSAGE };
+    } catch {
+      return { enabled: false, message: DEFAULT_MESSAGE };
+    }
+  }),
+
+  // Turning it ON or OFF needs the PIN. Resuming always resets the message
+  // back to the default, so a stale "back at 6am" can never reappear weeks later.
+  setServiceSuspended: publicProcedure
+    .input(z.object({
+      enabled: z.boolean(),
+      pin: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      if (input.pin !== ORDER_DELETE_PIN) {
+        throw new Error("Incorrect PIN");
+      }
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const DEFAULT_MESSAGE = "Due to unforeseen circumstances we're not taking orders right now. Please check back shortly.";
+      const value = JSON.stringify({ enabled: input.enabled, message: DEFAULT_MESSAGE });
+
+      const existing = await db.select().from(appSettings).where(eq(appSettings.key, "serviceSuspended"));
+      if (existing.length > 0) {
+        await db.update(appSettings).set({ value }).where(eq(appSettings.key, "serviceSuspended"));
+      } else {
+        await db.insert(appSettings).values({
+          key: "serviceSuspended",
+          value,
+          description: "Platform-wide suspension — closes every store and shows a notice",
+        });
+      }
+
+      console.log(`[Admin] Service ${input.enabled ? "SUSPENDED" : "resumed"}`);
+      return { success: true, enabled: input.enabled };
+    }),
+
+  // Editing the notice while suspended — no PIN, since it can only change the
+  // wording of something already live, not turn the switch on or off.
+  setSuspensionMessage: publicProcedure
+    .input(z.object({ message: z.string().min(1).max(300) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, "serviceSuspended"));
+      if (!existing) throw new Error("Service is not currently suspended");
+
+      let enabled = false;
+      try { enabled = JSON.parse(existing.value)?.enabled === true; } catch { enabled = false; }
+      if (!enabled) throw new Error("Service is not currently suspended");
+
+      await db.update(appSettings)
+        .set({ value: JSON.stringify({ enabled: true, message: input.message }) })
+        .where(eq(appSettings.key, "serviceSuspended"));
+
+      return { success: true };
+    }),
+
   // Get testing mode status
   getTestingMode: publicProcedure.query(async () => {
     const db = await getDb();
