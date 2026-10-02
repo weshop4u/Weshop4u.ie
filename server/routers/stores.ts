@@ -1,12 +1,36 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates, orders, orderItems } from "../../drizzle/schema";
+import { stores, products, productCategories, modifierGroups, productModifierTemplates, categoryModifierTemplates, orders, orderItems, appSettings } from "../../drizzle/schema";
 import { eq, and, like, sql, inArray, count, gte } from "drizzle-orm";
 import { storagePut } from "../storage";
 
+// Reads the platform-wide suspend switch. Returns the flag plus the notice
+// text to show customers. Defaults to off if the setting row doesn't exist.
+async function getSuspendState(): Promise<{ suspended: boolean; message: string }> {
+  const DEFAULT_MESSAGE = "Due to unforeseen circumstances we're not taking orders right now. Please check back shortly.";
+  try {
+    const db = await getDb();
+    if (!db) return { suspended: false, message: DEFAULT_MESSAGE };
+    const [row] = await db.select().from(appSettings).where(eq(appSettings.key, "serviceSuspended"));
+    if (!row) return { suspended: false, message: DEFAULT_MESSAGE };
+    const parsed = JSON.parse(row.value);
+    return {
+      suspended: parsed?.enabled === true,
+      message: parsed?.message || DEFAULT_MESSAGE,
+    };
+  } catch {
+    // Never let a bad settings row take the storefront down — fail open.
+    return { suspended: false, message: DEFAULT_MESSAGE };
+  }
+}
+
 // Railway PostgreSQL Migration - v1.0.5 - Force rebuild with explicit PostgreSQL support
 export const storesRouter = router({
+  // Public — drives the customer-facing suspension banner
+  getServiceStatus: publicProcedure.query(async () => {
+    return await getSuspendState();
+  }),
   // Get all active stores
   list: publicProcedure
     .input(
@@ -33,8 +57,11 @@ export const storesRouter = router({
       }
 
       const storesList = await query;
+      const { suspended } = await getSuspendState();
       // Sort by admin-set position (lower = higher in list)
-      return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
+      return storesList
+        .map(s => ({ ...s, forceClosed: suspended }))
+        .sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
     }),
 
   // Get store by ID
@@ -56,7 +83,8 @@ export const storesRouter = router({
         throw new Error("Store not found");
       }
 
-      return result[0];
+      const { suspended } = await getSuspendState();
+      return { ...result[0], forceClosed: suspended };
     }),
 
   // Get store by slug
@@ -271,7 +299,10 @@ export const storesRouter = router({
           eq(stores.isFeatured, true)
         )
       );
-      return storesList.sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
+      const { suspended } = await getSuspendState();
+      return storesList
+        .map(s => ({ ...s, forceClosed: suspended }))
+        .sort((a, b) => (a.sortPosition ?? 999) - (b.sortPosition ?? 999));
     }),
 
     // Best-selling products across all active stores, for the homepage row.
