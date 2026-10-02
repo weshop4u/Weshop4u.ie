@@ -200,6 +200,12 @@ function DashboardContent() {
 
   const canShift = Boolean((customStart || customStartInput) && (customEnd || customEndInput));
 
+    // Platform-wide suspension — staff need to know why nothing's coming in
+  const { data: suspendState } = trpc.admin.getServiceSuspended.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const isSuspended = suspendState?.enabled ?? false;
+
   // Unread messages count for badge
   const { data: unreadData } = trpc.messages.unreadCount.useQuery(undefined, {
     refetchInterval: 30000,
@@ -243,7 +249,23 @@ function DashboardContent() {
   if (isDesktopWeb) {
     return (
       <View style={{ gap: 24 }}>
+        {isSuspended && (
+          <TouchableOpacity
+            onPress={() => router.push("/admin/settings" as any)}
+            activeOpacity={0.8}
+            style={{ backgroundColor: "#FEE2E2", borderWidth: 2, borderColor: "#DC2626", borderRadius: 10, padding: 14, ...webCursor }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "800", color: "#991B1B" }}>
+              ⚠️ Service suspended — no orders being taken
+            </Text>
+            <Text style={{ fontSize: 13, color: "#991B1B", marginTop: 2 }}>
+              Every store is showing as closed. Tap to resume in Settings.
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Today's Overview - 4 cards in a row on desktop */}
+        
         <View>
           <Text style={{ fontSize: 18, fontWeight: "700", color: "#0F172A", marginBottom: 12 }}>Today's Overview</Text>
           <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
@@ -511,8 +533,8 @@ function DashboardContent() {
                 onPress={() => router.push("/admin/settings" as any)}
                 style={{ backgroundColor: "#A78BFA", padding: 14, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
               >
-                <Text style={{ fontSize: 16 }}>🧪</Text>
-                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Testing Mode</Text>
+              <Text style={{ fontSize: 16 }}>⚙️</Text>
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Settings</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -601,9 +623,30 @@ function DashboardContent() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00E5FF" />
         }
       >
-        <View className="px-4 pt-4 pb-2">
+                <View className="px-4 pt-4 pb-2">
           <Text className="text-3xl font-bold text-foreground">Dashboard</Text>
           <Text className="text-sm text-muted">WESHOP4U Operations</Text>
+        </View>
+
+        {/* Suspend / resume — needs to be reachable fast from the phone */}
+        <View className="px-4 pt-3">
+          <TouchableOpacity
+            onPress={() => router.push("/admin/settings" as any)}
+            style={{
+              backgroundColor: isSuspended ? "#DC2626" : "#FEF2F2",
+              borderWidth: isSuspended ? 0 : 1,
+              borderColor: "#FECACA",
+              padding: 16,
+              borderRadius: 12,
+            }}
+          >
+            <Text style={{ color: isSuspended ? "#fff" : "#991B1B", fontWeight: "800", textAlign: "center", fontSize: 16 }}>
+              {isSuspended ? "⚠️ SERVICE SUSPENDED — Tap to Resume" : "🛑 Suspend Service"}
+            </Text>
+            <Text style={{ color: isSuspended ? "#FECACA" : "#B91C1C", textAlign: "center", fontSize: 12, marginTop: 2 }}>
+              {isSuspended ? "All stores closed to customers" : "Use when there's no driver available"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View className="px-4 pt-4">
