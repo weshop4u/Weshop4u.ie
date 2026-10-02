@@ -187,6 +187,11 @@ function AdminOrdersScreenContent() {
   const orders: any[] | undefined = Array.isArray(ordersRaw) ? ordersRaw : (ordersRaw as any)?.orders;
   const serverTotal: number | undefined = Array.isArray(ordersRaw) ? undefined : (ordersRaw as any)?.total;
 
+  const { data: suspendState } = trpc.admin.getServiceSuspended.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const isSuspended = suspendState?.enabled ?? false;
+
   const { data: availableDrivers } = trpc.admin.getAvailableDriversForAssignment.useQuery(undefined, {
   enabled: assignModalOrderId !== null || bulkAssignModal,
 });
@@ -404,6 +409,22 @@ function AdminOrdersScreenContent() {
   if (isDesktop) {
     return (
       <View style={{ flex: 1 }}>
+        {/* Service suspended — explains why no new orders are arriving */}
+        {isSuspended && (
+          <TouchableOpacity
+            onPress={() => router.push("/admin/settings" as any)}
+            activeOpacity={0.8}
+            style={{ backgroundColor: "#FEE2E2", borderWidth: 2, borderColor: "#DC2626", borderRadius: 10, padding: 12, marginBottom: 12 }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#991B1B" }}>
+              ⚠️ Service suspended — no new orders can come in
+            </Text>
+            <Text style={{ fontSize: 12, color: "#991B1B", marginTop: 2 }}>
+              Tap to resume in Settings.
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Error Banner */}
         {errorMessage ? (
           <TouchableOpacity
@@ -1027,6 +1048,17 @@ function AdminOrdersScreenContent() {
   // ─── MOBILE LAYOUT (unchanged) ───
   return (
     <ScreenContainer className="bg-background">
+      {isSuspended && (
+        <TouchableOpacity
+          onPress={() => router.push("/admin/settings" as any)}
+          style={{ backgroundColor: "#DC2626", paddingHorizontal: 16, paddingVertical: 12 }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>
+            ⚠️ Service suspended — tap to resume
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {errorMessage ? (
         <TouchableOpacity
           onPress={() => setErrorMessage("")}
