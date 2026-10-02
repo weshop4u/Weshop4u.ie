@@ -51,6 +51,8 @@ export default function WebHome() {
   const { data: featuredStores } = trpc.stores.getFeatured.useQuery();
   const { data: activeBanners } = trpc.banners.getActive.useQuery();
   const { data: trendingProducts } = trpc.stores.getHomepageTrending.useQuery();
+  const { data: serviceStatus } = trpc.stores.getServiceStatus.useQuery(undefined, { refetchInterval: 60000 });
+  const isSuspended = serviceStatus?.suspended ?? false;
   const { user } = useAuth();
   const colors = useColors();
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,6 +164,8 @@ export default function WebHome() {
   // through to something they can't order
   const openTrending = useMemo(() => {
     if (!trendingProducts) return [];
+    // Nothing is orderable while suspended — don't tempt people into a dead end
+    if (isSuspended) return [];
     return trendingProducts
       .filter((p: any) =>
         isStoreOpen({
@@ -179,7 +183,7 @@ export default function WebHome() {
         return mins >= from && mins < toMins(p.availableUntil);
       })
       .slice(0, 10);
-  }, [trendingProducts]);
+  }, [trendingProducts, isSuspended]);
 
   // Responsive columns
   const numColumns = screenWidth > 900 ? 3 : screenWidth > 600 ? 2 : 1;
@@ -195,6 +199,25 @@ export default function WebHome() {
 
   return (
     <View style={styles.root}>
+      {/* Service suspension notice */}
+      {isSuspended && (
+        <View style={{
+          backgroundColor: "#FEF2F2",
+          borderBottomWidth: 2,
+          borderBottomColor: "#DC2626",
+          paddingVertical: 16,
+          paddingHorizontal: 20,
+          alignItems: "center",
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: "#991B1B", marginBottom: 4, textAlign: "center" }}>
+            ⚠️ Not taking orders right now
+          </Text>
+          <Text style={{ fontSize: 14, color: "#991B1B", textAlign: "center", maxWidth: 560, lineHeight: 20 }}>
+            {serviceStatus?.message}
+          </Text>
+        </View>
+      )}
+
       {/* Hero Section */}
       <View style={styles.hero}>
         <Image
@@ -571,7 +594,9 @@ export default function WebHome() {
             {sortedStores.map((store) => {
               const open = isStoreOpen(store);
               const todayHours = getTodayHours(store);
-              const nextOpen = !open ? getNextOpenTime(store) : null;
+              // While suspended every store reads the same — "opens at 8am" would
+              // be wrong when the real reason is no driver and we may resume sooner
+              const nextOpen = (!open && !isSuspended) ? getNextOpenTime(store) : null;
 
               return (
                 <TouchableOpacity
