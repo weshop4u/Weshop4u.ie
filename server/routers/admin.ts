@@ -2984,10 +2984,15 @@ export const adminRouter = router({
     };
   }),
 
-  // Toggle testing mode
+  // Toggle testing mode — PIN-gated. Leaving this on by accident means every
+  // real order charges €0.01, and unlike the suspend switch it's invisible
+  // from the storefront, so it could run for days unnoticed.
   toggleTestingMode: publicProcedure
-    .input(z.object({ enabled: z.boolean() }))
+    .input(z.object({ enabled: z.boolean(), pin: z.string() }))
     .mutation(async ({ input }) => {
+      if (input.pin !== ORDER_DELETE_PIN) {
+        throw new Error("Incorrect PIN");
+      }
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       
