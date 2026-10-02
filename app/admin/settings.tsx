@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 
 export default function AdminSettingsScreen() {
   const router = useRouter();
-  const { testingModeEnabled, toggleTestingMode, isToggling } = useTestMode();
+  const { testingModeEnabled, toggleTestingMode, isToggling, toggleError, clearToggleError } = useTestMode();
+  const [testPinPrompt, setTestPinPrompt] = useState(false);
+  const [testPin, setTestPin] = useState("");
 
   const [pinPrompt, setPinPrompt] = useState<null | boolean>(null); // the target state
   const [pin, setPin] = useState("");
@@ -42,9 +44,7 @@ export default function AdminSettingsScreen() {
 
   const suspended = suspendState?.enabled ?? false;
 
-  const handleToggleTestMode = () => {
-    toggleTestingMode(!testingModeEnabled);
-  };
+  
 
   return (
     <View className="flex-1 bg-background">
@@ -236,28 +236,80 @@ export default function AdminSettingsScreen() {
                 </Text>
               </View>
 
-              {/* Toggle Button */}
-              <Pressable
-                onPress={handleToggleTestMode}
-                disabled={isToggling}
-                className={cn(
-                  "px-4 py-3 rounded-lg active:opacity-80",
-                  testingModeEnabled ? "bg-yellow-500" : "bg-primary"
-                )}
-              >
-                <Text
+              {/* Toggle Button — PIN gated */}
+              {testPinPrompt ? (
+                <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, padding: 12, gap: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#0F172A" }}>
+                    {testingModeEnabled ? "Turn off testing mode?" : "Turn on testing mode?"}
+                  </Text>
+                  {!testingModeEnabled && (
+                    <Text style={{ fontSize: 12, color: "#B45309" }}>
+                      Every order will be charged €0.01 until this is turned off.
+                    </Text>
+                  )}
+                  <TextInput
+                    value={testPin}
+                    onChangeText={(v) => { setTestPin(v.replace(/[^0-9]/g, "").slice(0, 4)); clearToggleError(); }}
+                    placeholder="••••"
+                    placeholderTextColor="#CBD5E1"
+                    secureTextEntry
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    autoFocus
+                    style={{
+                      borderWidth: 1,
+                      borderColor: toggleError ? "#DC2626" : "#E2E8F0",
+                      borderRadius: 8,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      fontSize: 18,
+                      letterSpacing: 8,
+                      textAlign: "center",
+                      color: "#0F172A",
+                    } as any}
+                  />
+                  {toggleError ? <Text style={{ fontSize: 12, color: "#DC2626" }}>{toggleError}</Text> : null}
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => { setTestPinPrompt(false); setTestPin(""); clearToggleError(); }}
+                      style={{ flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "#E2E8F0", alignItems: "center" }}
+                    >
+                      <Text style={{ fontWeight: "600", color: "#687076" }}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        if (testPin.length !== 4) return;
+                        await toggleTestingMode(!testingModeEnabled, testPin);
+                        setTestPin("");
+                        setTestPinPrompt(false);
+                      }}
+                      disabled={isToggling}
+                      style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: "#F59E0B", alignItems: "center", opacity: isToggling ? 0.5 : 1 }}
+                    >
+                      <Text style={{ fontWeight: "700", color: "#fff" }}>
+                        {isToggling ? "Working..." : "Confirm"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => { setTestPinPrompt(true); setTestPin(""); clearToggleError(); }}
                   className={cn(
-                    "font-bold text-center text-base",
-                    testingModeEnabled ? "text-yellow-900" : "text-foreground"
+                    "px-4 py-3 rounded-lg active:opacity-80",
+                    testingModeEnabled ? "bg-yellow-500" : "bg-primary"
                   )}
                 >
-                  {isToggling
-                    ? "Updating..."
-                    : testingModeEnabled
-                      ? "Turn Off Testing Mode"
-                      : "Turn On Testing Mode"}
-                </Text>
-              </Pressable>
+                  <Text
+                    className={cn(
+                      "font-bold text-center text-base",
+                      testingModeEnabled ? "text-yellow-900" : "text-foreground"
+                    )}
+                  >
+                    {testingModeEnabled ? "Turn Off Testing Mode" : "Turn On Testing Mode"}
+                  </Text>
+                </Pressable>
+              )}
 
               {/* Info Box */}
               {testingModeEnabled && (
