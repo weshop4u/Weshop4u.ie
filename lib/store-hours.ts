@@ -99,10 +99,13 @@ function getCurrentMinutes(): number {
 /**
  * Check if a store is currently open.
  */
-export function isStoreOpen(store: { isOpen247?: boolean | null; openingHours?: string | null }): boolean {
+export function isStoreOpen(store: { isOpen247?: boolean | null; openingHours?: string | null; forceClosed?: boolean | null }): boolean {
+  // Platform-wide suspension (no driver available) overrides everything,
+  // including 24/7. The server stamps forceClosed onto each store it returns.
+  if (store.forceClosed) return false;
+
   // 24/7 stores are always open
   if (store.isOpen247) return true;
-
   const hours = parseOpeningHours(store.openingHours);
   if (!hours) {
     // No hours set — assume open (backwards compatible)
@@ -133,7 +136,8 @@ export function isStoreOpen(store: { isOpen247?: boolean | null; openingHours?: 
  * Get today's opening hours as a formatted string.
  * Returns null if store is 24/7 or no hours are set.
  */
-export function getTodayHours(store: { isOpen247?: boolean | null; openingHours?: string | null }): string | null {
+export function getTodayHours(store: { isOpen247?: boolean | null; openingHours?: string | null; forceClosed?: boolean | null }): string | null {
+  if (store.forceClosed) return "Temporarily unavailable";
   if (store.isOpen247) return "Open 24/7";
 
   const hours = parseOpeningHours(store.openingHours);
