@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { printJobs, orders, orderItems, stores, users, products, storeStaff, orderItemModifiers } from "../../drizzle/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, gte, lt } from "drizzle-orm";
 import { formatIrishTime, formatIrishDateShort } from "../lib/timezone";
 import { fetchItemModifiers } from "../lib/fetch-item-modifiers";
 
@@ -18,7 +18,7 @@ function getDisplayOrderNumber(order: any): string {
 }
 
 // Format receipt content for 58mm thermal printer (32 chars per line)
-export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>, receiptData?: any): string {
+export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>, receiptData?: any, options?: { hideTime?: boolean }): string {
   const LINE_WIDTH = 32;
   const lines: string[] = [];
 
@@ -77,7 +77,7 @@ export function formatReceipt(order: any, store: any, items: any[], customerName
   const dateStr = formatIrishDateShort(order.createdAt);
   const timeStr = formatIrishTime(order.createdAt);
   lines.push(leftRight("Date:", dateStr));
-  lines.push(leftRight("Time:", timeStr));
+  if (!options?.hideTime) lines.push(leftRight("Time:", timeStr));
   lines.push(leftRight("Payment:", order.paymentMethod === "card" ? "Card" : "Cash"));
   lines.push(divider("-"));
 
@@ -523,6 +523,133 @@ export const printRouter = router({
         printJobId: result.insertId,
         receiptContent,
       };
+    }),
+
+  // Daily store statement: every delivered order for one store on one Irish date,
+  // receipts back to back with times hidden, totals footer at the end
+  printStoreStatement: publicProcedure
+    .input(z.object({
+      storeId: z.number(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+
+      const storeResult = await db.select().from(stores).where(eq(stores.id, input.storeId)).limit(1);
+      if (storeResult.length === 0) throw new Error("Store not found");
+      const store = storeResult[0];
+
+      // Wide UTC window, then filter to the exact Irish date
+      const target = new Date(`${input.date}T12:00:00Z`);
+      const from = new Date(target.getTime() - 36 * 3600 * 1000);
+      const to = new Date(target.getTime() + 36 * 3600 * 1000);
+      const targetDay = formatIrishDateShort(target);
+
+      const candidates = await db
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.storeId, input.storeId),
+          eq(orders.status, "delivered"),
+          gte(orders.createdAt, from),
+          lt(orders.createdAt, to),
+        ))
+        .orderBy(orders.createdAt);
+
+      const dayOrders = candidates.filter(o => formatIrishDateShort(o.createdAt) === targetDay);
+      if (dayOrders.length === 0) throw new Error(`No delivered orders for ${store.name} on ${targetDay}`);
+
+      const W = 32;
+      const center = (t: string) => " ".repeat(Math.max(0, Math.floor((W - t.length) / 2))) + t;
+      const lr = (l: string, r: string) => l + " ".repeat(Math.max(1, W - l.length - r.length)) + r;
+
+      let salesTotal = 0, sfTotal = 0, dfTotal = 0, tipTotal = 0;
+      const receipts: string[] = [];
+
+      for (const order of dayOrders) {
+        let receiptDataObj: any = null;
+        if (order.receiptData) {
+          try { receiptDataObj = JSON.parse(order.receiptData); } catch { receiptDataObj = null; }
+        }
+
+        let items: any[];
+        if (receiptDataObj?.storeReceipt?.items) {
+          items = receiptDataObj.storeReceipt.items;
+        } else {
+          receiptDataObj = null;
+          const allItems = await db
+            .select({
+              id: orderItems.id,
+              orderId: orderItems.orderId,
+              productId: orderItems.productId,
+              productName: orderItems.productName,
+              productPrice: orderItems.productPrice,
+              quantity: orderItems.quantity,
+              subtotal: orderItems.subtotal,
+              notes: orderItems.notes,
+              isWss: products.isWss,
+            })
+            .from(orderItems)
+            .leftJoin(products, eq(orderItems.productId, products.id))
+            .where(eq(orderItems.orderId, order.id));
+          items = allItems.filter(item => !item.isWss);
+        }
+
+        let customerName = "Guest";
+        let customerPhone = "";
+        if (order.customerId) {
+          const customer = await db
+            .select({ name: users.name, phone: users.phone })
+            .from(users)
+            .where(eq(users.id, order.customerId))
+            .limit(1);
+          if (customer.length > 0) {
+            customerName = customer[0].name;
+            customerPhone = customer[0].phone || "";
+          }
+        } else {
+          if (order.guestName) customerName = order.guestName;
+          if (order.guestPhone) customerPhone = order.guestPhone;
+        }
+
+        const itemMods = receiptDataObj ? undefined : await fetchItemModifiers(items.map(i => i.id));
+        receipts.push(formatReceipt(order, store, items, customerName, customerPhone, itemMods, receiptDataObj, { hideTime: true }));
+
+        const sr = receiptDataObj?.storeReceipt;
+        salesTotal += sr ? Number(sr.subtotal) : parseFloat(order.subtotal || "0");
+        sfTotal += sr ? Number(sr.serviceFee) : parseFloat(order.serviceFee || "0");
+        dfTotal += sr ? Number(sr.deliveryFee) : parseFloat(order.deliveryFee || "0");
+        tipTotal += parseFloat(order.tipAmount || "0");
+      }
+
+      const f: string[] = [];
+      f.push("=".repeat(W));
+      f.push(center("DAILY STATEMENT"));
+      f.push(center(store.name.toUpperCase()));
+      f.push(center(targetDay));
+      f.push("=".repeat(W));
+      f.push(lr("Orders:", String(dayOrders.length)));
+      f.push(lr("Sales total:", `EUR${salesTotal.toFixed(2)}`));
+      f.push(lr("SF total:", `EUR${sfTotal.toFixed(2)}`));
+      f.push(lr("DF total:", `EUR${dfTotal.toFixed(2)}`));
+      if (tipTotal > 0) f.push(lr("Tips total:", `EUR${tipTotal.toFixed(2)}`));
+      f.push("-".repeat(W));
+      f.push(lr("GRAND TOTAL:", `EUR${(salesTotal + sfTotal + dfTotal + tipTotal).toFixed(2)}`));
+      f.push("=".repeat(W));
+      f.push(lr("OWED TO STORE:", `EUR${salesTotal.toFixed(2)}`));
+      f.push("=".repeat(W));
+      f.push("", "", "");
+
+      const receiptContent = receipts.join("\n") + "\n" + f.join("\n");
+      const [result] = await db.insert(printJobs).values({
+        storeId: input.storeId,
+        orderId: dayOrders[0].id,
+        status: "pending",
+        receiptContent,
+      });
+
+      return { printJobId: result.insertId, orders: dayOrders.length, salesTotal, sfTotal, dfTotal };
     }),
 
   // Poll for pending print jobs (POS device calls this)
