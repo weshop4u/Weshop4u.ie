@@ -102,7 +102,9 @@ function AdminOrdersScreenContent() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
   const [deletePin, setDeletePin] = useState("");
   const [deleteError, setDeleteError] = useState("");
-
+  const [statementModal, setStatementModal] = useState(false);
+  const [statementResult, setStatementResult] = useState<{ message: string; success: boolean } | null>(null);
+  
   // Returns YYYY-MM-DD for a given moment, always in Ireland's timezone —
   // regardless of what timezone the browser/device is actually running in.
   // (toISOString() converts to UTC first, which silently rolls the date back
@@ -261,6 +263,12 @@ function AdminOrdersScreenContent() {
     onError: (err, variables) => {
       setReprintResult({ orderId: variables.orderId, message: err.message, success: false });
     },
+  });
+  const statementMutation = trpc.print.printStoreStatement.useMutation({
+    onSuccess: (data) => {
+      setStatementResult({ message: `✅ Statement sent to POS: ${data.orders} orders, owed €${data.salesTotal.toFixed(2)}`, success: true });
+    },
+    onError: (err) => { setStatementResult({ message: err.message, success: false }); },
   });
   const deleteOrdersMutation = trpc.admin.deleteOrders.useMutation({
     onSuccess: () => {
@@ -527,6 +535,12 @@ function AdminOrdersScreenContent() {
           </View>
           <TouchableOpacity onPress={onRefresh} style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 8, paddingHorizontal: 14, height: 38, justifyContent: "center" }}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: "#64748B" }}>↻ Reload</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setStatementResult(null); setStatementModal(true); }}
+            style={{ backgroundColor: "#E0E7FF", borderWidth: 1, borderColor: "#C7D2FE", borderRadius: 8, paddingHorizontal: 14, height: 38, justifyContent: "center" }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#4F46E5" }}>🖨️ Store Statement</Text>
           </TouchableOpacity>
         </View>
 
@@ -1405,6 +1419,64 @@ function AdminOrdersScreenContent() {
   function renderModals() {
     return (
       <>
+                {/* Store Statement picker */}
+        {statementModal && (() => {
+          const day = dateFrom && dateFrom === dateTo ? dateFrom : "";
+          const storeMap = new Map<number, { name: string; count: number }>();
+          if (day) {
+            for (const o of (orders || [])) {
+              if (o.status !== "delivered" || !o.storeId) continue;
+              if (toIrishDateStr(new Date(o.createdAt)) !== day) continue;
+              const s = storeMap.get(o.storeId) || { name: o.storeName ?? `Store ${o.storeId}`, count: 0 };
+              s.count++;
+              storeMap.set(o.storeId, s);
+            }
+          }
+          const storeList = Array.from(storeMap.entries());
+          return (
+            <View style={styles.overlay}>
+              <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>Print Store Statement</Text>
+                {!day ? (
+                  <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 12 }}>
+                    Pick a single day first: Yesterday, or the same date in From and To.
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>
+                      {day}: delivered orders, printed on that store's POS
+                    </Text>
+                    {storeList.length === 0 ? (
+                      <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 12 }}>No delivered orders on this day.</Text>
+                    ) : storeList.map(([storeId, s]) => (
+                      <TouchableOpacity
+                        key={storeId}
+                        disabled={statementMutation.isPending}
+                        onPress={() => { setStatementResult(null); statementMutation.mutate({ storeId, date: day }); }}
+                        style={{ backgroundColor: colors.background, padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center", opacity: statementMutation.isPending ? 0.5 : 1 }}
+                      >
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>{s.name}</Text>
+                        <Text style={{ fontSize: 13, color: colors.muted }}>{s.count} order{s.count !== 1 ? "s" : ""}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                {statementResult && (
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: statementResult.success ? "#16A34A" : "#DC2626", marginVertical: 8 }}>
+                    {statementResult.message}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  onPress={() => setStatementModal(false)}
+                  style={{ backgroundColor: colors.border, paddingVertical: 12, borderRadius: 10, marginTop: 4 }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Duplicate Order Confirmation */}
         {duplicateConfirmOrderId !== null && (
           <View style={styles.overlay}>
