@@ -17,6 +17,12 @@ function getDisplayOrderNumber(order: any): string {
   return String(num).padStart(3, '0');
 }
 
+// Modifiers for a statement line: receiptData items carry their own,
+// DB items are looked up by order_item id
+function itemModifiers(item: any, itemMods?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>): { modifierName: string; modifierPrice: string }[] {
+  return (itemMods?.[item.id] || item.modifiers || []) as any[];
+}
+
 // Format receipt content for 58mm thermal printer (32 chars per line)
 export function formatReceipt(order: any, store: any, items: any[], customerName: string, customerPhone?: string, itemModifiers?: Record<number, { groupName: string; modifierName: string; modifierPrice: string }[]>, receiptData?: any, options?: { hideTime?: boolean }): string {
   const LINE_WIDTH = 32;
@@ -526,7 +532,7 @@ export const printRouter = router({
     }),
 
   // Daily store statement: every delivered order for one store on one Irish date,
-  // receipts back to back with times hidden, totals footer at the end
+  // compact summary: orders with items, day item tally, totals footer
   printStoreStatement: publicProcedure
     .input(z.object({
       storeId: z.number(),
@@ -563,9 +569,28 @@ export const printRouter = router({
       const W = 32;
       const center = (t: string) => " ".repeat(Math.max(0, Math.floor((W - t.length) / 2))) + t;
       const lr = (l: string, r: string) => l + " ".repeat(Math.max(1, W - l.length - r.length)) + r;
+      // Item line with word-wrap: price sits on the last line of the name
+      const itemLines = (label: string, price: string, indent: string): string[] => {
+        const out: string[] = [];
+        const lead = label.match(/^\s*/)?.[0] || "";
+        const words = label.trim().split(" ");
+        let cur = lead;
+        for (const w of words) {
+          const next = cur.trim() ? cur + " " + w : cur + w;
+          if (next.length > W - price.length - 1 && cur.trim()) {
+            out.push(cur);
+            cur = indent + "  " + w;
+          } else {
+            cur = next;
+          }
+        }
+        out.push(lr(cur, price));
+        return out;
+      };
 
       let salesTotal = 0, sfTotal = 0, dfTotal = 0, tipTotal = 0;
-      const receipts: string[] = [];
+      const body: string[] = [];
+      const tally = new Map<string, { qty: number; total: number }>();
 
       for (const order of dayOrders) {
         let receiptDataObj: any = null;
@@ -595,39 +620,60 @@ export const printRouter = router({
             .where(eq(orderItems.orderId, order.id));
           items = allItems.filter(item => !item.isWss);
         }
-
-        let customerName = "Guest";
-        let customerPhone = "";
-        if (order.customerId) {
-          const customer = await db
-            .select({ name: users.name, phone: users.phone })
-            .from(users)
-            .where(eq(users.id, order.customerId))
-            .limit(1);
-          if (customer.length > 0) {
-            customerName = customer[0].name;
-            customerPhone = customer[0].phone || "";
-          }
-        } else {
-          if (order.guestName) customerName = order.guestName;
-          if (order.guestPhone) customerPhone = order.guestPhone;
-        }
-
         const itemMods = receiptDataObj ? undefined : await fetchItemModifiers(items.map(i => i.id));
-        receipts.push(formatReceipt(order, store, items, customerName, customerPhone, itemMods, receiptDataObj, { hideTime: true }));
 
         const sr = receiptDataObj?.storeReceipt;
-        salesTotal += sr ? Number(sr.subtotal) : parseFloat(order.subtotal || "0");
+        const orderSales = sr ? Number(sr.subtotal) : parseFloat(order.subtotal || "0");
+        salesTotal += orderSales;
         sfTotal += sr ? Number(sr.serviceFee) : parseFloat(order.serviceFee || "0");
         dfTotal += sr ? Number(sr.deliveryFee) : parseFloat(order.deliveryFee || "0");
         tipTotal += parseFloat(order.tipAmount || "0");
+
+        body.push(lr(getDisplayOrderNumber(order), `EUR${orderSales.toFixed(2)}`));
+        for (const item of items) {
+          const qty = item.quantity;
+          const name = item.productName || item.product?.name || "Item";
+          const price = parseFloat(item.subtotal || item.productPrice || "0") * (item.subtotal ? 1 : qty);
+          body.push(...itemLines(` ${qty}x ${name}`, price.toFixed(2), " "));
+
+          // Only paid extras get a line
+          const mods = itemModifiers(item, itemMods);
+          const paid = new Map<string, number>();
+          for (const m of mods) {
+            const p = parseFloat(m.modifierPrice || "0");
+            if (p > 0) {
+              const clean = String(m.modifierName).replace(/ ×\d+$/, "");
+              paid.set(clean, (paid.get(clean) || 0) + p);
+            }
+          }
+          for (const [mName, mPrice] of paid) {
+            body.push(...itemLines(`   + ${mName}`, mPrice.toFixed(2), "   "));
+          }
+
+          const t = tally.get(name) || { qty: 0, total: 0 };
+          t.qty += qty;
+          t.total += price;
+          tally.set(name, t);
+        }
+        body.push("-".repeat(W));
       }
 
       const f: string[] = [];
-      f.push("=".repeat(W));
+      f.push(center("WESHOP4U"));
       f.push(center("DAILY STATEMENT"));
       f.push(center(store.name.toUpperCase()));
       f.push(center(targetDay));
+      f.push("=".repeat(W));
+      f.push("ORDERS");
+      f.push("-".repeat(W));
+      f.push(...body);
+      f.push("=".repeat(W));
+      f.push("ITEMS SOLD");
+      f.push("-".repeat(W));
+      const tallySorted = Array.from(tally.entries()).sort((a, b) => b[1].qty - a[1].qty);
+      for (const [name, t] of tallySorted) {
+        f.push(...itemLines(` ${t.qty}x ${name}`, t.total.toFixed(2), " "));
+      }
       f.push("=".repeat(W));
       f.push(lr("Orders:", String(dayOrders.length)));
       f.push(lr("Sales total:", `EUR${salesTotal.toFixed(2)}`));
@@ -641,7 +687,7 @@ export const printRouter = router({
       f.push("=".repeat(W));
       f.push("", "", "");
 
-      const receiptContent = receipts.join("\n") + "\n" + f.join("\n");
+      const receiptContent = f.join("\n");
       const [result] = await db.insert(printJobs).values({
         storeId: input.storeId,
         orderId: dayOrders[0].id,
